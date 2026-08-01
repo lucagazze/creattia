@@ -357,7 +357,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 		try {
 			const accessToken = await getAccessToken();
 			const savedPaths = (() => {
-				try { return JSON.parse(window.localStorage.getItem('creattia-liked-scraped-v1') || '[]'); }
+				try { return JSON.parse(window.localStorage.getItem(`creattia-liked-scraped-v1:${session?.user?.id || 'anon'}`) || '[]'); }
 				catch { return []; }
 			})();
 			const response = await fetch('/api/creativos/next-reference', {
@@ -404,7 +404,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 		try {
 			const accessToken = await getAccessToken();
 			const savedPaths = (() => {
-				try { return JSON.parse(window.localStorage.getItem('creattia-liked-scraped-v1') || '[]'); }
+				try { return JSON.parse(window.localStorage.getItem(`creattia-liked-scraped-v1:${session?.user?.id || 'anon'}`) || '[]'); }
 				catch { return []; }
 			})();
 			const response = await fetch('/api/creativos/next-reference', {

@@ -260,6 +260,18 @@ export default function WinnersLibrary({
 	const [selectedNiches, setSelectedNiches] = useState<string[]>(['todos']);
 	const [savedOnly, setSavedOnly] = useState(false);
 	const [showNicheMenu, setShowNicheMenu] = useState(false);
+	const [selectedFormat, setSelectedFormat] = useState<'todos' | 'static_image' | 'carousel'>('todos');
+	// Menú de click derecho sobre una tarjeta: guardar/usar sin tener que
+	// pasar por los botones chiquitos superpuestos a la imagen.
+	const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; item: WinnerItem } | null>(null);
+
+	useEffect(() => {
+		if (!cardContextMenu) return;
+		const close = () => setCardContextMenu(null);
+		window.addEventListener('click', close);
+		window.addEventListener('scroll', close, true);
+		return () => { window.removeEventListener('click', close); window.removeEventListener('scroll', close, true); };
+	}, [cardContextMenu]);
 
 	useEffect(() => {
 		if (!showNicheMenu) return;
@@ -729,6 +741,17 @@ export default function WinnersLibrary({
 	}, [items]);
 	const availableNiches = useMemo(() => Object.keys(nicheCounts).sort((a, b) => nicheCounts[b] - nicheCounts[a]), [nicheCounts]);
 
+	// Cuántos ganadores hay de cada formato, para el filtro y sus contadores.
+	const formatCounts = useMemo(() => {
+		let staticCount = 0;
+		let carouselCount = 0;
+		items.forEach((item) => {
+			if (item.metadata?.mediaType === 'carousel') carouselCount += 1;
+			else staticCount += 1;
+		});
+		return { static_image: staticCount, carousel: carouselCount };
+	}, [items]);
+
 	// Filter items
 	const filteredItems = useMemo(() => {
 		return items.filter(item => {
@@ -736,6 +759,13 @@ export default function WinnersLibrary({
 			if (savedOnly) {
 				const isSaved = item.imagePath ? likedScrapedPaths.has(item.imagePath) : favorites.has(item.templateId);
 				if (!isSaved) return false;
+			}
+
+			// Formato (estático / carrusel)
+			if (selectedFormat !== 'todos') {
+				const itemIsCarousel = item.metadata?.mediaType === 'carousel';
+				if (selectedFormat === 'carousel' && !itemIsCarousel) return false;
+				if (selectedFormat === 'static_image' && itemIsCarousel) return false;
 			}
 
 			// Niche filter
@@ -761,11 +791,11 @@ export default function WinnersLibrary({
 
 			return matchesNiche && matchesSearch;
 		});
-	}, [items, savedOnly, selectedNiches, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedFormat, selectedNiches, query, likedScrapedPaths, favorites]);
 
 	// Lazy load: primeras 30 tarjetas y +30 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(30);
-	useEffect(() => { setVisibleCount(30); }, [savedOnly, selectedNiches, query]);
+	useEffect(() => { setVisibleCount(30); }, [savedOnly, selectedFormat, selectedNiches, query]);
 	const gridRef = React.useRef<HTMLDivElement | null>(null);
 	const [columnCount, setColumnCount] = useState(4);
 	useEffect(() => {
@@ -1060,6 +1090,30 @@ export default function WinnersLibrary({
 							</div>
 						)}
 					</div>
+
+					<div style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '3px', height: '42px', borderRadius: '21px', border: '1px solid #dcd5e4', background: '#fff', boxSizing: 'border-box' }}>
+						{([
+							['todos', '✨ Todos', items.length],
+							['static_image', '🖼️ Estático', formatCounts.static_image],
+							['carousel', '🗂️ Carrusel', formatCounts.carousel],
+						] as const).map(([value, label, count]) => (
+							<button
+								key={value}
+								type="button"
+								onClick={() => setSelectedFormat(value)}
+								style={{
+									display: 'flex', alignItems: 'center', gap: '5px', height: '34px', padding: '0 12px', borderRadius: '18px',
+									border: 0, cursor: 'pointer', fontSize: '12.5px', fontWeight: 700, fontFamily: 'inherit',
+									background: selectedFormat === value ? '#f2ecfd' : 'transparent',
+									color: selectedFormat === value ? '#5b2fc9' : '#3f3a48',
+								}}
+							>
+								{label}
+								<span style={{ fontSize: '10.5px', fontWeight: 800, padding: '1px 7px', borderRadius: '999px', background: selectedFormat === value ? '#e7dffa' : '#f0ecf7', color: selectedFormat === value ? '#5b2fc9' : '#6f6a77' }}>{count}</span>
+							</button>
+						))}
+					</div>
+
 					<button onClick={() => setSavedOnly((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '0 16px', height: '42px', borderRadius: '21px', border: '1px solid', borderColor: savedOnly ? '#f0b3c6' : '#dcd5e4', background: savedOnly ? '#fdeef5' : '#fff', color: savedOnly ? '#c2276f' : '#19171d', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}><span style={{ color: '#e5313f', fontSize: '15px' }}>♥</span> Guardados</button>
 
 				<span style={{ fontSize: '13px', color: '#8b8490', marginLeft: 'auto' }}>{filteredItems.length} ganadores encontrados</span>
@@ -1067,7 +1121,7 @@ export default function WinnersLibrary({
 
 			{loading ? (
 				<div className="studio-boot" style={{ minHeight: '300px', background: 'transparent' }}>
-					<span className="moki-loader"><img src="/images/creattia/moki-mascot.webp" alt="" /></span>
+					<span className="studio-spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }} aria-hidden="true" />
 					<p>Cargando anuncios ganadores...</p>
 				</div>
 			) : error ? (
@@ -1116,6 +1170,10 @@ export default function WinnersLibrary({
 									} else {
 										handleUseIdea(item);
 									}
+								}}
+								onContextMenu={(e) => {
+									e.preventDefault();
+									setCardContextMenu({ x: e.clientX, y: e.clientY, item });
 								}}
 							>
 								{/* Checkbox de Selección Múltiple (Admin) */}
@@ -1176,7 +1234,6 @@ export default function WinnersLibrary({
 										<strong style={{ display: 'block', fontSize: '11.5px', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
 											{item.name}
 										</strong>
-										<span style={{ fontSize: '9px', color: '#918b95' }}>Patrocinado</span>
 									</div>
 
 									{isAdmin && (
@@ -1380,6 +1437,73 @@ export default function WinnersLibrary({
 		)}
 
 			{/* Add winner modal */}
+			{/* Menú de click derecho: guardar / usar sin buscar los botones chicos */}
+			{cardContextMenu && (
+				<div
+					style={{
+						position: 'fixed',
+						top: `${cardContextMenu.y}px`,
+						left: `${cardContextMenu.x}px`,
+						zIndex: 1000,
+						background: '#fff',
+						border: '1px solid #e9e6ed',
+						borderRadius: '12px',
+						boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+						padding: '6px',
+						minWidth: '190px',
+						display: 'flex',
+						flexDirection: 'column',
+						gap: '2px',
+					}}
+					onClick={(e) => e.stopPropagation()}
+					onContextMenu={(e) => e.preventDefault()}
+				>
+					<div style={{ padding: '6px 10px', fontSize: '11px', color: '#8b8490', fontWeight: 'bold', borderBottom: '1px solid #f4eff6', marginBottom: '4px' }}>
+						{cardContextMenu.item.name}
+					</div>
+					<button
+						type="button"
+						onClick={() => { handleUseIdea(cardContextMenu.item); setCardContextMenu(null); }}
+						style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'transparent', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#19171d', fontWeight: 600, textAlign: 'left', width: '100%', fontFamily: 'inherit' }}
+					>
+						<Icon name="spark" size={13} /> Usar este diseño
+					</button>
+					<button
+						type="button"
+						onClick={() => {
+							const path = cardContextMenu.item.imagePath;
+							if (path && onToggleLikedScraped) onToggleLikedScraped(path);
+							else if (onToggleFavorite) onToggleFavorite(cardContextMenu.item.templateId);
+							setCardContextMenu(null);
+						}}
+						style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'transparent', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#19171d', fontWeight: 600, textAlign: 'left', width: '100%', fontFamily: 'inherit' }}
+					>
+						{(() => {
+							const liked = cardContextMenu.item.imagePath ? likedScrapedPaths.has(cardContextMenu.item.imagePath) : favorites.has(cardContextMenu.item.templateId);
+							return <><Icon name="heart" size={13} fill={liked ? '#ff4185' : 'none'} /> {liked ? 'Quitar de guardados' : 'Guardar idea'}</>;
+						})()}
+					</button>
+					<a
+						href={`https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${cardContextMenu.item.imagePath}`}
+						target="_blank"
+						rel="noreferrer"
+						onClick={() => setCardContextMenu(null)}
+						style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'transparent', borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#19171d', fontWeight: 600, textAlign: 'left', width: '100%', fontFamily: 'inherit', textDecoration: 'none' }}
+					>
+						<Icon name="search" size={13} /> Ver en grande
+					</a>
+					{isAdmin && (
+						<button
+							type="button"
+							onClick={() => { handleDelete(cardContextMenu.item.imagePath); setCardContextMenu(null); }}
+							style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#fff0f0', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#a43f3f', fontWeight: 700, textAlign: 'left', width: '100%', marginTop: '4px', fontFamily: 'inherit' }}
+						>
+							🗑️ Eliminar ganador
+						</button>
+					)}
+				</div>
+			)}
+
 			{showAddModal && (
 				<div 
 					style={{

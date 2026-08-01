@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, brandSourceDescription } from './UrlBatchSection';
+import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS } from './UrlBatchSection';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Página completa de creación fiel al ganador (reemplaza el modal). Mismo
@@ -33,7 +33,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const referenceUrl = `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${ad.imagePath}`;
 
 	// Cómo cargar el producto: por URL(s), a mano (con archivos), o sin producto.
-	const [productMode, setProductMode] = useState<'url' | 'manual' | 'none'>('url');
+	const [productMode, setProductMode] = useState<'url' | 'manual'>('url');
 	const [urls, setUrls] = useState<string[]>(['']);
 	const [scanning, setScanning] = useState(false);
 	const [scannedProductIds, setScannedProductIds] = useState<string[]>([]);
@@ -70,8 +70,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 		border: active ? '2px solid #744bde' : '1px solid #e2dde9', background: active ? '#f4f2f6' : '#fff', color: active ? '#744bde' : '#3f3a48',
 	} as const);
 
-	const step1Ready = productMode === 'none'
-		|| (productMode === 'url' && urls.some((u) => u.trim()))
+	const step1Ready = (productMode === 'url' && urls.some((u) => u.trim()))
 		|| (productMode === 'manual' && manualProductName.trim());
 
 	// Escanea una o varias URLs → devuelve los IDs de producto importados.
@@ -149,14 +148,10 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
-			// productMode === 'none' → no se manda producto
 			const response = await fetch('/api/creativos/plan', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.error || 'No se pudieron generar los textos.');
 			const analysis = payload.analysis || {};
-			if (analysis.referenceHasProduct !== false && productMode === 'none') {
-				throw new Error('Este anuncio ganador muestra un producto: usá una URL o carga manual para reemplazarlo.');
-			}
 			setPlan(analysis);
 			setZones((analysis.textZones || []).filter((zone: any) => analysis.productHasPackaging ? true : !zone.onProduct));
 			setPeople(Array.isArray(analysis.people) ? analysis.people.map((p: any) => ({ ...p, directive: '' })) : []);
@@ -195,7 +190,6 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
-			// productMode === 'none' → sin producto
 			form.set('plan', JSON.stringify({ ...plan, textZones: zones, people, comparisonItems: comparisons }));
 
 			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
@@ -304,7 +298,6 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									{([
 										['url', '🔗', 'Con URL', 'Analizamos tu página'],
 										['manual', '✍️', 'Cargar a mano', 'Cargás los datos'],
-										['none', '🚫', 'Sin producto', 'Solo el diseño'],
 									] as const).map(([value, icon, text, hint]) => (
 										<button key={value} type="button" className={`wiz-tab ${productMode === value ? 'active' : ''}`} onClick={() => setProductMode(value)}>
 											<span className="wiz-tab-icon">{icon}</span>
@@ -373,12 +366,6 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 											placeholder="Descripción de tu producto, servicio, beneficios o características especiales..." />
 									</div>
 								)}
-
-								{productMode === 'none' && (
-									<p className="wiz-hint">
-										Se recrea el diseño del ganador sin reemplazar ningún producto (ideal para anuncios de texto, servicios o lifestyle).
-									</p>
-								)}
 							</div>
 						</div>
 
@@ -402,7 +389,9 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 						{/* 3 · Estilo (idioma, de quién es el anuncio, colores, tipografía, cantidad) */}
 						<div className="wiz-step" hidden={formStep !== 3}>
 							<div className="wiz-body">
-								<BatchSelect label="Idioma del anuncio" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+								<div style={{ maxWidth: '320px' }}>
+									<BatchSelect label="Idioma del anuncio" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+								</div>
 
 								<div className="batch-brand-block">
 									<span className="picker-label">¿De quién es el anuncio?</span>
@@ -410,16 +399,15 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 										{BRAND_OPTIONS.map((option) => (
 											<button key={option.value} type="button" className={`batch-brand-option ${brandSource === option.value ? 'active' : ''}`} onClick={() => setBrandSource(option.value)} aria-pressed={brandSource === option.value}>
 												<span className="batch-brand-icon" aria-hidden="true">{option.emoji}</span>
-												<span><strong>{option.label}</strong></span>
+												<span><strong>{option.label}</strong><small>{option.hint}</small></span>
 												{brandSource === option.value && <b aria-hidden="true">✓</b>}
 											</button>
 										))}
 									</div>
-									<small className="batch-brand-note">{brandSourceDescription(brandSource)}</small>
 								</div>
 
 								<div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
-									<div className="batch-style-group" style={{ flex: '0 1 220px', maxWidth: '260px' }}>
+									<div className="batch-style-group" style={{ flex: '0 1 300px', maxWidth: '340px' }}>
 										<span className="picker-label">Colores</span>
 										<div className="batch-style-options">
 											{STYLE_OPTIONS.map((option) => (
@@ -427,7 +415,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 											))}
 										</div>
 									</div>
-									<div className="batch-style-group" style={{ flex: '0 1 220px', maxWidth: '260px' }}>
+									<div className="batch-style-group" style={{ flex: '0 1 300px', maxWidth: '340px' }}>
 										<span className="picker-label">Tipografía</span>
 										<div className="batch-style-options">
 											{STYLE_OPTIONS.map((option) => (

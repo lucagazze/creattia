@@ -229,6 +229,12 @@ function Moki({ className = '', label = 'Moki, el asistente creativo de Creattia
 	</span>;
 }
 
+// Namespacea una clave de localStorage por cuenta: dos usuarios en el mismo
+// navegador no deben ver los guardados/carpetas/lotes uno del otro.
+function scopedKey(base: string, userId?: string | null) {
+	return `${base}:${userId || 'anon'}`;
+}
+
 function loadLocal<T>(key: string, fallback: T): T {
 	try {
 		const value = localStorage.getItem(key);
@@ -437,28 +443,18 @@ export default function CreativeApp() {
 	const [viewHistory, setViewHistory] = useState<View[]>([]);
 	const [openedFromView, setOpenedFromView] = useState<View | null>(null);
 
-	const [likedImageIds, setLikedImageIds] = useState<string[]>(() => {
-		try {
-			return JSON.parse(localStorage.getItem('creattia_liked_images') || '[]');
-		} catch {
-			return [];
-		}
-	});
-
-	const [folders, setFolders] = useState<Array<{ id: string; name: string; imageIds: string[] }>>(() => {
-		try {
-			return JSON.parse(localStorage.getItem('creattia_folders') || '[]');
-		} catch {
-			return [];
-		}
-	});
+	// Favoritos y carpetas se guardan en localStorage, pero SIEMPRE con el id de
+	// la cuenta activa en la clave (ver sessionUserIdRef más abajo): sin eso, dos
+	// cuentas distintas en el mismo navegador terminan viendo lo del otro.
+	const [likedImageIds, setLikedImageIds] = useState<string[]>([]);
+	const [folders, setFolders] = useState<Array<{ id: string; name: string; imageIds: string[] }>>([]);
 
 	useEffect(() => {
-		localStorage.setItem('creattia_liked_images', JSON.stringify(likedImageIds));
+		localStorage.setItem(`creattia_liked_images:${sessionUserIdRef.current || 'anon'}`, JSON.stringify(likedImageIds));
 	}, [likedImageIds]);
 
 	useEffect(() => {
-		localStorage.setItem('creattia_folders', JSON.stringify(folders));
+		localStorage.setItem(`creattia_folders:${sessionUserIdRef.current || 'anon'}`, JSON.stringify(folders));
 	}, [folders]);
 
 	function toggleLike(id: string) {
@@ -612,11 +608,9 @@ export default function CreativeApp() {
 	const [likedScrapedPaths, setLikedScrapedPaths] = useState<Set<string>>(new Set());
 	const [preselectedWinnerPath, setPreselectedWinnerPath] = useState<string | null>(null);
 
-	// Load 5 random winners from manifest and initialize liked scraped ads
+	// Carga 5 ganadores al azar del manifiesto. Los "guardados" (likedScrapedPaths)
+	// se cargan aparte, por cuenta, en el efecto que reacciona a `session`.
 	useEffect(() => {
-		const loadedLikes = loadLocal<string[]>('creattia-liked-scraped-v1', []);
-		setLikedScrapedPaths(new Set(loadedLikes));
-
 		async function loadRandomWinners() {
 			try {
 				let res: Response | null = null;
@@ -693,10 +687,20 @@ export default function CreativeApp() {
 		if (!session) {
 			setAccountLoading(false);
 			setAccountError('');
+			setLikedImageIds([]);
+			setFolders([]);
+			setLikedScrapedPaths(new Set());
 			return;
 		}
 		const activeSession = session;
+		const profileId = getSessionId(activeSession) || 'anon';
 		let active = true;
+		// Favoritos, carpetas y guardados de la biblioteca son locales al
+		// navegador, pero por cuenta: se recargan con la clave de ESTE usuario
+		// cada vez que cambia la sesión, para no arrastrar datos de otra cuenta.
+		setLikedImageIds(loadLocal<string[]>(`creattia_liked_images:${profileId}`, []));
+		setFolders(loadLocal<Array<{ id: string; name: string; imageIds: string[] }>>(`creattia_folders:${profileId}`, []));
+		setLikedScrapedPaths(new Set(loadLocal<string[]>(`creattia-liked-scraped-v1:${profileId}`, [])));
 		async function loadAccount() {
 			setAccountLoading(true);
 			setAccountError('');
@@ -708,7 +712,6 @@ export default function CreativeApp() {
 				if (isSupabaseConfigured && supabase) {
 					const client = supabase;
 					let loadedCatalog = creativeCatalog;
-					const profileId = getSessionId(activeSession);
 					// Catálogo y perfil en paralelo: son lo único que bloquea la UI.
 					const [templatesResult, profileResult] = await Promise.all([
 						client.from('creative_templates').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
@@ -963,7 +966,7 @@ export default function CreativeApp() {
 			next.add(path);
 		}
 		setLikedScrapedPaths(next);
-		saveLocal('creattia-liked-scraped-v1', Array.from(next));
+		saveLocal(`creattia-liked-scraped-v1:${sessionUserIdRef.current || 'anon'}`, Array.from(next));
 		setToast(wasLiked ? 'Quitado de guardados.' : 'Guardado en tu biblioteca.');
 	};
 
@@ -1119,7 +1122,7 @@ export default function CreativeApp() {
 		// está generando, y ahí está la barra del lote más el progreso por imagen.
 		if (!options?.stay) setView('history');
 		try {
-			window.localStorage.setItem(ACTIVE_BATCH_KEY, JSON.stringify({
+			window.localStorage.setItem(scopedKey(ACTIVE_BATCH_KEY, sessionUserIdRef.current), JSON.stringify({
 				batchId: batch.batchId, title: batch.title, referenceUrl: batch.referenceUrl || '', count: batch.count, startedAt: record.startedAt,
 			}));
 		} catch { /* almacenamiento lleno o bloqueado: solo perdemos la reanudación */ }
@@ -1163,17 +1166,18 @@ export default function CreativeApp() {
 	// Reanudar un lote pendiente al volver a la app (otro tab, recarga, etc.)
 	useEffect(() => {
 		if (!session || !isSupabaseConfigured || !supabase) return;
-		const raw = window.localStorage.getItem(ACTIVE_BATCH_KEY);
+		const batchKey = scopedKey(ACTIVE_BATCH_KEY, getSessionId(session));
+		const raw = window.localStorage.getItem(batchKey);
 		if (!raw) return;
 		try {
 			const saved = JSON.parse(raw);
 			if (!saved?.batchId || Date.now() - (saved.startedAt || 0) > 20 * 60 * 1000) {
-				window.localStorage.removeItem(ACTIVE_BATCH_KEY);
+				window.localStorage.removeItem(batchKey);
 				return;
 			}
 			setActiveBatch({ ...saved, status: 'processing', results: [] });
 		} catch {
-			window.localStorage.removeItem(ACTIVE_BATCH_KEY);
+			window.localStorage.removeItem(batchKey);
 		}
 	}, [session]);
 
@@ -1249,7 +1253,7 @@ export default function CreativeApp() {
 				results: completedRows,
 				error: completedRows.length ? '' : (failedRows[0]?.error_code || 'No se pudo generar la imagen.'),
 			});
-			window.localStorage.removeItem(ACTIVE_BATCH_KEY);
+			window.localStorage.removeItem(scopedKey(ACTIVE_BATCH_KEY, sessionUserIdRef.current));
 			setToast(completedRows.length ? '¡Tu lote de anuncios está listo en Mis imágenes!' : 'La generación falló.');
 
 			if (completedRows.length) {
@@ -1263,7 +1267,7 @@ export default function CreativeApp() {
 		const interval = window.setInterval(() => { void poll(); }, 5000);
 		return () => { cancelled = true; window.clearInterval(interval); };
 	}, [activeBatch?.batchId, activeBatch?.status]);
-	if (booting || (session && accountLoading)) return <div className="studio-boot"><span className="moki-loader"><img src="/images/creattia/moki-mascot.webp" alt="" /></span><p>Preparando tu estudio…</p></div>;
+	if (booting || (session && accountLoading)) return <div className="studio-boot"><span className="studio-spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }} aria-hidden="true" /><p>Preparando tu estudio…</p></div>;
 	if (!session) return <AuthScreen onSession={(nextSession) => { setAccountLoading(true); setSession(nextSession); }} />;
 	if (accountError) return <AccountSetupError message={accountError} onRetry={() => window.location.reload()} onLogout={logout} />;
 		const navItems: Array<{ id: View; label: string; icon: string }> = [
@@ -2154,7 +2158,6 @@ function Dashboard({
 											<strong style={{ display: 'block', fontSize: '11.5px', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
 												{winner.name || 'Foreplay Ad'}
 											</strong>
-											<span style={{ fontSize: '9px', color: '#918b95' }}>Patrocinado</span>
 										</div>
 									</div>
 
@@ -4519,7 +4522,6 @@ function SavedAds({
 												<h3 style={{ fontSize: '14.5px', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
 													{winner.name || 'Idea Guardada'}
 												</h3>
-												<span style={{ fontSize: '11px', color: '#8b8490' }}>Patrocinado</span>
 											</footer>
 										</article>
 									);

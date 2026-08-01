@@ -965,15 +965,6 @@
 	.creative-app-shell .studio-spinner, .studio-auth .studio-spinner, .studio-onboarding .studio-spinner, .studio-boot .studio-spinner {
 		animation-duration: .75s !important; animation-iteration-count: infinite !important;
 	}
-	.creative-app-shell .moki-loader::before, .studio-auth .moki-loader::before, .studio-onboarding .moki-loader::before, .studio-boot .moki-loader::before {
-		animation-duration: 1.2s !important; animation-iteration-count: infinite !important;
-	}
-	.creative-app-shell .moki-loader::after, .studio-auth .moki-loader::after, .studio-onboarding .moki-loader::after, .studio-boot .moki-loader::after {
-		animation-duration: 1.4s !important; animation-iteration-count: infinite !important;
-	}
-	.creative-app-shell .moki-loader img, .studio-auth .moki-loader img, .studio-onboarding .moki-loader img, .studio-boot .moki-loader img {
-		animation-duration: 1.4s !important; animation-iteration-count: infinite !important;
-	}
 }
 
 /* ========================================================
@@ -2605,34 +2596,6 @@
 .niche-dd-menu::-webkit-scrollbar { width: 8px; }
 .niche-dd-menu::-webkit-scrollbar-thumb { background: #e2dcec; border-radius: 8px; }
 
-/* Preloader con la mascota saludando */
-.moki-loader { position: relative; width: 96px; height: 96px; display: grid; place-items: center; }
-.moki-loader::before {
-	content: ''; position: absolute; inset: 0; border: 2px solid rgba(116,75,222,.16);
-	border-top-color: #744bde; border-right-color: #ec4492; border-radius: 50%;
-	animation: studio-spin 1.2s linear infinite;
-}
-.moki-loader::after {
-	content: ''; position: absolute; bottom: 6px; width: 58px; height: 12px; border-radius: 50%;
-	background: rgba(111,56,221,0.18); filter: blur(4px); animation: moki-shadow 1.4s ease-in-out infinite;
-}
-.moki-loader img {
-	width: 76px; height: 76px; object-fit: contain; transform-origin: 50% 90%;
-	animation: moki-wave 1.4s ease-in-out infinite;
-	filter: drop-shadow(0 8px 18px rgba(111,56,221,0.22));
-}
-@keyframes moki-wave {
-	0%, 100% { transform: translateY(0) rotate(-7deg); }
-	25% { transform: translateY(-9px) rotate(6deg); }
-	50% { transform: translateY(0) rotate(-4deg); }
-	75% { transform: translateY(-5px) rotate(7deg); }
-}
-@keyframes moki-shadow {
-	0%, 100% { transform: scaleX(1); opacity: 0.9; }
-	25% { transform: scaleX(0.72); opacity: 0.5; }
-	50% { transform: scaleX(1); opacity: 0.9; }
-	75% { transform: scaleX(0.82); opacity: 0.6; }
-}
 /* Los estados de espera ocupan el mismo lenguaje visual en toda la app. */
 .studio-loading-panel {
 	display: grid;
@@ -3881,8 +3844,9 @@
 	text-transform: none;
 }
 
-/* Solapas de modo: compactas y parejas, no bloques gigantes. */
-.wiz-tabs { gap: 8px; grid-template-columns: repeat(3, 1fr); }
+/* Solapas de modo: compactas y parejas, no bloques gigantes. Siempre 2
+   opciones (URL / a mano): fijo en 2 columnas para que no quede un hueco. */
+.wiz-tabs { gap: 8px; grid-template-columns: repeat(2, 1fr); }
 
 .wiz-tab {
 	padding: 9px 12px;
@@ -4210,7 +4174,7 @@
 .batch-brand-option {
 	position: relative;
 	display: flex;
-	align-items: flex-start;
+	align-items: center;
 	gap: 9px;
 	min-width: 0;
 	padding: 12px;
@@ -4233,8 +4197,8 @@
 .batch-brand-note { display: block; margin-top: 8px; color: #6d6379; font-size: 11px; line-height: 1.4; }
 
 .batch-style-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.batch-style-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
-.batch-style-options button { min-height: 42px; padding: 8px 10px; border: 1.5px solid #e2dbea; border-radius: 10px; background: #fff; color: #5f5668; font: 750 11px/1.2 inherit; cursor: pointer; }
+.batch-style-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.batch-style-options button { min-height: 42px; padding: 8px 14px; border: 1.5px solid #e2dbea; border-radius: 10px; background: #fff; color: #3f3a48; font: 800 12.5px/1.2 'Satoshi', 'Inter Variable', Inter, sans-serif; white-space: nowrap; flex: 0 0 auto; cursor: pointer; }
 .batch-style-options button:hover { border-color: #bca4ef; }
 .batch-style-options button.active { border-color: #7543df; background: #f2edff; color: #5f32cf; box-shadow: 0 0 0 2px rgba(117,67,223,.08); }
 
@@ -4283,7 +4247,7 @@
 .batch-brand-note { margin-top: 5px; font-size: 10px; }
 .batch-style-groups { gap: 12px; }
 .batch-style-options { gap: 6px; margin-top: 5px; }
-.batch-style-options button { min-height: 36px; padding: 6px 8px; font-size: 10px; }
+.batch-style-options button { min-height: 38px; padding: 7px 12px; font-size: 11.5px; }
 
 @media (max-width: 640px) {
 	.batch-format-card { min-height: 78px; padding: 8px; }
