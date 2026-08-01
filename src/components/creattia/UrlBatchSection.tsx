@@ -996,8 +996,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 															style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.18, filter: 'blur(1px)' }}
 														/>
 													)}
-													<div className="skeleton-pulse"></div>
-													<span className="studio-spinner" style={{ position: 'relative', width: '24px', height: '24px', borderWidth: '3px' }} aria-label="Generando anuncio" />
+													<span className="studio-spinner" style={{ position: 'relative', width: '28px', height: '28px' }} aria-label="Generando anuncio" />
 													<span style={{ position: 'relative' }}>Generando anuncio…</span>
 											</div>
 										)}
