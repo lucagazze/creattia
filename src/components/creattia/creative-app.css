@@ -2579,25 +2579,25 @@
 .niche-dd-caret { font-size: 10px; color: #8b8490; transition: transform .18s ease; }
 .niche-dd-caret.is-open { transform: rotate(180deg); }
 .niche-dd-menu {
-	position: absolute; top: 50px; left: 0; z-index: 130; width: 272px; max-height: 460px; overflow-y: auto;
-	background: #fff; border: 1px solid #ece7f2; border-radius: 14px; padding: 5px;
-	box-shadow: 0 18px 50px rgba(52,40,79,0.20); display: flex; flex-direction: column; gap: 1px;
+	position: absolute; top: 50px; left: 0; z-index: 130; width: 300px; max-height: 460px; overflow-y: auto;
+	background: #fff; border: 1px solid #ece7f2; border-radius: 14px; padding: 6px;
+	box-shadow: 0 18px 50px rgba(52,40,79,0.20); display: flex; flex-direction: column; gap: 2px;
 	animation: niche-dd-in .14s ease;
 }
 @keyframes niche-dd-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 .niche-dd-item {
-	display: flex; align-items: center; gap: 8px;
-	width: 100%; padding: 6px 9px; border: 0; border-radius: 8px; cursor: pointer;
-	background: transparent; color: #3f3a48; font-family: inherit; font-size: 12.5px; font-weight: 600; text-align: left;
+	display: flex; align-items: center; gap: 10px;
+	width: 100%; padding: 9px 11px; border: 0; border-radius: 9px; cursor: pointer;
+	background: transparent; color: #29242f; font-family: inherit; font-size: 14.5px; font-weight: 650; text-align: left;
 	transition: background .12s ease, color .12s ease;
 }
-.niche-dd-check { flex-shrink: 0; width: 12px; text-align: center; color: #6f38dd; font-weight: 900; font-size: 11px; }
-.niche-dd-icon { flex-shrink: 0; width: 18px; text-align: center; font-size: 13px; line-height: 1; }
+.niche-dd-check { flex-shrink: 0; width: 13px; text-align: center; color: #6f38dd; font-weight: 900; font-size: 12.5px; }
+.niche-dd-icon { flex-shrink: 0; width: 21px; text-align: center; font-size: 15.5px; line-height: 1; }
 .niche-dd-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .niche-dd-item:hover { background: #f6f2fc; }
-.niche-dd-item.is-active { background: #f2ecfd; color: #5b2fc9; font-weight: 700; }
+.niche-dd-item.is-active { background: #f2ecfd; color: #5b2fc9; font-weight: 800; }
 .niche-dd-count {
-	font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; flex-shrink: 0;
+	font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 999px; flex-shrink: 0;
 	background: #f0ecf7; color: #6f6a77; font-variant-numeric: tabular-nums;
 }
 .niche-dd-item:hover .niche-dd-count,

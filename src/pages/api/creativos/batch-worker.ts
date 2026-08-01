@@ -8,6 +8,7 @@ import {
 import { generateAdImage, type EngineImage } from '../../../lib/creattia/image-engines';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { isAdminEmail } from '../../../lib/creattia/admin';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -48,8 +49,7 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!googleKey && !openAIKey) return json({ error: 'Falta configurar GOOGLE_AI_API_KEY u OPENAI_API_KEY.' }, 503);
 
 	const userId = auth.user.id;
-	const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze')
-		|| String(auth.user.email || '').toLowerCase().includes('algoritmiadesarrollos');
+	const isAdmin = isAdminEmail(auth.user.email);
 
 	let generationId = '';
 	try {

@@ -4,6 +4,7 @@ import OpenAI, { toFile } from 'openai';
 import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput, renderStudioProductShot, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import { generateAdImage } from '../../../lib/creattia/image-engines';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { isAdminEmail } from '../../../lib/creattia/admin';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -346,7 +347,7 @@ export const POST: APIRoute = async ({ request }) => {
 			storedReference = data;
 		}
 
-		const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze') || String(auth.user.email || '').toLowerCase().includes('algoritmiadesarrollos');
+		const isAdmin = isAdminEmail(auth.user.email);
 		let remaining = 99999;
 
 		const creditsNeeded = count * creditsPerImage;

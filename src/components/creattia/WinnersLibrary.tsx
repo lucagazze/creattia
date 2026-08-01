@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/creattia/supabase-browser';
 import { creativeCatalog } from '../../lib/creattia/catalog';
+import { isAdminEmail } from '../../lib/creattia/admin';
 import CreationFlow from './CreationFlow';
 
 function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number; fill?: string }) {
@@ -331,6 +332,8 @@ export default function WinnersLibrary({
 	const [newAdCopy, setNewAdCopy] = useState('');
 	const [newAdTemplateId, setNewAdTemplateId] = useState('40'); // default hero
 	const [newAdFile, setNewAdFile] = useState<File | null>(null);
+	const [newAdMediaType, setNewAdMediaType] = useState<'static_image' | 'carousel'>('static_image');
+	const [newAdCarouselFiles, setNewAdCarouselFiles] = useState<File[]>([]);
 	const [submitting, setSubmitting] = useState(false);
 
 	// Interactive generation modal states
@@ -372,7 +375,7 @@ export default function WinnersLibrary({
 	const [selectedImagePaths, setSelectedImagePaths] = useState<string[]>([]);
 
 	const userEmail = session?.user?.email || '';
-	const isAdmin = userEmail.toLowerCase().trim().includes('lucagazze') || userEmail.toLowerCase().trim().includes('algoritmiadesarrollos');
+	const isAdmin = isAdminEmail(userEmail);
 
 	const getSessionToken = (sess: any) => sess?.access_token || '';
 
@@ -843,7 +846,10 @@ export default function WinnersLibrary({
 		e.preventDefault();
 		if (!newAdName) return alert('Por favor ingresá la marca.');
 		if (!newAdFile) return alert('Por favor subí una imagen.');
-		
+		if (newAdMediaType === 'carousel' && newAdCarouselFiles.length < 1) {
+			return alert('Un carrusel necesita al menos una imagen más además de la portada.');
+		}
+
 		try {
 			setSubmitting(true);
 			const formData = new FormData();
@@ -851,7 +857,11 @@ export default function WinnersLibrary({
 			formData.append('promptNotes', newAdCopy);
 			formData.append('templateId', newAdTemplateId);
 			formData.append('image', newAdFile);
-			
+			formData.append('mediaType', newAdMediaType);
+			if (newAdMediaType === 'carousel') {
+				newAdCarouselFiles.forEach((file) => formData.append('carouselImages', file));
+			}
+
 			// Find taxonomy from selected template
 			const temp = creativeCatalog.find(c => c.id === Number(newAdTemplateId));
 			if (temp) {
@@ -867,7 +877,7 @@ export default function WinnersLibrary({
 				},
 				body: formData
 			});
-			
+
 			const payload = await res.json();
 			if (!res.ok) throw new Error(payload.error || 'Error al agregar.');
 
@@ -876,6 +886,8 @@ export default function WinnersLibrary({
 			setNewAdName('');
 			setNewAdCopy('');
 			setNewAdFile(null);
+			setNewAdMediaType('static_image');
+			setNewAdCarouselFiles([]);
 			void loadWinners();
 		} catch (err: any) {
 			alert(err.message);
@@ -1440,8 +1452,32 @@ export default function WinnersLibrary({
 							</label>
 
 							<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', fontWeight: 'bold' }}>
-								Imagen del anuncio (formato vertical 9:16 preferido)
-								<input 
+								Tipo de anuncio
+								<div style={{ display: 'flex', gap: '8px' }}>
+									{([
+										['static_image', '🖼️ Estático'],
+										['carousel', '🗂️ Carrusel'],
+									] as const).map(([value, label]) => (
+										<button
+											key={value}
+											type="button"
+											onClick={() => setNewAdMediaType(value)}
+											style={{
+												flex: 1, height: '36px', borderRadius: '9px', cursor: 'pointer', fontSize: '12px', fontWeight: 700,
+												border: newAdMediaType === value ? '1.5px solid #744bde' : '1px solid #ded7e2',
+												background: newAdMediaType === value ? '#f4f0ff' : '#fff',
+												color: newAdMediaType === value ? '#5b3fc4' : '#3f3a48',
+											}}
+										>
+											{label}
+										</button>
+									))}
+								</div>
+							</label>
+
+							<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', fontWeight: 'bold' }}>
+								{newAdMediaType === 'carousel' ? 'Portada del carrusel (primera imagen)' : 'Imagen del anuncio (formato vertical 9:16 preferido)'}
+								<input
 									type="file"
 									accept="image/png, image/jpeg, image/webp"
 									onChange={(e) => setNewAdFile(e.target.files?.[0] || null)}
@@ -1450,7 +1486,29 @@ export default function WinnersLibrary({
 								/>
 							</label>
 
-							<button 
+							{newAdMediaType === 'carousel' && (
+								<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', fontWeight: 'bold' }}>
+									Resto de las páginas (en orden, podés elegir varias)
+									<input
+										type="file"
+										accept="image/png, image/jpeg, image/webp"
+										multiple
+										onChange={(e) => setNewAdCarouselFiles(e.target.files ? Array.from(e.target.files) : [])}
+										style={{ fontSize: '11px' }}
+									/>
+									{newAdCarouselFiles.length > 0 && (
+										<div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+											{newAdCarouselFiles.map((file, index) => (
+												<span key={index} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 9px', borderRadius: '999px', background: '#f4f0ff', color: '#5b3fc4', fontSize: '10.5px', fontWeight: 700 }}>
+													{index + 2}. {file.name.length > 18 ? `${file.name.slice(0, 18)}…` : file.name}
+												</span>
+											))}
+										</div>
+									)}
+								</label>
+							)}
+
+							<button
 								type="submit" 
 								className="studio-primary-button" 
 								style={{ height: '42px', marginTop: '10px' }}

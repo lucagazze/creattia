@@ -4,6 +4,7 @@ import { triggerConfetti } from '../../lib/creattia/confetti';
 import type { Session } from '@supabase/supabase-js';
 import { catalogTaxonomy, creativeCatalog, creativeNumber, mapTemplateRecord, referenceImagePath, referencePresets, ringMeta, templatePath } from '../../lib/creattia/catalog';
 import { isSupabaseConfigured, supabase } from '../../lib/creattia/supabase-browser';
+import { isAdminEmail } from '../../lib/creattia/admin';
 import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
 import WinnersLibrary from './WinnersLibrary';
@@ -730,7 +731,7 @@ export default function CreativeApp() {
 					data = created.data;
 				}
 				if (data) {
-					const isUserAdmin = String(activeSession?.user?.email || '').toLowerCase().includes('lucagazze') || String(activeSession?.user?.email || '').toLowerCase().includes('algoritmiadesarrollos');
+					const isUserAdmin = isAdminEmail(activeSession?.user?.email);
 					setProfile({
 						fullName: data.full_name || '',
 						brandName: data.brand_name || '',
@@ -1416,7 +1417,7 @@ export default function CreativeApp() {
 								<div style={{ flex: 1, minWidth: 0, paddingRight: '10px' }}>
 									<strong style={{ display: 'flex', alignItems: 'center', gap: '7px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
 										{profile.fullName || 'Mi cuenta'}
-										{(getSessionEmail(session).toLowerCase().includes('lucagazze') || getSessionEmail(session).toLowerCase().includes('algoritmiadesarrollos')) && <span style={{ padding: '2px 7px', borderRadius: '6px', background: '#19171d', color: '#fff', fontSize: '9.5px', fontWeight: 900, letterSpacing: '.08em' }}>ADMIN</span>}
+										{isAdminEmail(getSessionEmail(session)) && <span style={{ padding: '2px 7px', borderRadius: '6px', background: '#19171d', color: '#fff', fontSize: '9.5px', fontWeight: 900, letterSpacing: '.08em' }}>ADMIN</span>}
 									</strong>
 									<small style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{getSessionEmail(session)}</small>
 								</div>

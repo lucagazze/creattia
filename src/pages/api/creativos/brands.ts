@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { analyzeBrandStyle } from '../../../lib/creattia/brand-style';
 import { normalizeExternalUrl, readLimited, safeExternalFetch } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { isAdminEmail } from '../../../lib/creattia/admin';
 
 export const prerender = false;
 export const maxDuration = 120;
@@ -80,7 +81,7 @@ export const POST: APIRoute = async ({ request }) => {
 			admin.from('creative_profiles').select('plan_code').eq('user_id', auth.user.id).maybeSingle(),
 		]);
 		const planCode = profile?.plan_code || 'trial';
-		const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze') || String(auth.user.email || '').toLowerCase().includes('algoritmiadesarrollos');
+		const isAdmin = isAdminEmail(auth.user.email);
 		const limit = isAdmin ? 99 : (brandLimits[planCode] || 1);
 		if ((count || 0) >= limit) {
 			return json({ error: `Tu plan permite hasta ${limit} ${limit === 1 ? 'marca' : 'marcas'}. Mejorá tu plan para agregar más.`, code: 'BRAND_LIMIT' }, 402);
@@ -179,7 +180,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 			return json({ ok: true, brand: updated });
 		}
 
-		const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze') || String(auth.user.email || '').toLowerCase().includes('algoritmiadesarrollos');
+		const isAdmin = isAdminEmail(auth.user.email);
 		const limit = isAdmin ? 99 : (brandLimits[profile?.plan_code || 'trial'] || 1);
 		const { count } = await admin.from('creative_brands').select('id', { count: 'exact', head: true }).eq('user_id', auth.user.id).eq('is_active', true);
 		if ((count || 0) >= limit) return json({ error: `Tu plan permite hasta ${limit} ${limit === 1 ? 'marca' : 'marcas'}.` }, 402);

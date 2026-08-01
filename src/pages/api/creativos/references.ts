@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { createHash } from 'node:crypto';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { isAdminEmail as isAdmin } from '../../../lib/creattia/admin';
 
 export const prerender = false;
 
@@ -10,12 +11,6 @@ const allowedMime: Record<string, string> = {
 	'image/webp': 'webp',
 	'image/avif': 'avif',
 };
-
-// Admin email verification helper
-function isAdmin(email = '') {
-	const lower = email.toLowerCase().trim();
-	return lower.includes('lucagazze') || lower.includes('algoritmiadesarrollos');
-}
 
 export const POST: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
@@ -36,10 +31,20 @@ export const POST: APIRoute = async ({ request }) => {
 		const categoryLeaf = String(form.get('categoryLeaf') || '').trim().slice(0, 120);
 		
 		const image = form.get('image');
+		const mediaTypeParam = String(form.get('mediaType') || 'static_image').trim();
+		const mediaType = mediaTypeParam === 'carousel' ? 'carousel' as const : 'static_image' as const;
+		const carouselFiles = form.getAll('carouselImages').filter((value): value is File => value instanceof File && value.size > 0);
+
 		if (!name) return json({ error: 'Falta el nombre.' }, 400);
 		if (!templateId || isNaN(templateId)) return json({ error: 'templateId inválido.' }, 400);
 		if (!(image instanceof File) || !image.size) return json({ error: 'Falta subir el archivo de imagen.' }, 400);
 		if (!allowedMime[image.type]) return json({ error: 'Formato de imagen no permitido.' }, 415);
+		if (mediaType === 'carousel' && carouselFiles.length < 1) {
+			return json({ error: 'Un carrusel necesita al menos una imagen más además de la portada.' }, 400);
+		}
+		for (const file of carouselFiles) {
+			if (!allowedMime[file.type]) return json({ error: 'Una de las imágenes del carrusel tiene un formato no permitido.' }, 415);
+		}
 
 		// Read bytes and hash
 		const imageBytes = new Uint8Array(await image.arrayBuffer());
@@ -47,12 +52,27 @@ export const POST: APIRoute = async ({ request }) => {
 		const extension = allowedMime[image.type];
 		const storagePath = `${templateId}/${fingerprint}.${extension}`;
 
-		// 1. Upload Ad Image to Storage bucket 'creative-references'
+		// 1. Upload Ad Image (portada) to Storage bucket 'creative-references'
 		const { error: uploadError } = await admin.storage.from('creative-references').upload(storagePath, imageBytes, {
 			contentType: image.type,
 			upsert: true
 		});
 		if (uploadError) throw uploadError;
+
+		// 1b. Resto de las páginas del carrusel, en el orden en que se subieron.
+		const carouselImages = [storagePath];
+		for (let index = 0; index < carouselFiles.length; index += 1) {
+			const file = carouselFiles[index];
+			const bytes = new Uint8Array(await file.arrayBuffer());
+			const slideFingerprint = createHash('sha256').update(bytes).digest('hex').slice(0, 16);
+			const slidePath = `${templateId}/${slideFingerprint}-${index + 2}.${allowedMime[file.type]}`;
+			const { error: slideUploadError } = await admin.storage.from('creative-references').upload(slidePath, bytes, {
+				contentType: file.type,
+				upsert: true,
+			});
+			if (slideUploadError) throw slideUploadError;
+			carouselImages.push(slidePath);
+		}
 
 		// 2. Fetch and update the starter manifest file in Storage
 		const manifestFileName = 'manifests/starter-static-50.json';
@@ -79,7 +99,8 @@ export const POST: APIRoute = async ({ request }) => {
 			categoryLeaf: categoryLeaf || null,
 			metadata: {
 				scrapedAt: new Date().toISOString(),
-				mediaType: 'static_image',
+				mediaType,
+				...(mediaType === 'carousel' ? { carouselImages } : {}),
 				addedBy: auth.user.email
 			}
 		};
@@ -177,20 +198,24 @@ export const DELETE: APIRoute = async ({ request }) => {
 
 		if (!imagePathsToDelete.length) return json({ error: 'imagePath inválida.' }, 400);
 
-		// 1. Eliminar archivos de Storage en lote
-		await admin.storage.from('creative-references').remove(imagePathsToDelete);
-
-		// 2. Actualizar el manifiesto remoto starter-static-50.json
+		// 2. Actualizar el manifiesto remoto starter-static-50.json (y de paso
+		// juntar las páginas extra de los carruseles que se están borrando, para
+		// no dejarlas huérfanas en el storage).
 		const manifestFileName = 'manifests/starter-static-50.json';
+		const deleteSet = new Set(imagePathsToDelete);
 		try {
 			const { data: fileData, error: downloadError } = await admin.storage.from('creative-references').download(manifestFileName);
 			if (!downloadError && fileData) {
 				const text = await fileData.text();
 				const manifestData = JSON.parse(text);
-				
-				const deleteSet = new Set(imagePathsToDelete);
+
+				for (const item of manifestData.items || []) {
+					if (deleteSet.has(item.imagePath) && Array.isArray(item.metadata?.carouselImages)) {
+						for (const slide of item.metadata.carouselImages) imagePathsToDelete.push(slide);
+					}
+				}
 				manifestData.items = (manifestData.items || []).filter((item: any) => !deleteSet.has(item.imagePath));
-				
+
 				const updatedManifestBytes = Buffer.from(JSON.stringify(manifestData, null, 2));
 				await admin.storage.from('creative-references').upload(manifestFileName, updatedManifestBytes, {
 					contentType: 'application/json',
@@ -200,6 +225,10 @@ export const DELETE: APIRoute = async ({ request }) => {
 		} catch (e) {
 			console.warn('Error al actualizar el manifiesto remoto en la eliminación.');
 		}
+
+		// 1. Eliminar archivos de Storage en lote (portadas + páginas de carrusel)
+		imagePathsToDelete = [...new Set(imagePathsToDelete)];
+		await admin.storage.from('creative-references').remove(imagePathsToDelete);
 
 		// 3. Eliminar filas correspondientes de la DB
 		try {

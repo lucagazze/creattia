@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { isAdminEmail } from '../../../lib/creattia/admin';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -49,8 +50,7 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 
 	const userId = auth.user.id;
-	const isAdmin = String(auth.user.email || '').toLowerCase().includes('lucagazze')
-		|| String(auth.user.email || '').toLowerCase().includes('algoritmiadesarrollos');
+	const isAdmin = isAdminEmail(auth.user.email);
 
 	try {
 		const body = await request.json().catch(() => ({}));
