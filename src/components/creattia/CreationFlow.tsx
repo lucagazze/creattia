@@ -1,10 +1,25 @@
 import React, { useState } from 'react';
+import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS } from './UrlBatchSection';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Página completa de creación fiel al ganador (reemplaza el modal):
-// 1) producto  2) formato  3) idioma  4) estilo (colores/tipografía/logo)
-// 5) indicación extra → "Generar textos" → editor de copy por zona → generar.
+// Página completa de creación fiel al ganador (reemplaza el modal). Mismo
+// wizard paso a paso que el generador por lote (UrlBatchSection): un tema por
+// pantalla, con la misma barra de progreso, tabs, pills y botones.
+// Pasos: 1) producto  2) formato  3) estilo (idioma/colores/tipografía/
+// cantidad/indicación) → "Generar textos" → editor de copy por zona → generar.
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Formatos visuales del paso 2, mismos valores que ya entiende el backend de
+// generación individual (distintos de los alias del lote, pero mismo diseño).
+const FORMAT_ITEMS = [
+	{ id: 'original', text: 'Original', desc: 'Igual al ganador', shape: 'original' },
+	{ id: '1:1', text: '1:1', desc: 'Feed', shape: 'square' },
+	{ id: '3:4', text: '3:4', desc: 'Vertical', shape: 'portrait' },
+	{ id: '9:16', text: '9:16', desc: 'Historia', shape: 'story' },
+	{ id: '4:3', text: '4:3', desc: 'Horizontal', shape: 'landscape' },
+	{ id: '16:9', text: '16:9', desc: 'Panorámico', shape: 'wide' },
+];
+
 export default function CreationFlow({ ad, session, savedProducts, onToast, onGenerationStarted, onGenerationRequested, onBack }: {
 	ad: any;
 	session: any;
@@ -28,7 +43,6 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
-	const [languageOpen, setLanguageOpen] = useState(false);
 	const [colorMode, setColorMode] = useState<'winner' | 'brand'>('winner');
 	const [typoMode, setTypoMode] = useState<'winner' | 'brand'>('winner');
 	const [includeLogo, setIncludeLogo] = useState(false);
@@ -37,6 +51,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [manualProductName, setManualProductName] = useState('');
 	const [manualProductFacts, setManualProductFacts] = useState('');
 
+	// El armado es secuencial, como en el lote: 1 producto, 2 formato, 3 estilo.
+	const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
 	const [phase, setPhase] = useState<'setup' | 'planning' | 'review' | 'starting'>('setup');
 	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
 	const [plan, setPlan] = useState<any>(null);
@@ -53,6 +69,10 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 		padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
 		border: active ? '2px solid #744bde' : '1px solid #e2dde9', background: active ? '#f4f2f6' : '#fff', color: active ? '#744bde' : '#3f3a48',
 	} as const);
+
+	const step1Ready = productMode === 'none'
+		|| (productMode === 'url' && urls.some((u) => u.trim()))
+		|| (productMode === 'manual' && manualProductName.trim());
 
 	// Escanea una o varias URLs → devuelve los IDs de producto importados.
 	async function scanUrls(list: string[]): Promise<string[]> {
@@ -219,7 +239,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			});
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.error || 'No se pudo reescribir el texto.');
-			
+
 			// Update the specific zone
 			setZones(prev => prev.map((item, itemIndex) => itemIndex === index ? { ...item, replacement: payload.replacement } : item));
 			if (onToast) onToast('Texto regenerado con éxito.');
@@ -233,10 +253,10 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	async function regenerateAllCopies() {
 		setError('');
 		if (zones.length === 0) return;
-		
+
 		const confirmRegen = window.confirm('¿Seguro que querés volver a escribir todos los textos con IA? Se perderán las ediciones manuales actuales.');
 		if (!confirmRegen) return;
-		
+
 		setPhase('planning');
 		try {
 			await requestPlan();
@@ -259,266 +279,241 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 				<section>
 					<h1 style={{ margin: '0 0 5px', fontSize: '23px', color: '#19171d', letterSpacing: '-.02em' }}>Crear con este diseño</h1>
-					<p style={{ margin: '0 0 22px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>Se replica el diseño y el mensaje del ganador con tu producto. Antes de generar revisás y aprobás cada texto.</p>
+					<p style={{ margin: '0 0 18px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>Se replica el diseño y el mensaje del ganador con tu producto. Antes de generar revisás y aprobás cada texto.</p>
 
-					{phase !== 'review' && phase !== 'starting' && <>
-						{/* 1. Producto / Servicio */}
-						<div style={{ marginBottom: '20px' }}>
-							<strong style={label}>1 · Tu producto / Servicio</strong>
-							{/* Cómo lo cargás */}
-							<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-								{([
-									{ id: 'url', text: '🔗 Con URL' },
-									{ id: 'manual', text: '✍️ Cargar a mano' },
-									{ id: 'none', text: '🚫 Sin producto' },
-								] as const).map((m) => (
-									<button key={m.id} type="button" onClick={() => setProductMode(m.id)}
-										style={{
-											padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 700,
-											border: productMode === m.id ? '1.5px solid #a98bff' : '1px solid #e7e1f0',
-											background: productMode === m.id ? '#f4f0ff' : '#fff',
-											color: productMode === m.id ? '#5b3fc4' : '#6f6a77',
-										}}>{m.text}</button>
-								))}
-							</div>
+					{/* Misma barra de progreso que el generador por lote. */}
+					<ol className="wiz-progress" aria-label="Progreso">
+						{[
+							{ n: 1, label: 'Tu producto', active: phase === 'setup' && formStep === 1, done: phase !== 'setup' || formStep > 1 },
+							{ n: 2, label: 'Formato', active: phase === 'setup' && formStep === 2, done: phase !== 'setup' || formStep > 2 },
+							{ n: 3, label: 'Estilo', active: phase === 'setup' && formStep === 3, done: phase !== 'setup' },
+							{ n: 4, label: 'Revisar textos', active: phase === 'planning' || phase === 'review' || phase === 'starting', done: false },
+						].map((item) => (
+							<li key={item.n} className={`wiz-progress-item ${item.active ? 'active' : ''} ${item.done ? 'done' : ''}`}>
+								<span className="wiz-progress-dot">{item.done ? '✓' : item.n}</span>
+								<span className="wiz-progress-label">{item.label}</span>
+							</li>
+						))}
+					</ol>
 
-							{productMode === 'url' && (
-								<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-									{urls.map((u, i) => (
-										<div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-											<input value={u}
-												onChange={(e) => setUrls((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))}
-												placeholder="Pegá la URL de tu producto o servicio a analizar"
-												style={{ flex: 1, boxSizing: 'border-box', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '14.5px' }} />
-											{urls.length > 1 && (
-												<button type="button" aria-label="Quitar URL" onClick={() => setUrls((prev) => prev.filter((_, j) => j !== i))}
-													style={{ width: '38px', height: '38px', borderRadius: '9px', border: '1px solid #e2dde9', background: '#fff', color: '#b0a8b8', cursor: 'pointer', fontSize: '17px', flexShrink: 0 }}>×</button>
+					{(phase === 'setup' || phase === 'planning') && <>
+						{/* 1 · Tu producto / Servicio */}
+						<div className="wiz-step" hidden={formStep !== 1}>
+							<div className="wiz-body">
+								<label className="picker-label">¿Qué vas a promocionar?</label>
+								<div className="wiz-tabs">
+									{([
+										['url', '🔗', 'Con URL', 'Analizamos tu página'],
+										['manual', '✍️', 'Cargar a mano', 'Cargás los datos'],
+										['none', '🚫', 'Sin producto', 'Solo el diseño'],
+									] as const).map(([value, icon, text, hint]) => (
+										<button key={value} type="button" className={`wiz-tab ${productMode === value ? 'active' : ''}`} onClick={() => setProductMode(value)}>
+											<span className="wiz-tab-icon">{icon}</span>
+											<span className="wiz-tab-label">{text}</span>
+											<small>{hint}</small>
+										</button>
+									))}
+								</div>
+
+								{productMode === 'url' && (
+									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+										{urls.map((u, i) => (
+											<div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+												<input value={u}
+													onChange={(e) => setUrls((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))}
+													placeholder="Pegá la URL de tu producto o servicio a analizar"
+													className="wiz-input"
+													style={{ flex: 1 }} />
+												{urls.length > 1 && (
+													<button type="button" aria-label="Quitar URL" onClick={() => setUrls((prev) => prev.filter((_, j) => j !== i))}
+														style={{ width: '38px', height: '38px', borderRadius: '9px', border: '1px solid #e2dde9', background: '#fff', color: '#b0a8b8', cursor: 'pointer', fontSize: '17px', flexShrink: 0 }}>×</button>
+												)}
+											</div>
+										))}
+										<button type="button" onClick={() => setUrls((prev) => [...prev, ''])}
+											style={{ alignSelf: 'flex-start', padding: '7px 13px', borderRadius: '9px', border: '1px dashed #cbb8f0', background: '#faf8ff', color: '#5b3fc4', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}>
+											+ Agregar otra URL (otro producto)
+										</button>
+									</div>
+								)}
+
+								{productMode === 'manual' && (
+									<div className="wiz-fields">
+										<div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+											<span style={{ fontSize: '12.5px', fontWeight: 700, color: '#716d79' }}>Fotos del producto:</span>
+											<div className="image-uploader-box">
+												<input type="file" accept="image/png,image/jpeg,image/webp" multiple id="creation-manual-imgs" className="hidden-file-input"
+													onChange={(event) => {
+														const files = event.target.files ? Array.from(event.target.files) : [];
+														setUploadFiles((prev) => [...prev, ...files]);
+														setUploadPreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
+														event.target.value = '';
+													}} />
+												<label htmlFor="creation-manual-imgs" className="uploader-label">
+													<span>📸 Cargar fotos del producto (opcional · podés subir varias)</span>
+												</label>
+											</div>
+											<label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '8px', border: '1px dashed #cbb8f0', background: '#faf8ff', fontSize: '12.5px', fontWeight: 700, cursor: parsingDoc ? 'wait' : 'pointer', color: '#5b3fc4', width: 'fit-content', marginTop: '2px', opacity: parsingDoc ? 0.6 : 1 }}>
+												{parsingDoc ? <><span className="studio-spinner small" aria-hidden="true" /> Analizando archivo…</> : '📄 Subir PDF / Word / Excel'}
+												<input type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,application/pdf" style={{ display: 'none' }} disabled={parsingDoc}
+													onChange={(event) => { void parseDoc(event.target.files?.[0] || null); event.target.value = ''; }} />
+											</label>
+											{uploadPreviews.length > 0 && (
+												<div className="extra-previews-grid">
+													{uploadPreviews.map((preview, idx) => (
+														<div key={idx} className="preview-thumb">
+															<img src={preview} alt="" />
+															<button type="button" className="remove-img-btn" onClick={() => { setUploadFiles((prev) => prev.filter((_, j) => j !== idx)); setUploadPreviews((prev) => prev.filter((_, j) => j !== idx)); }}>✕</button>
+														</div>
+													))}
+												</div>
 											)}
 										</div>
-									))}
-									<button type="button" onClick={() => setUrls((prev) => [...prev, ''])}
-										style={{ alignSelf: 'flex-start', padding: '7px 13px', borderRadius: '9px', border: '1px dashed #cbb8f0', background: '#faf8ff', color: '#5b3fc4', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}>
-										+ Agregar otra URL (otro producto)
-									</button>
-								</div>
-							)}
-
-							{productMode === 'manual' && (
-								<div style={{ padding: '16px', background: '#fcfbfe', border: '1px dashed #dcd2ff', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-									<div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-										<span style={{ fontSize: '12.5px', fontWeight: 700, color: '#716d79' }}>Fotos del producto:</span>
-										<label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', color: '#744bde', width: 'fit-content' }}>
-											📸 Cargar fotos...
-											<input type="file" accept="image/png,image/jpeg,image/webp" multiple style={{ display: 'none' }}
-												onChange={(event) => {
-													const files = event.target.files ? Array.from(event.target.files) : [];
-													setUploadFiles((prev) => [...prev, ...files]);
-													setUploadPreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))]);
-													event.target.value = '';
-												}} />
-										</label>
-										<label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '8px', border: '1px dashed #cbb8f0', background: '#faf8ff', fontSize: '12.5px', fontWeight: 700, cursor: parsingDoc ? 'wait' : 'pointer', color: '#5b3fc4', width: 'fit-content', marginTop: '6px', opacity: parsingDoc ? 0.6 : 1 }}>
-											{parsingDoc ? <><span className="studio-spinner small" aria-hidden="true" /> Analizando archivo…</> : '📄 Subir PDF / Word / Excel'}
-											<input type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,application/pdf" style={{ display: 'none' }} disabled={parsingDoc}
-												onChange={(event) => { void parseDoc(event.target.files?.[0] || null); event.target.value = ''; }} />
-										</label>
-										{uploadPreviews.length > 0 && (
-											<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
-												{uploadPreviews.map((preview, idx) => (
-													<span key={idx} style={{ position: 'relative', display: 'inline-block' }}>
-														<img src={preview} alt="" style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2dde9', display: 'block' }} />
-														<button type="button" aria-label="Quitar foto" onClick={() => { setUploadFiles((prev) => prev.filter((_, j) => j !== idx)); setUploadPreviews((prev) => prev.filter((_, j) => j !== idx)); }}
-															style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', border: 0, background: '#19171d', color: '#fff', fontSize: '12px', lineHeight: 1, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>×</button>
-													</span>
-												))}
-											</div>
-										)}
+										<input className="wiz-input" value={manualProductName} onChange={(e) => setManualProductName(e.target.value)} placeholder="Nombre del servicio o producto..." />
+										<textarea className="wiz-input" value={manualProductFacts} onChange={(e) => setManualProductFacts(e.target.value)} rows={3}
+											placeholder="Descripción de tu producto, servicio, beneficios o características especiales..." />
 									</div>
-									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-										<input value={manualProductName} onChange={(e) => setManualProductName(e.target.value)} placeholder="Nombre del servicio o producto..."
-											style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px' }} />
-										<textarea value={manualProductFacts} onChange={(e) => setManualProductFacts(e.target.value)} rows={3}
-											placeholder="Descripción de tu producto, servicio, beneficios o características especiales..."
-											style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '13px', resize: 'vertical', fontFamily: 'inherit' }} />
-									</div>
-								</div>
-							)}
+								)}
 
-							{productMode === 'none' && (
-								<p style={{ margin: '2px 0 0', fontSize: '13px', color: '#716d79', lineHeight: 1.5 }}>
-									Se recrea el diseño del ganador sin reemplazar ningún producto (ideal para anuncios de texto, servicios o lifestyle).
-								</p>
-							)}
-						</div>
-
-												{/* 2. Formato */}
-						<div style={{ marginBottom: '20px' }}>
-							<strong style={label}>2 · Formato</strong>
-							<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-								{[
-									{ id: 'original', text: 'Original', desc: 'Igual al ganador', w: 24, h: 24, dashed: true },
-									{ id: '1:1', text: '1:1', desc: 'Feed', w: 26, h: 26 },
-									{ id: '3:4', text: '3:4', desc: 'Vertical', w: 21, h: 28 },
-									{ id: '9:16', text: '9:16', desc: 'Historia', w: 16, h: 28 },
-									{ id: '4:3', text: '4:3', desc: 'Horizontal', w: 28, h: 21 },
-									{ id: '16:9', text: '16:9', desc: 'Panorámico', w: 30, h: 17 },
-								].map((item) => (
-									<button
-										key={item.id}
-										type="button"
-										onClick={() => setFormat(item.id)}
-										style={{ ...chip(format === item.id), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', minWidth: '76px', padding: '10px 9px 8px' }}
-									>
-										<span style={{
-											display: 'block', width: `${item.w}px`, height: `${item.h}px`, borderRadius: '4px',
-											border: `2px ${item.dashed ? 'dashed' : 'solid'} ${format === item.id ? '#19171d' : '#b9b3c2'}`,
-											background: format === item.id ? 'rgba(25,23,29,0.12)' : '#f6f4f9',
-										}} />
-										<b style={{ fontSize: '12px', lineHeight: 1 }}>{item.text}</b>
-										<small style={{ fontSize: '10px', color: '#8b8490', lineHeight: 1 }}>{item.desc}</small>
-									</button>
-								))}
+								{productMode === 'none' && (
+									<p className="wiz-hint">
+										Se recrea el diseño del ganador sin reemplazar ningún producto (ideal para anuncios de texto, servicios o lifestyle).
+									</p>
+								)}
 							</div>
 						</div>
 
-						{/* 3. Idioma */}
-						<div style={{ marginBottom: '20px' }}>
-							<strong style={label}>3 · Idioma del anuncio</strong>
-							{(() => {
-								const LANGS = [
-																		{ id: 'es', name: 'Español', cc: 'ar' },
-									{ id: 'en', name: 'English', cc: 'us' },
-									{ id: 'pt', name: 'Português', cc: 'br' },
-									{ id: 'fr', name: 'Français', cc: 'fr' },
-									{ id: 'it', name: 'Italiano', cc: 'it' },
-									{ id: 'de', name: 'Deutsch', cc: 'de' },
-								];
-								const current = LANGS.find((item) => item.id === language) || LANGS[0];
-								const flag = (cc: string) => cc
-									? <img src={`https://flagcdn.com/w40/${cc}.png`} alt="" width={22} height={16} style={{ borderRadius: '3px', objectFit: 'cover' }} />
-									: <span style={{ fontSize: '16px' }}>🌐</span>;
-								return (
-									<div style={{ position: 'relative', maxWidth: '290px' }}>
-										<button type="button" onClick={() => setLanguageOpen(!languageOpen)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '10px 13px', borderRadius: '10px', border: '1px solid #e2dde9', background: '#fff', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#19171d' }}>
-											<span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>{flag(current.cc)}{current.name}</span>
-											<span style={{ color: '#8b8490' }}>▾</span>
+						{/* 2 · Formato */}
+						<div className="wiz-step" hidden={formStep !== 2}>
+							<div className="wiz-body">
+								<label className="picker-label">Formato</label>
+								<p className="batch-detail-help">Elegí dónde se va a publicar el anuncio.</p>
+								<div className="batch-format-grid">
+									{FORMAT_ITEMS.map((item) => (
+										<button key={item.id} type="button" className={`batch-format-card ${format === item.id ? 'active' : ''}`} onClick={() => setFormat(item.id)} aria-pressed={format === item.id}>
+											<span className={`batch-format-shape shape-${item.shape}`} aria-hidden="true"><i /></span>
+											<span className="batch-format-copy"><strong>{item.text}</strong><small>{item.desc}</small></span>
+											{format === item.id && <b aria-hidden="true">✓</b>}
 										</button>
-										{languageOpen && (
-											<div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#fff', border: '1px solid #e2dde9', borderRadius: '12px', boxShadow: '0 16px 40px rgba(25,23,29,0.14)', zIndex: 30, overflow: 'hidden' }}>
-												{LANGS.map((item) => (
-													<button key={item.id} type="button" onClick={() => { setLanguage(item.id); setLanguageOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', border: 0, background: language === item.id ? '#f4f2f6' : '#fff', fontSize: '14px', cursor: 'pointer', fontFamily: 'inherit', color: '#19171d', textAlign: 'left' }}>
-														{flag(item.cc)}{item.name}
-														{language === item.id && <span style={{ marginLeft: 'auto', color: '#19171d', fontWeight: 800 }}>✓</span>}
-													</button>
-												))}
-											</div>
-										)}
-									</div>
-								);
-							})()}
-						</div>
-
-						{/* 4. Estilo */}
-						<div style={{ marginBottom: '20px' }}>
-							<strong style={label}>4 · Estilo</strong>
-							<div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
-								<div>
-									<p style={{ margin: '0 0 4px', fontSize: '12px', color: '#716d79' }}>Colores</p>
-									<div style={{ display: 'flex', gap: '8px' }}>
-										<button type="button" onClick={() => setColorMode('winner')} style={chip(colorMode === 'winner')}>Del ganador</button>
-										<button type="button" onClick={() => setColorMode('brand')} style={chip(colorMode === 'brand')}>De mi marca</button>
-									</div>
-								</div>
-								<div>
-									<p style={{ margin: '0 0 4px', fontSize: '12px', color: '#716d79' }}>Tipografía</p>
-									<div style={{ display: 'flex', gap: '8px' }}>
-										<button type="button" onClick={() => setTypoMode('winner')} style={chip(typoMode === 'winner')}>Del ganador</button>
-										<button type="button" onClick={() => setTypoMode('brand')} style={chip(typoMode === 'brand')}>De mi marca</button>
-									</div>
+									))}
 								</div>
 							</div>
-							<p style={{ margin: '8px 0 0', fontSize: '11.5px', color: '#8b8490' }}>Si el anuncio ganador tiene un logo, en el paso de revisión te vamos a preguntar si querés poner el tuyo.</p>
 						</div>
 
-						{/* 5. Cantidad de variantes */}
-						<div style={{ marginBottom: '20px' }}>
-							<strong style={label}>5 · Cantidad de variantes</strong>
-							<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-								{[1, 2, 3, 4].map((val) => (
-									<button
-										key={val}
-										type="button"
-										onClick={() => setCount(val)}
-										style={{
-											...chip(count === val),
-											padding: '10px 18px',
-											fontSize: '14px',
-											fontWeight: 700,
-										}}
-									>
-										{val}
-									</button>
-								))}
-								<span style={{ fontSize: '13px', color: '#716d79', marginLeft: '8px', fontWeight: 600 }}>
-									{count === 1 ? 'Usa 1 crédito' : `Usa ${count} créditos`}
-								</span>
+						{/* 3 · Estilo (idioma, colores, tipografía, cantidad, indicación extra) */}
+						<div className="wiz-step" hidden={formStep !== 3}>
+							<div className="wiz-body">
+								<label className="picker-label">Estilo del anuncio</label>
+								<BatchSelect label="Idioma del anuncio" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+								<div className="batch-style-group">
+									<span className="picker-label">Colores</span>
+									<div className="batch-style-options">
+										{STYLE_OPTIONS.map((option) => (
+											<button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value as 'winner' | 'brand')} aria-pressed={colorMode === option.value}>{option.label}</button>
+										))}
+									</div>
+								</div>
+								<div className="batch-style-group">
+									<span className="picker-label">Tipografía</span>
+									<div className="batch-style-options">
+										{STYLE_OPTIONS.map((option) => (
+											<button key={option.value} type="button" className={typoMode === option.value ? 'active' : ''} onClick={() => setTypoMode(option.value as 'winner' | 'brand')} aria-pressed={typoMode === option.value}>{option.label}</button>
+										))}
+									</div>
+								</div>
+								<p style={{ margin: '0', fontSize: '11.5px', color: '#8b8490' }}>Si el anuncio ganador tiene un logo, en el paso de revisión te vamos a preguntar si querés poner el tuyo.</p>
+
+								<label className="picker-label" style={{ marginTop: '4px' }}>Cantidad de variantes</label>
+								<div className="picker-options" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+									{[1, 2, 3, 4].map((val) => (
+										<button key={val} type="button" className={`picker-pill ${count === val ? 'active' : ''}`} onClick={() => setCount(val)}>
+											<span className="pill-count">{val} {val === 1 ? 'variante' : 'variantes'}</span>
+											<span className="pill-sub">{val === 1 ? 'Usa 1 crédito' : `Usa ${val} créditos`}</span>
+										</button>
+									))}
+								</div>
+
+								<label className="picker-label" style={{ marginTop: '4px' }}>Indicación extra (opcional)</label>
+								<textarea
+									className="wiz-input"
+									value={extra}
+									onChange={(event) => setExtra(event.target.value)}
+									placeholder="Ej: resaltá el precio, tono más descontracturado…"
+									rows={2}
+								/>
 							</div>
 						</div>
 
-						{/* 6. Indicación extra */}
-						<div style={{ marginBottom: '20px' }}>
-							<strong style={label}>6 · Indicación extra (opcional)</strong>
-							<textarea
-								value={extra}
-								onChange={(event) => setExtra(event.target.value)}
-								placeholder="Ej: resaltá el precio, tono más descontracturado…"
-								style={{ width: '100%', minHeight: '52px', padding: '11px 13px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '13.5px', resize: 'vertical', fontFamily: 'inherit' }}
-							/>
-						</div>
+						{error && <p style={{ margin: '14px 0 0', padding: '12px 14px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '10px', color: '#a43f3f', fontSize: '14px' }}>{error}</p>}
 
-						{error && <p style={{ margin: '0 0 14px', padding: '12px 14px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '10px', color: '#a43f3f', fontSize: '14px' }}>{error}</p>}
+						{formStep === 1 && (
+							<div className="wiz-actions" style={{ marginTop: '16px' }}>
+								<button type="button" className="url-batch-submit-btn wiz-continue-btn" onClick={() => { if (!step1Ready) { setError('Contanos qué vas a promocionar antes de continuar.'); return; } setError(''); setFormStep(2); }}>
+									<span>Continuar</span>
+								</button>
+							</div>
+						)}
 
-						<button
-							type="button"
-							onClick={() => void requestPlan()}
-							disabled={phase === 'planning'}
-							className="studio-primary-button"
-							style={{ width: '100%', height: '50px', background: '#744bde', color: '#fff', border: 0, fontSize: '15px', fontWeight: 800, borderRadius: '11px', cursor: 'pointer', opacity: phase === 'planning' ? 0.6 : 1 }}
-						>
-							{phase === 'planning' ? <><span className="studio-spinner small" aria-hidden="true" /> Analizando el ganador y escribiendo los textos…</> : 'Generar textos del anuncio →'}
-						</button>
-						<p style={{ margin: '7px 0 0', fontSize: '12px', color: '#8b8490', textAlign: 'center' }}>Todavía no se genera la imagen: primero revisás y aprobás los textos.</p>
+						{formStep === 2 && (
+							<div className="wiz-actions" style={{ marginTop: '16px' }}>
+								<button type="button" className="wiz-back" onClick={() => setFormStep(1)}>← Atrás</button>
+								<button type="button" className="url-batch-submit-btn" onClick={() => setFormStep(3)}>
+									<span>Continuar</span>
+								</button>
+							</div>
+						)}
+
+						{formStep === 3 && (
+							<div className="wiz-actions" style={{ marginTop: '16px' }}>
+								<button type="button" className="wiz-back" onClick={() => setFormStep(2)} disabled={phase === 'planning'}>← Atrás</button>
+								<button
+									type="button"
+									onClick={() => void requestPlan()}
+									disabled={phase === 'planning'}
+									className="url-batch-submit-btn"
+								>
+									{phase === 'planning' ? (
+										<><span className="studio-spinner small" aria-hidden="true" /> Analizando el ganador y escribiendo los textos…</>
+									) : (
+										<>
+											<span>Generar textos del anuncio</span>
+											<span className="btn-credits-badge">Todavía no gastás créditos</span>
+										</>
+									)}
+								</button>
+							</div>
+						)}
 					</>}
 
 					{(phase === 'review' || phase === 'starting') && plan && <>
 						{plan.templateHasLogoSlot && !includeLogo && (
-							<div style={{ 
-								display: 'flex', 
-								alignItems: 'center', 
-								justifyContent: 'space-between', 
-								gap: '12px', 
-								flexWrap: 'wrap', 
-								padding: '12px 16px', 
-								background: '#f4f0ff', 
-								border: '1px solid #dcd2ff', 
-								borderRadius: '11px', 
-								marginBottom: '16px' 
+							<div style={{
+								display: 'flex',
+								alignItems: 'center',
+								justifyContent: 'space-between',
+								gap: '12px',
+								flexWrap: 'wrap',
+								padding: '12px 16px',
+								background: '#f4f0ff',
+								border: '1px solid #dcd2ff',
+								borderRadius: '11px',
+								marginBottom: '16px'
 							}}>
 								<span style={{ fontSize: '13.5px', color: '#522cbd', fontWeight: 600 }}>
 									💡 Este diseño tiene un espacio ideal para colocar tu logo o nombre de marca.
 								</span>
-								<button 
-									type="button" 
-									onClick={() => setIncludeLogo(true)} 
-									style={{ 
-										padding: '6px 12px', 
-										borderRadius: '8px', 
-										border: 0, 
-										background: '#744bde', 
-										color: '#fff', 
-										fontSize: '13px', 
-										fontWeight: 700, 
-										cursor: 'pointer' 
+								<button
+									type="button"
+									onClick={() => setIncludeLogo(true)}
+									style={{
+										padding: '6px 12px',
+										borderRadius: '8px',
+										border: 0,
+										background: '#744bde',
+										color: '#fff',
+										fontSize: '13px',
+										fontWeight: 700,
+										cursor: 'pointer'
 									}}
 								>
 									Incluir mi logo
@@ -526,14 +521,14 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							</div>
 						)}
 						{plan.templateHasLogoSlot && includeLogo && (
-							<div style={{ 
-								display: 'flex', 
-								alignItems: 'center', 
-								gap: '8px', 
-								padding: '12px 16px', 
-								background: '#e8f9f0', 
-								border: '1px solid #c1eed6', 
-								borderRadius: '11px', 
+							<div style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: '8px',
+								padding: '12px 16px',
+								background: '#e8f9f0',
+								border: '1px solid #c1eed6',
+								borderRadius: '11px',
 								marginBottom: '16px',
 								fontSize: '13.5px',
 								color: '#1e7e4a',
@@ -642,16 +637,15 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 						{error && <p style={{ margin: '0 0 14px', padding: '12px 14px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '10px', color: '#a43f3f', fontSize: '14px' }}>{error}</p>}
 
-						<div style={{ display: 'flex', gap: '10px' }}>
-							<button type="button" onClick={() => setPhase('setup')} style={{ flex: '0 0 auto', padding: '0 22px', height: '52px', borderRadius: '12px', border: '1px solid #744bde', background: '#fff', color: '#744bde', fontSize: '15px', fontWeight: 700, cursor: 'pointer' }}>← Ajustes</button>
+						<div className="wiz-actions">
+							<button type="button" className="wiz-back" onClick={() => { setPhase('setup'); setFormStep(3); }} disabled={phase === 'starting'}>← Ajustes</button>
 							<button
 								type="button"
 								onClick={() => void approveAndGenerate()}
 								disabled={phase === 'starting'}
-								className="studio-primary-button"
-								style={{ flex: 1, height: '52px', background: '#744bde', color: '#fff', border: 0, fontSize: '16px', fontWeight: 800, borderRadius: '12px', cursor: 'pointer', opacity: phase === 'starting' ? 0.6 : 1 }}
+								className="url-batch-submit-btn"
 							>
-								{phase === 'starting' ? <><span className="studio-spinner small" aria-hidden="true" /> Iniciando generación…</> : `Aprobar y generar ✓ · ${count} ${count === 1 ? 'crédito' : 'créditos'}`}
+								{phase === 'starting' ? <><span className="studio-spinner small" aria-hidden="true" /> Iniciando generación…</> : <span>Aprobar y generar ✓ · {count} {count === 1 ? 'crédito' : 'créditos'}</span>}
 							</button>
 						</div>
 					</>}

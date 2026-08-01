@@ -42,7 +42,7 @@ export { driveBatchWorkers };
  * bandera dentro de un <option> se dibujan como las dos letras del código
  * ("AR Español" en vez de "🇦🇷 Español"), porque el sistema no trae los glifos.
  */
-const BatchSelect: React.FC<{
+export const BatchSelect: React.FC<{
 	label: string;
 	value: string;
 	options: Array<{ value: string; label: string; cc?: string; emoji?: string; hint?: string }>;
@@ -162,7 +162,7 @@ const FORMAT_CARDS = [
 // Banderas como imagen, igual que en la generación individual. Los emoji de
 // bandera no sirven: Windows no trae los glifos y los dibuja como las dos letras
 // del código ("AR Español" en vez de la bandera).
-const LANGUAGE_OPTIONS = [
+export const LANGUAGE_OPTIONS = [
 	{ value: 'es', label: 'Español', cc: 'ar' },
 	{ value: 'en', label: 'Inglés', cc: 'us' },
 	{ value: 'pt', label: 'Portugués', cc: 'br' },
@@ -177,7 +177,7 @@ const BRAND_OPTIONS = [
 	{ value: 'none', label: 'Sin marca', emoji: '🚫', hint: 'Solo producto, sin logo ni redes' },
 ];
 
-const STYLE_OPTIONS = [
+export const STYLE_OPTIONS = [
 	{ value: 'winner', label: 'Del anuncio ganador', emoji: '🏆', hint: 'Conserva lo que hizo funcionar al original' },
 	{ value: 'brand', label: 'De mi marca', emoji: '🎨', hint: 'Usa los colores y la tipografía de tu marca' },
 ];
