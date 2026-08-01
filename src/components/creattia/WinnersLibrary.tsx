@@ -86,20 +86,20 @@ const nicheLabels: Record<string, string> = {
 	'Real Estate': 'Inmobiliaria',
 };
 
-// Supported Winners Categories — IDs match categoryLeaf values in the manifest
+// Ángulo del anuncio — IDs coinciden con categoryLeaf en el manifiesto.
 const winnersCategories = [
-	{ id: 'todos', label: 'Todos los anuncios' },
-	{ id: 'guardados', label: '❤️ Guardados' },
-	{ id: 'hero', label: 'Producto héroe' },
-	{ id: 'caracteristicas', label: 'Características' },
-	{ id: 'precio', label: 'Precio / Oferta' },
-	{ id: 'resenas', label: 'Reseñas' },
-	{ id: 'mitos', label: 'Cazador de mitos' },
-	{ id: 'urgencia', label: 'Urgencia' },
-	{ id: 'envio', label: 'Envío gratis' },
-	{ id: 'competencia', label: 'Nosotros vs Ellos' },
-	{ id: 'garantia', label: 'Garantía' }
+	{ id: 'hero', label: 'Producto héroe', icon: '🎯' },
+	{ id: 'caracteristicas', label: 'Características', icon: '📋' },
+	{ id: 'precio', label: 'Precio / Oferta', icon: '💸' },
+	{ id: 'resenas', label: 'Reseñas', icon: '⭐' },
+	{ id: 'mitos', label: 'Cazador de mitos', icon: '💭' },
+	{ id: 'urgencia', label: 'Urgencia', icon: '⏰' },
+	{ id: 'envio', label: 'Envío gratis', icon: '📦' },
+	{ id: 'competencia', label: 'Nosotros vs Ellos', icon: '⚔️' },
+	{ id: 'garantia', label: 'Garantía', icon: '🛡️' },
 ];
+const categoryIcons: Record<string, string> = Object.fromEntries(winnersCategories.map((c) => [c.id, c.icon]));
+const categoryLabels: Record<string, string> = Object.fromEntries(winnersCategories.map((c) => [c.id, c.label]));
 
 // Use categoryLeaf from manifest (set by Foreplay's own classification) as primary source
 function classifyItem(item: any): string {
@@ -261,9 +261,20 @@ export default function WinnersLibrary({
 	const [savedOnly, setSavedOnly] = useState(false);
 	const [showNicheMenu, setShowNicheMenu] = useState(false);
 	const [selectedFormat, setSelectedFormat] = useState<'todos' | 'static_image' | 'carousel'>('todos');
+	const [selectedCategories, setSelectedCategories] = useState<string[]>(['todos']);
+	const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+
+	useEffect(() => {
+		if (!showCategoryMenu) return;
+		const close = () => setShowCategoryMenu(false);
+		window.addEventListener('click', close);
+		return () => window.removeEventListener('click', close);
+	}, [showCategoryMenu]);
 	// Menú de click derecho sobre una tarjeta: guardar/usar sin tener que
 	// pasar por los botones chiquitos superpuestos a la imagen.
 	const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; item: WinnerItem } | null>(null);
+	// Página actual de cada carrusel, por imagePath.
+	const [carouselSlideIndex, setCarouselSlideIndex] = useState<Record<string, number>>({});
 
 	useEffect(() => {
 		if (!cardContextMenu) return;
@@ -752,9 +763,16 @@ export default function WinnersLibrary({
 		return { static_image: staticCount, carousel: carouselCount };
 	}, [items]);
 
+	// Cuántos ganadores hay de cada ángulo (hero, precio, reseñas, etc.)
+	const categoryCounts = useMemo(() => {
+		const m: Record<string, number> = {};
+		items.forEach((item) => { const c = item.category || 'hero'; m[c] = (m[c] || 0) + 1; });
+		return m;
+	}, [items]);
+
 	// Filter items
 	const filteredItems = useMemo(() => {
-		return items.filter(item => {
+		return items.filter((item) => {
 			// Guardados
 			if (savedOnly) {
 				const isSaved = item.imagePath ? likedScrapedPaths.has(item.imagePath) : favorites.has(item.templateId);
@@ -766,6 +784,11 @@ export default function WinnersLibrary({
 				const itemIsCarousel = item.metadata?.mediaType === 'carousel';
 				if (selectedFormat === 'carousel' && !itemIsCarousel) return false;
 				if (selectedFormat === 'static_image' && itemIsCarousel) return false;
+			}
+
+			// Ángulo del anuncio (hero, precio, reseñas...)
+			if (!selectedCategories.includes('todos') && selectedCategories.length > 0) {
+				if (!selectedCategories.includes(item.category || 'hero')) return false;
 			}
 
 			// Niche filter
@@ -791,11 +814,11 @@ export default function WinnersLibrary({
 
 			return matchesNiche && matchesSearch;
 		});
-	}, [items, savedOnly, selectedFormat, selectedNiches, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedFormat, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
 
 	// Lazy load: primeras 30 tarjetas y +30 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(30);
-	useEffect(() => { setVisibleCount(30); }, [savedOnly, selectedFormat, selectedNiches, query]);
+	useEffect(() => { setVisibleCount(30); }, [savedOnly, selectedFormat, selectedCategories, selectedNiches, query]);
 	const gridRef = React.useRef<HTMLDivElement | null>(null);
 	const [columnCount, setColumnCount] = useState(4);
 	useEffect(() => {
@@ -1091,6 +1114,37 @@ export default function WinnersLibrary({
 						)}
 					</div>
 
+					<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
+						<button type="button" className="niche-dd-trigger" onClick={() => setShowCategoryMenu((v) => !v)}>
+							<span className="niche-dd-label">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? 'Todos los ángulos' : a.length === 1 ? (categoryLabels[a[0]] || a[0]) : `${a.length} ángulos`; })()}</span>
+							<span className="niche-dd-badge">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? items.length : a.reduce((s, x) => s + (categoryCounts[x] || 0), 0); })()}</span>
+							<span className={`niche-dd-caret${showCategoryMenu ? ' is-open' : ''}`}>▾</span>
+						</button>
+						{showCategoryMenu && (
+							<div className="niche-dd-menu">
+								<button type="button" className={`niche-dd-item${selectedCategories.includes('todos') || !selectedCategories.length ? ' is-active' : ''}`} onClick={() => setSelectedCategories(['todos'])}>
+									<span className="niche-dd-icon" aria-hidden>✨</span>
+									<span className="niche-dd-name">Todos los ángulos</span><span className="niche-dd-count">{items.length}</span>
+									<span className="niche-dd-check">{selectedCategories.includes('todos') || !selectedCategories.length ? '✓' : ''}</span>
+								</button>
+								{winnersCategories.map((cat) => {
+									const active = selectedCategories.includes(cat.id);
+									return (
+										<button type="button" key={cat.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => {
+											let next = selectedCategories.filter((x) => x !== 'todos');
+											if (next.includes(cat.id)) next = next.filter((x) => x !== cat.id); else next.push(cat.id);
+											setSelectedCategories(next.length ? next : ['todos']);
+										}}>
+											<span className="niche-dd-icon" aria-hidden>{categoryIcons[cat.id] || '🏷️'}</span>
+											<span className="niche-dd-name">{cat.label}</span><span className="niche-dd-count">{categoryCounts[cat.id] || 0}</span>
+											<span className="niche-dd-check">{active ? '✓' : ''}</span>
+										</button>
+									);
+								})}
+							</div>
+						)}
+					</div>
+
 					<div style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '3px', height: '42px', borderRadius: '21px', border: '1px solid #dcd5e4', background: '#fff', boxSizing: 'border-box' }}>
 						{([
 							['todos', '✨ Todos', items.length],
@@ -1145,9 +1199,25 @@ export default function WinnersLibrary({
 					{columnItems.map((item, idx) => {
 						const hasFailed = item.imagePath ? failedImages.has(item.imagePath) : false;
 						if (hasFailed) return null; // imagen rota: no mostrar placeholder genérico
-						const imageUrl = supabase
-							? supabase.storage.from('creative-references').getPublicUrl(item.imagePath).data.publicUrl
-							: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${item.imagePath}`;
+						const urlFor = (path: string) => supabase
+							? supabase.storage.from('creative-references').getPublicUrl(path).data.publicUrl
+							: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${path}`;
+						const imageUrl = urlFor(item.imagePath);
+
+						// Carrusel: varias páginas para navegar dentro de la misma tarjeta.
+						const slides = item.metadata?.mediaType === 'carousel' && Array.isArray(item.metadata.carouselImages) && item.metadata.carouselImages.length > 1
+							? item.metadata.carouselImages
+							: null;
+						const slideIdx = slides ? Math.min(carouselSlideIndex[item.imagePath] || 0, slides.length - 1) : 0;
+						const slideUrl = slides ? urlFor(slides[slideIdx]) : imageUrl;
+						const goToSlide = (delta: number) => {
+							if (!slides) return;
+							setCarouselSlideIndex((prev) => {
+								const current = Math.min(prev[item.imagePath] || 0, slides.length - 1);
+								const next = (current + delta + slides.length) % slides.length;
+								return { ...prev, [item.imagePath]: next };
+							});
+						};
 
 						const isSelected = selectedImagePaths.includes(item.imagePath);
 
@@ -1309,9 +1379,9 @@ export default function WinnersLibrary({
 										<Icon name="heart" size={15} fill={(item.imagePath ? likedScrapedPaths.has(item.imagePath) : favorites.has(item.templateId)) ? '#ff4185' : 'none'} />
 									</button>
 									
-									{/* Carousel Badge */}
-									{(item.metadata?.mediaType === 'carousel' || (item.metadata?.carouselImages?.length ?? 0) > 0) && (
-										<div 
+									{/* Carousel Badge: cuenta real de página cuando se puede navegar */}
+									{(slides || item.metadata?.mediaType === 'carousel') && (
+										<div
 											style={{
 												position: 'absolute',
 												top: '10px',
@@ -1326,16 +1396,43 @@ export default function WinnersLibrary({
 												fontWeight: 700,
 												display: 'flex',
 												alignItems: 'center',
-												gap: '4px'
+												gap: '4px',
+												fontVariantNumeric: 'tabular-nums',
 											}}
 										>
 											<Icon name="layers" size={10} />
-											{item.metadata.carouselImages ? `${item.metadata.carouselImages.length} PÁGS` : 'CARRUSEL'}
+											{slides ? `${slideIdx + 1} / ${slides.length}` : 'CARRUSEL'}
 										</div>
 									)}
 
+									{/* Flechas para pasar de página del carrusel */}
+									{slides && (
+										<>
+											<button
+												type="button"
+												onClick={(e) => { e.stopPropagation(); goToSlide(-1); }}
+												aria-label="Página anterior"
+												style={{
+													position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', zIndex: 4,
+													width: '26px', height: '26px', borderRadius: '50%', border: 0,
+													background: 'rgba(25,23,29,0.55)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer',
+												}}
+											>‹</button>
+											<button
+												type="button"
+												onClick={(e) => { e.stopPropagation(); goToSlide(1); }}
+												aria-label="Página siguiente"
+												style={{
+													position: 'absolute', top: '50%', right: '8px', transform: 'translateY(-50%)', zIndex: 4,
+													width: '26px', height: '26px', borderRadius: '50%', border: 0,
+													background: 'rgba(25,23,29,0.55)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer',
+												}}
+											>›</button>
+										</>
+									)}
+
 									<img
-										src={imageUrl}
+										src={slideUrl}
 										alt={item.name}
 										style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }}
 										loading="lazy"
@@ -1344,7 +1441,7 @@ export default function WinnersLibrary({
 											const img = event.currentTarget;
 											if (!img.dataset.retried) {
 												img.dataset.retried = '1';
-												window.setTimeout(() => { img.src = imageUrl; }, 1500 + Math.random() * 2500);
+												window.setTimeout(() => { img.src = slideUrl; }, 1500 + Math.random() * 2500);
 												return;
 											}
 											if (item.imagePath && !failedImages.has(item.imagePath)) {
