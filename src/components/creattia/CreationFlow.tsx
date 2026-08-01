@@ -405,20 +405,22 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							<div className="wiz-body">
 								<label className="picker-label">Estilo del anuncio</label>
 								<BatchSelect label="Idioma del anuncio" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
-								<div className="batch-style-group">
-									<span className="picker-label">Colores</span>
-									<div className="batch-style-options">
-										{STYLE_OPTIONS.map((option) => (
-											<button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value as 'winner' | 'brand')} aria-pressed={colorMode === option.value}>{option.label}</button>
-										))}
+								<div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
+									<div className="batch-style-group" style={{ flex: '0 1 220px', maxWidth: '260px' }}>
+										<span className="picker-label">Colores</span>
+										<div className="batch-style-options">
+											{STYLE_OPTIONS.map((option) => (
+												<button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value as 'winner' | 'brand')} aria-pressed={colorMode === option.value}>{option.label}</button>
+											))}
+										</div>
 									</div>
-								</div>
-								<div className="batch-style-group">
-									<span className="picker-label">Tipografía</span>
-									<div className="batch-style-options">
-										{STYLE_OPTIONS.map((option) => (
-											<button key={option.value} type="button" className={typoMode === option.value ? 'active' : ''} onClick={() => setTypoMode(option.value as 'winner' | 'brand')} aria-pressed={typoMode === option.value}>{option.label}</button>
-										))}
+									<div className="batch-style-group" style={{ flex: '0 1 220px', maxWidth: '260px' }}>
+										<span className="picker-label">Tipografía</span>
+										<div className="batch-style-options">
+											{STYLE_OPTIONS.map((option) => (
+												<button key={option.value} type="button" className={typoMode === option.value ? 'active' : ''} onClick={() => setTypoMode(option.value as 'winner' | 'brand')} aria-pressed={typoMode === option.value}>{option.label}</button>
+											))}
+										</div>
 									</div>
 								</div>
 								<p style={{ margin: '0', fontSize: '11.5px', color: '#8b8490' }}>Si el anuncio ganador tiene un logo, en el paso de revisión te vamos a preguntar si querés poner el tuyo.</p>
@@ -466,21 +468,17 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 						{formStep === 3 && (
 							<div className="wiz-actions" style={{ marginTop: '16px' }}>
 								<button type="button" className="wiz-back" onClick={() => setFormStep(2)} disabled={phase === 'planning'}>← Atrás</button>
-								<button
-									type="button"
-									onClick={() => void requestPlan()}
-									disabled={phase === 'planning'}
-									className="url-batch-submit-btn"
-								>
-									{phase === 'planning' ? (
-										<><span className="studio-spinner small" aria-hidden="true" /> Analizando el ganador y escribiendo los textos…</>
-									) : (
-										<>
-											<span>Generar textos del anuncio</span>
-											<span className="btn-credits-badge">Todavía no gastás créditos</span>
-										</>
-									)}
-								</button>
+								<div className="batch-continue-wrap">
+									<button
+										type="button"
+										onClick={() => void requestPlan()}
+										disabled={phase === 'planning'}
+										className="url-batch-submit-btn"
+									>
+										{phase === 'planning' ? <><span className="studio-spinner small" aria-hidden="true" /> Analizando el ganador y escribiendo los textos…</> : 'Generar textos del anuncio'}
+									</button>
+									{phase !== 'planning' && <span className="batch-credit-note">Todavía no gastás créditos</span>}
+								</div>
 							</div>
 						)}
 					</>}

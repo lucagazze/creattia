@@ -1,0 +1,1815 @@
+{
+  "carousel": {
+    "status": 200,
+    "count": 10,
+    "types": {
+      "carousel": 10
+    },
+    "sample": [
+      {
+        "ad_id": "1333230368657672",
+        "avatar": "https://r2.foreplay.co/1333230368657672/6a1ce7f06cd9f0dda1370741aa94dba9.jpg",
+        "brandId": "fWZTuMXUfZ3uLzOupazy",
+        "cards": [
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/6853d4a336d528cb985216ed06f8a1e5.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/3b866268deb066110bb6f4f959612f88.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/206046eb698c73e4fc8434974099a1eb.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/b7af6b6acb915b5042321c60a5126322.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/c406055dbd19ef6b2cd471ef485a9e09.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/956c7b83b28cd9522694b4def12898de.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/fe64b04252ebf19210adae159c96a66a.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/1b584047aad65ae283d5a3636a7fc791.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/1b4881732a010d41fca302115f52987f.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/da0e8eebc22c89b70de4ca638a8c4ce9.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          }
+        ],
+        "categories": [
+          "Health & Beauty",
+          "Dermatologist",
+          "Spa"
+        ],
+        "createdAt": 1783619292378,
+        "cta_title": "",
+        "cta_type": "SIGN_UP",
+        "description": "I'm looking for women who've been told their acne is \"just hormonal\" but no one's actually helped them fix it.\n\nYou know the drill:\n\nYour GP offers you the pill or antibiotics.\n\nYour dermatologist suggests another retinoid.\n\nThe internet says \"cut out gluten\" or \"heal your gut\" or \"balance your hormones.\"\n\nSo you try it all.\n\nAnd you're STILL breaking out.\n\nYou're not just tired. You're exhausted.\n\nYou're fed up with: \n❌ Treatments that work for 8 weeks then stop\n❌ Waking up to new breakouts even when you're \"doing everything right\"\n❌ Feeling like your skin is controlling your entire life\n\nIf this sounds like you, I made something specifically for you. → Keep reading.\n\nI'm Cheryl, a skincare scientist and former acne sufferer.\n\nI spent years on the same cycle you're on now - antibiotics, expensive skincare, cutting out foods, trying \"all the things.\"\n\nNothing worked long-term. Until I discovered what was ACTUALLY happening.\n\nI'm hosting a FREE 3-Part Acne Class where I'll show you exactly what I discovered.\n\n🎬 You'll learn:\n🔍 Why \"healthy\" women still break out (this isn't about eating better)\n🔍 The 3 hidden traps that make treatments fail\n🔍 What's really driving your acne (and how to finally address it)\n\nThis isn't another product recommendation.\n\nThis isn't a quick fix.\n\nThis is about understanding what's been happening in YOUR body all along.\n\n🗓️ FREE 3-Part Acne Class\n\n📍 Limited to women who've tried antibiotics, the pill, expensive skincare - and nothing's worked long-term\n\nIf that's you, use this link to get instant access to part #1: honestyforyourskin.co.uk/get-clear\n\nYou deserve to understand what's happening.\n\nYou deserve answers, not another bandaid solution.\n\nLet's figure this out together 💛",
+        "display_format": "CAROUSEL",
+        "emotionalDrivers": {
+          "nostalgia": 2,
+          "guilt": 3,
+          "engagement": 6,
+          "esteem": 9,
+          "curiosity": 9,
+          "achievement": 3,
+          "anger": 6,
+          "empowerment": 8,
+          "belonging": 2,
+          "competence": 4,
+          "security": 4,
+          "urgency": 5,
+          "authority": 7,
+          "nurturance": 5,
+          "fear": 2
+        },
+        "headline": "",
+        "hideFromFeed": null,
+        "languages": [
+          "English"
+        ],
+        "last_checked": {
+          "_seconds": 1783619282,
+          "_nanoseconds": 728000000
+        },
+        "likes": 164,
+        "link_url": "https://honestyforyourskin.co.uk/get-clear",
+        "live": true,
+        "name": "Honesty For Your Skin",
+        "needsScreenshot": true,
+        "needsSentimentDrivers": false,
+        "needsTranscription": true,
+        "niches": [
+          "Beauty",
+          "Medical"
+        ],
+        "persona": {
+          "gender": "woman",
+          "age": "unknown"
+        },
+        "publisher_platform": [
+          "facebook",
+          "instagram",
+          "audience_network",
+          "messenger",
+          "threads"
+        ],
+        "spyderAd": null,
+        "startedRunning": 1777964400000,
+        "timeProductWasMentioned": -1,
+        "timestampedTranscription": null,
+        "transcriptionStatus": null,
+        "type": "carousel",
+        "id": "86hGQlEWL8gYAe1PhEW2",
+        "brand_industry": "Health & Wellness",
+        "brand_business_type": "E-commerce skincare retailer",
+        "brand_target_audience": "Skincare minimalists seeking effective routines",
+        "brand_primary_platform": "Web",
+        "brand_revenue_model": "One-time",
+        "brand_geo_focus": "Unknown",
+        "brand_risk_flags": [],
+        "brand_spam_likelihood": "None",
+        "brand_enriched": true,
+        "spyder_brand": false,
+        "marketTarget": "b2c",
+        "productCategory": "skincare education",
+        "creativeTargeting": "acne sufferers"
+      },
+      {
+        "ad_id": "1519882619770012",
+        "avatar": "https://r2.foreplay.co/1519882619770012/833e8991d5848b0816a1f8e0b2760c1d.jpg",
+        "brandId": "VHolXbBhmma40sTspbPW",
+        "cards": [
+          {
+            "image": "https://r2.foreplay.co/1519882619770012/e31fc9bed7d2d1db1ab76c3496d20891.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Discover the Elements Collection",
+            "type": "image",
+            "headline": "Discover the Elements Collection",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "oa4NKXekEritrIR9jC3D",
+                "ad_id": "1519882619770012",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1519882619770012/bc8fd08e6a9f5c3bc3bafe8562a7319c.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Discover the Art of Filipino Fragrance Making",
+            "type": "image",
+            "headline": "Discover the Art of Filipino Fragrance Making",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "oa4NKXekEritrIR9jC3D",
+                "ad_id": "1519882619770012",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1519882619770012/0270ebda438faa67099048c846ac0d06.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "World-Class Scents, Crafted by Filipino Artisans",
+            "type": "image",
+            "headline": "World-Class Scents, Crafted by Filipino Artisans",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "oa4NKXekEritrIR9jC3D",
+                "ad_id": "1519882619770012",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1519882619770012/01117b774c081b236e1a3fae81e8cc51.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Niche-Quality Scents, Filipino-Crafted and Globally Refined",
+            "type": "image",
+            "headline": "Niche-Quality Scents, Filipino-Crafted and Globally Refined",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "oa4NKXekEritrIR9jC3D",
+                "ad_id": "1519882619770012",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          }
+        ],
+        "categories": [
+          "Health/beauty"
+        ],
+        "createdAt": 1783220377087,
+        "cta_title": "",
+        "cta_type": "SHOP_NOW",
+        "description": "Meet the Elements Collection, a fragrant ode to the Philippines, where every scent holds a story that is crafted to match your mood, your energy, your identity.\n\n🌾 Banaue Bliss — For peaceful mornings & grounding days\nFresh greens and morning dew open the scent, settling into warm earthy woods.\n\nPerfect for: weekend brunches, self-care days, nature trips, journaling mornings.\nWhy you’ll love it: it makes you feel calm, centered, and emotionally grounded...your natural warm aura, bottled.\n\n🌿 Baguio Verde — For everyday freshness & clean confidence\nCrisp pine and cool mountain greenery give a bright, refreshing start, then melt into airy, light woods.\n\nPerfect for: workdays, meetings, errands, classes, casual dates.\nWhy you’ll love it: it’s extremely wearable....clean, long-lasting, and perfect for your daily go-to scent.\n\n🌴 Siargao Escape — For carefree, social, and sunny moments\nFresh coconut water and sea breeze open the scent, settling into warm, sunlit tropical softness.\n\nPerfect for: beach trips, vacations, café dates, weekends with friends.\nWhy you’ll love it: it lifts your mood instantly ...bright, breezy, and perfect for days you want to feel alive and spontaneous.\n\n✅ High-strength 25% perfume oil concentration for exceptional longevity and presence.\n✅ 8–10 hours on skin, even longer on fabric.\n🇵🇭 Original artisan fragrances crafted by Filipino perfumers trained in Grasse, France\n\nChoose the scent that fits the moments you live for.\n\nYour signature awaits.",
+        "display_format": "CAROUSEL",
+        "emotionalDrivers": {
+          "nostalgia": 5,
+          "guilt": 1,
+          "engagement": 9,
+          "esteem": 7,
+          "curiosity": 6,
+          "achievement": 3,
+          "anger": 1,
+          "empowerment": 6,
+          "belonging": 8,
+          "competence": 4,
+          "security": 3,
+          "urgency": 4,
+          "authority": 5,
+          "nurturance": 7,
+          "fear": 1
+        },
+        "headline": "",
+        "hideFromFeed": null,
+        "languages": [
+          "English"
+        ],
+        "last_checked": {
+          "_seconds": 1783220369,
+          "_nanoseconds": 654000000
+        },
+        "likes": 47083,
+        "link_url": "https://noahsolutions.ph/collections/gp-dreamers-collection",
+        "live": true,
+        "name": "Noah",
+        "needsScreenshot": true,
+        "needsSentimentDrivers": false,
+        "needsTranscription": true,
+        "niches": [
+          "Beauty"
+        ],
+        "persona": {
+          "gender": "woman",
+          "age": "unknown"
+        },
+        "publisher_platform": [
+          "facebook",
+          "instagram",
+          "audience_network",
+          "messenger",
+          "threads"
+        ],
+        "spyderAd": null,
+        "startedRunning": 1778742000000,
+        "timeProductWasMentioned": 5,
+        "timestampedTranscription": null,
+        "transcriptionStatus": null,
+        "type": "carousel",
+        "id": "oa4NKXekEritrIR9jC3D",
+        "brand_industry": "Creator Economy",
+        "brand_business_type": "Link-in-bio platform",
+        "brand_target_audience": "Social media users, content creators",
+        "brand_primary_platform": "Web",
+        "brand_revenue_model": "Freemium",
+        "brand_geo_focus": "Global",
+        "brand_risk_flags": [],
+        "brand_spam_likelihood": "Low",
+        "spyder_brand": true,
+        "brand_enriched": true,
+        "marketTarget": "b2c",
+        "productCategory": "fine fragrance",
+        "creativeTargeting": "fragrance enthusiasts"
+      },
+      {
+        "ad_id": "1495224612354318",
+        "avatar": "https://r2.foreplay.co/1495224612354318/fabafc8b159af64be13800ec42e16fc5.jpg",
+        "brandId": "i5b6ZRvjxXYLIiIPTus2",
+        "cards": [
+          {
+            "image": "https://r2.foreplay.co/1495224612354318/08686b4faa63ba5b372a5211d2414e3f.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Aqua vs Acqua di Gio",
+            "type": "image",
+            "headline": "Aqua vs Acqua di Gio",
+            "link_description": "₱375 vs ₱8200 | Same scent",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "abR5HV8VqWxJs8LBjg0w",
+                "ad_id": "1495224612354318",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1495224612354318/4b48ed3280e5e259bd712e26d46bb64f.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Bronx vs Bvlgari",
+            "type": "image",
+            "headline": "Bronx vs Bvlgari",
+            "link_description": "₱375 vs ₱5,895 | Premium match",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "abR5HV8VqWxJs8LBjg0w",
+                "ad_id": "1495224612354318",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1495224612354318/08686b4faa63ba5b372a5211d2414e3f.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Aqua vs Acqua di Gio",
+            "type": "image",
+            "headline": "Aqua vs Acqua di Gio",
+            "link_description": "₱375 vs ₱8200 | Same scent",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "abR5HV8VqWxJs8LBjg0w",
+                "ad_id": "1495224612354318",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1495224612354318/4b48ed3280e5e259bd712e26d46bb64f.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Bronx vs Bvlgari",
+            "type": "image",
+            "headline": "Bronx vs Bvlgari",
+            "link_description": "₱375 vs ₱5,895 | Premium match",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "abR5HV8VqWxJs8LBjg0w",
+                "ad_id": "1495224612354318",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1495224612354318/92a90a2a6ad9ac093f57137d62de9afa.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Troy vs Sauvage",
+            "type": "image",
+            "headline": "Troy vs Sauvage",
+            "link_description": "₱499 vs ₱10,500 | Award-winning",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "abR5HV8VqWxJs8LBjg0w",
+                "ad_id": "1495224612354318",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1495224612354318/1f1b319e321a15dce3a1e41c2d572249.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Hudson vs Nishane",
+            "type": "image",
+            "headline": "Hudson vs Nishane",
+            "link_description": "₱375 vs ₱12,195 | Luxury dupe",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "abR5HV8VqWxJs8LBjg0w",
+                "ad_id": "1495224612354318",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1495224612354318/9c46445f90ba9cf4e5e29fa0c44f2f77.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Brooklyn vs Invictus",
+            "type": "image",
+            "headline": "Brooklyn vs Invictus",
+            "link_description": "₱379 vs ₱5,500 | #1 bestseller",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "abR5HV8VqWxJs8LBjg0w",
+                "ad_id": "1495224612354318",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1495224612354318/d4ff8cd60f0a3947b9c3b1dcf038177d.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Empire vs Versace",
+            "type": "image",
+            "headline": "Empire vs Versace",
+            "link_description": "₱499 vs ₱5,495 | Bold & memorable",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "abR5HV8VqWxJs8LBjg0w",
+                "ad_id": "1495224612354318",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1495224612354318/f1916e6aad4179cf04c0a3de74632a7a.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Wallstreet vs Aventus",
+            "type": "image",
+            "headline": "Wallstreet vs Aventus",
+            "link_description": "₱375 vs ₱23,000 | CEO's choice",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "abR5HV8VqWxJs8LBjg0w",
+                "ad_id": "1495224612354318",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1495224612354318/923d402f0ea231bb52694cb8d81b105c.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Manhattan vs Lacoste",
+            "type": "image",
+            "headline": "Manhattan vs Lacoste",
+            "link_description": "₱499 vs ₱5,750 | Office to date",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "abR5HV8VqWxJs8LBjg0w",
+                "ad_id": "1495224612354318",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1495224612354318/a6125ba2c46523819a2ac15d74a28598.jpg",
+            "cta_text": "Shop Now",
+            "description": "",
+            "title": "Aphrodite vs Creed",
+            "type": "image",
+            "headline": "Aphrodite vs Creed",
+            "link_description": "₱375 vs ₱12,500 | For her",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "abR5HV8VqWxJs8LBjg0w",
+                "ad_id": "1495224612354318",
+                "started_running": 1778742000000,
+                "live": true
+              }
+            ]
+          }
+        ],
+        "categories": [
+          "Health & Beauty"
+        ],
+        "createdAt": 1783219838072,
+        "cta_title": "",
+        "cta_type": "SHOP_NOW",
+        "description": "Why pay Thousand when ₱375-₱499 gets you the same scent?\n\nSame fragrance pyramid. Same longevity. Same compliments.\n\n1M+ Filipinos already switched.\n\n👉 Try now",
+        "display_format": "CAROUSEL",
+        "emotionalDrivers": {
+          "nostalgia": 1,
+          "guilt": 1,
+          "engagement": 3,
+          "esteem": 6,
+          "curiosity": 5,
+          "achievement": 2,
+          "anger": 1,
+          "empowerment": 4,
+          "belonging": 8,
+          "competence": 5,
+          "security": 4,
+          "urgency": 7,
+          "authority": 2,
+          "nurturance": 1,
+          "fear": 1
+        },
+        "headline": "",
+        "hideFromFeed": null,
+        "languages": [
+          "English"
+        ],
+        "last_checked": {
+          "_seconds": 1783219811,
+          "_nanoseconds": 414000000
+        },
+        "likes": 2944,
+        "link_url": "https://newyorkarmy.ph/collections/all-perfumes",
+        "live": true,
+        "name": "Newyork Army Philippines",
+        "needsScreenshot": true,
+        "needsSentimentDrivers": false,
+        "needsTranscription": true,
+        "niches": [
+          "Beauty"
+        ],
+        "persona": {
+          "gender": "all genders",
+          "age": "unknown"
+        },
+        "publisher_platform": [
+          "facebook",
+          "instagram",
+          "audience_network",
+          "messenger",
+          "threads"
+        ],
+        "spyderAd": null,
+        "startedRunning": 1778742000000,
+        "timeProductWasMentioned": -1,
+        "timestampedTranscription": null,
+        "transcriptionStatus": null,
+        "type": "carousel",
+        "id": "abR5HV8VqWxJs8LBjg0w",
+        "brand_enriched": false,
+        "spyder_brand": false,
+        "marketTarget": "b2c",
+        "productCategory": "fragrance alternatives",
+        "creativeTargeting": "budget conscious consumers"
+      }
+    ]
+  },
+  "dco": {
+    "status": 200,
+    "count": 10,
+    "types": {
+      "dco": 10
+    },
+    "sample": [
+      {
+        "ad_id": "2763008304100197",
+        "avatar": "https://r2.foreplay.co/737024659e152988aedcd94d27d03a1017f543acffa215979a19bd70a0873b59.jpg",
+        "brandId": "LuVQcsCQnezjrgwxsYoZ",
+        "cards": [
+          {
+            "image": "https://r2.foreplay.co/07975abb3590959309cf935354ab1323d9d0decec7db7c746de10d6ffc654431.png",
+            "cta_text": "Shop Now",
+            "description": "Your morning ritual, upgraded.\n Marine collagen, ceremonial matcha, and skin-supporting actives — now 20% off for 48 hours only.",
+            "title": "Enjoy 20% off — this weekend only.",
+            "type": "image",
+            "headline": "Enjoy 20% off — this weekend only.",
+            "link_description": null,
+            "sameCreativeCount": 5,
+            "relatedAds": [
+              {
+                "id": "QsdbGqKG2BnIlcjFEsw6",
+                "ad_id": "27433845909600188",
+                "started_running": 1782802800000,
+                "live": true,
+                "end_date": null
+              },
+              {
+                "id": "eqk0wumTtQCqQvXpAzrL",
+                "ad_id": "1036854742080978",
+                "started_running": 1778914800000,
+                "live": true,
+                "end_date": 1784271600000
+              },
+              {
+                "id": "Ca7BH9a7mLxhJFXetQEB",
+                "ad_id": "2763008304100197",
+                "started_running": 1778828400000,
+                "live": false,
+                "end_date": 1785349281602
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/922e621d201c68d648c6c3cea3887273fa5d3a3ee99ee8524e7a2278432b9601.png",
+            "cta_text": "Shop Now",
+            "description": "Your morning ritual, upgraded.\n Marine collagen, ceremonial matcha, and skin-supporting actives — now 20% off for 48 hours only.",
+            "title": "Enjoy 20% off — this weekend only.",
+            "type": "image",
+            "headline": "Enjoy 20% off — this weekend only.",
+            "link_description": null,
+            "sameCreativeCount": 2,
+            "relatedAds": [
+              {
+                "id": "eqk0wumTtQCqQvXpAzrL",
+                "ad_id": "1036854742080978",
+                "started_running": 1778914800000,
+                "live": true,
+                "end_date": 1784271600000
+              },
+              {
+                "id": "Ca7BH9a7mLxhJFXetQEB",
+                "ad_id": "2763008304100197",
+                "started_running": 1778828400000,
+                "live": false,
+                "end_date": 1785349281602
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/07975abb3590959309cf935354ab1323d9d0decec7db7c746de10d6ffc654431.png",
+            "cta_text": "Shop Now",
+            "description": "Your morning ritual, upgraded.\n Marine collagen, ceremonial matcha, and skin-supporting actives — now 20% off for 48 hours only.",
+            "title": "Enjoy 20% off — this weekend only.",
+            "type": "image",
+            "headline": "Enjoy 20% off — this weekend only.",
+            "link_description": null,
+            "sameCreativeCount": 5,
+            "relatedAds": [
+              {
+                "id": "QsdbGqKG2BnIlcjFEsw6",
+                "ad_id": "27433845909600188",
+                "started_running": 1782802800000,
+                "live": true,
+                "end_date": null
+              },
+              {
+                "id": "eqk0wumTtQCqQvXpAzrL",
+                "ad_id": "1036854742080978",
+                "started_running": 1778914800000,
+                "live": true,
+                "end_date": 1784271600000
+              },
+              {
+                "id": "Ca7BH9a7mLxhJFXetQEB",
+                "ad_id": "2763008304100197",
+                "started_running": 1778828400000,
+                "live": false,
+                "end_date": 1785349281602
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/07975abb3590959309cf935354ab1323d9d0decec7db7c746de10d6ffc654431.png",
+            "cta_text": "Shop Now",
+            "description": "Supercharge your morning matcha with collagen peptides, vitamin C, and beauty benefits from within.",
+            "title": "Enjoy 20% off — this weekend only.",
+            "type": "image",
+            "headline": "Enjoy 20% off — this weekend only.",
+            "link_description": null,
+            "sameCreativeCount": 5,
+            "relatedAds": [
+              {
+                "id": "QsdbGqKG2BnIlcjFEsw6",
+                "ad_id": "27433845909600188",
+                "started_running": 1782802800000,
+                "live": true,
+                "end_date": null
+              },
+              {
+                "id": "eqk0wumTtQCqQvXpAzrL",
+                "ad_id": "1036854742080978",
+                "started_running": 1778914800000,
+                "live": true,
+                "end_date": 1784271600000
+              },
+              {
+                "id": "Ca7BH9a7mLxhJFXetQEB",
+                "ad_id": "2763008304100197",
+                "started_running": 1778828400000,
+                "live": false,
+                "end_date": 1785349281602
+              }
+            ]
+          }
+        ],
+        "categories": [
+          "Health & Beauty"
+        ],
+        "createdAt": 1784139542811,
+        "creativeTargeting": "health conscious adults",
+        "cta_title": "",
+        "cta_type": "SHOP_NOW",
+        "display_format": "DCO",
+        "emotionalDrivers": {
+          "achievement": 2,
+          "anger": 1,
+          "authority": 2,
+          "belonging": 1,
+          "competence": 2,
+          "curiosity": 3,
+          "empowerment": 3,
+          "engagement": 4,
+          "esteem": 6,
+          "fear": 1,
+          "guilt": 1,
+          "nostalgia": 1,
+          "nurturance": 5,
+          "security": 2,
+          "urgency": 8
+        },
+        "headline": "",
+        "hideFromFeed": false,
+        "languages": [
+          "English"
+        ],
+        "last_checked": {
+          "_seconds": 1784139540,
+          "_nanoseconds": 587000000
+        },
+        "likes": 1058,
+        "link_url": "https://parolive.com/collections/ceremonial-grade-matcha",
+        "live": false,
+        "marketTarget": "b2c",
+        "name": "Par Olive",
+        "needsContentFilter": true,
+        "needsScreenshot": true,
+        "needsSentimentDrivers": false,
+        "niches": [
+          "Beauty"
+        ],
+        "persona": {
+          "age": "unknown",
+          "gender": "both"
+        },
+        "productCategory": "beauty wellness supplement",
+        "publisher_platform": [
+          "facebook",
+          "instagram",
+          "messenger",
+          "threads"
+        ],
+        "spyderAd": true,
+        "startedRunning": 1778828400000,
+        "timeProductWasMentioned": -1,
+        "type": "dco",
+        "id": "Ca7BH9a7mLxhJFXetQEB",
+        "brand_enriched": false,
+        "spyder_brand": false,
+        "end_date": 1785349281602
+      },
+      {
+        "ad_id": "937042875997646",
+        "avatar": "https://r2.foreplay.co/937042875997646/f3a1cedca43e35172beb1f5bdac935bb.jpg",
+        "brandId": "xz4pUjg0iwVsddmqCFGl",
+        "cards": [
+          {
+            "image": "https://r2.foreplay.co/937042875997646/02ee3c69f4a5684f97ca23c48c29094b.jpg",
+            "cta_text": "Shop Now",
+            "description": "What if under-eye bags and wrinkles could look smoother in minutes? Watch Skinbunny’s Under Eye 🌟 Say Goodbye to Dark Circles! 🌟 Tired of dark circles, puffiness, and fine lines? Our Under Eye Enhancer is your instant solution! Loved by customers nationwide and rated 5 stars, this miracle formula dramatically reduces wrinkles and brightens under eyes in seconds. Plus, it’s gentle on all skin types and perfect for daily use!\n\n🛍️ Special Offer: Enjoy 10% off your first purchase! Use code FB10 at checkout.\n\n👉 Don’t wait! Transform your look and shop now to reveal brighter, younger-looking eyes!",
+            "title": "Shop 10% Off First Purchase: FB10 🎁",
+            "type": "image",
+            "headline": "Shop 10% Off First Purchase: FB10 🎁",
+            "link_description": null,
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "ScPsjHpzpKD5wXjfhW2g",
+                "ad_id": "937042875997646",
+                "started_running": 1777618800000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/937042875997646/282e893d9e259caaa2b6480503094301.jpg",
+            "cta_text": "Shop Now",
+            "description": "What if under-eye bags and wrinkles could look smoother in minutes? Watch Skinbunny’s Under Eye 🌟 Say Goodbye to Dark Circles! 🌟 Tired of dark circles, puffiness, and fine lines? Our Under Eye Enhancer is your instant solution! Loved by customers nationwide and rated 5 stars, this miracle formula dramatically reduces wrinkles and brightens under eyes in seconds. Plus, it’s gentle on all skin types and perfect for daily use!\n\n🛍️ Special Offer: Enjoy 10% off your first purchase! Use code FB10 at checkout.\n\n👉 Don’t wait! Transform your look and shop now to reveal brighter, younger-looking eyes!",
+            "title": "Shop 10% Off First Purchase: FB10 🎁",
+            "type": "image",
+            "headline": "Shop 10% Off First Purchase: FB10 🎁",
+            "link_description": null,
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "ScPsjHpzpKD5wXjfhW2g",
+                "ad_id": "937042875997646",
+                "started_running": 1777618800000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/937042875997646/050a1359420e923b05b961033a22a6d2.jpg",
+            "cta_text": "Shop Now",
+            "description": "What if under-eye bags and wrinkles could look smoother in minutes? Watch Skinbunny’s Under Eye 🌟 Say Goodbye to Dark Circles! 🌟 Tired of dark circles, puffiness, and fine lines? Our Under Eye Enhancer is your instant solution! Loved by customers nationwide and rated 5 stars, this miracle formula dramatically reduces wrinkles and brightens under eyes in seconds. Plus, it’s gentle on all skin types and perfect for daily use!\n\n🛍️ Special Offer: Enjoy 10% off your first purchase! Use code FB10 at checkout.\n\n👉 Don’t wait! Transform your look and shop now to reveal brighter, younger-looking eyes!",
+            "title": "Shop 10% Off First Purchase: FB10 🎁",
+            "type": "image",
+            "headline": "Shop 10% Off First Purchase: FB10 🎁",
+            "link_description": null,
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "ScPsjHpzpKD5wXjfhW2g",
+                "ad_id": "937042875997646",
+                "started_running": 1777618800000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/937042875997646/609cf0c17ca75922b6354368570d8e39.jpg",
+            "cta_text": "Shop Now",
+            "description": "What if under-eye bags and wrinkles could look smoother in minutes? Watch Skinbunny’s Under Eye 🌟 Say Goodbye to Dark Circles! 🌟 Tired of dark circles, puffiness, and fine lines? Our Under Eye Enhancer is your instant solution! Loved by customers nationwide and rated 5 stars, this miracle formula dramatically reduces wrinkles and brightens under eyes in seconds. Plus, it’s gentle on all skin types and perfect for daily use!\n\n🛍️ Special Offer: Enjoy 10% off your first purchase! Use code FB10 at checkout.\n\n👉 Don’t wait! Transform your look and shop now to reveal brighter, younger-looking eyes!",
+            "title": "Shop 10% Off First Purchase: FB10 🎁",
+            "type": "image",
+            "headline": "Shop 10% Off First Purchase: FB10 🎁",
+            "link_description": null,
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "ScPsjHpzpKD5wXjfhW2g",
+                "ad_id": "937042875997646",
+                "started_running": 1777618800000,
+                "live": true
+              }
+            ]
+          }
+        ],
+        "categories": [
+          "Health & Beauty"
+        ],
+        "createdAt": 1783604443818,
+        "cta_title": "",
+        "cta_type": "SHOP_NOW",
+        "display_format": "DCO",
+        "emotionalDrivers": {
+          "nostalgia": 1,
+          "guilt": 2,
+          "engagement": 6,
+          "esteem": 9,
+          "curiosity": 7,
+          "achievement": 3,
+          "anger": 1,
+          "empowerment": 8,
+          "belonging": 2,
+          "competence": 4,
+          "security": 4,
+          "urgency": 8,
+          "authority": 5,
+          "nurturance": 3,
+          "fear": 2
+        },
+        "headline": "",
+        "hideFromFeed": null,
+        "languages": [
+          "English"
+        ],
+        "last_checked": {
+          "_seconds": 1783604440,
+          "_nanoseconds": 690000000
+        },
+        "likes": 11178,
+        "link_url": "https://skinbunny.co.uk/products/skinbunnys-under-eye-enhancer-flash-sale-b-test",
+        "live": true,
+        "name": "Skinbunny Skincare",
+        "needsScreenshot": true,
+        "needsSentimentDrivers": false,
+        "needsTranscription": true,
+        "niches": [
+          "Beauty"
+        ],
+        "persona": {
+          "gender": "woman",
+          "age": "unknown"
+        },
+        "publisher_platform": [
+          "facebook",
+          "instagram",
+          "audience_network",
+          "messenger"
+        ],
+        "spyderAd": null,
+        "startedRunning": 1777618800000,
+        "timeProductWasMentioned": -1,
+        "timestampedTranscription": null,
+        "transcriptionStatus": null,
+        "type": "dco",
+        "id": "ScPsjHpzpKD5wXjfhW2g",
+        "brand_industry": "Health & Wellness",
+        "brand_business_type": "E-commerce skincare brand",
+        "brand_target_audience": "Individuals seeking quick anti-aging solutions",
+        "brand_primary_platform": "Web",
+        "brand_revenue_model": "One-time",
+        "brand_geo_focus": "EU-focused",
+        "brand_risk_flags": [],
+        "brand_spam_likelihood": "Low",
+        "spyder_brand": true,
+        "brand_enriched": true,
+        "marketTarget": "b2c",
+        "productCategory": "skincare cosmetic",
+        "creativeTargeting": "beauty conscious women"
+      },
+      {
+        "ad_id": "1580649709663011",
+        "avatar": "https://r2.foreplay.co/1580649709663011/423a462c2305437fdf896563af449ba7.jpg",
+        "brandId": "xz4pUjg0iwVsddmqCFGl",
+        "cards": [
+          {
+            "image": "https://r2.foreplay.co/1580649709663011/a7434745c5fbad190b759ddf8d96df2c.jpg",
+            "cta_text": "Shop Now",
+            "description": "Flash Sale: Only £18.75 (was £24.99)! Under-eye bags that won’t go away? SkinBunny Under Eye Enhancer smooths, brightens, and refreshes your under eyes in under two minutes. Instant transformation you can see!\n\nClinically backed. Cruelty free. Made in the UK 🇬🇧",
+            "title": "FLASH SALE",
+            "type": "image",
+            "headline": "FLASH SALE",
+            "link_description": "Only £18.75 (was £24.99)",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "NbUDKrs9mTlwqSUCXbB2",
+                "ad_id": "1580649709663011",
+                "started_running": 1776236400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1580649709663011/8fdecbe1cf63f69f0fa00512348f82bc.jpg",
+            "cta_text": "Shop Now",
+            "description": "Flash Sale: Only £18.75 (was £24.99)! Under-eye bags that won’t go away? SkinBunny Under Eye Enhancer smooths, brightens, and refreshes your under eyes in under two minutes. Instant transformation you can see!\n\nClinically backed. Cruelty free. Made in the UK 🇬🇧",
+            "title": "FLASH SALE",
+            "type": "image",
+            "headline": "FLASH SALE",
+            "link_description": "Only £18.75 (was £24.99)",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "NbUDKrs9mTlwqSUCXbB2",
+                "ad_id": "1580649709663011",
+                "started_running": 1776236400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1580649709663011/a1d44fcb1bd575beb5a385c5a24ada59.jpg",
+            "cta_text": "Shop Now",
+            "description": "Flash Sale: Only £18.75 (was £24.99)! Under-eye bags that won’t go away? SkinBunny Under Eye Enhancer smooths, brightens, and refreshes your under eyes in under two minutes. Instant transformation you can see!\n\nClinically backed. Cruelty free. Made in the UK 🇬🇧",
+            "title": "FLASH SALE",
+            "type": "image",
+            "headline": "FLASH SALE",
+            "link_description": "Only £18.75 (was £24.99)",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "NbUDKrs9mTlwqSUCXbB2",
+                "ad_id": "1580649709663011",
+                "started_running": 1776236400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1580649709663011/7b29c2e79682b3e1ae33d6c405703f1a.jpg",
+            "cta_text": "Shop Now",
+            "description": "Flash Sale: Only £18.75 (was £24.99)! Under-eye bags that won’t go away? SkinBunny Under Eye Enhancer smooths, brightens, and refreshes your under eyes in under two minutes. Instant transformation you can see!\n\nClinically backed. Cruelty free. Made in the UK 🇬🇧",
+            "title": "FLASH SALE",
+            "type": "image",
+            "headline": "FLASH SALE",
+            "link_description": "Only £18.75 (was £24.99)",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "NbUDKrs9mTlwqSUCXbB2",
+                "ad_id": "1580649709663011",
+                "started_running": 1776236400000,
+                "live": true
+              }
+            ]
+          }
+        ],
+        "categories": [
+          "Health & Beauty"
+        ],
+        "createdAt": 1783604438867,
+        "cta_title": "",
+        "cta_type": "SHOP_NOW",
+        "display_format": "DCO",
+        "emotionalDrivers": {
+          "nostalgia": 1,
+          "guilt": 1,
+          "engagement": 6,
+          "esteem": 8,
+          "curiosity": 6,
+          "achievement": 2,
+          "anger": 1,
+          "empowerment": 7,
+          "belonging": 1,
+          "competence": 2,
+          "security": 3,
+          "urgency": 9,
+          "authority": 5,
+          "nurturance": 4,
+          "fear": 2
+        },
+        "headline": "",
+        "hideFromFeed": null,
+        "languages": [
+          "English"
+        ],
+        "last_checked": {
+          "_seconds": 1783604434,
+          "_nanoseconds": 877000000
+        },
+        "likes": 11178,
+        "link_url": "https://skinbunny.co.uk/products/skinbunnys-under-eye-enhancer-flash-sale-b-test",
+        "live": true,
+        "name": "Skinbunny Skincare",
+        "needsScreenshot": true,
+        "needsSentimentDrivers": false,
+        "needsTranscription": true,
+        "niches": [
+          "Beauty"
+        ],
+        "persona": {
+          "gender": "woman",
+          "age": "25-45"
+        },
+        "publisher_platform": [
+          "facebook",
+          "instagram",
+          "audience_network",
+          "messenger"
+        ],
+        "spyderAd": null,
+        "startedRunning": 1776236400000,
+        "timeProductWasMentioned": 12,
+        "timestampedTranscription": null,
+        "transcriptionStatus": null,
+        "type": "dco",
+        "id": "NbUDKrs9mTlwqSUCXbB2",
+        "brand_industry": "Health & Wellness",
+        "brand_business_type": "E-commerce skincare brand",
+        "brand_target_audience": "Individuals seeking quick anti-aging solutions",
+        "brand_primary_platform": "Web",
+        "brand_revenue_model": "One-time",
+        "brand_geo_focus": "EU-focused",
+        "brand_risk_flags": [],
+        "brand_spam_likelihood": "Low",
+        "spyder_brand": true,
+        "brand_enriched": true,
+        "marketTarget": "b2c",
+        "productCategory": "skincare product",
+        "creativeTargeting": "beauty conscious women"
+      }
+    ]
+  },
+  "no-format": {
+    "status": 200,
+    "count": 10,
+    "types": {
+      "dco": 3,
+      "video": 6,
+      "carousel": 1
+    },
+    "sample": [
+      {
+        "ad_id": "2763008304100197",
+        "avatar": "https://r2.foreplay.co/737024659e152988aedcd94d27d03a1017f543acffa215979a19bd70a0873b59.jpg",
+        "brandId": "LuVQcsCQnezjrgwxsYoZ",
+        "cards": [
+          {
+            "image": "https://r2.foreplay.co/07975abb3590959309cf935354ab1323d9d0decec7db7c746de10d6ffc654431.png",
+            "cta_text": "Shop Now",
+            "description": "Your morning ritual, upgraded.\n Marine collagen, ceremonial matcha, and skin-supporting actives — now 20% off for 48 hours only.",
+            "title": "Enjoy 20% off — this weekend only.",
+            "type": "image",
+            "headline": "Enjoy 20% off — this weekend only.",
+            "link_description": null,
+            "sameCreativeCount": 5,
+            "relatedAds": [
+              {
+                "id": "eqk0wumTtQCqQvXpAzrL",
+                "ad_id": "1036854742080978",
+                "started_running": 1778914800000,
+                "live": true,
+                "end_date": 1784271600000
+              },
+              {
+                "id": "Ca7BH9a7mLxhJFXetQEB",
+                "ad_id": "2763008304100197",
+                "started_running": 1778828400000,
+                "live": false,
+                "end_date": 1785349281602
+              },
+              {
+                "id": "QsdbGqKG2BnIlcjFEsw6",
+                "ad_id": "27433845909600188",
+                "started_running": 1782802800000,
+                "live": true,
+                "end_date": null
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/922e621d201c68d648c6c3cea3887273fa5d3a3ee99ee8524e7a2278432b9601.png",
+            "cta_text": "Shop Now",
+            "description": "Your morning ritual, upgraded.\n Marine collagen, ceremonial matcha, and skin-supporting actives — now 20% off for 48 hours only.",
+            "title": "Enjoy 20% off — this weekend only.",
+            "type": "image",
+            "headline": "Enjoy 20% off — this weekend only.",
+            "link_description": null,
+            "sameCreativeCount": 2,
+            "relatedAds": [
+              {
+                "id": "eqk0wumTtQCqQvXpAzrL",
+                "ad_id": "1036854742080978",
+                "started_running": 1778914800000,
+                "live": true,
+                "end_date": 1784271600000
+              },
+              {
+                "id": "Ca7BH9a7mLxhJFXetQEB",
+                "ad_id": "2763008304100197",
+                "started_running": 1778828400000,
+                "live": false,
+                "end_date": 1785349281602
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/07975abb3590959309cf935354ab1323d9d0decec7db7c746de10d6ffc654431.png",
+            "cta_text": "Shop Now",
+            "description": "Your morning ritual, upgraded.\n Marine collagen, ceremonial matcha, and skin-supporting actives — now 20% off for 48 hours only.",
+            "title": "Enjoy 20% off — this weekend only.",
+            "type": "image",
+            "headline": "Enjoy 20% off — this weekend only.",
+            "link_description": null,
+            "sameCreativeCount": 5,
+            "relatedAds": [
+              {
+                "id": "eqk0wumTtQCqQvXpAzrL",
+                "ad_id": "1036854742080978",
+                "started_running": 1778914800000,
+                "live": true,
+                "end_date": 1784271600000
+              },
+              {
+                "id": "Ca7BH9a7mLxhJFXetQEB",
+                "ad_id": "2763008304100197",
+                "started_running": 1778828400000,
+                "live": false,
+                "end_date": 1785349281602
+              },
+              {
+                "id": "QsdbGqKG2BnIlcjFEsw6",
+                "ad_id": "27433845909600188",
+                "started_running": 1782802800000,
+                "live": true,
+                "end_date": null
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/07975abb3590959309cf935354ab1323d9d0decec7db7c746de10d6ffc654431.png",
+            "cta_text": "Shop Now",
+            "description": "Supercharge your morning matcha with collagen peptides, vitamin C, and beauty benefits from within.",
+            "title": "Enjoy 20% off — this weekend only.",
+            "type": "image",
+            "headline": "Enjoy 20% off — this weekend only.",
+            "link_description": null,
+            "sameCreativeCount": 5,
+            "relatedAds": [
+              {
+                "id": "eqk0wumTtQCqQvXpAzrL",
+                "ad_id": "1036854742080978",
+                "started_running": 1778914800000,
+                "live": true,
+                "end_date": 1784271600000
+              },
+              {
+                "id": "Ca7BH9a7mLxhJFXetQEB",
+                "ad_id": "2763008304100197",
+                "started_running": 1778828400000,
+                "live": false,
+                "end_date": 1785349281602
+              },
+              {
+                "id": "QsdbGqKG2BnIlcjFEsw6",
+                "ad_id": "27433845909600188",
+                "started_running": 1782802800000,
+                "live": true,
+                "end_date": null
+              }
+            ]
+          }
+        ],
+        "categories": [
+          "Health & Beauty"
+        ],
+        "createdAt": 1784139542811,
+        "creativeTargeting": "health conscious adults",
+        "cta_title": "",
+        "cta_type": "SHOP_NOW",
+        "display_format": "DCO",
+        "emotionalDrivers": {
+          "achievement": 2,
+          "anger": 1,
+          "authority": 2,
+          "belonging": 1,
+          "competence": 2,
+          "curiosity": 3,
+          "empowerment": 3,
+          "engagement": 4,
+          "esteem": 6,
+          "fear": 1,
+          "guilt": 1,
+          "nostalgia": 1,
+          "nurturance": 5,
+          "security": 2,
+          "urgency": 8
+        },
+        "headline": "",
+        "hideFromFeed": false,
+        "languages": [
+          "English"
+        ],
+        "last_checked": {
+          "_seconds": 1784139540,
+          "_nanoseconds": 587000000
+        },
+        "likes": 1058,
+        "link_url": "https://parolive.com/collections/ceremonial-grade-matcha",
+        "live": false,
+        "marketTarget": "b2c",
+        "name": "Par Olive",
+        "needsContentFilter": true,
+        "needsScreenshot": true,
+        "needsSentimentDrivers": false,
+        "niches": [
+          "Beauty"
+        ],
+        "persona": {
+          "age": "unknown",
+          "gender": "both"
+        },
+        "productCategory": "beauty wellness supplement",
+        "publisher_platform": [
+          "facebook",
+          "instagram",
+          "messenger",
+          "threads"
+        ],
+        "spyderAd": true,
+        "startedRunning": 1778828400000,
+        "timeProductWasMentioned": -1,
+        "type": "dco",
+        "id": "Ca7BH9a7mLxhJFXetQEB",
+        "brand_enriched": false,
+        "spyder_brand": false,
+        "end_date": 1785349281602
+      },
+      {
+        "ad_id": "1569396987443336",
+        "avatar": "https://r2.foreplay.co/1569396987443336/530b80fa296d89146779ab9565608137.jpg",
+        "brandId": "8QGrvJuqLHExS882h2td",
+        "categories": [
+          "Health/beauty"
+        ],
+        "createdAt": 1783625705648,
+        "cta_title": "",
+        "cta_type": "WHATSAPP_MESSAGE",
+        "description": "✨ ¿Piel sensible, irritada o con rojeces? Descubre la crema coreana que está revolucionando el skincare. ✨\n\n🌿 Dr. Althea 345 Relief Cream — hidratación profunda, calmante y regeneradora en un solo paso. Su fórmula con niacinamida, pantenol, ceramidas y extractos botánicos trabaja para calmar irritaciones, fortalecer la barrera cutánea y uniformar el tono de la piel sin sensación grasa ni fragancias agresivas.\n\n💧 Ideal para:\n✔️ Piel sensible o reactiva\n✔️ Enrojecimiento y marcas post-acné\n✔️ Sequedad o piel deshidratada\n✔️ Rutinas con ácidos/retinol que necesitan recuperación\n\n🌟 ¿Qué la hace especial?\n✔️ Hidratación intensa que se absorbe rápido\n✔️ Refuerza la barrera cutánea\n✔️ Textura ligera y sedosa\n✔️ Sin parabenos, sin fragancias, vegana\n\n🔎 Restaura tu piel desde adentro — calma, hidrata y protege con cada uso. 🔎\n\n👉 Tu piel merece un cuidado profesional y suave. Atrévete a sentir la diferencia coreana.",
+        "display_format": "VIDEO",
+        "emotionalDrivers": {
+          "nostalgia": 1,
+          "guilt": 1,
+          "engagement": 6,
+          "esteem": 8,
+          "curiosity": 6,
+          "achievement": 3,
+          "anger": 1,
+          "empowerment": 7,
+          "belonging": 2,
+          "competence": 5,
+          "security": 8,
+          "urgency": 3,
+          "authority": 4,
+          "nurturance": 9,
+          "fear": 2
+        },
+        "headline": "Chatea con nosotros",
+        "hideFromFeed": null,
+        "languages": [
+          "Spanish, Castilian"
+        ],
+        "last_checked": {
+          "_seconds": 1783625701,
+          "_nanoseconds": 462000000
+        },
+        "likes": 889,
+        "link_url": "https://api.whatsapp.com/send",
+        "live": true,
+        "name": "Glow Up Perú",
+        "needsScreenshot": true,
+        "needsSentimentDrivers": false,
+        "needsTranscription": false,
+        "niches": [
+          "Beauty"
+        ],
+        "persona": {
+          "gender": "woman",
+          "age": "unknown"
+        },
+        "publisher_platform": [
+          "facebook",
+          "instagram",
+          "audience_network",
+          "messenger"
+        ],
+        "spyderAd": null,
+        "startedRunning": 1768550400000,
+        "thumbnail": "https://r2.foreplay.co/1569396987443336/5f7cc98544e3e3ceb7e5c7c50c38a065.jpg",
+        "timeProductWasMentioned": 3,
+        "timestampedTranscription": [
+          {
+            "sentence": " I want you, i need you. Oh God! Don't take it away from me",
+            "startTime": 0,
+            "endTime": 7
+          }
+        ],
+        "transcriptionStatus": "complete",
+        "type": "video",
+        "video": "https://r2.foreplay.co/1569396987443336/a769c61efcb6d4ccd007b61ca3181e26.mp4",
+        "id": "BHPJGalGtU5x476wZ6Sc",
+        "brand_enriched": false,
+        "spyder_brand": false,
+        "video_duration": 14.97,
+        "marketTarget": "b2c",
+        "productCategory": "skincare cream",
+        "creativeTargeting": "sensitive skin",
+        "sameCreativeCount": 1,
+        "relatedAds": [
+          {
+            "id": "BHPJGalGtU5x476wZ6Sc",
+            "ad_id": "1569396987443336",
+            "started_running": 1768550400000,
+            "live": true
+          }
+        ]
+      },
+      {
+        "ad_id": "1333230368657672",
+        "avatar": "https://r2.foreplay.co/1333230368657672/6a1ce7f06cd9f0dda1370741aa94dba9.jpg",
+        "brandId": "fWZTuMXUfZ3uLzOupazy",
+        "cards": [
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/6853d4a336d528cb985216ed06f8a1e5.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/3b866268deb066110bb6f4f959612f88.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/206046eb698c73e4fc8434974099a1eb.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/b7af6b6acb915b5042321c60a5126322.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/c406055dbd19ef6b2cd471ef485a9e09.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/956c7b83b28cd9522694b4def12898de.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/fe64b04252ebf19210adae159c96a66a.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/1b584047aad65ae283d5a3636a7fc791.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/1b4881732a010d41fca302115f52987f.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          },
+          {
+            "image": "https://r2.foreplay.co/1333230368657672/da0e8eebc22c89b70de4ca638a8c4ce9.jpg",
+            "cta_text": "Sign Up",
+            "description": "",
+            "title": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "type": "image",
+            "headline": "Finally Understand Why Your Acne Keeps Coming Back, Free Acne Class",
+            "link_description": " ",
+            "timestampedTranscription": null,
+            "sameCreativeCount": 1,
+            "relatedAds": [
+              {
+                "id": "86hGQlEWL8gYAe1PhEW2",
+                "ad_id": "1333230368657672",
+                "started_running": 1777964400000,
+                "live": true
+              }
+            ]
+          }
+        ],
+        "categories": [
+          "Health & Beauty",
+          "Dermatologist",
+          "Spa"
+        ],
+        "createdAt": 1783619292378,
+        "cta_title": "",
+        "cta_type": "SIGN_UP",
+        "description": "I'm looking for women who've been told their acne is \"just hormonal\" but no one's actually helped them fix it.\n\nYou know the drill:\n\nYour GP offers you the pill or antibiotics.\n\nYour dermatologist suggests another retinoid.\n\nThe internet says \"cut out gluten\" or \"heal your gut\" or \"balance your hormones.\"\n\nSo you try it all.\n\nAnd you're STILL breaking out.\n\nYou're not just tired. You're exhausted.\n\nYou're fed up with: \n❌ Treatments that work for 8 weeks then stop\n❌ Waking up to new breakouts even when you're \"doing everything right\"\n❌ Feeling like your skin is controlling your entire life\n\nIf this sounds like you, I made something specifically for you. → Keep reading.\n\nI'm Cheryl, a skincare scientist and former acne sufferer.\n\nI spent years on the same cycle you're on now - antibiotics, expensive skincare, cutting out foods, trying \"all the things.\"\n\nNothing worked long-term. Until I discovered what was ACTUALLY happening.\n\nI'm hosting a FREE 3-Part Acne Class where I'll show you exactly what I discovered.\n\n🎬 You'll learn:\n🔍 Why \"healthy\" women still break out (this isn't about eating better)\n🔍 The 3 hidden traps that make treatments fail\n🔍 What's really driving your acne (and how to finally address it)\n\nThis isn't another product recommendation.\n\nThis isn't a quick fix.\n\nThis is about understanding what's been happening in YOUR body all along.\n\n🗓️ FREE 3-Part Acne Class\n\n📍 Limited to women who've tried antibiotics, the pill, expensive skincare - and nothing's worked long-term\n\nIf that's you, use this link to get instant access to part #1: honestyforyourskin.co.uk/get-clear\n\nYou deserve to understand what's happening.\n\nYou deserve answers, not another bandaid solution.\n\nLet's figure this out together 💛",
+        "display_format": "CAROUSEL",
+        "emotionalDrivers": {
+          "nostalgia": 2,
+          "guilt": 3,
+          "engagement": 6,
+          "esteem": 9,
+          "curiosity": 9,
+          "achievement": 3,
+          "anger": 6,
+          "empowerment": 8,
+          "belonging": 2,
+          "competence": 4,
+          "security": 4,
+          "urgency": 5,
+          "authority": 7,
+          "nurturance": 5,
+          "fear": 2
+        },
+        "headline": "",
+        "hideFromFeed": null,
+        "languages": [
+          "English"
+        ],
+        "last_checked": {
+          "_seconds": 1783619282,
+          "_nanoseconds": 728000000
+        },
+        "likes": 164,
+        "link_url": "https://honestyforyourskin.co.uk/get-clear",
+        "live": true,
+        "name": "Honesty For Your Skin",
+        "needsScreenshot": true,
+        "needsSentimentDrivers": false,
+        "needsTranscription": true,
+        "niches": [
+          "Beauty",
+          "Medical"
+        ],
+        "persona": {
+          "gender": "woman",
+          "age": "unknown"
+        },
+        "publisher_platform": [
+          "facebook",
+          "instagram",
+          "audience_network",
+          "messenger",
+          "threads"
+        ],
+        "spyderAd": null,
+        "startedRunning": 1777964400000,
+        "timeProductWasMentioned": -1,
+        "timestampedTranscription": null,
+        "transcriptionStatus": null,
+        "type": "carousel",
+        "id": "86hGQlEWL8gYAe1PhEW2",
+        "brand_industry": "Health & Wellness",
+        "brand_business_type": "E-commerce skincare retailer",
+        "brand_target_audience": "Skincare minimalists seeking effective routines",
+        "brand_primary_platform": "Web",
+        "brand_revenue_model": "One-time",
+        "brand_geo_focus": "Unknown",
+        "brand_risk_flags": [],
+        "brand_spam_likelihood": "None",
+        "brand_enriched": true,
+        "spyder_brand": false,
+        "marketTarget": "b2c",
+        "productCategory": "skincare education",
+        "creativeTargeting": "acne sufferers"
+      }
+    ]
+  }
+}
