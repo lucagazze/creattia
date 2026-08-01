@@ -85,8 +85,11 @@ export async function loadWinners(siteOrigin: string): Promise<Winner[]> {
 			}
 			const data: any = await response.json();
 			const items: Winner[] = Array.isArray(data) ? data : data.items || [];
-			// Solo estáticos con imagen: los carruseles no sirven como referencia única.
-			const usable = items.filter((item) => item.imagePath && item.metadata?.mediaType !== 'carousel');
+			// Los carruseles también entran como candidatos: para el lote se clona
+			// solo su portada (página 1), igual que cualquier anuncio estático. El
+			// carrusel completo (todas las páginas) se genera aparte, desde la
+			// biblioteca → "Usar este diseño" → Carrusel completo.
+			const usable = items.filter((item) => item.imagePath);
 			if (usable.length) {
 				cachedWinners = usable;
 				return cachedWinners;

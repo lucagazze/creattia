@@ -1964,6 +1964,31 @@
 	box-shadow: 0 16px 36px rgba(116, 75, 222, 0.12), 0 4px 10px rgba(116, 75, 222, 0.04) !important;
 }
 
+/* Flechas de paginado del carrusel: mismo lenguaje visual que el botón de
+   guardar (círculo blanco, ícono oscuro) para que se distingan bien sobre
+   cualquier imagen de fondo. */
+.carousel-arrow {
+	position: absolute;
+	top: 50%;
+	z-index: 4;
+	width: 30px;
+	height: 30px;
+	transform: translateY(-50%);
+	border: 0;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.92);
+	color: #19171d;
+	display: grid;
+	place-items: center;
+	cursor: pointer;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+	transition: background .12s ease, transform .12s ease, box-shadow .12s ease;
+}
+.carousel-arrow:hover { background: #ffffff; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22); transform: translateY(-50%) scale(1.08); }
+.carousel-arrow:active { transform: translateY(-50%) scale(0.96); }
+.carousel-arrow-prev { left: 8px; }
+.carousel-arrow-next { right: 8px; }
+
 
 /* Category Filter Tags Wrap */
 .winners-library-container .studio-filter-row {

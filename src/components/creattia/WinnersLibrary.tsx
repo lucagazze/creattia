@@ -819,6 +819,19 @@ export default function WinnersLibrary({
 	// Lazy load: primeras 30 tarjetas y +30 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(30);
 	useEffect(() => { setVisibleCount(30); }, [savedOnly, selectedFormat, selectedCategories, selectedNiches, query]);
+
+	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
+	// imagen al instante en vez de esperar a que baje cada foto de a una.
+	useEffect(() => {
+		const urlFor = (path: string) => supabase
+			? supabase.storage.from('creative-references').getPublicUrl(path).data.publicUrl
+			: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${path}`;
+		filteredItems.slice(0, visibleCount).forEach((item) => {
+			const slides = item.metadata?.carouselImages;
+			if (!Array.isArray(slides) || slides.length < 2) return;
+			slides.slice(1).forEach((path) => { const img = new Image(); img.src = urlFor(path); });
+		});
+	}, [filteredItems, visibleCount]);
 	const gridRef = React.useRef<HTMLDivElement | null>(null);
 	const [columnCount, setColumnCount] = useState(4);
 	useEffect(() => {
@@ -1410,24 +1423,20 @@ export default function WinnersLibrary({
 										<>
 											<button
 												type="button"
+												className="carousel-arrow carousel-arrow-prev"
 												onClick={(e) => { e.stopPropagation(); goToSlide(-1); }}
 												aria-label="Página anterior"
-												style={{
-													position: 'absolute', top: '50%', left: '8px', transform: 'translateY(-50%)', zIndex: 4,
-													width: '26px', height: '26px', borderRadius: '50%', border: 0,
-													background: 'rgba(25,23,29,0.55)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer',
-												}}
-											>‹</button>
+											>
+												<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+											</button>
 											<button
 												type="button"
+												className="carousel-arrow carousel-arrow-next"
 												onClick={(e) => { e.stopPropagation(); goToSlide(1); }}
 												aria-label="Página siguiente"
-												style={{
-													position: 'absolute', top: '50%', right: '8px', transform: 'translateY(-50%)', zIndex: 4,
-													width: '26px', height: '26px', borderRadius: '50%', border: 0,
-													background: 'rgba(25,23,29,0.55)', color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer',
-												}}
-											>›</button>
+											>
+												<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+											</button>
 										</>
 									)}
 

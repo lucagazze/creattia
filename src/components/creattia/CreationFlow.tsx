@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS } from './UrlBatchSection';
+import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, driveBatchWorkers } from './UrlBatchSection';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Página completa de creación fiel al ganador (reemplaza el modal). Mismo
@@ -30,7 +30,22 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	onBack: () => void;
 }) {
 	const token = session?.access_token || '';
-	const referenceUrl = `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${ad.imagePath}`;
+	const REFERENCES_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references';
+	const referenceUrl = `${REFERENCES_BASE}/${ad.imagePath}`;
+
+	// Carrusel ganador: varias páginas para elegir cómo generar.
+	const carouselSlides: string[] = ad.metadata?.mediaType === 'carousel' && Array.isArray(ad.metadata?.carouselImages) && ad.metadata.carouselImages.length > 1
+		? ad.metadata.carouselImages
+		: [];
+	const isCarouselAd = carouselSlides.length > 0;
+	const [carouselMode, setCarouselMode] = useState<'full' | 'single'>('full');
+	const [carouselSameProduct, setCarouselSameProduct] = useState(true);
+	const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
+	const [carouselStarting, setCarouselStarting] = useState(false);
+	const wantsFullCarousel = isCarouselAd && carouselMode === 'full';
+	// La página que se clona cuando se elige "solo una página": el resto del
+	// flujo (textos, revisión) funciona exactamente igual que un anuncio suelto.
+	const effectiveReferencePath = isCarouselAd && carouselMode === 'single' ? carouselSlides[selectedSlideIndex] : ad.imagePath;
 
 	// Cómo cargar el producto: por URL(s), a mano (con archivos), o sin producto.
 	const [productMode, setProductMode] = useState<'url' | 'manual'>('url');
@@ -70,8 +85,12 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 		border: active ? '2px solid #744bde' : '1px solid #e2dde9', background: active ? '#f4f2f6' : '#fff', color: active ? '#744bde' : '#3f3a48',
 	} as const);
 
-	const step1Ready = (productMode === 'url' && urls.some((u) => u.trim()))
-		|| (productMode === 'manual' && manualProductName.trim());
+	// Carrusel completo con productos distintos: 1 URL por página, en orden.
+	// El resto de los casos (mismo producto, o solo una página) piden 1 solo.
+	const urlsNeeded = wantsFullCarousel && !carouselSameProduct ? carouselSlides.length : 1;
+	const filledUrls = urls.map((u) => u.trim()).filter(Boolean).length;
+	const step1Ready = (productMode === 'url' && filledUrls >= urlsNeeded)
+		|| (productMode === 'manual' && manualProductName.trim() && !(wantsFullCarousel && !carouselSameProduct));
 
 	// Escanea una o varias URLs → devuelve los IDs de producto importados.
 	async function scanUrls(list: string[]): Promise<string[]> {
@@ -138,7 +157,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 				setScannedProductIds(productIds);
 			}
 			const form = new FormData();
-			form.set('referencePath', ad.imagePath);
+			form.set('referencePath', effectiveReferencePath);
 			form.set('language', language);
 			form.set('brandSource', brandSource);
 			if (productMode === 'url' && productIds.length) {
@@ -172,7 +191,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			const form = new FormData();
 			form.set('templateId', String(!isNaN(pathPrefixId) ? pathPrefixId : 40));
 			form.set('templateName', ad.name || 'Anuncio Ganador');
-			form.set('referencePath', ad.imagePath);
+			form.set('referencePath', effectiveReferencePath);
 			form.set('imageType', 'promotion');
 			form.set('fidelity', '1');
 			form.set('preset', 'Fiel al ganador');
@@ -207,6 +226,78 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la generación.');
 			setPhase('review');
+		}
+	}
+
+	// Carrusel completo: sin revisión de textos (igual que el lote) — se resuelven
+	// los productos (uno o uno por página) y se arrancan todas las páginas juntas,
+	// agrupadas bajo el mismo batch_id que ya sabe trackear "Mis imágenes".
+	async function approveAndGenerateCarousel() {
+		setCarouselStarting(true); setError('');
+		onGenerationRequested?.();
+		try {
+			let productIds: string[] = [];
+			if (productMode === 'url') {
+				const list = urls.map((u) => u.trim()).filter(Boolean);
+				if (carouselSameProduct) {
+					const ids = await scanUrls([list[0]]);
+					if (!ids.length) return;
+					productIds = [ids[0]];
+				} else {
+					if (list.length < carouselSlides.length) {
+						setError(`Necesitás ${carouselSlides.length} URLs, una por página (tenés ${list.length}).`);
+						return;
+					}
+					const needed = list.slice(0, carouselSlides.length);
+					const ids = await scanUrls(needed);
+					if (ids.length !== needed.length) {
+						setError('No pudimos analizar alguna de las URLs. Revisalas e intentá de nuevo.');
+						return;
+					}
+					productIds = ids;
+				}
+			} else {
+				// Carga a mano: solo válida cuando es el mismo producto en todas las páginas.
+				if (!uploadFiles.length) { setError('Subí al menos una foto del producto.'); return; }
+				const productForm = new FormData();
+				productForm.set('name', manualProductName.trim());
+				productForm.set('description', manualProductFacts.trim());
+				productForm.set('image', uploadFiles[0]);
+				const productRes = await fetch('/api/creativos/products', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: productForm });
+				const productPayload = await productRes.json();
+				if (!productRes.ok || !productPayload.product?.id) throw new Error(productPayload.error || 'No se pudo guardar el producto.');
+				productIds = [productPayload.product.id];
+			}
+
+			const pathPrefixId = parseInt(ad.imagePath.split('/')[0], 10);
+			const response = await fetch('/api/creativos/carousel-start', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+				body: JSON.stringify({
+					referenceSlidePaths: carouselSlides,
+					referenceName: ad.name || 'Carrusel ganador',
+					templateId: !isNaN(pathPrefixId) ? pathPrefixId : 40,
+					productIds,
+					format, language, colorMode, typoMode, brandSource,
+				}),
+			});
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error || 'No se pudo iniciar la generación del carrusel.');
+
+			if (onGenerationStarted) {
+				onGenerationStarted({
+					batchId: payload.batchId,
+					title: `${ad.name} · carrusel`,
+					referenceUrl,
+					count: payload.count,
+				});
+			}
+			onBack();
+			void driveBatchWorkers((payload.generations || []).map((g: any) => g.id), token);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la generación del carrusel.');
+		} finally {
+			setCarouselStarting(false);
 		}
 	}
 
@@ -272,7 +363,11 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 				<section>
 					<h1 style={{ margin: '0 0 5px', fontSize: '23px', color: '#19171d', letterSpacing: '-.02em' }}>Crear con este diseño</h1>
-					<p style={{ margin: '0 0 18px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>Se replica el diseño y el mensaje del ganador con tu producto. Antes de generar revisás y aprobás cada texto.</p>
+					<p style={{ margin: '0 0 18px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>
+						{wantsFullCarousel
+							? `Se replica el carrusel completo (${carouselSlides.length} páginas) con tu producto.`
+							: 'Se replica el diseño y el mensaje del ganador con tu producto. Antes de generar revisás y aprobás cada texto.'}
+					</p>
 
 					{/* Misma barra de progreso que el generador por lote. */}
 					<ol className="wiz-progress" aria-label="Progreso">
@@ -280,7 +375,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 							{ n: 1, label: 'Tu producto', active: phase === 'setup' && formStep === 1, done: phase !== 'setup' || formStep > 1 },
 							{ n: 2, label: 'Formato', active: phase === 'setup' && formStep === 2, done: phase !== 'setup' || formStep > 2 },
 							{ n: 3, label: 'Estilo', active: phase === 'setup' && formStep === 3, done: phase !== 'setup' },
-							{ n: 4, label: 'Revisar textos', active: phase === 'planning' || phase === 'review' || phase === 'starting', done: false },
+							{ n: 4, label: wantsFullCarousel ? 'Generar' : 'Revisar textos', active: phase === 'planning' || phase === 'review' || phase === 'starting' || carouselStarting, done: false },
 						].map((item) => (
 							<li key={item.n} className={`wiz-progress-item ${item.active ? 'active' : ''} ${item.done ? 'done' : ''}`}>
 								<span className="wiz-progress-dot">{item.done ? '✓' : item.n}</span>
@@ -293,11 +388,73 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 						{/* 1 · Tu producto / Servicio */}
 						<div className="wiz-step" hidden={formStep !== 1}>
 							<div className="wiz-body">
+								{isCarouselAd && (
+									<div style={{ marginBottom: '4px' }}>
+										<label className="picker-label">Este ganador es un carrusel de {carouselSlides.length} páginas</label>
+										<div className="wiz-tabs">
+											{([
+												['full', '🗂️', 'Carrusel completo', `Las ${carouselSlides.length} páginas`],
+												['single', '🖼️', 'Solo una página', 'Elegís cuál'],
+											] as const).map(([value, icon, text, hint]) => (
+												<button key={value} type="button" className={`wiz-tab ${carouselMode === value ? 'active' : ''}`} onClick={() => setCarouselMode(value)}>
+													<span className="wiz-tab-icon">{icon}</span>
+													<span className="wiz-tab-label">{text}</span>
+													<small>{hint}</small>
+												</button>
+											))}
+										</div>
+
+										{carouselMode === 'single' && (
+											<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+												{carouselSlides.map((slide, index) => (
+													<button
+														key={slide}
+														type="button"
+														onClick={() => setSelectedSlideIndex(index)}
+														title={`Página ${index + 1}`}
+														style={{
+															padding: 0, width: '64px', height: '64px', borderRadius: '9px', overflow: 'hidden', cursor: 'pointer',
+															border: selectedSlideIndex === index ? '2.5px solid #744bde' : '1.5px solid #e2dde9',
+															background: '#f6f4f9',
+														}}
+													>
+														<img src={`${REFERENCES_BASE}/${slide}`} alt={`Página ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+													</button>
+												))}
+											</div>
+										)}
+
+										{carouselMode === 'full' && (
+											<div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+												{([
+													[true, '📦 Mismo producto en todas'],
+													[false, '🎁 Producto distinto por página'],
+												] as const).map(([value, text]) => (
+													<button
+														key={String(value)}
+														type="button"
+														onClick={() => { setCarouselSameProduct(value); if (!value) setProductMode('url'); }}
+														style={{
+															padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 700,
+															border: carouselSameProduct === value ? '2px solid #744bde' : '1px solid #e2dde9',
+															background: carouselSameProduct === value ? '#f4f2f6' : '#fff',
+															color: carouselSameProduct === value ? '#744bde' : '#3f3a48',
+														}}
+													>
+														{text}
+													</button>
+												))}
+											</div>
+										)}
+										<div style={{ height: '1px', background: '#eee6f2', margin: '16px 0' }} />
+									</div>
+								)}
+
 								<label className="picker-label">¿Qué vas a promocionar?</label>
 								<div className="wiz-tabs">
 									{([
 										['url', '🔗', 'Con URL', 'Analizamos tu página'],
-										['manual', '✍️', 'Cargar a mano', 'Cargás los datos'],
+										...(wantsFullCarousel && !carouselSameProduct ? [] : [['manual', '✍️', 'Cargar a mano', 'Cargás los datos'] as const]),
 									] as const).map(([value, icon, text, hint]) => (
 										<button key={value} type="button" className={`wiz-tab ${productMode === value ? 'active' : ''}`} onClick={() => setProductMode(value)}>
 											<span className="wiz-tab-icon">{icon}</span>
@@ -306,14 +463,22 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 										</button>
 									))}
 								</div>
+								{wantsFullCarousel && !carouselSameProduct && (
+									<p className="wiz-hint">
+										Necesitás {carouselSlides.length} URLs, una por página y en orden ({filledUrls}/{carouselSlides.length} cargadas). La carga a mano no está disponible para productos distintos por página.
+									</p>
+								)}
 
 								{productMode === 'url' && (
 									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 										{urls.map((u, i) => (
 											<div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+												{wantsFullCarousel && !carouselSameProduct && (
+													<span style={{ flexShrink: 0, width: '22px', fontSize: '12px', fontWeight: 800, color: '#8b8490', textAlign: 'center' }}>{i + 1}</span>
+												)}
 												<input value={u}
 													onChange={(e) => setUrls((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))}
-													placeholder="Pegá la URL de tu producto o servicio a analizar"
+													placeholder={wantsFullCarousel && !carouselSameProduct ? `URL del producto de la página ${i + 1}` : 'Pegá la URL de tu producto o servicio a analizar'}
 													className="wiz-input"
 													style={{ flex: 1 }} />
 												{urls.length > 1 && (
@@ -322,10 +487,12 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 												)}
 											</div>
 										))}
-										<button type="button" onClick={() => setUrls((prev) => [...prev, ''])}
-											style={{ alignSelf: 'flex-start', padding: '7px 13px', borderRadius: '9px', border: '1px dashed #cbb8f0', background: '#faf8ff', color: '#5b3fc4', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}>
-											+ Agregar otra URL (otro producto)
-										</button>
+										{!(wantsFullCarousel && carouselSameProduct) && (
+											<button type="button" onClick={() => setUrls((prev) => [...prev, ''])}
+												style={{ alignSelf: 'flex-start', padding: '7px 13px', borderRadius: '9px', border: '1px dashed #cbb8f0', background: '#faf8ff', color: '#5b3fc4', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}>
+												+ Agregar otra URL {wantsFullCarousel && !carouselSameProduct ? '(otra página)' : '(otro producto)'}
+											</button>
+										)}
 									</div>
 								)}
 
@@ -425,15 +592,21 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									</div>
 								</div>
 
-								<label className="picker-label" style={{ marginTop: '4px' }}>Cantidad de variantes</label>
-								<div className="picker-options" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
-									{[1, 2, 3, 4].map((val) => (
-										<button key={val} type="button" className={`picker-pill ${count === val ? 'active' : ''}`} onClick={() => setCount(val)}>
-											<span className="pill-count">{val} {val === 1 ? 'variante' : 'variantes'}</span>
-											<span className="pill-sub">{val === 1 ? 'Usa 1 crédito' : `Usa ${val} créditos`}</span>
-										</button>
-									))}
-								</div>
+								{wantsFullCarousel ? (
+									<p className="wiz-hint">Se generan las {carouselSlides.length} páginas del carrusel — la cantidad la define el diseño original.</p>
+								) : (
+									<>
+										<label className="picker-label" style={{ marginTop: '4px' }}>Cantidad de variantes</label>
+										<div className="picker-options" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+											{[1, 2, 3, 4].map((val) => (
+												<button key={val} type="button" className={`picker-pill ${count === val ? 'active' : ''}`} onClick={() => setCount(val)}>
+													<span className="pill-count">{val} {val === 1 ? 'variante' : 'variantes'}</span>
+													<span className="pill-sub">{val === 1 ? 'Usa 1 crédito' : `Usa ${val} créditos`}</span>
+												</button>
+											))}
+										</div>
+									</>
+								)}
 							</div>
 						</div>
 
@@ -458,18 +631,32 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 						{formStep === 3 && (
 							<div className="wiz-actions" style={{ marginTop: '16px' }}>
-								<button type="button" className="wiz-back" onClick={() => setFormStep(2)} disabled={phase === 'planning'}>← Atrás</button>
-								<div className="batch-continue-wrap">
-									<button
-										type="button"
-										onClick={() => void requestPlan()}
-										disabled={phase === 'planning'}
-										className="url-batch-submit-btn"
-									>
-										{phase === 'planning' ? <><span className="studio-spinner small" aria-hidden="true" /> Analizando el ganador y escribiendo los textos…</> : 'Generar textos del anuncio'}
-									</button>
-									{phase !== 'planning' && <span className="batch-credit-note">Todavía no gastás créditos</span>}
-								</div>
+								<button type="button" className="wiz-back" onClick={() => setFormStep(2)} disabled={phase === 'planning' || carouselStarting}>← Atrás</button>
+								{wantsFullCarousel ? (
+									<div className="batch-continue-wrap">
+										<button
+											type="button"
+											onClick={() => { if (!step1Ready) { setError('Completá los productos antes de generar.'); setFormStep(1); return; } void approveAndGenerateCarousel(); }}
+											disabled={carouselStarting}
+											className="url-batch-submit-btn"
+										>
+											{carouselStarting ? <><span className="studio-spinner small" aria-hidden="true" /> Iniciando el carrusel…</> : `Generar carrusel (${carouselSlides.length} imágenes)`}
+										</button>
+										{!carouselStarting && <span className="batch-credit-note">{carouselSlides.length} {carouselSlides.length === 1 ? 'crédito' : 'créditos'}</span>}
+									</div>
+								) : (
+									<div className="batch-continue-wrap">
+										<button
+											type="button"
+											onClick={() => void requestPlan()}
+											disabled={phase === 'planning'}
+											className="url-batch-submit-btn"
+										>
+											{phase === 'planning' ? <><span className="studio-spinner small" aria-hidden="true" /> Analizando el ganador y escribiendo los textos…</> : 'Generar textos del anuncio'}
+										</button>
+										{phase !== 'planning' && <span className="batch-credit-note">Todavía no gastás créditos</span>}
+									</div>
+								)}
 							</div>
 						)}
 					</>}
