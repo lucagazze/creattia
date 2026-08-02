@@ -2646,17 +2646,14 @@
 .niche-dd-menu::-webkit-scrollbar { width: 8px; }
 .niche-dd-menu::-webkit-scrollbar-thumb { background: #e2dcec; border-radius: 8px; }
 
-/* Filtros de la biblioteca en mobile: los dos desplegables (nicho/ángulo)
-   quedaban cada uno solo en su fila, ocupando casi todo el ancho — se ven
-   grandes y desbalanceados. Acá van lado a lado, más chicos, y la barra de
-   formato scrollea horizontal en vez de romper el layout. */
+/* Filtros de la biblioteca en mobile: cada desplegable (nicho/ángulo/formato)
+   ocupaba casi todo el ancho en su propia fila — se ven grandes y
+   desbalanceados. Acá van lado a lado dentro de cada fila, más chicos. */
 @media (max-width: 640px) {
 	.niche-dd { flex: 1 1 calc(50% - 6px); min-width: 0; }
 	.niche-dd-trigger { width: 100%; height: 38px; padding: 0 10px; gap: 6px; font-size: 12px; }
 	.niche-dd-label { max-width: none; flex: 1; min-width: 0; font-size: 11.5px; }
 	.niche-dd-badge { font-size: 10px; padding: 1px 6px; }
-	.library-format-bar-scroll { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-	.library-format-bar-scroll::-webkit-scrollbar { display: none; }
 }
 
 /* Los estados de espera ocupan el mismo lenguaje visual en toda la app. */

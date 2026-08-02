@@ -98,6 +98,13 @@ const winnersCategories = [
 	{ id: 'competencia', label: 'Nosotros vs Ellos', icon: '⚔️' },
 	{ id: 'garantia', label: 'Garantía', icon: '🛡️' },
 ];
+
+const formatOptions: Array<{ id: 'static_image' | 'carousel' | 'video'; label: string; icon: string }> = [
+	{ id: 'static_image', label: 'Estático', icon: '🖼️' },
+	{ id: 'carousel', label: 'Carrusel', icon: '🗂️' },
+	{ id: 'video', label: 'Video', icon: '🎬' },
+];
+const formatLabels: Record<string, string> = Object.fromEntries(formatOptions.map((f) => [f.id, f.label]));
 const categoryIcons: Record<string, string> = Object.fromEntries(winnersCategories.map((c) => [c.id, c.icon]));
 const categoryLabels: Record<string, string> = Object.fromEntries(winnersCategories.map((c) => [c.id, c.label]));
 
@@ -269,6 +276,7 @@ export default function WinnersLibrary({
 	const [selectedFormat, setSelectedFormat] = useState<'todos' | 'static_image' | 'carousel' | 'video'>('todos');
 	const [selectedCategories, setSelectedCategories] = useState<string[]>(['todos']);
 	const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+	const [showFormatMenu, setShowFormatMenu] = useState(false);
 
 	useEffect(() => {
 		if (!showCategoryMenu) return;
@@ -276,6 +284,13 @@ export default function WinnersLibrary({
 		window.addEventListener('click', close);
 		return () => window.removeEventListener('click', close);
 	}, [showCategoryMenu]);
+
+	useEffect(() => {
+		if (!showFormatMenu) return;
+		const close = () => setShowFormatMenu(false);
+		window.addEventListener('click', close);
+		return () => window.removeEventListener('click', close);
+	}, [showFormatMenu]);
 	// Menú de click derecho sobre una tarjeta: guardar/usar sin tener que
 	// pasar por los botones chiquitos superpuestos a la imagen.
 	const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; item: WinnerItem } | null>(null);
@@ -1142,105 +1157,157 @@ export default function WinnersLibrary({
 				</div>
 			)}
 
-			<div className="studio-library-tools" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '20px' }}>
+			<div className="studio-library-tools" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
 				<label style={{ flex: '1 1 300px', minWidth: '200px' }}>
 					<Icon name="search" size={18} />
-					<input 
-						value={query} 
-						onChange={(e) => setQuery(e.target.value)} 
-						placeholder="Buscar por marca o palabra clave..." 
+					<input
+						value={query}
+						onChange={(e) => setQuery(e.target.value)}
+						placeholder="Buscar por marca o palabra clave..."
 					/>
 				</label>
+			</div>
 
-					<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
-						<button type="button" className="niche-dd-trigger" onClick={() => { setShowNicheMenu((v) => !v); setShowCategoryMenu(false); }}>
-							<span className="niche-dd-label">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? 'Todos los nichos' : a.length === 1 ? (nicheLabels[a[0]] || a[0]) : `${a.length} nichos`; })()}</span>
-							<span className="niche-dd-badge">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? nicheAllCount : a.reduce((s, x) => s + (nicheCounts[x] || 0), 0); })()}</span>
-							<span className={`niche-dd-caret${showNicheMenu ? ' is-open' : ''}`}>▾</span>
-						</button>
-						{showNicheMenu && (
-							<div className="niche-dd-menu">
-								<button type="button" className={`niche-dd-item${selectedNiches.includes('todos') || !selectedNiches.length ? ' is-active' : ''}`} onClick={() => setSelectedNiches(['todos'])}>
-									<span className="niche-dd-icon" aria-hidden>✨</span>
-									<span className="niche-dd-name">Todos los nichos</span><span className="niche-dd-count">{nicheAllCount}</span>
-									<span className="niche-dd-check">{selectedNiches.includes('todos') || !selectedNiches.length ? '✓' : ''}</span>
-								</button>
-								{availableNiches.map((niche) => {
-									const active = selectedNiches.includes(niche);
-									return (
-										<button type="button" key={niche} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => {
-											let next = selectedNiches.filter((x) => x !== 'todos');
-											if (next.includes(niche)) next = next.filter((x) => x !== niche); else next.push(niche);
-											setSelectedNiches(next.length ? next : ['todos']);
-										}}>
-											<span className="niche-dd-icon" aria-hidden>{nicheIcons[niche] || '🏷️'}</span>
-											<span className="niche-dd-name">{nicheLabels[niche] || niche}</span><span className="niche-dd-count">{nicheCounts[niche]}</span>
-											<span className="niche-dd-check">{active ? '✓' : ''}</span>
-										</button>
-									);
-								})}
-							</div>
-						)}
-					</div>
+			{/* Fila 1: Nicho | Ángulo */}
+			<div className="library-filters-row" style={{ display: 'flex', gap: '12px', marginBottom: '10px' }}>
+				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
+					<button type="button" className="niche-dd-trigger" onClick={() => { setShowNicheMenu((v) => !v); setShowCategoryMenu(false); setShowFormatMenu(false); }}>
+						<span className="niche-dd-label">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? 'Nicho' : a.length === 1 ? (nicheLabels[a[0]] || a[0]) : `${a.length} nichos`; })()}</span>
+						<span className="niche-dd-badge">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? nicheAllCount : a.reduce((s, x) => s + (nicheCounts[x] || 0), 0); })()}</span>
+						<span className={`niche-dd-caret${showNicheMenu ? ' is-open' : ''}`}>▾</span>
+					</button>
+					{showNicheMenu && (
+						<div className="niche-dd-menu">
+							<button type="button" className={`niche-dd-item${selectedNiches.includes('todos') || !selectedNiches.length ? ' is-active' : ''}`} onClick={() => setSelectedNiches(['todos'])}>
+								<span className="niche-dd-icon" aria-hidden>✨</span>
+								<span className="niche-dd-name">Todos los nichos</span><span className="niche-dd-count">{nicheAllCount}</span>
+								<span className="niche-dd-check">{selectedNiches.includes('todos') || !selectedNiches.length ? '✓' : ''}</span>
+							</button>
+							{availableNiches.map((niche) => {
+								const active = selectedNiches.includes(niche);
+								return (
+									<button type="button" key={niche} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => {
+										let next = selectedNiches.filter((x) => x !== 'todos');
+										if (next.includes(niche)) next = next.filter((x) => x !== niche); else next.push(niche);
+										setSelectedNiches(next.length ? next : ['todos']);
+									}}>
+										<span className="niche-dd-icon" aria-hidden>{nicheIcons[niche] || '🏷️'}</span>
+										<span className="niche-dd-name">{nicheLabels[niche] || niche}</span><span className="niche-dd-count">{nicheCounts[niche]}</span>
+										<span className="niche-dd-check">{active ? '✓' : ''}</span>
+									</button>
+								);
+							})}
+						</div>
+					)}
+				</div>
 
-					<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
-						<button type="button" className="niche-dd-trigger" onClick={() => { setShowCategoryMenu((v) => !v); setShowNicheMenu(false); }}>
-							<span className="niche-dd-label">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? 'Todos los ángulos' : a.length === 1 ? (categoryLabels[a[0]] || a[0]) : `${a.length} ángulos`; })()}</span>
-							<span className="niche-dd-badge">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? categoryAllCount : a.reduce((s, x) => s + (categoryCounts[x] || 0), 0); })()}</span>
-							<span className={`niche-dd-caret${showCategoryMenu ? ' is-open' : ''}`}>▾</span>
-						</button>
-						{showCategoryMenu && (
-							<div className="niche-dd-menu">
-								<button type="button" className={`niche-dd-item${selectedCategories.includes('todos') || !selectedCategories.length ? ' is-active' : ''}`} onClick={() => setSelectedCategories(['todos'])}>
-									<span className="niche-dd-icon" aria-hidden>✨</span>
-									<span className="niche-dd-name">Todos los ángulos</span><span className="niche-dd-count">{categoryAllCount}</span>
-									<span className="niche-dd-check">{selectedCategories.includes('todos') || !selectedCategories.length ? '✓' : ''}</span>
-								</button>
-								{winnersCategories.map((cat) => {
-									const active = selectedCategories.includes(cat.id);
-									return (
-										<button type="button" key={cat.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => {
-											let next = selectedCategories.filter((x) => x !== 'todos');
-											if (next.includes(cat.id)) next = next.filter((x) => x !== cat.id); else next.push(cat.id);
-											setSelectedCategories(next.length ? next : ['todos']);
-										}}>
-											<span className="niche-dd-icon" aria-hidden>{categoryIcons[cat.id] || '🏷️'}</span>
-											<span className="niche-dd-name">{cat.label}</span><span className="niche-dd-count">{categoryCounts[cat.id] || 0}</span>
-											<span className="niche-dd-check">{active ? '✓' : ''}</span>
-										</button>
-									);
-								})}
-							</div>
-						)}
-					</div>
+				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
+					<button type="button" className="niche-dd-trigger" onClick={() => { setShowCategoryMenu((v) => !v); setShowNicheMenu(false); setShowFormatMenu(false); }}>
+						<span className="niche-dd-label">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? 'Ángulo' : a.length === 1 ? (categoryLabels[a[0]] || a[0]) : `${a.length} ángulos`; })()}</span>
+						<span className="niche-dd-badge">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? categoryAllCount : a.reduce((s, x) => s + (categoryCounts[x] || 0), 0); })()}</span>
+						<span className={`niche-dd-caret${showCategoryMenu ? ' is-open' : ''}`}>▾</span>
+					</button>
+					{showCategoryMenu && (
+						<div className="niche-dd-menu">
+							<button type="button" className={`niche-dd-item${selectedCategories.includes('todos') || !selectedCategories.length ? ' is-active' : ''}`} onClick={() => setSelectedCategories(['todos'])}>
+								<span className="niche-dd-icon" aria-hidden>✨</span>
+								<span className="niche-dd-name">Todos los ángulos</span><span className="niche-dd-count">{categoryAllCount}</span>
+								<span className="niche-dd-check">{selectedCategories.includes('todos') || !selectedCategories.length ? '✓' : ''}</span>
+							</button>
+							{winnersCategories.map((cat) => {
+								const active = selectedCategories.includes(cat.id);
+								return (
+									<button type="button" key={cat.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => {
+										let next = selectedCategories.filter((x) => x !== 'todos');
+										if (next.includes(cat.id)) next = next.filter((x) => x !== cat.id); else next.push(cat.id);
+										setSelectedCategories(next.length ? next : ['todos']);
+									}}>
+										<span className="niche-dd-icon" aria-hidden>{categoryIcons[cat.id] || '🏷️'}</span>
+										<span className="niche-dd-name">{cat.label}</span><span className="niche-dd-count">{categoryCounts[cat.id] || 0}</span>
+										<span className="niche-dd-check">{active ? '✓' : ''}</span>
+									</button>
+								);
+							})}
+						</div>
+					)}
+				</div>
+			</div>
 
-					<div className="library-format-bar-scroll" style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '3px', height: '42px', borderRadius: '21px', border: '1px solid #dcd5e4', background: '#fff', boxSizing: 'border-box' }}>
-						{([
-							['todos', '✨ Todos', formatAllCount],
-							['static_image', '🖼️ Estático', formatCounts.static_image],
-							['carousel', '🗂️ Carrusel', formatCounts.carousel],
-							['video', '🎬 Video', formatCounts.video],
-						] as const).map(([value, label, count]) => (
+			{/* Fila 2: Formato | Guardados */}
+			<div className="library-filters-row" style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
+				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
+					<button type="button" className="niche-dd-trigger" onClick={() => { setShowFormatMenu((v) => !v); setShowNicheMenu(false); setShowCategoryMenu(false); }}>
+						<span className="niche-dd-label">{selectedFormat === 'todos' ? 'Formato' : formatLabels[selectedFormat]}</span>
+						<span className="niche-dd-badge">{selectedFormat === 'todos' ? formatAllCount : formatCounts[selectedFormat]}</span>
+						<span className={`niche-dd-caret${showFormatMenu ? ' is-open' : ''}`}>▾</span>
+					</button>
+					{showFormatMenu && (
+						<div className="niche-dd-menu">
+							<button type="button" className={`niche-dd-item${selectedFormat === 'todos' ? ' is-active' : ''}`} onClick={() => { setSelectedFormat('todos'); setShowFormatMenu(false); }}>
+								<span className="niche-dd-icon" aria-hidden>✨</span>
+								<span className="niche-dd-name">Todos los formatos</span><span className="niche-dd-count">{formatAllCount}</span>
+								<span className="niche-dd-check">{selectedFormat === 'todos' ? '✓' : ''}</span>
+							</button>
+							{formatOptions.map((opt) => {
+								const active = selectedFormat === opt.id;
+								return (
+									<button type="button" key={opt.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => { setSelectedFormat(opt.id); setShowFormatMenu(false); }}>
+										<span className="niche-dd-icon" aria-hidden>{opt.icon}</span>
+										<span className="niche-dd-name">{opt.label}</span><span className="niche-dd-count">{formatCounts[opt.id] || 0}</span>
+										<span className="niche-dd-check">{active ? '✓' : ''}</span>
+									</button>
+								);
+							})}
+						</div>
+					)}
+				</div>
+
+				<button onClick={() => setSavedOnly((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '0 16px', height: '42px', borderRadius: '21px', border: '1px solid', borderColor: savedOnly ? '#f0b3c6' : '#dcd5e4', background: savedOnly ? '#fdeef5' : '#fff', color: savedOnly ? '#c2276f' : '#19171d', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}><span style={{ color: '#e5313f', fontSize: '15px' }}>♥</span> Guardados</button>
+			</div>
+
+			{/* Filtros activos: se ven abajo como chips para saber de un vistazo qué está aplicado, y sacar uno sin abrir la lista de nuevo. */}
+			{(() => {
+				const chips: Array<{ key: string; label: string; onRemove: () => void }> = [];
+				selectedNiches.filter((x) => x !== 'todos').forEach((n) => chips.push({
+					key: `n-${n}`, label: `${nicheIcons[n] || '🏷️'} ${nicheLabels[n] || n}`,
+					onRemove: () => setSelectedNiches((prev) => { const next = prev.filter((x) => x !== n); return next.length ? next : ['todos']; }),
+				}));
+				selectedCategories.filter((x) => x !== 'todos').forEach((c) => chips.push({
+					key: `c-${c}`, label: `${categoryIcons[c] || '🏷️'} ${categoryLabels[c] || c}`,
+					onRemove: () => setSelectedCategories((prev) => { const next = prev.filter((x) => x !== c); return next.length ? next : ['todos']; }),
+				}));
+				if (selectedFormat !== 'todos') chips.push({
+					key: 'format', label: `${formatOptions.find((f) => f.id === selectedFormat)?.icon || ''} ${formatLabels[selectedFormat]}`,
+					onRemove: () => setSelectedFormat('todos'),
+				});
+				if (savedOnly) chips.push({ key: 'saved', label: '❤️ Guardados', onRemove: () => setSavedOnly(false) });
+				if (!chips.length) return null;
+				return (
+					<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+						{chips.map((chip) => (
 							<button
-								key={value}
+								key={chip.key}
 								type="button"
-								onClick={() => setSelectedFormat(value)}
-								style={{
-									display: 'flex', alignItems: 'center', gap: '5px', height: '34px', padding: '0 12px', borderRadius: '18px',
-									border: 0, cursor: 'pointer', fontSize: '12.5px', fontWeight: 700, fontFamily: 'inherit', flexShrink: 0, whiteSpace: 'nowrap',
-									background: selectedFormat === value ? '#f2ecfd' : 'transparent',
-									color: selectedFormat === value ? '#5b2fc9' : '#3f3a48',
-								}}
+								onClick={chip.onRemove}
+								style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '30px', padding: '0 8px 0 12px', borderRadius: '15px', border: '1px solid #e7dffa', background: '#f8f5fe', color: '#5b2fc9', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
 							>
-								{label}
-								<span style={{ fontSize: '10.5px', fontWeight: 800, padding: '1px 7px', borderRadius: '999px', background: selectedFormat === value ? '#e7dffa' : '#f0ecf7', color: selectedFormat === value ? '#5b2fc9' : '#6f6a77' }}>{count}</span>
+								{chip.label}
+								<span style={{ display: 'grid', placeItems: 'center', width: '16px', height: '16px', borderRadius: '50%', background: '#e7dffa', fontSize: '10px', fontWeight: 900 }}>✕</span>
 							</button>
 						))}
+						<button
+							type="button"
+							onClick={() => { setSelectedNiches(['todos']); setSelectedCategories(['todos']); setSelectedFormat('todos'); setSavedOnly(false); }}
+							style={{ border: 0, background: 'transparent', color: '#8b8490', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
+						>
+							Limpiar todo
+						</button>
 					</div>
+				);
+			})()}
 
-					<button onClick={() => setSavedOnly((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '0 16px', height: '42px', borderRadius: '21px', border: '1px solid', borderColor: savedOnly ? '#f0b3c6' : '#dcd5e4', background: savedOnly ? '#fdeef5' : '#fff', color: savedOnly ? '#c2276f' : '#19171d', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}><span style={{ color: '#e5313f', fontSize: '15px' }}>♥</span> Guardados</button>
-
-				<span style={{ fontSize: '13px', color: '#8b8490', marginLeft: 'auto' }}>{filteredItems.length} ganadores encontrados</span>
+			<div style={{ marginBottom: '20px' }}>
+				<span style={{ fontSize: '13px', color: '#8b8490' }}>{filteredItems.length} ganadores encontrados</span>
 			</div>
 
 			{loading ? (
