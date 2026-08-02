@@ -1168,8 +1168,11 @@ export default function WinnersLibrary({
 				</label>
 			</div>
 
-			{/* Fila 1: Nicho | Ángulo */}
-			<div className="library-filters-row" style={{ display: 'flex', gap: '12px', marginBottom: '10px' }}>
+			{/* Nicho, Ángulo, Formato y Guardados: un solo contenedor que envuelve.
+			    En computadora entran los 4 en una fila; en mobile, al no entrar,
+			    el propio wrap los acomoda de a 2 (gracias al ancho fijo/50% de
+			    cada .niche-dd) sin necesidad de filas separadas a mano. */}
+			<div className="library-filters-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
 				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
 					<button type="button" className="niche-dd-trigger" onClick={() => { setShowNicheMenu((v) => !v); setShowCategoryMenu(false); setShowFormatMenu(false); }}>
 						<span className="niche-dd-label">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? 'Nicho' : a.length === 1 ? (nicheLabels[a[0]] || a[0]) : `${a.length} nichos`; })()}</span>
@@ -1231,10 +1234,7 @@ export default function WinnersLibrary({
 						</div>
 					)}
 				</div>
-			</div>
 
-			{/* Fila 2: Formato | Guardados */}
-			<div className="library-filters-row" style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
 				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
 					<button type="button" className="niche-dd-trigger" onClick={() => { setShowFormatMenu((v) => !v); setShowNicheMenu(false); setShowCategoryMenu(false); }}>
 						<span className="niche-dd-label">{selectedFormat === 'todos' ? 'Formato' : formatLabels[selectedFormat]}</span>
