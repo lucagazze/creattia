@@ -741,79 +741,84 @@ export default function WinnersLibrary({
 		}
 	}, [preselectedWinnerPath, items]);
 
-	// Nichos disponibles + cuántos ganadores hay en cada uno
+	// Predicados de cada filtro por separado: así se puede combinar "todos
+	// menos uno" para que cada dropdown muestre el conteo real considerando
+	// lo que ya está elegido en los demás (filtro en cascada, tipo e-commerce).
+	const isSavedItem = (item: WinnerItem) => item.imagePath ? likedScrapedPaths.has(item.imagePath) : favorites.has(item.templateId);
+	const matchesSaved = (item: WinnerItem) => !savedOnly || isSavedItem(item);
+	const matchesFormat = (item: WinnerItem) => {
+		if (selectedFormat === 'todos') return true;
+		const itemIsCarousel = item.metadata?.mediaType === 'carousel';
+		return selectedFormat === 'carousel' ? itemIsCarousel : !itemIsCarousel;
+	};
+	const matchesCategory = (item: WinnerItem) =>
+		selectedCategories.includes('todos') || selectedCategories.length === 0 || selectedCategories.includes((item as any).category || 'hero');
+	const matchesNiche = (item: WinnerItem) => {
+		if (selectedNiches.includes('todos') || selectedNiches.length === 0) return true;
+		const niches = item.metadata?.foreplayNiches;
+		return Array.isArray(niches) && niches.some((n) => selectedNiches.includes(n));
+	};
+	const searchTerm = query.toLowerCase().trim();
+	const matchesSearch = (item: WinnerItem) => !searchTerm ||
+		item.name.toLowerCase().includes(searchTerm) ||
+		(item.promptNotes || '').toLowerCase().includes(searchTerm) ||
+		((item as any).tags || []).some((t: string) => t.toLowerCase().includes(searchTerm));
+
+	// Nichos disponibles + cuántos ganadores hay en cada uno, ya filtrados por
+	// guardados/formato/ángulo/búsqueda (todo menos el nicho en sí).
 	const nicheCounts = useMemo(() => {
 		const m: Record<string, number> = {};
-		items.forEach(item => {
+		items.forEach((item) => {
+			if (!matchesSaved(item) || !matchesFormat(item) || !matchesCategory(item) || !matchesSearch(item)) return;
 			const ns = item.metadata?.foreplayNiches;
 			if (Array.isArray(ns)) ns.forEach((n: string) => { const k = (n || '').trim(); if (k) m[k] = (m[k] || 0) + 1; });
 		});
 		return m;
-	}, [items]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [items, savedOnly, selectedFormat, selectedCategories, query, likedScrapedPaths, favorites]);
 	const availableNiches = useMemo(() => Object.keys(nicheCounts).sort((a, b) => nicheCounts[b] - nicheCounts[a]), [nicheCounts]);
+	// "Todos los nichos" no puede sumar los buckets (un anuncio puede tener
+	// varios nichos y se contaría dos veces): se cuenta directo.
+	const nicheAllCount = useMemo(() => items.filter((item) => matchesSaved(item) && matchesFormat(item) && matchesCategory(item) && matchesSearch(item)).length,
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[items, savedOnly, selectedFormat, selectedCategories, query, likedScrapedPaths, favorites]);
 
-	// Cuántos ganadores hay de cada formato, para el filtro y sus contadores.
+	// Cuántos ganadores hay de cada formato, ya filtrados por guardados/nicho/
+	// ángulo/búsqueda (todo menos el formato en sí).
 	const formatCounts = useMemo(() => {
 		let staticCount = 0;
 		let carouselCount = 0;
 		items.forEach((item) => {
+			if (!matchesSaved(item) || !matchesCategory(item) || !matchesNiche(item) || !matchesSearch(item)) return;
 			if (item.metadata?.mediaType === 'carousel') carouselCount += 1;
 			else staticCount += 1;
 		});
 		return { static_image: staticCount, carousel: carouselCount };
-	}, [items]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [items, savedOnly, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
+	const formatAllCount = formatCounts.static_image + formatCounts.carousel;
 
-	// Cuántos ganadores hay de cada ángulo (hero, precio, reseñas, etc.)
+	// Cuántos ganadores hay de cada ángulo (hero, precio, reseñas, etc.), ya
+	// filtrados por guardados/formato/nicho/búsqueda (todo menos el ángulo).
 	const categoryCounts = useMemo(() => {
 		const m: Record<string, number> = {};
-		items.forEach((item) => { const c = item.category || 'hero'; m[c] = (m[c] || 0) + 1; });
-		return m;
-	}, [items]);
-
-	// Filter items
-	const filteredItems = useMemo(() => {
-		return items.filter((item) => {
-			// Guardados
-			if (savedOnly) {
-				const isSaved = item.imagePath ? likedScrapedPaths.has(item.imagePath) : favorites.has(item.templateId);
-				if (!isSaved) return false;
-			}
-
-			// Formato (estático / carrusel)
-			if (selectedFormat !== 'todos') {
-				const itemIsCarousel = item.metadata?.mediaType === 'carousel';
-				if (selectedFormat === 'carousel' && !itemIsCarousel) return false;
-				if (selectedFormat === 'static_image' && itemIsCarousel) return false;
-			}
-
-			// Ángulo del anuncio (hero, precio, reseñas...)
-			if (!selectedCategories.includes('todos') && selectedCategories.length > 0) {
-				if (!selectedCategories.includes(item.category || 'hero')) return false;
-			}
-
-			// Niche filter
-			let matchesNiche = false;
-			if (selectedNiches.includes('todos') || selectedNiches.length === 0) {
-				matchesNiche = true;
-			} else {
-				for (const niche of selectedNiches) {
-					const hasNiche = (item.metadata?.foreplayNiches && Array.isArray(item.metadata.foreplayNiches) && item.metadata.foreplayNiches.includes(niche));
-					if (hasNiche) {
-						matchesNiche = true;
-						break;
-					}
-				}
-			}
-
-			// Search query filter
-			const search = query.toLowerCase().trim();
-			const matchesSearch = !search ||
-				item.name.toLowerCase().includes(search) ||
-				(item.promptNotes || '').toLowerCase().includes(search) ||
-				(item.tags || []).some(t => t.toLowerCase().includes(search));
-
-			return matchesNiche && matchesSearch;
+		items.forEach((item) => {
+			if (!matchesSaved(item) || !matchesFormat(item) || !matchesNiche(item) || !matchesSearch(item)) return;
+			const c = (item as any).category || 'hero';
+			m[c] = (m[c] || 0) + 1;
 		});
+		return m;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [items, savedOnly, selectedFormat, selectedNiches, query, likedScrapedPaths, favorites]);
+	// El ángulo es un solo valor por anuncio: sumar los buckets da el total real.
+	const categoryAllCount = useMemo(() => Object.values(categoryCounts).reduce((a, b) => a + b, 0), [categoryCounts]);
+
+	// Filter items: los 5 filtros combinados, para lo que realmente se ve en la grilla.
+	const filteredItems = useMemo(() => {
+		return items.filter((item) =>
+			matchesSaved(item) && matchesFormat(item) && matchesCategory(item) && matchesNiche(item) && matchesSearch(item)
+		);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [items, savedOnly, selectedFormat, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
 
 	// Lazy load: primeras 30 tarjetas y +30 al acercarse al final del scroll.
@@ -1102,14 +1107,14 @@ export default function WinnersLibrary({
 					<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
 						<button type="button" className="niche-dd-trigger" onClick={() => setShowNicheMenu((v) => !v)}>
 							<span className="niche-dd-label">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? 'Todos los nichos' : a.length === 1 ? (nicheLabels[a[0]] || a[0]) : `${a.length} nichos`; })()}</span>
-							<span className="niche-dd-badge">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? items.length : a.reduce((s, x) => s + (nicheCounts[x] || 0), 0); })()}</span>
+							<span className="niche-dd-badge">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? nicheAllCount : a.reduce((s, x) => s + (nicheCounts[x] || 0), 0); })()}</span>
 							<span className={`niche-dd-caret${showNicheMenu ? ' is-open' : ''}`}>▾</span>
 						</button>
 						{showNicheMenu && (
 							<div className="niche-dd-menu">
 								<button type="button" className={`niche-dd-item${selectedNiches.includes('todos') || !selectedNiches.length ? ' is-active' : ''}`} onClick={() => setSelectedNiches(['todos'])}>
 									<span className="niche-dd-icon" aria-hidden>✨</span>
-									<span className="niche-dd-name">Todos los nichos</span><span className="niche-dd-count">{items.length}</span>
+									<span className="niche-dd-name">Todos los nichos</span><span className="niche-dd-count">{nicheAllCount}</span>
 									<span className="niche-dd-check">{selectedNiches.includes('todos') || !selectedNiches.length ? '✓' : ''}</span>
 								</button>
 								{availableNiches.map((niche) => {
@@ -1133,14 +1138,14 @@ export default function WinnersLibrary({
 					<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
 						<button type="button" className="niche-dd-trigger" onClick={() => setShowCategoryMenu((v) => !v)}>
 							<span className="niche-dd-label">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? 'Todos los ángulos' : a.length === 1 ? (categoryLabels[a[0]] || a[0]) : `${a.length} ángulos`; })()}</span>
-							<span className="niche-dd-badge">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? items.length : a.reduce((s, x) => s + (categoryCounts[x] || 0), 0); })()}</span>
+							<span className="niche-dd-badge">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? categoryAllCount : a.reduce((s, x) => s + (categoryCounts[x] || 0), 0); })()}</span>
 							<span className={`niche-dd-caret${showCategoryMenu ? ' is-open' : ''}`}>▾</span>
 						</button>
 						{showCategoryMenu && (
 							<div className="niche-dd-menu">
 								<button type="button" className={`niche-dd-item${selectedCategories.includes('todos') || !selectedCategories.length ? ' is-active' : ''}`} onClick={() => setSelectedCategories(['todos'])}>
 									<span className="niche-dd-icon" aria-hidden>✨</span>
-									<span className="niche-dd-name">Todos los ángulos</span><span className="niche-dd-count">{items.length}</span>
+									<span className="niche-dd-name">Todos los ángulos</span><span className="niche-dd-count">{categoryAllCount}</span>
 									<span className="niche-dd-check">{selectedCategories.includes('todos') || !selectedCategories.length ? '✓' : ''}</span>
 								</button>
 								{winnersCategories.map((cat) => {
@@ -1163,7 +1168,7 @@ export default function WinnersLibrary({
 
 					<div style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '3px', height: '42px', borderRadius: '21px', border: '1px solid #dcd5e4', background: '#fff', boxSizing: 'border-box' }}>
 						{([
-							['todos', '✨ Todos', items.length],
+							['todos', '✨ Todos', formatAllCount],
 							['static_image', '🖼️ Estático', formatCounts.static_image],
 							['carousel', '🗂️ Carrusel', formatCounts.carousel],
 						] as const).map(([value, label, count]) => (
@@ -1592,15 +1597,6 @@ export default function WinnersLibrary({
 							return <><Icon name="heart" size={13} fill={liked ? '#ff4185' : 'none'} /> {liked ? 'Quitar de guardados' : 'Guardar idea'}</>;
 						})()}
 					</button>
-					<a
-						href={`https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${cardContextMenu.item.imagePath}`}
-						target="_blank"
-						rel="noreferrer"
-						onClick={() => setCardContextMenu(null)}
-						style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'transparent', borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#19171d', fontWeight: 600, textAlign: 'left', width: '100%', fontFamily: 'inherit', textDecoration: 'none' }}
-					>
-						<Icon name="search" size={13} /> Ver en grande
-					</a>
 					{isAdmin && (
 						<button
 							type="button"

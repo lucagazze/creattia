@@ -46,6 +46,15 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	// La página que se clona cuando se elige "solo una página": el resto del
 	// flujo (textos, revisión) funciona exactamente igual que un anuncio suelto.
 	const effectiveReferencePath = isCarouselAd && carouselMode === 'single' ? carouselSlides[selectedSlideIndex] : ad.imagePath;
+	// La vista grande de la izquierda: en un carrusel siempre muestra la
+	// página que se está mirando (se puede pasar de página para verlas
+	// todas), sea cual sea el modo elegido.
+	const previewSlidePath = isCarouselAd ? carouselSlides[selectedSlideIndex] : ad.imagePath;
+	const previewUrl = `${REFERENCES_BASE}/${previewSlidePath}`;
+	const goToPreviewSlide = (delta: number) => {
+		if (!isCarouselAd) return;
+		setSelectedSlideIndex((prev) => (prev + delta + carouselSlides.length) % carouselSlides.length);
+	};
 
 	// Cómo cargar el producto: por URL(s), a mano (con archivos), o sin producto.
 	const [productMode, setProductMode] = useState<'url' | 'manual'>('url');
@@ -355,10 +364,30 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			<button onClick={onBack} style={{ border: 0, background: 'transparent', color: '#716d79', cursor: 'pointer', fontSize: '14px', padding: 0, marginBottom: '16px' }}>← Volver a la biblioteca</button>
 			<div className="creation-flow-layout">
 
-				{/* Referencia fija a la izquierda */}
+				{/* Referencia a la izquierda: en un carrusel se puede pasar de página
+				    para verlas todas, y la que se mira es la que queda elegida
+				    cuando el modo es "solo una página". */}
 				<aside className="creation-flow-aside">
-					<img src={referenceUrl} alt={ad.name} style={{ width: '100%', borderRadius: '14px', boxShadow: '0 14px 40px rgba(25,23,29,0.16)' }} />
+					<div style={{ position: 'relative' }}>
+						<img key={previewSlidePath} src={previewUrl} alt={ad.name} style={{ width: '100%', borderRadius: '14px', boxShadow: '0 14px 40px rgba(25,23,29,0.16)', display: 'block' }} />
+						{isCarouselAd && carouselSlides.length > 1 && (
+							<>
+								<button type="button" className="carousel-arrow carousel-arrow-prev" onClick={() => goToPreviewSlide(-1)} aria-label="Página anterior">
+									<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+								</button>
+								<button type="button" className="carousel-arrow carousel-arrow-next" onClick={() => goToPreviewSlide(1)} aria-label="Página siguiente">
+									<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+								</button>
+								<span style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 4, background: 'rgba(25,23,29,0.75)', backdropFilter: 'blur(4px)', color: '#fff', borderRadius: '6px', padding: '4px 8px', fontSize: '11px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+									{selectedSlideIndex + 1} / {carouselSlides.length}
+								</span>
+							</>
+						)}
+					</div>
 					<p style={{ margin: '12px 0 0', fontSize: '14px', color: '#716d79' }}>Anuncio ganador: <b style={{ color: '#19171d' }}>{ad.name}</b></p>
+					{isCarouselAd && carouselMode === 'single' && (
+						<p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#744bde', fontWeight: 700 }}>✓ Vas a clonar esta página</p>
+					)}
 				</aside>
 
 				<section>

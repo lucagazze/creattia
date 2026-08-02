@@ -4198,14 +4198,14 @@
 	position: relative;
 	display: flex;
 	align-items: center;
-	gap: 9px;
+	gap: 10px;
 	min-width: 0;
-	padding: 12px;
+	padding: 13px;
 	border: 1.5px solid #e2dbea;
 	border-radius: 12px;
 	background: #fff;
 	color: #2b2631;
-	font-family: inherit;
+	font-family: 'Satoshi', 'Inter Variable', Inter, sans-serif;
 	text-align: left;
 	cursor: pointer;
 	transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
@@ -4213,10 +4213,10 @@
 .batch-brand-option:hover { border-color: #bca4ef; }
 .batch-brand-option.active { border-color: #7543df; background: #f8f5ff; box-shadow: 0 0 0 3px rgba(117,67,223,.08); }
 .batch-brand-option > span:nth-child(2) { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.batch-brand-option strong { font-size: 12.5px; font-weight: 850; }
-.batch-brand-option small { color: #7e7389; font-size: 10px; line-height: 1.35; }
+.batch-brand-option strong { font-size: 14px; font-weight: 850; }
+.batch-brand-option small { color: #655d70; font-size: 12px; line-height: 1.4; }
 .batch-brand-option > b { margin-left: auto; color: #7543df; font-size: 14px; }
-.batch-brand-icon { flex: 0 0 auto; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; background: #eee7fc; font-size: 14px; }
+.batch-brand-icon { flex: 0 0 auto; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: #eee7fc; font-size: 15px; }
 .batch-brand-note { display: block; margin-top: 8px; color: #6d6379; font-size: 11px; line-height: 1.4; }
 
 .batch-style-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -4263,11 +4263,7 @@
 .batch-format-copy strong { font-size: 11px; }
 .batch-format-copy small { font-size: 9px; }
 .batch-brand-options { gap: 8px; }
-.batch-brand-option { gap: 7px; padding: 9px; border-radius: 10px; }
-.batch-brand-option strong { font-size: 11px; }
-.batch-brand-option small { font-size: 9px; line-height: 1.25; }
-.batch-brand-icon { width: 22px; height: 22px; border-radius: 7px; font-size: 12px; }
-.batch-brand-note { margin-top: 5px; font-size: 10px; }
+.batch-brand-note { margin-top: 5px; font-size: 11px; }
 .batch-style-groups { gap: 12px; }
 .batch-style-options { gap: 6px; margin-top: 5px; }
 .batch-style-options button { min-height: 38px; padding: 7px 12px; font-size: 11.5px; }

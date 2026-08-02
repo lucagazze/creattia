@@ -71,12 +71,12 @@ const plans = [
 
 
 const testimonials = [
-	{ name: 'Anna Clark', country: 'CA', date: '6 Mar 2026', text: 'Llevo todo sola y Creattia básicamente me salvó la vida jaja. Publicaciones, anuncios, todo listo sin tener que estar encima. 10/10.' },
-	{ name: 'David Wilson', country: 'US', date: '2 Mar 2026', text: 'Me preocupaba que fuera como otras herramientas de IA, pero realmente suena como mi marca. Gran herramienta para fundadores ocupados.' },
-	{ name: 'Sophie Adams', country: 'UK', date: '15 Mar 2026', text: 'Tenía pocas expectativas porque otras herramientas de IA que probé se sentían súper robóticas. Creattia fue diferente. Capturó exactamente cómo le hablamos a nuestros clientes.' },
-	{ name: 'Isaac Fisher', country: 'US', date: '14 Mar 2026', text: 'Nos ahorró un montón de dinero en freelancers. El tono de voz coincide muy bien en todos los anuncios.' },
-	{ name: 'Nicole Harris', country: 'US', date: '23 Mar 2026', text: '¿Campañas completas listas en un par de horas en lugar de semanas? Honestamente no lo creía hasta que lo vi pasar. Me encanta que no sean solo plantillas.' },
-	{ name: 'Jacob Allen', country: 'UK', date: '17 Feb 2026', text: 'Probé varias herramientas antes, pero esta es mucho más fácil de usar que las demás. En general, es 100% más amigable.' }
+	{ name: 'Martina Ferreyra', country: 'Argentina', date: '18 feb 2026', text: 'Tengo una marca de skincare en Córdoba y antes pagaba un diseñador por cada anuncio. Ahora pego el link del producto, elijo un anuncio que ya funcionó y en minutos tengo la versión con mi marca. Cambió totalmente mi forma de armar campañas.' },
+	{ name: 'Rodrigo Bogado', country: 'Paraguay', date: '4 mar 2026', text: 'Vendo indumentaria deportiva en Asunción y probaba anuncio tras anuncio a mano en Canva. Con Creattia clono los que ya son ganadores de otras marcas del rubro y los adapto a la mía. Bajó muchísimo mi costo por creativo en Meta.' },
+	{ name: 'Javiera Muñoz', country: 'Chile', date: '22 mar 2026', text: 'Lo que más me sorprendió es que respeta los datos reales de mi producto, no inventa precios ni promociones. Uso la biblioteca de ganadores todas las semanas para renovar los anuncios antes de que se cansen.' },
+	{ name: 'Sofía Etcheverry', country: 'Uruguay', date: '9 abr 2026', text: 'Tengo un local de decoración en Montevideo y nunca fui de manejar Photoshop. Con la versión de carrusel armé en un rato el mismo formato que usa una marca grande, pero con mis productos y mis fotos.' },
+	{ name: 'Ignacio Pizarro', country: 'Chile', date: '30 abr 2026', text: 'Empecé con las 3 imágenes gratis para probar y a la semana ya estaba suscripto. El generador por URL me trajo referencias de mi mismo nicho que ni sabía que existían, y algunas terminaron siendo mis anuncios con mejor rendimiento del mes.' },
+	{ name: 'Camila Sosa', country: 'Argentina', date: '12 may 2026', text: 'Manejo las redes de dos marcas de indumentaria y la función de guardar la identidad de cada una me ahorra un montón de tiempo. Genero el lote de anuncios de la semana en menos de lo que tardaba en pensar un solo copy.' }
 ];
 
 const faqs = [
@@ -872,13 +872,33 @@ const faqs = [
 			autoScrollInterval = setInterval(scrollNext, 3000);
 		};
 
-		// DRAG-TO-SCROLL (Grab to slide)
+		// DRAG-TO-SCROLL (Grab to slide) — al soltar, siempre encastra en la
+		// tarjeta más cercana. Sin esto el arrastre podía dejar el carrusel a
+		// mitad de camino entre dos tarjetas, cortadas y feas.
 		let isDown = false;
 		let startX: number;
 		let scrollLeft: number;
+		let dragged = false;
+
+		const snapToNearestCard = () => {
+			const maxScrollLeft = track.scrollWidth - track.clientWidth;
+			const nearest = Math.min(maxScrollLeft, Math.max(0, Math.round(track.scrollLeft / cardWidth) * cardWidth));
+			track.style.scrollBehavior = 'smooth';
+			track.scrollTo({ left: nearest, behavior: 'smooth' });
+		};
+
+		const endDrag = () => {
+			if (!isDown) return;
+			isDown = false;
+			track.style.cursor = 'grab';
+			track.style.userSelect = '';
+			if (dragged) snapToNearestCard();
+			resetAutoScroll(); // Resume auto-scroll
+		};
 
 		track.addEventListener('mousedown', (e: MouseEvent) => {
 			isDown = true;
+			dragged = false;
 			track.style.scrollBehavior = 'auto'; // Disable smooth-scroll animation during dragging
 			track.style.cursor = 'grabbing';
 			track.style.userSelect = 'none';
@@ -887,29 +907,13 @@ const faqs = [
 			clearInterval(autoScrollInterval); // Pause auto-scroll while dragging
 		});
 
-		track.addEventListener('mouseleave', () => {
-			if (isDown) {
-				isDown = false;
-				track.style.scrollBehavior = 'smooth';
-				track.style.cursor = 'grab';
-				track.style.userSelect = '';
-				resetAutoScroll(); // Resume auto-scroll
-			}
-		});
-
-		track.addEventListener('mouseup', () => {
-			if (isDown) {
-				isDown = false;
-				track.style.scrollBehavior = 'smooth';
-				track.style.cursor = 'grab';
-				track.style.userSelect = '';
-				resetAutoScroll(); // Resume auto-scroll
-			}
-		});
+		track.addEventListener('mouseleave', endDrag);
+		track.addEventListener('mouseup', endDrag);
 
 		track.addEventListener('mousemove', (e: MouseEvent) => {
 			if (!isDown) return;
 			e.preventDefault();
+			dragged = true;
 			const x = e.pageX - track.offsetLeft;
 			const walk = (x - startX) * 1.5; // multiplier for speed
 			track.scrollLeft = scrollLeft - walk;
@@ -918,22 +922,18 @@ const faqs = [
 		// Touch events
 		track.addEventListener('touchstart', (e: TouchEvent) => {
 			isDown = true;
+			dragged = false;
 			track.style.scrollBehavior = 'auto'; // Disable smooth-scroll during touch drag
 			startX = e.touches[0].pageX - track.offsetLeft;
 			scrollLeft = track.scrollLeft;
 			clearInterval(autoScrollInterval);
 		}, { passive: true });
 
-		track.addEventListener('touchend', () => {
-			if (isDown) {
-				isDown = false;
-				track.style.scrollBehavior = 'smooth';
-				resetAutoScroll();
-			}
-		});
+		track.addEventListener('touchend', endDrag);
 
 		track.addEventListener('touchmove', (e: TouchEvent) => {
 			if (!isDown) return;
+			dragged = true;
 			const x = e.touches[0].pageX - track.offsetLeft;
 			const walk = (x - startX) * 1.5;
 			track.scrollLeft = scrollLeft - walk;
