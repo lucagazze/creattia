@@ -171,12 +171,10 @@ const subscriptionPlans = [
 		]
 	},
 	{ 
-		code: 'creator', 
-		name: 'Starter', 
-		price: 29, 
-		oldPrice: 48, 
-		saving: 'Save $19 / yr',
-		credits: 40, 
+		code: 'creator',
+		name: 'Starter',
+		price: 29,
+		credits: 40,
 		description: 'Para creadores de contenido que recién empiezan.', 
 		featured: false,
 		features: [
@@ -188,12 +186,10 @@ const subscriptionPlans = [
 		]
 	},
 	{ 
-		code: 'pro', 
-		name: 'Pro', 
-		price: 59, 
-		oldPrice: 98, 
-		saving: 'Save $39 / yr',
-		credits: 120, 
+		code: 'pro',
+		name: 'Pro',
+		price: 59,
+		credits: 120,
 		description: 'Para marcas en crecimiento y e-commerce activos.', 
 		featured: true,
 		features: [
@@ -205,12 +201,10 @@ const subscriptionPlans = [
 		]
 	},
 	{ 
-		code: 'scale', 
-		name: 'Scale', 
-		price: 99, 
-		oldPrice: 165, 
-		saving: 'Save $66 / yr',
-		credits: 300, 
+		code: 'scale',
+		name: 'Scale',
+		price: 99,
+		credits: 300,
 		description: 'Para agencias y equipos que escalan contenido.', 
 		featured: false,
 		features: [
@@ -4053,8 +4047,13 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 				<h2 style={{ margin: 0, fontSize: '18px', color: '#19171d' }}>Pago único (Sin suscripción)</h2>
 			</div>
 			<p style={{ margin: '0 0 16px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>
-				¿Querés probar una imagen rápida o no querés una membresía mensual? Comprá créditos individuales y usalos cuando quieras. 
-				<strong> El precio unitario es de {symbol}{config.unitPrice} {config.currency}</strong> (el doble de lo que sale en la suscripción, ¡ideal para empezar!).
+				¿Querés probar una imagen rápida o no querés una membresía mensual? Comprá créditos individuales y usalos cuando quieras.
+				{unconfigured ? (
+					<strong> Muy pronto vas a poder comprarlos acá.</strong>
+				) : (
+					<strong> El precio unitario es de {symbol}{config.unitPrice} {config.currency}</strong>
+				)}
+				{!unconfigured && ' (el doble de lo que sale en la suscripción, ¡ideal para empezar!).'}
 			</p>
 			
 			{error && <p style={{ color: '#dc2626', fontSize: '13px', margin: '0 0 12px', fontWeight: 600 }}>{error}</p>}
@@ -4081,7 +4080,7 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 							{qty === 1 ? '1 crédito' : `${qty} créditos`}
 						</span>
 						<div style={{ fontSize: '22px', fontWeight: 800, color: '#744bde', marginBottom: '16px' }}>
-							{symbol}{config.unitPrice * qty}
+							{unconfigured ? '—' : `${symbol}${config.unitPrice * qty}`}
 						</div>
 						<button 
 							onClick={() => void buy(qty)}
@@ -4193,9 +4192,15 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 			const currentPlan = isFreePlan 
 				? (!profile.planCode || profile.planCode === 'trial' || profile.planCode === 'free') && !['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus)
 				: ['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && profile.planCode === plan.code; 
+			// El tachado solo aparece en la vista anual, comparando contra el
+			// precio mensual real del mismo plan — así siempre se entiende qué
+			// significa (antes se mostraba también en la vista mensual, sin
+			// ninguna explicación de qué era ese precio "viejo").
 			const price = isFreePlan ? 0 : (billingCycle === 'monthly' ? plan.price : Math.round(plan.price * 0.8));
 			const frequencyText = isFreePlan ? '' : (billingCycle === 'monthly' ? '/mes' : '/mes (anual)');
-			const savingLabel = isFreePlan ? '' : (billingCycle === 'yearly' ? plan.saving : '');
+			const showOldPrice = !isFreePlan && billingCycle === 'yearly';
+			const yearlySavings = !isFreePlan ? (plan.price - price) * 12 : 0;
+			const savingLabel = !isFreePlan && billingCycle === 'yearly' && yearlySavings > 0 ? `Ahorrás $${yearlySavings}/año` : '';
 
 			const handleButtonClick = () => {
 				if (isFreePlan) {
@@ -4206,7 +4211,7 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 				}
 			};
 
-			return <article key={plan.code} className={plan.featured ? 'featured' : ''}>{plan.featured && <span className="most-popular-badge">MOST POPULAR</span>}<h3>{plan.name}</h3><small className="plan-description">{plan.description}</small><div className="plan-price-row">{plan.oldPrice && <span className="plan-old-price">${plan.oldPrice}</span>}<span className="plan-price-val"><b>$</b>{price}</span><span className="plan-price-freq">{frequencyText}</span>{savingLabel && <span className="plan-save-badge">{savingLabel}</span>}</div><button className="plan-subscribe-btn" style={{ background: plan.featured ? 'linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%)' : '#744bde' }} onClick={handleButtonClick} disabled={Boolean(billing) || currentPlan}>{currentPlan ? (isFreePlan ? 'Plan actual' : (profile.subscriptionStatus === 'authorized' ? 'Plan actual' : planLabel(profile))) : (isFreePlan ? 'Pagar por imagen' : (billing === plan.code ? 'Abriendo pago…' : `Elegir ${plan.name}`))}</button><ul>{plan.features.map((f, i) => <li key={i} className={f.active ? 'active-feature' : 'inactive-feature'}>{f.active ? <Icon name="check" size={14}/> : <Icon name="close" size={14}/>}{f.name}</li>)}</ul></article>; 
+			return <article key={plan.code} className={plan.featured ? 'featured' : ''}>{plan.featured && <span className="most-popular-badge">MOST POPULAR</span>}<h3>{plan.name}</h3><small className="plan-description">{plan.description}</small><div className="plan-price-row">{showOldPrice && <span className="plan-old-price">${plan.price}</span>}<span className="plan-price-val"><b>$</b>{price}</span><span className="plan-price-freq">{frequencyText}</span>{savingLabel && <span className="plan-save-badge">{savingLabel}</span>}</div><button className="plan-subscribe-btn" style={{ background: plan.featured ? 'linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%)' : '#744bde' }} onClick={handleButtonClick} disabled={Boolean(billing) || currentPlan}>{currentPlan ? (isFreePlan ? 'Plan actual' : (profile.subscriptionStatus === 'authorized' ? 'Plan actual' : planLabel(profile))) : (isFreePlan ? 'Pagar por imagen' : (billing === plan.code ? 'Abriendo pago…' : `Elegir ${plan.name}`))}</button><ul>{plan.features.map((f, i) => <li key={i} className={f.active ? 'active-feature' : 'inactive-feature'}>{f.active ? <Icon name="check" size={14}/> : <Icon name="close" size={14}/>}{f.name}</li>)}</ul></article>; 
 		})}</div>
 		<p className="studio-plan-note">Los créditos se renuevan cada mes. Podés cambiar o cancelar tu plan desde tu cuenta.</p>
 		{['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && <button className="studio-cancel-subscription" onClick={() => void cancelSubscription()} disabled={cancelling}>{cancelling ? <><span className="studio-spinner small" aria-hidden="true" /> Cancelando…</> : 'Cancelar renovación'}</button>}

@@ -2619,14 +2619,18 @@
    layout no se mueve nunca, elijas lo que elijas. */
 .niche-dd { position: relative; flex: 0 0 auto; }
 .niche-dd-trigger {
-	display: inline-flex; align-items: center; justify-content: space-between; gap: 9px; height: 42px; padding: 0 15px;
-	width: 210px; box-sizing: border-box;
-	border-radius: 21px; border: 1px solid #dcd5e4; background: #fff; cursor: pointer;
-	font-family: inherit; font-size: 13.5px; font-weight: 700; color: #19171d;
+	/* Sin justify-content:space-between ni el label forzado a crecer (flex:1):
+	   eso era lo que dejaba un hueco enorme entre el texto y el numerito
+	   cuando el label era corto ("Nicho"). Ahora quedan agrupados y prolijos,
+	   con el mismo ancho fijo que "Guardados" para que las 4 píldoras midan igual. */
+	display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 13px;
+	width: 152px; box-sizing: border-box;
+	border-radius: 19px; border: 1px solid #dcd5e4; background: #fff; cursor: pointer;
+	font-family: inherit; font-size: 12.5px; font-weight: 700; color: #19171d;
 	box-shadow: 0 2px 6px rgba(0,0,0,0.02); transition: border-color .15s ease, box-shadow .15s ease;
 }
 .niche-dd-trigger:hover { border-color: #c9bce6; }
-.niche-dd-label { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.niche-dd-label { flex: 0 1 auto; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .niche-dd-badge {
 	flex: 0 0 auto; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px;
 	background: #efeafb; color: #6f38dd; font-variant-numeric: tabular-nums;
@@ -2666,7 +2670,7 @@
 @media (max-width: 640px) {
 	.niche-dd { flex: 1 1 calc(50% - 6px); min-width: 0; }
 	.niche-dd-trigger { width: 100%; height: 38px; padding: 0 10px; gap: 6px; font-size: 12px; }
-	.niche-dd-label { max-width: none; flex: 1; min-width: 0; font-size: 11.5px; }
+	.niche-dd-label { max-width: none; flex: 0 1 auto; min-width: 0; font-size: 11.5px; }
 	.niche-dd-badge { font-size: 10px; padding: 1px 6px; }
 }
 
@@ -2837,10 +2841,10 @@
 }
 
 .picker-pill.active {
-	border-color: #744bde;
-	background: linear-gradient(135deg, #744bde, #5f34cf);
+	border-color: #19171d;
+	background: #19171d;
 	color: #ffffff;
-	box-shadow: 0 6px 18px rgba(116, 75, 222, 0.25);
+	box-shadow: 0 6px 18px rgba(25, 23, 29, 0.18);
 }
 
 .pill-count {

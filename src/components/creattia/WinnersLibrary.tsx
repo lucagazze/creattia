@@ -889,9 +889,9 @@ export default function WinnersLibrary({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [items, savedOnly, selectedFormat, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
 
-	// Lazy load: primeras 30 tarjetas y +30 al acercarse al final del scroll.
-	const [visibleCount, setVisibleCount] = useState(30);
-	useEffect(() => { setVisibleCount(30); }, [savedOnly, selectedFormat, selectedCategories, selectedNiches, query]);
+	// Lazy load: primeras 20 tarjetas y +20 al acercarse al final del scroll.
+	const [visibleCount, setVisibleCount] = useState(20);
+	useEffect(() => { setVisibleCount(20); }, [savedOnly, selectedFormat, selectedCategories, selectedNiches, query]);
 
 	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
 	// imagen al instante en vez de esperar a que baje cada foto de a una.
@@ -910,10 +910,8 @@ export default function WinnersLibrary({
 	useEffect(() => {
 		const element = gridRef.current;
 		if (!element) return;
-		// En celular una sola columna ancha se lee mejor que dos angostas y
-		// apretadas: el feed tipo Pinterest/Instagram solo tiene sentido a
-		// partir de que entren cómodas 2 tarjetas de ~300px.
-		const update = () => setColumnCount(Math.max(1, Math.min(6, Math.floor(element.clientWidth / 300))));
+		// Mínimo 2 columnas siempre, también en celular.
+		const update = () => setColumnCount(Math.max(2, Math.min(6, Math.floor(element.clientWidth / 300))));
 		update();
 		const observer = new ResizeObserver(update);
 		observer.observe(element);
@@ -932,7 +930,7 @@ export default function WinnersLibrary({
 		const sentinel = loadMoreRef.current;
 		if (!sentinel || visibleCount >= filteredItems.length) return;
 		const observer = new IntersectionObserver((entries) => {
-			if (entries[0]?.isIntersecting) setVisibleCount((current) => current + 30);
+			if (entries[0]?.isIntersecting) setVisibleCount((current) => current + 20);
 		}, { rootMargin: '600px' });
 		observer.observe(sentinel);
 		return () => observer.disconnect();
@@ -1275,7 +1273,9 @@ export default function WinnersLibrary({
 					)}
 				</div>
 
-				<button onClick={() => setSavedOnly((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '0 16px', height: '42px', borderRadius: '21px', border: '1px solid', borderColor: savedOnly ? '#f0b3c6' : '#dcd5e4', background: savedOnly ? '#fdeef5' : '#fff', color: savedOnly ? '#c2276f' : '#19171d', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}><span style={{ color: '#e5313f', fontSize: '15px' }}>♥</span> Guardados</button>
+				<div className="niche-dd">
+					<button onClick={() => setSavedOnly((v) => !v)} className="niche-dd-trigger" style={{ borderColor: savedOnly ? '#f0b3c6' : undefined, background: savedOnly ? '#fdeef5' : undefined, color: savedOnly ? '#c2276f' : undefined }}><span style={{ color: '#e5313f', fontSize: '14px' }}>♥</span> Guardados</button>
+				</div>
 			</div>
 
 			{/* Filtros activos: se ven abajo como chips para saber de un vistazo qué está aplicado, y sacar uno sin abrir la lista de nuevo. */}
