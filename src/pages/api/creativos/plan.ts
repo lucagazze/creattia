@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { analyzeReferenceLayout, normalizeImageInput, LANGUAGE_NAMES } from '../../../lib/creattia/ad-analysis';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -20,6 +20,11 @@ export const POST: APIRoute = async ({ request }) => {
 	const openAIKey = import.meta.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
 	const googleKey = import.meta.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_AI_API_KEY || '';
 	if (!openAIKey && !googleKey) return json({ error: 'Falta configurar GOOGLE_AI_API_KEY u OPENAI_API_KEY.' }, 503);
+
+	// Analiza con visión aunque no gaste créditos (se cobran recién al generar):
+	// sin tope se puede pedir sin límite y generar costo real.
+	const withinLimit = await checkRateLimit(admin, auth.user.id, 'plan-analyze', 40, 3600);
+	if (!withinLimit) return json({ error: 'Generaste muchos textos en poco tiempo. Esperá un rato y volvé a intentar.' }, 429);
 
 	try {
 		const form = await request.formData();

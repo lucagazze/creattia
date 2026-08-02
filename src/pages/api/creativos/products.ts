@@ -4,7 +4,7 @@ import { analyzeBrandStyle, persistBrandStyle } from '../../../lib/creattia/bran
 import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
 import { mirrorProductImages } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
 export const maxDuration = 180;
@@ -194,6 +194,10 @@ export const POST: APIRoute = async ({ request }) => {
 			const body = await request.json().catch(() => ({}));
 			const rawUrls = Array.isArray(body.urls) ? body.urls : body.url ? [body.url] : [];
 			if (rawUrls.length > 10) return json({ error: 'Podés importar hasta 10 URLs por vez.' }, 400);
+			// Cada análisis llama a OpenAI aunque no gaste créditos: sin tope se
+			// puede hacer costar plata sin límite.
+			const withinLimit = await checkRateLimit(admin, auth.user.id, 'product-url-scan', 30, 3600);
+			if (!withinLimit) return json({ error: 'Analizaste muchas URLs en poco tiempo. Esperá un rato y volvé a intentar.' }, 429);
 			const imported = await importProductUrls(auth.user.id, rawUrls);
 			const products = await listProducts(auth.user.id);
 			return json({ ...imported, products }, imported.importedIds.length ? 201 : 422);

@@ -837,7 +837,10 @@ export default function WinnersLibrary({
 	useEffect(() => {
 		const element = gridRef.current;
 		if (!element) return;
-		const update = () => setColumnCount(Math.max(2, Math.min(6, Math.floor(element.clientWidth / 300))));
+		// En celular una sola columna ancha se lee mejor que dos angostas y
+		// apretadas: el feed tipo Pinterest/Instagram solo tiene sentido a
+		// partir de que entren cómodas 2 tarjetas de ~300px.
+		const update = () => setColumnCount(Math.max(1, Math.min(6, Math.floor(element.clientWidth / 300))));
 		update();
 		const observer = new ResizeObserver(update);
 		observer.observe(element);

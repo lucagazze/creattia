@@ -387,6 +387,25 @@
 .studio-mode-badge > span { width: 6px; height: 6px; border-radius: 50%; background: #38b989; box-shadow: 0 0 0 3px rgba(56,185,137,.12); }
 .studio-credit-pill { height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 6px; border-radius: 20px; border: 1px solid #ded9e6; background: #fff; color: #19171d; cursor: pointer; box-shadow: 0 3px 10px rgba(32,22,42,.03); }
 .studio-credit-pill b { font-size: 11px; }
+
+/* Bienvenida de la primera visita: un cartel, no un tour con spotlights. */
+.studio-welcome-card {
+	display: flex; align-items: flex-start; gap: 14px;
+	padding: 16px 18px; margin-bottom: 22px;
+	background: linear-gradient(135deg, #f4f0ff 0%, #fdf5fb 100%);
+	border: 1.5px solid #e4d8fb; border-radius: 16px;
+	position: relative;
+}
+.studio-welcome-icon { font-size: 24px; line-height: 1; flex-shrink: 0; }
+.studio-welcome-card strong { display: block; margin-bottom: 4px; font-size: 14.5px; color: #19171d; }
+.studio-welcome-card p { margin: 0; font-size: 13px; line-height: 1.55; color: #4b4452; padding-right: 24px; }
+.studio-welcome-card p button { border: 0; background: transparent; padding: 0; color: #744bde; font-weight: 800; font-size: inherit; font-family: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.studio-welcome-close { position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(255,255,255,.7); color: #716d79; cursor: pointer; display: grid; place-items: center; font-size: 12px; }
+.studio-welcome-close:hover { background: #fff; color: #19171d; }
+@media (max-width: 640px) {
+	.studio-welcome-card { flex-direction: column; gap: 6px; padding: 14px 16px; }
+	.studio-welcome-card p { padding-right: 20px; }
+}
 .studio-credit-pill span { color: #77717d; font-size: 9px; font-weight: 600; }
 .studio-content { max-width: 1240px; margin: 0 auto; padding: 16px 38px 70px; }
 
@@ -2595,7 +2614,7 @@
 .niche-dd-caret { font-size: 10px; color: #8b8490; transition: transform .18s ease; }
 .niche-dd-caret.is-open { transform: rotate(180deg); }
 .niche-dd-menu {
-	position: absolute; top: 50px; left: 0; z-index: 130; width: 300px; max-height: 460px; overflow-y: auto;
+	position: absolute; top: 50px; left: 0; z-index: 130; width: 300px; max-width: calc(100vw - 32px); max-height: 460px; overflow-y: auto;
 	background: #fff; border: 1px solid #ece7f2; border-radius: 14px; padding: 6px;
 	box-shadow: 0 18px 50px rgba(52,40,79,0.20); display: flex; flex-direction: column; gap: 2px;
 	animation: niche-dd-in .14s ease;

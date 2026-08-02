@@ -31,6 +31,36 @@ export async function authenticateRequest(request: Request): Promise<{
 	return { user: data.user, token };
 }
 
+/**
+ * Límite de uso por usuario para acciones que cuestan plata pero NO gastan
+ * créditos (análisis con IA, scraping de una URL): sin esto, una cuenta
+ * podía llamarlas sin límite y generar costo real sin tope. Respaldado en
+ * Postgres (RPC check_rate_limit) — funciona igual entre invocaciones
+ * serverless distintas, a diferencia de un contador en memoria.
+ */
+export async function checkRateLimit(
+	admin: ReturnType<typeof getAdminClient>,
+	userId: string,
+	eventKey: string,
+	maxCount: number,
+	windowSeconds: number,
+): Promise<boolean> {
+	if (!admin) return true; // sin conexión a Supabase no hay forma de contar: no bloquea
+	try {
+		const { data, error } = await admin.rpc('check_rate_limit', {
+			p_user_id: userId,
+			p_event_key: eventKey,
+			p_max_count: maxCount,
+			p_window_seconds: windowSeconds,
+		});
+		if (error) { console.error('check_rate_limit RPC error:', error); return true; }
+		return data !== false;
+	} catch (err) {
+		console.error('check_rate_limit falló:', err);
+		return true; // un fallo del limitador nunca debe tumbar la función real
+	}
+}
+
 export function json(data: unknown, status = 200) {
 	return new Response(JSON.stringify(data), {
 		status,

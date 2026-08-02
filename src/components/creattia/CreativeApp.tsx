@@ -443,6 +443,37 @@ export default function CreativeApp() {
 	const [viewHistory, setViewHistory] = useState<View[]>([]);
 	const [openedFromView, setOpenedFromView] = useState<View | null>(null);
 
+	// URL de producto pegada en la landing: si hace falta confirmar el email o
+	// entrar con Google, la vuelta pisa el ?batchUrl= de la URL. Se guarda en
+	// localStorage ANTES de que eso pase, así sobrevive al viaje de ida y
+	// vuelta y el usuario cae directo con su producto ya cargado.
+	const [pendingProductUrl, setPendingProductUrl] = useState('');
+	useEffect(() => {
+		if (typeof window === 'undefined') return;
+		const params = new URLSearchParams(window.location.search);
+		const fromQuery = params.get('batchUrl') || params.get('url');
+		if (fromQuery) {
+			try { localStorage.setItem('creattia_pending_url', fromQuery); } catch { /* storage bloqueado */ }
+			setPendingProductUrl(fromQuery);
+			return;
+		}
+		try {
+			const stored = localStorage.getItem('creattia_pending_url');
+			if (stored) setPendingProductUrl(stored);
+		} catch { /* storage bloqueado */ }
+	}, []);
+
+	// Bienvenida para cuentas nuevas: se marca completa apenas la cierran, no
+	// vuelve a aparecer.
+	async function dismissOnboarding() {
+		setProfile((prev) => ({ ...prev, onboardingCompleted: true }));
+		if (supabase && session) {
+			try {
+				await supabase.from('creative_profiles').update({ onboarding_completed: true }).eq('user_id', getSessionId(session));
+			} catch { /* si falla, vuelve a aparecer la próxima vez: no es grave */ }
+		}
+	}
+
 	// Favoritos y carpetas se guardan en localStorage, pero SIEMPRE con el id de
 	// la cuenta activa en la clave (ver sessionUserIdRef más abajo): sin eso, dos
 	// cuentas distintas en el mismo navegador terminan viendo lo del otro.
@@ -1442,11 +1473,17 @@ export default function CreativeApp() {
 
 				<div className="studio-content">
 					{view === 'home' && (
-						<Dashboard 
-							profile={profile} 
+						<Dashboard
+							profile={profile}
 							session={session}
-							email={getSessionEmail(session)} 
-							history={history} 
+							email={getSessionEmail(session)}
+							pendingProductUrl={pendingProductUrl}
+							onPendingProductUrlUsed={() => {
+								setPendingProductUrl('');
+								try { localStorage.removeItem('creattia_pending_url'); } catch { /* storage bloqueado */ }
+							}}
+							onDismissOnboarding={dismissOnboarding}
+							history={history}
 							catalog={catalog} 
 							onView={navigateTo} 
 							onChoose={chooseCreative} 
@@ -2012,6 +2049,9 @@ function Dashboard({
 	onExpand,
 	onBatchCreated,
 	onGenerationRequested,
+	pendingProductUrl = '',
+	onPendingProductUrlUsed,
+	onDismissOnboarding,
 }: {
 	profile: AppProfile;
 	session?: AppSession;
@@ -2031,25 +2071,36 @@ function Dashboard({
 	onExpand?: (generation: Generation) => void;
 	onBatchCreated?: (generations: any[], batchId: string) => void;
 	onGenerationRequested?: () => void;
+	// URL de producto que quedó pendiente de la landing (sobrevive a la
+	// confirmación de email / login con Google).
+	pendingProductUrl?: string;
+	onPendingProductUrlUsed?: () => void;
+	onDismissOnboarding?: () => void;
 }) {
-	const [initialUrlFromQuery, setInitialUrlFromQuery] = useState('');
-
+	// Se precarga una sola vez: si el usuario la borra o la cambia, no se le
+	// vuelve a imponer en la próxima visita.
 	useEffect(() => {
-		if (typeof window !== 'undefined') {
-			const params = new URLSearchParams(window.location.search);
-			const batchUrlParam = params.get('batchUrl') || params.get('url');
-			if (batchUrlParam) {
-				setInitialUrlFromQuery(batchUrlParam);
-			}
-		}
+		if (pendingProductUrl) onPendingProductUrlUsed?.();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	return (
 		<>
+			{!profile.onboardingCompleted && (
+				<div className="studio-welcome-card">
+					<span className="studio-welcome-icon" aria-hidden="true">👋</span>
+					<div>
+						<strong>¡Bienvenido a Creattia!</strong>
+						<p>Dos formas de arrancar: pegá la URL de tu producto para clonar varios anuncios ganadores a la vez, o entrá a la <button type="button" onClick={() => onView('winners')}>Biblioteca</button> y elegí uno puntual con "Usar este diseño". Tus primeros créditos ya están cargados — no hace falta tarjeta.</p>
+					</div>
+					<button type="button" className="studio-welcome-close" onClick={onDismissOnboarding} aria-label="Cerrar bienvenida">✕</button>
+				</div>
+			)}
+
 			{/* ── Generador Masivo de Anuncios por URL ── */}
 			<UrlBatchSection
 				userCredits={profile.credits}
-				initialUrl={initialUrlFromQuery}
+				initialUrl={pendingProductUrl}
 				session={session}
 				onBatchCreated={onBatchCreated}
 				onGenerationRequested={onGenerationRequested}

@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
 export const maxDuration = 30;
@@ -15,6 +15,9 @@ export const POST: APIRoute = async ({ request }) => {
 	const openAIKey = import.meta.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
 	const googleKey = import.meta.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_AI_API_KEY || '';
 	if (!openAIKey && !googleKey) return json({ error: 'Falta configurar las API keys de IA.' }, 503);
+
+	const withinLimit = await checkRateLimit(getAdminClient(), auth.user.id, 'rewrite-copy', 60, 3600);
+	if (!withinLimit) return json({ error: 'Rehiciste muchos textos en poco tiempo. Esperá un rato y volvé a intentar.' }, 429);
 
 	try {
 		const body = await request.json();
