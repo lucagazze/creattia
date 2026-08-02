@@ -58,6 +58,11 @@ export const POST: APIRoute = async ({ request }) => {
 		const brandSource = brandSources.has(String(body?.brandSource)) ? String(body?.brandSource) : 'url';
 		const colorMode = body?.colorMode === 'brand' ? 'brand' : 'winner';
 		const typoMode = body?.typoMode === 'brand' ? 'brand' : 'winner';
+		// El usuario elige, página por página, en cuáles va su logo. Antes se
+		// agregaba solo si había uno disponible, sin preguntar nunca.
+		const logoSlideIndexes = new Set(
+			Array.isArray(body?.logoSlideIndexes) ? body.logoSlideIndexes.map((v: unknown) => Number(v)).filter((n: number) => Number.isInteger(n) && n >= 0) : []
+		);
 
 		// Los productos tienen que ser del usuario y tener al menos una foto real.
 		const uniqueProductIds = [...new Set(productIds)];
@@ -114,6 +119,7 @@ export const POST: APIRoute = async ({ request }) => {
 					colorMode,
 					typoMode,
 					brandSource,
+					includeLogo: logoSlideIndexes.has(index),
 					imageType: 'product',
 					referencePath: slidePath,
 					referenceName: `${referenceName} · página ${index + 1}/${count}`,

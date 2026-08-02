@@ -213,6 +213,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [colorMode, setColorMode] = useState('winner');
 	const [typoMode, setTypoMode] = useState('winner');
 	const [brandSource, setBrandSource] = useState('url');
+	const [includeLogo, setIncludeLogo] = useState(false);
 	const [extraImages, setExtraImages] = useState<File[]>([]);
 	const [extraImagePreviews, setExtraImagePreviews] = useState<string[]>([]);
 
@@ -464,6 +465,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					colorMode,
 					typoMode,
 					brandSource,
+					includeLogo,
 				}),
 			});
 			const data = await response.json();
@@ -863,6 +865,16 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 									))}
 								</div>
 								<small className="batch-brand-note">{brandSourceDescription(brandSource)}</small>
+								{brandSource !== 'none' && (
+									<div className="batch-style-group" style={{ marginTop: '12px' }}>
+										<span className="picker-label">Logo en el anuncio</span>
+										<div className="batch-style-options">
+											<button type="button" className={!includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(false)} aria-pressed={!includeLogo}>Sin logo</button>
+											<button type="button" className={includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(true)} aria-pressed={includeLogo}>Con mi logo</button>
+										</div>
+										<small className="batch-brand-note">{includeLogo ? 'Lo agregamos en el espacio del diseño cuando el anuncio tenga lugar para él.' : 'El anuncio sale solo con tu producto, sin logo ni marca de agua.'}</small>
+									</div>
+								)}
 							</div>
 							<div className="batch-style-group"><span className="picker-label">Colores</span><div className="batch-style-options">{STYLE_OPTIONS.map((option) => <button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value)} aria-pressed={colorMode === option.value}>{option.label}</button>)}</div></div>
 							<div className="batch-style-group"><span className="picker-label">Tipografía</span><div className="batch-style-options">{STYLE_OPTIONS.map((option) => <button key={option.value} type="button" className={typoMode === option.value ? 'active' : ''} onClick={() => setTypoMode(option.value)} aria-pressed={typoMode === option.value}>{option.label}</button>)}</div></div>

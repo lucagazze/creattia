@@ -1977,6 +1977,7 @@
 	transform-style: preserve-3d !important;
 	perspective: 1000px !important;
 }
+.library-ad-card-masonry:hover .video-play-hint { opacity: 1 !important; }
 .library-ad-card-masonry:hover {
 	transform: rotateX(3deg) rotateY(-2deg) translateY(-5px) !important;
 	border-color: #d8cfff !important;

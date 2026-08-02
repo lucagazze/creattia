@@ -71,7 +71,9 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [typoMode, setTypoMode] = useState<'winner' | 'brand'>('winner');
 	const [brandSource, setBrandSource] = useState('url');
 	const [includeLogo, setIncludeLogo] = useState(false);
-	const [count, setCount] = useState(1);
+	// Carrusel completo: en cuáles páginas va el logo. Vacío = en ninguna.
+	const [logoCarouselPages, setLogoCarouselPages] = useState<Set<number>>(new Set());
+	const count = 1;
 	const [manualProductName, setManualProductName] = useState('');
 	const [manualProductFacts, setManualProductFacts] = useState('');
 
@@ -288,6 +290,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 					templateId: !isNaN(pathPrefixId) ? pathPrefixId : 40,
 					productIds,
 					format, language, colorMode, typoMode, brandSource,
+					logoSlideIndexes: [...logoCarouselPages],
 				}),
 			});
 			const payload = await response.json();
@@ -602,6 +605,46 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									</div>
 								</div>
 
+								{wantsFullCarousel && brandSource !== 'none' && (
+									<div className="batch-style-group" style={{ marginBottom: '4px' }}>
+										<span className="picker-label">Logo en el carrusel</span>
+										<div className="batch-style-options">
+											<button type="button" className={logoCarouselPages.size === 0 ? 'active' : ''} onClick={() => setLogoCarouselPages(new Set())}>Sin logo</button>
+											<button type="button" className={logoCarouselPages.size > 0 ? 'active' : ''} onClick={() => setLogoCarouselPages(new Set(carouselSlides.map((_, i) => i)))}>Con mi logo</button>
+										</div>
+										{logoCarouselPages.size > 0 && (
+											<>
+												<small className="batch-brand-note">Tocá una página para sacarle el logo — por defecto va en todas.</small>
+												<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+													{carouselSlides.map((slide, index) => {
+														const on = logoCarouselPages.has(index);
+														return (
+															<button
+																key={slide}
+																type="button"
+																onClick={() => setLogoCarouselPages((prev) => {
+																	const next = new Set(prev);
+																	if (next.has(index)) next.delete(index); else next.add(index);
+																	return next;
+																})}
+																title={`Página ${index + 1} — ${on ? 'con logo' : 'sin logo'}`}
+																style={{
+																	position: 'relative', padding: 0, width: '58px', height: '58px', borderRadius: '9px', overflow: 'hidden', cursor: 'pointer',
+																	border: on ? '2.5px solid #744bde' : '1.5px solid #e2dde9',
+																	background: '#f6f4f9', opacity: on ? 1 : 0.5,
+																}}
+															>
+																<img src={`${REFERENCES_BASE}/${slide}`} alt={`Página ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+																<span style={{ position: 'absolute', bottom: '2px', right: '2px', fontSize: '11px', lineHeight: 1, filter: on ? 'none' : 'grayscale(1)' }}>{on ? '🏷️' : '🚫'}</span>
+															</button>
+														);
+													})}
+												</div>
+											</>
+										)}
+									</div>
+								)}
+
 								<div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
 									<div className="batch-style-group" style={{ flex: '0 1 300px', maxWidth: '340px' }}>
 										<span className="picker-label">Colores</span>
@@ -621,20 +664,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									</div>
 								</div>
 
-								{wantsFullCarousel ? (
+								{wantsFullCarousel && (
 									<p className="wiz-hint">Se generan las {carouselSlides.length} páginas del carrusel — la cantidad la define el diseño original.</p>
-								) : (
-									<>
-										<label className="picker-label" style={{ marginTop: '4px' }}>Cantidad de variantes</label>
-										<div className="picker-options" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
-											{[1, 2, 3, 4].map((val) => (
-												<button key={val} type="button" className={`picker-pill ${count === val ? 'active' : ''}`} onClick={() => setCount(val)}>
-													<span className="pill-count">{val} {val === 1 ? 'variante' : 'variantes'}</span>
-													<span className="pill-sub">{val === 1 ? 'Usa 1 crédito' : `Usa ${val} créditos`}</span>
-												</button>
-											))}
-										</div>
-									</>
 								)}
 							</div>
 						</div>

@@ -135,12 +135,17 @@ export const POST: APIRoute = async ({ request }) => {
 		let brandColors: string[] = [];
 		let brandTypography: any = undefined;
 		let logoImage: EngineImage | null = null;
+		// El usuario elige explícitamente si quiere el logo en este anuncio: antes
+		// se agregaba solo porque había uno disponible, sin preguntar nunca. Las
+		// filas viejas (sin este campo) se tratan como "sin logo": es la opción
+		// segura, nunca agrega algo que el usuario no pidió.
+		const includeLogo = snapshot.includeLogo === true;
 
 		if (brandSource === 'mine') {
 			brandName = profile?.brand_name || '';
 			brandColors = Array.isArray(profile?.brand_colors) ? profile.brand_colors : [];
 			brandTypography = (profile?.brand_style as any)?.typography;
-			if (profile?.logo_path) {
+			if (includeLogo && profile?.logo_path) {
 				const { data: logoBlob } = await admin.storage.from(ASSETS).download(profile.logo_path);
 				const normalized = logoBlob ? await normalizeImageInput(Buffer.from(await logoBlob.arrayBuffer())) : null;
 				if (normalized) logoImage = { buffer: normalized.buffer, type: normalized.type };
@@ -152,7 +157,7 @@ export const POST: APIRoute = async ({ request }) => {
 			brandTypography = fromUrl?.typography || undefined;
 			// El logo del sitio viene como URL: se baja y se normaliza. Si sale
 			// sucio o no se puede leer, se sigue sin logo antes que arruinar el aviso.
-			if (fromUrl?.logoUrl) {
+			if (includeLogo && fromUrl?.logoUrl) {
 				try {
 					const logoResponse = await fetch(fromUrl.logoUrl);
 					if (logoResponse.ok) {

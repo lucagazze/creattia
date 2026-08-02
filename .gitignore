@@ -13,3 +13,5 @@ npm-debug.log*
 
 # Scraped ads (viven en Supabase storage, no en el repo)
 public/scraped_ads/
+public/scraped_videos/
+scripts/_quality_review_cache.json

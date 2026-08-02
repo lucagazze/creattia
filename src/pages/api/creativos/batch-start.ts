@@ -45,6 +45,9 @@ export const POST: APIRoute = async ({ request }) => {
 		// El estilo puede venir del ganador o de la marca elegida arriba.
 		const colorMode = body?.colorMode === 'brand' ? 'brand' : 'winner';
 		const typoMode = body?.typoMode === 'brand' ? 'brand' : 'winner';
+		// El usuario elige explícitamente si quiere el logo en el anuncio o no —
+		// antes se agregaba solo si había uno disponible, sin preguntar.
+		const includeLogo = brandSource !== 'none' && Boolean(body?.includeLogo);
 
 		// En modo manual se permite continuar sin foto; el nombre y la descripción
 		// siguen siendo obligatorios para que el anuncio tenga contexto.
@@ -123,6 +126,7 @@ export const POST: APIRoute = async ({ request }) => {
 				colorMode,
 				typoMode,
 				brandSource,
+				includeLogo,
 				imageType: 'product',
 				textMode,
 				allowNoProductImage,
