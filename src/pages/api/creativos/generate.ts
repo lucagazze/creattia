@@ -227,12 +227,17 @@ export const POST: APIRoute = async ({ request }) => {
 		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : '';
 		const colorMode = clean(form.get('colorMode'), 10) === 'brand' ? 'brand' as const : 'winner' as const;
 		const typoMode = clean(form.get('typoMode'), 10) === 'brand' ? 'brand' as const : 'winner' as const;
-		const includeLogo = clean(form.get('includeLogo'), 2) !== '0';
+		// Por defecto NO se agrega logo ni marca si el caller no lo pide de
+		// forma explícita — antes el default era "sí" y varios flujos (revisión
+		// desde el lightbox, modal de la biblioteca, wizard de Studio) nunca
+		// mandaban estos campos, así que terminaban agregando el logo guardado
+		// del usuario sin que nadie lo pidiera.
+		const includeLogo = clean(form.get('includeLogo'), 2) === '1';
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		// 'url'  → la marca del sitio de donde salió el producto
 		// 'mine' → la que el usuario tiene guardada en Mi marca
 		// 'none' → ninguna: el anuncio habla solo del producto
-		const brandSource = ['url', 'mine', 'none'].includes(brandSourceParam) ? brandSourceParam : 'mine';
+		const brandSource = ['url', 'mine', 'none'].includes(brandSourceParam) ? brandSourceParam : 'none';
 		const requestedVariationStrength = clean(form.get('variationStrength'), 20) || 'exact';
 		const variationStrength = variationStrengths.has(requestedVariationStrength) ? requestedVariationStrength : 'exact';
 		const productIds = uniqueIds([
@@ -479,16 +484,24 @@ export const POST: APIRoute = async ({ request }) => {
 
 		let primaryProductBuffer: Buffer | null = null;
 		let primaryProductMime = 'image/png';
-		if (!isExactRevision) for (const item of productInputPlan) {
-			const { data: productBlob, error } = await admin.storage.from('creative-assets').download(item.path);
-			if (error || !productBlob) throw error || new Error(`No se pudo recuperar una foto de ${item.product.name}.`);
-			const normalized = await normalizeImageInput(Buffer.from(await productBlob.arrayBuffer()));
-			if (!normalized) continue; // foto ilegible: no puede tumbar la generación
-			if (!primaryProductBuffer) {
-				primaryProductBuffer = normalized.buffer;
-				primaryProductMime = normalized.type;
+		if (!isExactRevision && productInputPlan.length) {
+			// Las fotos de producto son independientes entre sí: bajarlas y
+			// normalizarlas en paralelo en vez de una por una ahorra segundos
+			// reales cuando hay varias fotos (varios productos o varios ángulos).
+			const normalizedPhotos = await Promise.all(productInputPlan.map(async (item) => {
+				const { data: productBlob, error } = await admin.storage.from('creative-assets').download(item.path);
+				if (error || !productBlob) throw error || new Error(`No se pudo recuperar una foto de ${item.product.name}.`);
+				const normalized = await normalizeImageInput(Buffer.from(await productBlob.arrayBuffer()));
+				return { item, normalized };
+			}));
+			for (const { item, normalized } of normalizedPhotos) {
+				if (!normalized) continue; // foto ilegible: no puede tumbar la generación
+				if (!primaryProductBuffer) {
+					primaryProductBuffer = normalized.buffer;
+					primaryProductMime = normalized.type;
+				}
+				await pushInput(normalized.buffer, normalized.type, `product-${item.product.id}-${item.photoIndex}.png`, `verified photo ${item.photoIndex} of the real product “${item.product.name}”; preserve packaging, label, shape and color`);
 			}
-			await pushInput(normalized.buffer, normalized.type, `product-${item.product.id}-${item.photoIndex}.png`, `verified photo ${item.photoIndex} of the real product “${item.product.name}”; preserve packaging, label, shape and color`);
 		}
 		if (!isExactRevision && !storedProducts.length && productsUploaded.length > 0) {
 			for (let idx = 0; idx < productsUploaded.length; idx++) {
@@ -695,8 +708,11 @@ The result must look like the same image with only that one adjustment applied.`
 		// respaldo. Antes el Studio tenía su propia cadena — Gemini primero y
 		// gpt-image-1 después — así que la misma referencia daba peor texto acá que
 		// en el lote. Ahora las dos pantallas generan igual.
-		const outputBuffers: Buffer[] = [];
-		for (let index = 0; index < count; index += 1) {
+		// Cada imagen del lote es independiente (mismo prompt/insumos, sin
+		// estado compartido): generarlas en paralelo en vez de una por una es
+		// la diferencia entre esperar N veces el tiempo de una sola imagen o
+		// esperar solo una vez.
+		const outputBuffers: Buffer[] = await Promise.all(Array.from({ length: count }, async (_, index) => {
 			const { buffer, engine } = await generateAdImage({
 				googleKey,
 				openAIKey,
@@ -705,14 +721,16 @@ The result must look like the same image with only that one adjustment applied.`
 				format: effectiveFormat,
 				tier: quality === 'pro' ? 'high' : 'medium',
 			});
-			outputBuffers.push(buffer);
 			stamp(`imagen ${index + 1}/${count} generada con ${engine}`);
-		}
+			return buffer;
+		}));
 
 		if (!outputBuffers.length) throw new Error('No se generaron imágenes.');
 
-		const responseGenerations: Array<{ id: string; imageUrl: string; outputIndex: number; batchId: string }> = [];
-		for (let index = 0; index < Math.min(outputBuffers.length, generationIds.length); index += 1) {
+		// Subida + firma + update de cada imagen tampoco depende de las demás:
+		// en paralelo también, mismo criterio que la generación de arriba.
+		const uploadCount = Math.min(outputBuffers.length, generationIds.length);
+		const uploadResults = await Promise.all(Array.from({ length: uploadCount }, async (_, index) => {
 			const generationId = generationIds[index];
 			const outputPath = `${auth.user!.id}/generations/${batchId}/${index + 1}.png`;
 			const { error: uploadError } = await admin.storage.from('creative-assets').upload(
@@ -736,8 +754,9 @@ The result must look like the same image with only that one adjustment applied.`
 				throw completionError;
 			}
 			completedIds.add(generationId);
-			responseGenerations.push({ id: generationId, imageUrl: signed.signedUrl, outputIndex: index + 1, batchId });
-		}
+			return { id: generationId, imageUrl: signed.signedUrl, outputIndex: index + 1, batchId };
+		}));
+		const responseGenerations: Array<{ id: string; imageUrl: string; outputIndex: number; batchId: string }> = uploadResults;
 		stamp(`completado: ${responseGenerations.length}/${count} imágenes subidas`);
 
 		const missingCount = count - responseGenerations.length;

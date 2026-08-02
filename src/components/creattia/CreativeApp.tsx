@@ -553,22 +553,31 @@ export default function CreativeApp() {
 		return () => { active = false; };
 	}, [session]);
 
-	async function deleteImage(imgId: string) {
-		const confirmDelete = window.confirm("¿Estás seguro de que quieres eliminar esta imagen?");
+	/**
+	 * Borra una o varias generaciones de una sola vez (un carrusel entero, o una
+	 * selección múltiple). Un solo confirm y un solo delete en lote — antes se
+	 * llamaba una vez por imagen, así que borrar un carrusel de 6 páginas
+	 * disparaba 6 confirms seguidos y, si el usuario no los aceptaba todos,
+	 * quedaban páginas sueltas sin borrar.
+	 */
+	async function deleteImage(imgIds: string | string[]) {
+		const ids = Array.isArray(imgIds) ? imgIds : [imgIds];
+		if (!ids.length) return;
+		const confirmDelete = window.confirm(ids.length > 1 ? `¿Eliminar estas ${ids.length} imágenes?` : '¿Estás seguro de que quieres eliminar esta imagen?');
 		if (!confirmDelete) return;
 
 		try {
 			if (isSupabaseConfigured && supabase) {
-				const { error } = await supabase.from('creative_generations').delete().eq('id', imgId);
+				const { error } = await supabase.from('creative_generations').delete().in('id', ids);
 				if (error) throw error;
 			}
-			// Remove from history state
-			const nextHistory = history.filter(item => item.id !== imgId);
+			const idSet = new Set(ids);
+			const nextHistory = history.filter(item => !idSet.has(item.id));
 			setHistory(nextHistory);
 			if (!isSupabaseConfigured) {
 				saveLocal(HISTORY_KEY, nextHistory);
 			}
-			setToast("Imagen eliminada correctamente.");
+			setToast(ids.length > 1 ? `${ids.length} imágenes eliminadas.` : "Imagen eliminada correctamente.");
 		} catch (err) {
 			alert(err instanceof Error ? err.message : "Error al eliminar la imagen.");
 		}
@@ -2966,7 +2975,7 @@ function History({
 	onToggleFolder?: (imgId: string, folderId: string) => void;
 	onRemoveFolder?: (folderId: string) => void;
 	onCreateFolder?: (name: string) => void;
-	onDeleteImage?: (imgId: string) => void;
+	onDeleteImage?: (imgIds: string | string[]) => void;
 	activeBatch?: ActiveBatch | null;
 	stuckCount?: number;
 	onCleanupStuck?: (generationId?: string) => void;
@@ -2974,6 +2983,11 @@ function History({
 	const [currentFolderId, setCurrentFolderId] = useState<string>('all');
 	const [showCreateFolder, setShowCreateFolder] = useState(false);
 	const [newFolderName, setNewFolderName] = useState('');
+	// Selección múltiple para borrar varias de una: se guardan las "keys" de
+	// grupo (id de la imagen, o batchId si es un carrusel agrupado).
+	const [multiSelectMode, setMultiSelectMode] = useState(false);
+	const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+	const toggleMultiSelect = () => { setMultiSelectMode((v) => !v); setSelectedKeys(new Set()); };
 
 	function handleCreateFolder() {
 		if (newFolderName.trim() && onCreateFolder) {
@@ -3005,11 +3019,42 @@ function History({
 					<h1>Todo lo que creaste.</h1>
 					<span>Tocá una imagen para verla grande, descargarla o crear otra versión.</span>
 				</div>
-				<button className="studio-primary-button compact" onClick={onCreate} style={{ background: '#744bde' }}>
-					<Icon name="plus" size={17}/>
-					Crear imagen
-				</button>
+				<div style={{ display: 'flex', gap: '8px' }}>
+					<button
+						className="studio-primary-button compact"
+						onClick={toggleMultiSelect}
+						style={{ background: multiSelectMode ? '#19171d' : '#fff', color: multiSelectMode ? '#fff' : '#19171d', border: '1.5px solid #dcd5e4' }}
+					>
+						{multiSelectMode ? 'Cancelar selección' : 'Seleccionar'}
+					</button>
+					<button className="studio-primary-button compact" onClick={onCreate} style={{ background: '#744bde' }}>
+						<Icon name="plus" size={17}/>
+						Crear imagen
+					</button>
+				</div>
 			</div>
+
+			{multiSelectMode && (
+				<div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px', padding: '10px 16px', borderRadius: '12px', background: '#f4f0ff', border: '1px solid #e1d7fb' }}>
+					<strong style={{ fontSize: '13.5px', color: '#4c2f9e' }}>{selectedKeys.size} {selectedKeys.size === 1 ? 'seleccionada' : 'seleccionadas'}</strong>
+					<button
+						type="button"
+						disabled={!selectedKeys.size}
+						onClick={() => {
+							if (!onDeleteImage) return;
+							const ids = historyGroups
+								.filter((g) => selectedKeys.has(g.key))
+								.flatMap((g) => (g.slides || [g.item]).map((s) => s.id));
+							onDeleteImage(ids);
+							setSelectedKeys(new Set());
+							setMultiSelectMode(false);
+						}}
+						style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: '9px', border: 0, background: selectedKeys.size ? '#dc2626' : '#e9c9c9', color: '#fff', fontSize: '13px', fontWeight: 800, cursor: selectedKeys.size ? 'pointer' : 'default', fontFamily: 'inherit' }}
+					>
+						🗑️ Eliminar seleccionadas
+					</button>
+				</div>
+			)}
 
 			{/* Folders navigation bar */}
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px', alignItems: 'center', background: '#fcfbfe', padding: '10px 14px', borderRadius: '12px', border: '1px solid #eee9f3' }}>
@@ -3139,8 +3184,15 @@ function History({
 							onToggleFolder={onToggleFolder ? (fid) => onToggleFolder(group.item.id, fid) : undefined}
 							onExpand={onExpand}
 							onReuse={onReuse}
-							onDeleteImage={group.slides ? (onDeleteImage ? () => group.slides!.forEach((s) => onDeleteImage(s.id)) : undefined) : onDeleteImage}
+							onDeleteImage={group.slides ? (onDeleteImage ? () => onDeleteImage(group.slides!.map((s) => s.id)) : undefined) : onDeleteImage}
 							onCancel={onCleanupStuck ? (group.slides ? () => group.slides!.forEach((s) => onCleanupStuck(s.id)) : () => onCleanupStuck(group.item.id)) : undefined}
+							selectMode={multiSelectMode}
+							selected={selectedKeys.has(group.key)}
+							onToggleSelect={() => setSelectedKeys((prev) => {
+								const next = new Set(prev);
+								if (next.has(group.key)) next.delete(group.key); else next.add(group.key);
+								return next;
+							})}
 							/>
 						))}
 					{pendingPlaceholders.map((_, index) => (
@@ -3198,6 +3250,9 @@ function GenerationCard({
 	onToggleFolder,
 	onDeleteImage,
 	onCancel,
+	selectMode,
+	selected,
+	onToggleSelect,
 }: {
 	item: Generation;
 	/** Cuando el creativo es un carrusel: todas sus páginas, ordenadas. La tarjeta pagina entre ellas como un solo creativo. */
@@ -3211,6 +3266,10 @@ function GenerationCard({
 	onDeleteImage?: (imgId: string) => void;
 	/** Cierra una generación que quedó colgada y devuelve el crédito. */
 	onCancel?: () => void;
+	/** Selección múltiple para borrado masivo: al estar activa, tocar la tarjeta selecciona en vez de abrir. */
+	selectMode?: boolean;
+	selected?: boolean;
+	onToggleSelect?: () => void;
 }) {
 	const [showFolderDropdown, setShowFolderDropdown] = useState(false);
 	const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -3219,6 +3278,13 @@ function GenerationCard({
 	const [slideIndex, setSlideIndex] = useState(0);
 	const isCarousel = Boolean(slides && slides.length > 1);
 	const active = isCarousel ? slides![Math.min(slideIndex, slides!.length - 1)] : item;
+	// Precarga el resto de las páginas del carrusel apenas se ve la tarjeta:
+	// sin esto, cada vez que tocás la flecha se descargaba la imagen recién
+	// en ese momento y se sentía trabado en vez de pasar al toque.
+	useEffect(() => {
+		if (!isCarousel) return;
+		slides!.forEach((slide) => { if (slide.imageUrl) { const img = new Image(); img.src = slide.imageUrl; } });
+	}, [isCarousel, slides]);
 	const goToSlide = (delta: number) => {
 		if (!isCarousel) return;
 		setSlideIndex((prev) => (prev + delta + slides!.length) % slides!.length);
@@ -3253,10 +3319,23 @@ function GenerationCard({
 				e.preventDefault();
 				setContextMenu({ x: e.clientX, y: e.clientY });
 			}}
-			style={{ position: 'relative' }}
+			style={{ position: 'relative', outline: selectMode && selected ? '3px solid #744bde' : undefined, borderRadius: selectMode && selected ? '14px' : undefined }}
 		>
-			<div style={{ cursor: onExpand ? 'zoom-in' : 'default', position: 'relative' }} onClick={onExpand ? () => onExpand(active) : undefined}>
-				{onToggleLike && (
+			<div style={{ cursor: selectMode ? 'pointer' : onExpand ? 'zoom-in' : 'default', position: 'relative' }} onClick={selectMode ? onToggleSelect : (onExpand ? () => onExpand(active) : undefined)}>
+				{selectMode ? (
+					<div
+						style={{
+							position: 'absolute', top: '8px', left: '8px', zIndex: 10,
+							width: '26px', height: '26px', borderRadius: '50%',
+							background: selected ? '#744bde' : 'rgba(255,255,255,0.9)',
+							border: selected ? 'none' : '2px solid #d8d2e0',
+							color: '#fff', display: 'grid', placeItems: 'center',
+							boxShadow: '0 2px 6px rgba(0,0,0,0.1)', fontSize: '13px', fontWeight: 800,
+						}}
+					>
+						{selected ? '✓' : ''}
+					</div>
+				) : onToggleLike && (
 					<button
 						onClick={(e) => {
 							e.stopPropagation();
@@ -3358,9 +3437,12 @@ function GenerationCard({
 						{onCancel && <button type="button" onClick={(event) => { event.stopPropagation(); onCancel(); }}>Limpiar</button>}
 					</div>
 				) : !active.imageUrl ? (
-					<div 
+					<div
 						style={{
+							width: '100%',
+							height: '100%',
 							minHeight: '220px',
+							boxSizing: 'border-box',
 							background: 'linear-gradient(135deg, #f8f5fc 0%, #efe7f8 100%)',
 							display: 'flex',
 							flexDirection: 'column',
@@ -3569,6 +3651,8 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 	// Ganador de referencia en modal, sin salir de la app.
 	const [lightboxRef, setLightboxRef] = useState<{ path: string; name: string } | null>(null);
 	const [revisionFormat, setRevisionFormat] = useState<string>(item.format || 'original');
+	// Nunca se agrega el logo solo: el usuario lo pide a propósito, tocando este botón.
+	const [includeLogo, setIncludeLogo] = useState(false);
 
 	// Product overrides
 	const originalProductId = item.productId || item.productIds?.[0] || '';
@@ -3638,7 +3722,9 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 			form.set('preset', 'Nueva versión');
 			form.set('count', '1');
 			form.set('brief', revision.trim());
-			
+			form.set('includeLogo', includeLogo ? '1' : '0');
+			form.set('brandSource', includeLogo ? 'mine' : 'none');
+
 			// Handle product override based on selected mode
 			if (productMode === 'catalog') {
 				if (!catalogProductId) {
@@ -3860,6 +3946,23 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 										{f.text}
 									</button>
 								))}
+							</div>
+						</div>
+						<div style={{ marginBottom: '10px' }}>
+							<p style={{ margin: '0 0 6px', fontSize: '12px', fontWeight: 700, color: '#716d79' }}>Logo</p>
+							<div style={{ display: 'flex', gap: '6px' }}>
+								<button type="button" onClick={() => setIncludeLogo(false)}
+									style={{ flex: 1, padding: '8px 0', borderRadius: '9px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 700,
+										border: !includeLogo ? '2px solid #19171d' : '1px solid #e2dde9',
+										background: !includeLogo ? '#f4f2f6' : '#fff', color: !includeLogo ? '#19171d' : '#6f6a77' }}>
+									Sin logo
+								</button>
+								<button type="button" onClick={() => setIncludeLogo(true)}
+									style={{ flex: 1, padding: '8px 0', borderRadius: '9px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 700,
+										border: includeLogo ? '2px solid #19171d' : '1px solid #e2dde9',
+										background: includeLogo ? '#f4f2f6' : '#fff', color: includeLogo ? '#19171d' : '#6f6a77' }}>
+									Con mi logo
+								</button>
 							</div>
 						</div>
 						<textarea

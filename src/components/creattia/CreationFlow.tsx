@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, driveBatchWorkers } from './UrlBatchSection';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -30,6 +30,15 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	onBack: () => void;
 }) {
 	const token = session?.access_token || '';
+
+	// Al entrar a este flujo (p.ej. desde la mitad de la grilla en mobile) hay
+	// que verse a uno mismo arriba de todo, no quedar scrolleado donde estaba
+	// la tarjeta que se tocó.
+	useEffect(() => {
+		window.scrollTo(0, 0);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
 	const REFERENCES_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references';
 	const referenceUrl = `${REFERENCES_BASE}/${ad.imagePath}`;
 
@@ -55,6 +64,14 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 		if (!isCarouselAd) return;
 		setSelectedSlideIndex((prev) => (prev + delta + carouselSlides.length) % carouselSlides.length);
 	};
+
+	// Precarga todas las páginas del carrusel apenas se entra a este flujo,
+	// para que pasar de página con las flechas sea instantáneo.
+	useEffect(() => {
+		if (!isCarouselAd) return;
+		carouselSlides.forEach((slide) => { const img = new Image(); img.src = `${REFERENCES_BASE}/${slide}`; });
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isCarouselAd]);
 
 	// Cómo cargar el producto: por URL(s), a mano (con archivos), o sin producto.
 	const [productMode, setProductMode] = useState<'url' | 'manual'>('url');

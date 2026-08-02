@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../../lib/creattia/supabase-browser';
 import { creativeCatalog } from '../../lib/creattia/catalog';
 import { isAdminEmail } from '../../lib/creattia/admin';
@@ -451,7 +451,12 @@ export default function WinnersLibrary({
 		setSavedProductsLoaded(true);
 	};
 
+	// Guarda dónde estabas parado en la grilla para volver exactamente ahí al
+	// tocar "Volver a la biblioteca" — sin esto, la vuelta atrás recargaba
+	// todo arriba de todo en vez de quedarte donde estabas mirando.
+	const savedScrollY = useRef(0);
 	const handleUseIdea = (item: WinnerItem) => {
+		savedScrollY.current = window.scrollY;
 		setActiveAd(item);
 		setCurrentSlide(0);
 		setUrlList(['']); // reset to single empty URL field
@@ -914,6 +919,14 @@ export default function WinnersLibrary({
 		observer.observe(element);
 		return () => observer.disconnect();
 	}, [activeAd, loading, filteredItems.length]);
+	// Al volver de "Crear con este diseño" a la grilla, restaura el scroll
+	// guardado en handleUseIdea en vez de dejar la página arriba de todo.
+	useEffect(() => {
+		if (activeAd) return;
+		const y = savedScrollY.current;
+		if (!y) return;
+		requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+	}, [activeAd]);
 	const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
 	useEffect(() => {
 		const sentinel = loadMoreRef.current;
