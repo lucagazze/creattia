@@ -8,11 +8,10 @@ import { isAdminEmail } from '../../lib/creattia/admin';
 import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
 import WinnersLibrary from './WinnersLibrary';
-import VideosLibrary from './VideosLibrary';
 import { UrlBatchSection, driveBatchWorkers } from './UrlBatchSection';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
 
-type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'videos' | 'generation' | 'saved' | 'discover';
+type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved' | 'discover';
 
 // Lote de generación en curso: la API responde al instante y el trabajo pesado
 // sigue en el servidor; el front lo sigue por batch_id en creative_generations.
@@ -1333,7 +1332,6 @@ export default function CreativeApp() {
 		const navItems: Array<{ id: View; label: string; icon: string }> = [
 			{ id: 'home', label: 'Inicio', icon: 'home' },
 			{ id: 'winners', label: 'Biblioteca de ganadores', icon: 'spark' },
-			{ id: 'videos', label: 'Videos', icon: 'video' },
 			{ id: 'saved', label: 'Anuncios guardados', icon: 'heart' },
 			{ id: 'history', label: 'Mis imágenes', icon: 'history' },
 		];
@@ -1586,7 +1584,6 @@ export default function CreativeApp() {
 							}}
 						/>
 					)}
-					{view === 'videos' && <VideosLibrary />}
 					{view === 'saved' && (
 						<SavedAds 
 							history={history}
@@ -1931,10 +1928,14 @@ function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved }: { po
 		return item.imagePath?.startsWith('http') ? item.imagePath : supabaseBase + item.imagePath;
 	}
 
-	function settle(direction: 'left' | 'right') {
+	// La acción (like/pass) y la dirección en la que vuela la tarjeta son cosas
+	// distintas: los botones siempre vuelan para su lado de siempre, pero el
+	// gesto de arrastrar tiene la acción invertida (derecha = pasar, izquierda
+	// = me gusta), así que no pueden ir pegadas al mismo parámetro.
+	function settle(action: 'like' | 'pass', flyDirection: 'left' | 'right') {
 		if (!current || flying) return;
-		setFlying(direction);
-		if (direction === 'right') {
+		setFlying(flyDirection);
+		if (action === 'like') {
 			if (!likedPaths.has(current.imagePath)) onLike(current.imagePath);
 			try { sfx.playSuccess(); } catch { /* audio bloqueado */ }
 			const nextLikes = sessionLikes + 1;
@@ -1943,7 +1944,7 @@ function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved }: { po
 		} else {
 			try { sfx.playWhoosh(); } catch { /* audio bloqueado */ }
 		}
-		setLastAction({ index, liked: direction === 'right' });
+		setLastAction({ index, liked: action === 'like' });
 		window.setTimeout(() => {
 			setFlying(null);
 			setDrag(null);
@@ -1976,16 +1977,19 @@ function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved }: { po
 		if (!startRef.current) return;
 		const dx = drag?.x || 0;
 		startRef.current = null;
-		if (dx > 90) settle('right');
-		else if (dx < -90) settle('left');
+		// Deslizar a la derecha descarta, a la izquierda guarda — invertido a
+		// propósito respecto de los botones de abajo, que no se tocan.
+		if (dx > 90) settle('pass', 'right');
+		else if (dx < -90) settle('like', 'left');
 		else setDrag(null);
 	}
 
 	const dx = flying === 'right' ? 640 : flying === 'left' ? -640 : (drag?.x || 0);
 	const dy = flying ? -50 : (drag?.y || 0) * 0.25;
 	const rotation = dx / 15;
-	const likeOpacity = Math.min(1, Math.max(0, dx / 90));
-	const passOpacity = Math.min(1, Math.max(0, -dx / 90));
+	// Invertido a propósito: arrastrar a la derecha pasa, a la izquierda gusta.
+	const passOpacity = Math.min(1, Math.max(0, dx / 90));
+	const likeOpacity = Math.min(1, Math.max(0, -dx / 90));
 
 	return (
 		<section style={{ maxWidth: '860px', margin: '0 auto', padding: '4px 10px 30px' }}>
@@ -1997,7 +2001,7 @@ function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved }: { po
 			</div>
 			<div style={{ textAlign: 'center', marginBottom: '16px' }}>
 				<h1 style={{ margin: '0 0 4px', fontSize: '26px', color: '#19171d', letterSpacing: '-.02em' }}>Descubrí ganadores 🔥</h1>
-				<p style={{ margin: 0, fontSize: '14px', color: '#716d79' }}>Derecha para guardar · izquierda para pasar · ⚡ para usarlo ya</p>
+				<p style={{ margin: 0, fontSize: '14px', color: '#716d79' }}>Izquierda para guardar · derecha para pasar · ⚡ para usarlo ya</p>
 			</div>
 
 			{!current ? (
@@ -2049,9 +2053,9 @@ function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved }: { po
 					</div>
 					<div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginTop: '22px' }}>
 						<button onClick={undo} disabled={!lastAction} aria-label="Deshacer" style={{ width: '46px', height: '46px', borderRadius: '50%', border: '2px solid #e5e0ea', background: '#fff', color: lastAction ? '#8a831f' : '#cfcad6', fontSize: '18px', cursor: lastAction ? 'pointer' : 'default' }}>↩</button>
-						<button onClick={() => settle('left')} aria-label="Pasar" style={{ width: '60px', height: '60px', borderRadius: '50%', border: '2px solid #f1d5d5', background: '#fff', color: '#dc2626', fontSize: '25px', cursor: 'pointer', boxShadow: '0 10px 24px rgba(220,38,38,0.14)' }}>✕</button>
+						<button onClick={() => settle('pass', 'left')} aria-label="Pasar" style={{ width: '60px', height: '60px', borderRadius: '50%', border: '2px solid #f1d5d5', background: '#fff', color: '#dc2626', fontSize: '25px', cursor: 'pointer', boxShadow: '0 10px 24px rgba(220,38,38,0.14)' }}>✕</button>
 						<button onClick={() => { if (current) { try { sfx.playDock(); } catch { /* audio */ } onUse(current.imagePath); } }} aria-label="Usar este anuncio" style={{ width: '74px', height: '74px', borderRadius: '50%', border: 0, background: 'linear-gradient(135deg, #744bde, #5b2fc9)', color: '#fff', fontSize: '30px', cursor: 'pointer', boxShadow: '0 14px 34px rgba(116,75,222,0.4)' }}>⚡</button>
-						<button onClick={() => settle('right')} aria-label="Me gusta" style={{ width: '60px', height: '60px', borderRadius: '50%', border: '2px solid #d3ecdc', background: '#fff', color: '#16a34a', fontSize: '25px', cursor: 'pointer', boxShadow: '0 10px 24px rgba(22,163,74,0.14)' }}>♥</button>
+						<button onClick={() => settle('like', 'right')} aria-label="Me gusta" style={{ width: '60px', height: '60px', borderRadius: '50%', border: '2px solid #d3ecdc', background: '#fff', color: '#16a34a', fontSize: '25px', cursor: 'pointer', boxShadow: '0 10px 24px rgba(22,163,74,0.14)' }}>♥</button>
 						<span style={{ width: '46px' }} />
 					</div>
 					<p style={{ margin: '16px 0 0', fontSize: '12px', color: '#a29ba9' }}>{pool.length - index} anuncios por descubrir</p>
@@ -2152,7 +2156,7 @@ function Dashboard({
 					onLike={(path) => onToggleLikedScraped(path)}
 					onUse={(path) => onUseScrapedWinner(path)}
 					onSeen={onDiscoverSeen}
-					onOpenSwipe={() => onView('winners')}
+					onOpenSwipe={() => onView('discover')}
 				/>
 			)}
 
@@ -3389,8 +3393,8 @@ function GenerationCard({
 						<img src={active.imageUrl} alt={item.title} loading="lazy"/>
 						{isCarousel && (
 							<>
-								<button type="button" className="carousel-arrow prev" aria-label="Página anterior" onClick={(event) => { event.preventDefault(); event.stopPropagation(); goToSlide(-1); }}>‹</button>
-								<button type="button" className="carousel-arrow next" aria-label="Página siguiente" onClick={(event) => { event.preventDefault(); event.stopPropagation(); goToSlide(1); }}>›</button>
+								<button type="button" className="carousel-arrow carousel-arrow-prev" aria-label="Página anterior" onClick={(event) => { event.preventDefault(); event.stopPropagation(); goToSlide(-1); }}>‹</button>
+								<button type="button" className="carousel-arrow carousel-arrow-next" aria-label="Página siguiente" onClick={(event) => { event.preventDefault(); event.stopPropagation(); goToSlide(1); }}>›</button>
 								<span style={{ position: 'absolute', top: '8px', left: '44px', zIndex: 10, background: 'rgba(25,23,29,0.75)', backdropFilter: 'blur(4px)', color: '#fff', borderRadius: '6px', padding: '3px 8px', fontSize: '11px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
 									🖼️ {slideIndex + 1}/{slides!.length}
 								</span>
@@ -3427,7 +3431,7 @@ function GenerationCard({
 				)}
 			</div>
 			<footer>
-				<h3>{item.title}{isCarousel && <span style={{ marginLeft: '6px', fontSize: '11px', fontWeight: 700, color: '#8b6fd8' }}>· Carrusel</span>}</h3>
+				<h3>{item.title}{isCarousel && <em style={{ marginLeft: '6px', fontSize: '11px', fontWeight: 700, fontStyle: 'normal', color: '#8b6fd8' }}>· Carrusel</em>}</h3>
 				<span>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(new Date(item.createdAt))}</span>
 				{(onExpand || onReuse) && <button onClick={() => (onExpand || onReuse)?.(active)}><Icon name="history" size={14}/>Crear otra versión</button>}
 			</footer>

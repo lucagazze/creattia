@@ -209,8 +209,14 @@ type WinnerItem = {
 		// Stats que vienen del scrape de Foreplay / Meta Ads Library.
 		domain?: string;
 		cta?: string;
+		// Solo para mediaType === 'video': imagePath queda como el poster.
+		videoPath?: string;
+		durationSec?: number;
+		likes?: number;
 	};
 };
+
+const VIDEOS_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-videos';
 
 export default function WinnersLibrary({
 	session,
@@ -260,7 +266,7 @@ export default function WinnersLibrary({
 	const [selectedNiches, setSelectedNiches] = useState<string[]>(['todos']);
 	const [savedOnly, setSavedOnly] = useState(false);
 	const [showNicheMenu, setShowNicheMenu] = useState(false);
-	const [selectedFormat, setSelectedFormat] = useState<'todos' | 'static_image' | 'carousel'>('todos');
+	const [selectedFormat, setSelectedFormat] = useState<'todos' | 'static_image' | 'carousel' | 'video'>('todos');
 	const [selectedCategories, setSelectedCategories] = useState<string[]>(['todos']);
 	const [showCategoryMenu, setShowCategoryMenu] = useState(false);
 
@@ -273,6 +279,8 @@ export default function WinnersLibrary({
 	// Menú de click derecho sobre una tarjeta: guardar/usar sin tener que
 	// pasar por los botones chiquitos superpuestos a la imagen.
 	const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; item: WinnerItem } | null>(null);
+	const [videoLightbox, setVideoLightbox] = useState<WinnerItem | null>(null);
+	const [copiedScriptPath, setCopiedScriptPath] = useState<string | null>(null);
 	// Página actual de cada carrusel, por imagePath.
 	const [carouselSlideIndex, setCarouselSlideIndex] = useState<Record<string, number>>({});
 
@@ -444,6 +452,14 @@ export default function WinnersLibrary({
 		setCustomInstructions('');
 		// Load saved products when opening modal
 		void loadSavedProducts();
+	};
+
+	const copyScript = (item: WinnerItem) => {
+		if (!item.promptNotes) return;
+		navigator.clipboard.writeText(item.promptNotes).then(() => {
+			setCopiedScriptPath(item.imagePath);
+			window.setTimeout(() => setCopiedScriptPath((curr) => (curr === item.imagePath ? null : curr)), 1800);
+		}).catch(() => {});
 	};
 
 	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -689,6 +705,37 @@ export default function WinnersLibrary({
 				const data = await res.json();
 				rawItems = data.items || [];
 			}
+
+			// Videos ganadores: misma biblioteca, un bucket aparte. Se normalizan al
+			// mismo shape (imagePath = poster en URL absoluta) para que compartan
+			// filtro, grilla y clasificación con las imágenes.
+			try {
+				const videoRes = await fetch(`${VIDEOS_BASE}/manifests/video-library.json`);
+				if (videoRes.ok) {
+					const videoData = await videoRes.json();
+					const videoItems = (videoData.items || [])
+						.filter((v: any) => v.videoPath && v.thumbnailPath)
+						.map((v: any) => ({
+							templateId: -1,
+							name: v.name || 'Video ganador',
+							imagePath: `${VIDEOS_BASE}/${v.thumbnailPath}`,
+							promptNotes: v.promptNotes || null,
+							categoryLeaf: v.category || null,
+							metadata: {
+								mediaType: 'video',
+								foreplayNiches: v.metadata?.foreplayNiches || [],
+								domain: v.metadata?.domain || '',
+								videoPath: `${VIDEOS_BASE}/${v.videoPath}`,
+								durationSec: v.metadata?.durationSec || undefined,
+								likes: v.metadata?.likes || 0,
+							},
+						}));
+					rawItems = [...rawItems, ...videoItems];
+				}
+			} catch {
+				// Sin videos no se corta la biblioteca de imágenes.
+			}
+
 			const classified = rawItems.map(item => {
 				const category = classifyItem(item);
 				const tags = getTags(item, category);
@@ -746,11 +793,9 @@ export default function WinnersLibrary({
 	// lo que ya está elegido en los demás (filtro en cascada, tipo e-commerce).
 	const isSavedItem = (item: WinnerItem) => item.imagePath ? likedScrapedPaths.has(item.imagePath) : favorites.has(item.templateId);
 	const matchesSaved = (item: WinnerItem) => !savedOnly || isSavedItem(item);
-	const matchesFormat = (item: WinnerItem) => {
-		if (selectedFormat === 'todos') return true;
-		const itemIsCarousel = item.metadata?.mediaType === 'carousel';
-		return selectedFormat === 'carousel' ? itemIsCarousel : !itemIsCarousel;
-	};
+	const itemFormat = (item: WinnerItem): 'static_image' | 'carousel' | 'video' =>
+		item.metadata?.mediaType === 'carousel' ? 'carousel' : item.metadata?.mediaType === 'video' ? 'video' : 'static_image';
+	const matchesFormat = (item: WinnerItem) => selectedFormat === 'todos' || itemFormat(item) === selectedFormat;
 	const matchesCategory = (item: WinnerItem) =>
 		selectedCategories.includes('todos') || selectedCategories.length === 0 || selectedCategories.includes((item as any).category || 'hero');
 	const matchesNiche = (item: WinnerItem) => {
@@ -788,15 +833,18 @@ export default function WinnersLibrary({
 	const formatCounts = useMemo(() => {
 		let staticCount = 0;
 		let carouselCount = 0;
+		let videoCount = 0;
 		items.forEach((item) => {
 			if (!matchesSaved(item) || !matchesCategory(item) || !matchesNiche(item) || !matchesSearch(item)) return;
-			if (item.metadata?.mediaType === 'carousel') carouselCount += 1;
+			const f = itemFormat(item);
+			if (f === 'carousel') carouselCount += 1;
+			else if (f === 'video') videoCount += 1;
 			else staticCount += 1;
 		});
-		return { static_image: staticCount, carousel: carouselCount };
+		return { static_image: staticCount, carousel: carouselCount, video: videoCount };
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [items, savedOnly, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
-	const formatAllCount = formatCounts.static_image + formatCounts.carousel;
+	const formatAllCount = formatCounts.static_image + formatCounts.carousel + formatCounts.video;
 
 	// Cuántos ganadores hay de cada ángulo (hero, precio, reseñas, etc.), ya
 	// filtrados por guardados/formato/nicho/búsqueda (todo menos el ángulo).
@@ -1105,7 +1153,7 @@ export default function WinnersLibrary({
 				</label>
 
 					<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
-						<button type="button" className="niche-dd-trigger" onClick={() => setShowNicheMenu((v) => !v)}>
+						<button type="button" className="niche-dd-trigger" onClick={() => { setShowNicheMenu((v) => !v); setShowCategoryMenu(false); }}>
 							<span className="niche-dd-label">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? 'Todos los nichos' : a.length === 1 ? (nicheLabels[a[0]] || a[0]) : `${a.length} nichos`; })()}</span>
 							<span className="niche-dd-badge">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? nicheAllCount : a.reduce((s, x) => s + (nicheCounts[x] || 0), 0); })()}</span>
 							<span className={`niche-dd-caret${showNicheMenu ? ' is-open' : ''}`}>▾</span>
@@ -1136,7 +1184,7 @@ export default function WinnersLibrary({
 					</div>
 
 					<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
-						<button type="button" className="niche-dd-trigger" onClick={() => setShowCategoryMenu((v) => !v)}>
+						<button type="button" className="niche-dd-trigger" onClick={() => { setShowCategoryMenu((v) => !v); setShowNicheMenu(false); }}>
 							<span className="niche-dd-label">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? 'Todos los ángulos' : a.length === 1 ? (categoryLabels[a[0]] || a[0]) : `${a.length} ángulos`; })()}</span>
 							<span className="niche-dd-badge">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? categoryAllCount : a.reduce((s, x) => s + (categoryCounts[x] || 0), 0); })()}</span>
 							<span className={`niche-dd-caret${showCategoryMenu ? ' is-open' : ''}`}>▾</span>
@@ -1166,11 +1214,12 @@ export default function WinnersLibrary({
 						)}
 					</div>
 
-					<div style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '3px', height: '42px', borderRadius: '21px', border: '1px solid #dcd5e4', background: '#fff', boxSizing: 'border-box' }}>
+					<div className="library-format-bar-scroll" style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '3px', height: '42px', borderRadius: '21px', border: '1px solid #dcd5e4', background: '#fff', boxSizing: 'border-box' }}>
 						{([
 							['todos', '✨ Todos', formatAllCount],
 							['static_image', '🖼️ Estático', formatCounts.static_image],
 							['carousel', '🗂️ Carrusel', formatCounts.carousel],
+							['video', '🎬 Video', formatCounts.video],
 						] as const).map(([value, label, count]) => (
 							<button
 								key={value}
@@ -1178,7 +1227,7 @@ export default function WinnersLibrary({
 								onClick={() => setSelectedFormat(value)}
 								style={{
 									display: 'flex', alignItems: 'center', gap: '5px', height: '34px', padding: '0 12px', borderRadius: '18px',
-									border: 0, cursor: 'pointer', fontSize: '12.5px', fontWeight: 700, fontFamily: 'inherit',
+									border: 0, cursor: 'pointer', fontSize: '12.5px', fontWeight: 700, fontFamily: 'inherit', flexShrink: 0, whiteSpace: 'nowrap',
 									background: selectedFormat === value ? '#f2ecfd' : 'transparent',
 									color: selectedFormat === value ? '#5b2fc9' : '#3f3a48',
 								}}
@@ -1220,9 +1269,12 @@ export default function WinnersLibrary({
 					{columnItems.map((item, idx) => {
 						const hasFailed = item.imagePath ? failedImages.has(item.imagePath) : false;
 						if (hasFailed) return null; // imagen rota: no mostrar placeholder genérico
-						const urlFor = (path: string) => supabase
-							? supabase.storage.from('creative-references').getPublicUrl(path).data.publicUrl
-							: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${path}`;
+						const isVideo = item.metadata?.mediaType === 'video';
+						const urlFor = (path: string) => path.startsWith('http')
+							? path
+							: supabase
+								? supabase.storage.from('creative-references').getPublicUrl(path).data.publicUrl
+								: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${path}`;
 						const imageUrl = urlFor(item.imagePath);
 
 						// Carrusel: varias páginas para navegar dentro de la misma tarjeta.
@@ -1258,6 +1310,8 @@ export default function WinnersLibrary({
 								onClick={() => {
 									if (multiSelectMode) {
 										toggleSelectPath(item.imagePath);
+									} else if (isVideo) {
+										setVideoLightbox(item);
 									} else {
 										handleUseIdea(item);
 									}
@@ -1327,8 +1381,8 @@ export default function WinnersLibrary({
 										</strong>
 									</div>
 
-									{isAdmin && (
-										<button 
+									{isAdmin && !isVideo && (
+										<button
 											onClick={(e) => {
 												e.stopPropagation();
 												handleDelete(item.imagePath);
@@ -1426,6 +1480,19 @@ export default function WinnersLibrary({
 										</div>
 									)}
 
+									{isVideo && (
+										<>
+											<div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 4, background: 'rgba(25,23,29,0.75)', backdropFilter: 'blur(4px)', color: '#fff', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+												🎬 VIDEO{item.metadata?.durationSec ? ` · ${Math.round(item.metadata.durationSec)}s` : ''}
+											</div>
+											<span style={{ position: 'absolute', inset: 0, zIndex: 3, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+												<span style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'rgba(255,255,255,0.92)', display: 'grid', placeItems: 'center', boxShadow: '0 8px 20px rgba(0,0,0,0.25)' }}>
+													<svg width="16" height="16" viewBox="0 0 24 24" fill="#19171d"><path d="M8 5v14l11-7L8 5Z" /></svg>
+												</span>
+											</span>
+										</>
+									)}
+
 									{/* Flechas para pasar de página del carrusel */}
 									{slides && (
 										<>
@@ -1511,20 +1578,20 @@ export default function WinnersLibrary({
 										</div>
 									</div>
 
-									<button 
+									<button
 										onClick={(e) => {
 											e.stopPropagation();
-											handleUseIdea(item);
+											if (isVideo) setVideoLightbox(item); else handleUseIdea(item);
 										}}
-										style={{ 
-											width: '100%', 
-											height: '35px', 
-											background: '#f2ecfc', 
-											border: 0, 
-											borderRadius: '8px', 
-											color: '#19171d', 
-											fontWeight: 'bold', 
-											fontSize: '10.5px', 
+										style={{
+											width: '100%',
+											height: '35px',
+											background: '#f2ecfc',
+											border: 0,
+											borderRadius: '8px',
+											color: '#19171d',
+											fontWeight: 'bold',
+											fontSize: '10.5px',
 											cursor: 'pointer',
 											display: 'flex',
 											alignItems: 'center',
@@ -1532,8 +1599,8 @@ export default function WinnersLibrary({
 											gap: '6px'
 										}}
 									>
-										Usar esta idea
-										<Icon name="arrow" size={13} />
+										{isVideo ? 'Ver video' : 'Usar esta idea'}
+										<Icon name={isVideo ? 'arrow' : 'arrow'} size={13} />
 									</button>
 								</div>
 							</article>
@@ -1575,13 +1642,42 @@ export default function WinnersLibrary({
 					<div style={{ padding: '6px 10px', fontSize: '11px', color: '#8b8490', fontWeight: 'bold', borderBottom: '1px solid #f4eff6', marginBottom: '4px' }}>
 						{cardContextMenu.item.name}
 					</div>
-					<button
-						type="button"
-						onClick={() => { handleUseIdea(cardContextMenu.item); setCardContextMenu(null); }}
-						style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'transparent', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#19171d', fontWeight: 600, textAlign: 'left', width: '100%', fontFamily: 'inherit' }}
-					>
-						<Icon name="spark" size={13} /> Usar este diseño
-					</button>
+					{cardContextMenu.item.metadata?.mediaType === 'video' ? (
+						<>
+							<button
+								type="button"
+								onClick={() => { setVideoLightbox(cardContextMenu.item); setCardContextMenu(null); }}
+								style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'transparent', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#19171d', fontWeight: 600, textAlign: 'left', width: '100%', fontFamily: 'inherit' }}
+							>
+								▶️ Reproducir
+							</button>
+							<a
+								href={cardContextMenu.item.metadata?.videoPath}
+								download
+								onClick={() => setCardContextMenu(null)}
+								style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'transparent', borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#19171d', fontWeight: 600, textAlign: 'left', width: '100%', fontFamily: 'inherit', textDecoration: 'none' }}
+							>
+								⬇️ Descargar
+							</a>
+							{cardContextMenu.item.promptNotes && (
+								<button
+									type="button"
+									onClick={() => { copyScript(cardContextMenu.item); setCardContextMenu(null); }}
+									style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'transparent', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#19171d', fontWeight: 600, textAlign: 'left', width: '100%', fontFamily: 'inherit' }}
+								>
+									📋 Copiar guion
+								</button>
+							)}
+						</>
+					) : (
+						<button
+							type="button"
+							onClick={() => { handleUseIdea(cardContextMenu.item); setCardContextMenu(null); }}
+							style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'transparent', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#19171d', fontWeight: 600, textAlign: 'left', width: '100%', fontFamily: 'inherit' }}
+						>
+							<Icon name="spark" size={13} /> Usar este diseño
+						</button>
+					)}
 					<button
 						type="button"
 						onClick={() => {
@@ -1597,7 +1693,7 @@ export default function WinnersLibrary({
 							return <><Icon name="heart" size={13} fill={liked ? '#ff4185' : 'none'} /> {liked ? 'Quitar de guardados' : 'Guardar idea'}</>;
 						})()}
 					</button>
-					{isAdmin && (
+					{isAdmin && cardContextMenu.item.metadata?.mediaType !== 'video' && (
 						<button
 							type="button"
 							onClick={() => { handleDelete(cardContextMenu.item.imagePath); setCardContextMenu(null); }}
@@ -1606,6 +1702,51 @@ export default function WinnersLibrary({
 							🗑️ Eliminar ganador
 						</button>
 					)}
+				</div>
+			)}
+
+			{videoLightbox && (
+				<div className="ref-modal" onClick={() => setVideoLightbox(null)}>
+					<div className="ref-modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(420px, 92vw)', padding: '14px' }}>
+						<div className="ref-modal-head">
+							<div>
+								<span className="ref-modal-kicker">🎬 {categoryLabels[(videoLightbox as any).category] || (videoLightbox as any).category}{videoLightbox.metadata?.domain ? ` · ${videoLightbox.metadata.domain}` : ''}</span>
+								<h4>{videoLightbox.name}</h4>
+							</div>
+							<button type="button" onClick={() => setVideoLightbox(null)} aria-label="Cerrar">✕</button>
+						</div>
+						<video
+							key={videoLightbox.metadata?.videoPath}
+							src={videoLightbox.metadata?.videoPath}
+							controls
+							autoPlay
+							playsInline
+							style={{ width: '100%', maxHeight: '68vh', borderRadius: '12px', display: 'block', background: '#000' }}
+						/>
+						<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+							<a
+								href={videoLightbox.metadata?.videoPath}
+								download
+								style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: '10px', background: '#19171d', color: '#fff', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}
+							>
+								Descargar
+							</a>
+							{videoLightbox.promptNotes && (
+								<button
+									type="button"
+									onClick={() => copyScript(videoLightbox)}
+									style={{ flex: 1, padding: '10px 0', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+								>
+									{copiedScriptPath === videoLightbox.imagePath ? '✓ Copiado' : 'Copiar guion'}
+								</button>
+							)}
+						</div>
+						{videoLightbox.promptNotes && (
+							<p style={{ margin: 0, fontSize: '12.5px', color: '#716d79', lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: '160px', overflowY: 'auto' }}>
+								{videoLightbox.promptNotes}
+							</p>
+						)}
+					</div>
 				</div>
 			)}
 

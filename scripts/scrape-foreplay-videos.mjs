@@ -133,7 +133,8 @@ async function fetchNiche(niche, token) {
   const collected = [];
   const seenIds = new Set();
   let cursor = null;
-  for (let pageNum = 0; pageNum < 12 && collected.length < POOL_PER_NICHE; pageNum++) {
+  const maxPages = Number(process.env.FP_MAX_PAGES || 12);
+  for (let pageNum = 0; pageNum < maxPages && collected.length < POOL_PER_NICHE; pageNum++) {
     const params = new URLSearchParams();
     params.set('runTimeMin', String(RUNTIME_MIN));
     params.append('orFormat[]', 'video');
