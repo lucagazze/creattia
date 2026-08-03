@@ -52,8 +52,9 @@ export const POST: APIRoute = async ({ request }) => {
 		if (!posterUrl || !productName && !productId) return json({ error: 'Completá la referencia y el producto.' }, 400);
 
 		const poster = await downloadPoster(posterUrl);
+		if (!poster) throw new Error('No se pudo procesar el fotograma de referencia.');
 		let productFacts = productFactsInput;
-		let productImage: { buffer: Buffer; type: string } | undefined;
+		let productImage: { buffer: Buffer; type: string } | null = null;
 		if (productId) {
 			const { data: product, error } = await admin.from('creative_products')
 				.select('id,name,description,price_text,image_path,analysis').eq('id', productId).eq('user_id', auth.user.id).maybeSingle();
@@ -76,7 +77,7 @@ export const POST: APIRoute = async ({ request }) => {
 		if (!productImage) return json({ error: 'Elegí un producto guardado o subí una foto real del producto.' }, 400);
 
 		const analysis = await analyzeVideoReference({ apiKey, poster, referenceNotes, productName, brandName });
-		const plan = await createVideoPlan({ apiKey, poster, productImage, referenceNotes, productName, productFacts, brandName, objective, audience, benefit, proof, offer, cta, tone, language, duration, size, audioDirection, voiceover, captions, peopleDirection });
+		const plan = await createVideoPlan({ apiKey, poster, productImage: productImage || undefined, referenceNotes, productName, productFacts, brandName, objective, audience, benefit, proof, offer, cta, tone, language, duration, size, audioDirection, voiceover, captions, peopleDirection });
 		return json({ ok: true, analysis, plan });
 	} catch (error) {
 		console.error('[video-plan]', error);

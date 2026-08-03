@@ -1094,6 +1094,67 @@
 	line-height: 1.55;
 	white-space: pre-wrap;
 }
+.video-wizard-card { gap: 18px; }
+.video-panel-label {
+	margin-bottom: 10px;
+	color: #8b8490;
+	font-size: 10px;
+	font-weight: 900;
+	letter-spacing: .14em;
+}
+.video-wizard-step { display: flex; flex-direction: column; gap: 14px; }
+.video-wizard-step > select,
+.video-wizard-fields input,
+.video-wizard-fields select,
+.video-wizard-fields textarea,
+.video-wizard-step > select {
+	box-sizing: border-box;
+	width: 100%;
+	border: 1px solid #ded7e8;
+	border-radius: 10px;
+	background: #fff;
+	color: #2b2532;
+	font: inherit;
+	font-size: 13px;
+	padding: 11px 12px;
+	outline: none;
+}
+.video-wizard-fields { display: flex; flex-direction: column; gap: 7px; }
+.video-wizard-fields label { color: #28212f; font-size: 12px; font-weight: 800; }
+.video-wizard-fields textarea { resize: vertical; line-height: 1.45; }
+.video-wizard-fields input:focus,
+.video-wizard-fields select:focus,
+.video-wizard-fields textarea:focus,
+.video-wizard-step > select:focus { border-color: #8f69df; box-shadow: 0 0 0 3px rgba(116, 75, 222, .12); }
+.video-option-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.video-option-grid button,
+.video-chip-row button,
+.video-secondary-button {
+	border: 1px solid #e2dbea;
+	border-radius: 10px;
+	background: #fff;
+	color: #40384b;
+	font: inherit;
+	cursor: pointer;
+}
+.video-option-grid button { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 68px; padding: 11px 12px; text-align: left; }
+.video-option-grid button.active,
+.video-chip-row button.active { border-color: #744bde; background: #f4edff; color: #6333c9; box-shadow: 0 0 0 2px rgba(116, 75, 222, .08); }
+.video-option-grid strong { font-size: 12px; }
+.video-option-grid small { color: #8b8490; font-size: 10.5px; line-height: 1.35; }
+.video-chip-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.video-chip-row button { padding: 8px 11px; font-size: 12px; }
+.video-wizard-actions { margin-top: 2px; }
+.video-plan-header,
+.video-scenes-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.video-plan-header p { margin: -6px 0 0; color: #8b8490; font-size: 11.5px; line-height: 1.4; }
+.video-secondary-button { padding: 8px 10px; color: #6333c9; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+.video-scenes-list { display: flex; flex-direction: column; gap: 8px; }
+.video-scene-editor { display: grid; grid-template-columns: 28px minmax(0, 1fr) 25px; align-items: start; gap: 7px; padding: 8px; border: 1px solid #ece6f2; border-radius: 11px; background: #fcfbfe; }
+.video-scene-editor > span { padding-top: 9px; color: #744bde; font-size: 11px; font-weight: 900; }
+.video-scene-editor textarea { box-sizing: border-box; width: 100%; border: 1px solid #e2dbea; border-radius: 8px; padding: 8px 9px; font: inherit; font-size: 12px; line-height: 1.4; resize: vertical; }
+.video-scene-editor > button { border: 0; background: transparent; color: #b33f56; font-size: 18px; cursor: pointer; }
+.video-plan-review .picker-label { margin-bottom: 0; }
 .video-creation-form-panel {
 	display: flex;
 	flex-direction: column;
@@ -1260,6 +1321,10 @@
 	.video-form-row { grid-template-columns: 1fr; }
 	.video-product-upload { grid-template-columns: 58px minmax(0, 1fr); }
 	.video-product-preview { width: 58px; height: 58px; }
+	.video-option-grid { grid-template-columns: 1fr; }
+	.video-plan-header,
+	.video-scenes-heading { align-items: flex-start; flex-direction: column; }
+	.video-secondary-button { white-space: normal; }
 }
 
 /* ========================================================
