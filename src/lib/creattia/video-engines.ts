@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import RunwayML, { toFile } from '@runwayml/sdk';
 import { GoogleGenAI } from '@google/genai';
-import { fallbackScenesForDuration, VIDEO_OUTPUT_DURATIONS, VIDEO_CREDITS_PER_SEGMENT, type VideoDialogueLine } from './video-pipeline';
+import { fallbackScenesForDuration, VIDEO_CREDITS_PER_SEGMENT, type VideoDialogueLine } from './video-pipeline';
 import type { FullVideoReferenceAnalysis } from './video-reference';
 
 export type VideoReferenceAnalysis = FullVideoReferenceAnalysis & {
@@ -42,7 +42,6 @@ export type VideoCreativePlan = {
 
 export const VIDEO_CREDIT_COST = VIDEO_CREDITS_PER_SEGMENT;
 export const VIDEO_MODELS = ['gemini-omni-flash-preview'] as const;
-export const VIDEO_DURATIONS = VIDEO_OUTPUT_DURATIONS;
 export const VIDEO_SIZES = ['720x1280', '1280x720'] as const;
 
 function imageDataUrl(image: { buffer: Buffer; type: string }) {

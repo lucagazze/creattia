@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { SavedAvatar } from './AvatarManager';
 import { prepareReferenceImages } from '../../lib/creattia/client-image';
 import { videoCreditCost, type VideoDialogueLine } from '../../lib/creattia/video-pipeline';
-import { fallbackVideoSetupSuggestions, type VideoSetupSuggestions } from '../../lib/creattia/video-suggestions';
+import { fallbackVideoSetupSuggestions, normalizeVideoDuration, type VideoSetupSuggestions } from '../../lib/creattia/video-suggestions';
 
 type VideoReference = {
 	name: string;
@@ -59,13 +59,9 @@ type FormatMode = 'reference' | 'vertical' | 'horizontal';
 type MusicMode = 'music' | 'ambient' | 'none';
 type VoiceoverMode = 'none' | 'ai';
 type CaptionMode = 'dynamic' | 'minimal' | 'none';
+type DurationMode = 'ai' | 'reference' | 'custom';
 
-const SUPPORTED_DURATIONS = [4, 8, 10, 20, 30] as const;
-
-function nearestDuration(value?: number) {
-	const target = Number(value) || 8;
-	return SUPPORTED_DURATIONS.reduce((best, item) => Math.abs(item - target) < Math.abs(best - target) ? item : best, SUPPORTED_DURATIONS[0]);
-}
+const QUICK_DURATIONS = [4, 8, 10, 15, 20, 30] as const;
 
 const OBJECTIVES = [
 	['Conversión', 'Vender o llevar a una acción concreta'],
@@ -117,6 +113,8 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 	const [suggestionsReady, setSuggestionsReady] = useState(false);
 	const [suggestionSource, setSuggestionSource] = useState<'ai' | 'fallback'>('ai');
 	const [suggestionConcept, setSuggestionConcept] = useState('');
+	const [suggestedDuration, setSuggestedDuration] = useState(normalizeVideoDuration(initialReferenceDuration));
+	const [suggestedDurationReason, setSuggestedDurationReason] = useState('La IA conservará el ritmo del anuncio ganador.');
 	const [suggestionFingerprint, setSuggestionFingerprint] = useState('');
 	const [productId, setProductId] = useState('');
 	const [importedProductName, setImportedProductName] = useState('');
@@ -147,8 +145,8 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 	const [mustAvoid, setMustAvoid] = useState('');
 	const [language, setLanguage] = useState('Español rioplatense');
 	const [referenceDuration, setReferenceDuration] = useState(initialReferenceDuration);
-	const [duration, setDuration] = useState(String(nearestDuration(initialReferenceDuration)));
-	const [durationTouched, setDurationTouched] = useState(false);
+	const [duration, setDuration] = useState(String(normalizeVideoDuration(initialReferenceDuration)));
+	const [durationMode, setDurationMode] = useState<DurationMode>('reference');
 	const [referenceSize, setReferenceSize] = useState<'720x1280' | '1280x720'>('720x1280');
 	const [formatMode, setFormatMode] = useState<FormatMode>('reference');
 	const [model] = useState('gemini-omni-flash-preview');
@@ -168,7 +166,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 	const [progress, setProgress] = useState(0);
 	const [videoUrl, setVideoUrl] = useState('');
 	const [error, setError] = useState('');
-	const [creditCost, setCreditCost] = useState(videoCreditCost(String(nearestDuration(initialReferenceDuration))));
+	const [creditCost, setCreditCost] = useState(videoCreditCost(String(normalizeVideoDuration(initialReferenceDuration))));
 
 	const referenceVideoUrl = reference.metadata?.videoPath || '';
 	const referencePosterUrl = reference.imagePath;
@@ -179,17 +177,6 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 	const productPreviewUrls = useMemo(() => productFiles.map((file) => URL.createObjectURL(file)), [productFiles]);
 	const avatarPreviewUrls = useMemo(() => avatarFiles.map((file) => URL.createObjectURL(file)), [avatarFiles]);
 	const currentProductName = selectedProduct?.name || importedProductName || productName.trim() || 'Tu producto';
-	const relativeDurations = useMemo(() => {
-		const similar = nearestDuration(referenceDuration);
-		const shorter = [...SUPPORTED_DURATIONS].reverse().find((item) => item < similar);
-		const longer = SUPPORTED_DURATIONS.find((item) => item > similar);
-		return [
-			{ value: similar, label: referenceDuration > 35 ? 'Más parecido disponible' : 'Similar al ganador', hint: `${referenceDuration ? `${Math.round(referenceDuration)} s de referencia` : 'Duración equivalente'} · salida de ${similar} s` },
-			...(shorter ? [{ value: shorter, label: 'Más corto', hint: `${shorter} s · conserva solo lo esencial` }] : []),
-			...(longer ? [{ value: longer, label: 'Un poco más largo', hint: `${longer} s · suma explicación o prueba` }] : []),
-		];
-	}, [referenceDuration]);
-
 	useEffect(() => setCreditCost(videoCreditCost(duration)), [duration]);
 	useEffect(() => {
 		window.scrollTo(0, 0);
@@ -286,6 +273,11 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 		setAudioDirection(suggestions.audioDirection);
 		setCaptionMode(suggestions.captionMode);
 		setCaptions(suggestions.captions);
+		setFormatMode(suggestions.formatMode);
+		setSuggestedDuration(suggestions.durationSeconds);
+		setSuggestedDurationReason(suggestions.durationReason);
+		setDuration(String(suggestions.durationSeconds));
+		setDurationMode('ai');
 	}
 
 	async function scanProductUrl(): Promise<ProductSuggestionContext | null> {
@@ -319,7 +311,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 			productName: currentProductName,
 			productFacts,
 		};
-		const fingerprint = [referenceVideoUrl, suggestionContext.productId, suggestionContext.productName, suggestionContext.productFacts, brandName.trim()].join('|');
+		const fingerprint = [referenceVideoUrl, Math.round(referenceDuration), suggestionContext.productId, suggestionContext.productName, suggestionContext.productFacts, brandName.trim()].join('|');
 		if (!force && suggestionsReady && suggestionFingerprint === fingerprint) return;
 		setSuggestingSetup(true); setSuggestionsReady(false); setError('');
 		try {
@@ -345,6 +337,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 				brandName,
 				productFacts: suggestionContext.productFacts,
 				hasSpeakingPerson: true,
+				referenceDuration,
 			});
 			applySetupSuggestions(fallback);
 			setSuggestionSource('fallback');
@@ -452,7 +445,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 								const detectedDuration = Number(reference.metadata?.durationSec) || video.duration || 8;
 								setReferenceDuration(detectedDuration);
 								setReferenceSize(video.videoWidth >= video.videoHeight ? '1280x720' : '720x1280');
-								if (!durationTouched) setDuration(String(nearestDuration(detectedDuration)));
+								if (durationMode === 'reference') setDuration(String(normalizeVideoDuration(detectedDuration)));
 							}}
 						/>
 						<div className="video-reference-badges"><span>▶ Video ganador</span><span>≈ {Math.round(referenceDuration)} s</span></div>
@@ -500,7 +493,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 						{suggestionsReady && <div className="video-ai-suggestion-card">
 							<div className="video-ai-suggestion-heading"><span>✦ Propuesta de la IA</span><small>{suggestionSource === 'ai' ? `${productMode === 'url' ? 'Página' : 'Producto'} + video analizados` : 'Propuesta base automática'}</small></div>
 							<p>{suggestionConcept}</p>
-							<div><span>✓ Todo está preseleccionado</span><button type="button" onClick={() => void requestSetupSuggestions(undefined, true)}>Volver a analizar</button></div>
+							<div className="video-ai-suggestion-actions"><span>✓ Estrategia, público, persona, formato, duración, diálogo y audio listos</span><div><button type="button" onClick={() => void requestSetupSuggestions(undefined, true)}>Volver a analizar</button><button type="button" className="primary" onClick={() => void requestPlan()}>Crear guion con esta propuesta →</button></div></div>
 						</div>}
 						<label className="picker-label">¿Qué querés tomar del anuncio ganador?</label><p className="batch-detail-help">La IA siempre crea una ejecución nueva. Elegí qué parte de la estrategia querés conservar.</p>
 						<div className="video-option-grid video-reference-mode-grid">{REFERENCE_MODES.map(([value, hint]) => <button type="button" key={value} className={referenceMode === value ? 'active' : ''} onClick={() => setReferenceMode(value)}><strong>{value}</strong><small>{hint}</small>{referenceMode === value && <b>✓</b>}</button>)}</div>
@@ -524,9 +517,13 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 					{phase === 'setup' && step === 4 && <div className="wiz-step video-wizard-step"><div className="wiz-body">
 						<label className="picker-label">Formato del video</label><p className="batch-detail-help">Podés respetar la orientación del ganador o adaptarlo a otro canal.</p>
 						<div className="batch-format-grid video-format-grid">{([['reference', 'original', 'Igual al ganador', referenceSize === '720x1280' ? 'Vertical 9:16' : 'Horizontal 16:9'], ['vertical', 'story', 'Vertical 9:16', 'Reels, Stories y TikTok'], ['horizontal', 'landscape', 'Horizontal 16:9', 'YouTube y sitios web']] as const).map(([value, shape, label, hint]) => <button key={value} type="button" className={`batch-format-card ${formatMode === value ? 'active' : ''}`} onClick={() => setFormatMode(value)}><span className={`batch-format-shape shape-${shape === 'original' ? (referenceSize === '720x1280' ? 'story' : 'landscape') : shape}`} aria-hidden="true"><i /></span><span className="batch-format-copy"><strong>{label}</strong><small>{hint}</small></span>{formatMode === value && <b>✓</b>}</button>)}</div>
-						<label className="picker-label">Duración final</label><p className="batch-detail-help">La recomendación parte de los {Math.round(referenceDuration)} segundos del video ganador.</p>
-						<div className="video-option-grid video-duration-grid">{relativeDurations.map((item) => <button type="button" key={item.label} className={duration === String(item.value) ? 'active' : ''} onClick={() => { setDuration(String(item.value)); setDurationTouched(true); }}><strong>{item.label}</strong><small>{item.hint}</small></button>)}</div>
-						<div className="video-duration-custom"><span>O elegí una duración:</span><div className="video-chip-row">{SUPPORTED_DURATIONS.map((item) => <button type="button" key={item} className={duration === String(item) ? 'active' : ''} onClick={() => { setDuration(String(item)); setDurationTouched(true); }}>{item} s</button>)}</div><b>{creditCost} créditos</b></div>
+						<label className="picker-label">Duración final</label><p className="batch-detail-help">La IA ya eligió una duración según el hook, el diálogo y la prueba. Podés dejarla, igualar al ganador o escribir cualquier tiempo.</p>
+						<div className="video-option-grid video-duration-grid">
+							<button type="button" className={durationMode === 'ai' ? 'active' : ''} onClick={() => { setDuration(String(suggestedDuration)); setDurationMode('ai'); }}><strong>Recomendada por IA · {suggestedDuration} s</strong><small>{suggestedDurationReason}</small>{durationMode === 'ai' && <b>✓</b>}</button>
+							<button type="button" className={durationMode === 'reference' ? 'active' : ''} onClick={() => { setDuration(String(normalizeVideoDuration(referenceDuration))); setDurationMode('reference'); }}><strong>Igual al ganador · {normalizeVideoDuration(referenceDuration)} s</strong><small>Conserva exactamente la duración y el ritmo de referencia.</small>{durationMode === 'reference' && <b>✓</b>}</button>
+							<div className={`video-custom-duration-card ${durationMode === 'custom' ? 'active' : ''}`}><button type="button" onClick={() => setDurationMode('custom')}><strong>Elegir duración</strong><small>Cualquier valor entre 4 y 30 segundos.</small></button><label><input aria-label="Duración personalizada" type="number" min="4" max="30" step="1" value={duration} onFocus={() => setDurationMode('custom')} onChange={(event) => { const next = Number(event.target.value); if (Number.isInteger(next) && next >= 4 && next <= 30) { setDuration(String(next)); setDurationMode('custom'); } }} /><span>segundos</span></label>{durationMode === 'custom' && <b>✓</b>}</div>
+						</div>
+						<div className="video-duration-custom"><span>Atajos:</span><div className="video-chip-row">{QUICK_DURATIONS.map((item) => <button type="button" key={item} className={durationMode === 'custom' && duration === String(item) ? 'active' : ''} onClick={() => { setDuration(String(item)); setDurationMode('custom'); }}>{item} s</button>)}</div><b>{creditCost} créditos</b></div>
 						<div className="video-wizard-fields"><label>Idioma del anuncio</label><select value={language} onChange={(event) => setLanguage(event.target.value)}>{LANGUAGE_OPTIONS.map(([value, flag, label]) => <option key={value} value={value}>{flag} {label}</option>)}</select></div>
 						<label className="picker-label">Si aparece alguien hablando</label><div className="video-option-grid">{SPEECH_MODES.map(([value, label, hint]) => <button type="button" key={value} className={speechMode === value ? 'active' : ''} onClick={() => setSpeechMode(value)}><strong>{label}</strong><small>{hint}</small></button>)}</div>
 						{speechMode !== 'none' && <div className="video-wizard-fields"><label>¿Qué debe decir sí o sí?</label><textarea value={dialogueInstructions} onChange={(event) => setDialogueInstructions(event.target.value)} rows={3} placeholder={`Ej.: nombrar a ${brandName || 'MiMarca'}, explicar el beneficio de ${currentProductName} y cerrar con “${cta}”`} /></div>}

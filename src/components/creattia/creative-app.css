@@ -1547,10 +1547,13 @@
 .video-ai-suggestion-heading > span { color: #6333c9; font-size: 11.5px; font-weight: 900; }
 .video-ai-suggestion-heading > small { padding: 4px 7px; border-radius: 999px; background: #e9defd; color: #6842bc; font-size: 8.5px; font-weight: 850; white-space: nowrap; }
 .video-ai-suggestion-card > p { margin: 0; color: #43384c; font-size: 11.5px; line-height: 1.52; }
-.video-ai-suggestion-card > div:last-child { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 3px; }
-.video-ai-suggestion-card > div:last-child > span { color: #278258; font-size: 9.5px; font-weight: 850; }
+.video-ai-suggestion-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 3px; }
+.video-ai-suggestion-actions > span { max-width: 330px; color: #278258; font-size: 9.5px; font-weight: 850; line-height: 1.4; }
+.video-ai-suggestion-actions > div { display: flex; align-items: center; gap: 6px; }
 .video-ai-suggestion-card button { padding: 5px 8px; border: 1px solid #d9cafa; border-radius: 8px; background: #fff; color: #6333c9; font: inherit; font-size: 9.5px; font-weight: 850; cursor: pointer; }
 .video-ai-suggestion-card button:hover { background: #f2ebff; }
+.video-ai-suggestion-card button.primary { border-color: #6b38d1; background: #6b38d1; color: #fff; }
+.video-ai-suggestion-card button.primary:hover { background: #5425ba; }
 .video-saved-product-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 280px; overflow-y: auto; }
 .video-saved-product-grid > button { position: relative; display: grid; min-width: 0; grid-template-columns: 46px minmax(0, 1fr); align-items: center; gap: 9px; padding: 8px; border: 1px solid #e1dbe6; border-radius: 11px; background: #fff; color: #39323f; text-align: left; cursor: pointer; }
 .video-saved-product-grid > button.active { border-color: #744bde; background: #f7f3ff; box-shadow: 0 0 0 2px rgba(116,75,222,.08); }
@@ -1590,6 +1593,16 @@
 .video-format-grid .batch-format-card { min-width: 0; }
 .video-duration-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .video-duration-grid button { min-height: 76px; }
+.video-custom-duration-card { position: relative; display: flex; min-width: 0; min-height: 76px; flex-direction: column; justify-content: space-between; padding: 0; border: 1px solid #ded6e8; border-radius: 11px; background: #fff; overflow: hidden; }
+.video-custom-duration-card.active { border-color: #744bde; background: #f6f1ff; box-shadow: 0 0 0 2px rgba(116,75,222,.08); }
+.video-custom-duration-card > button { min-height: 0; padding: 10px 11px 4px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.video-custom-duration-card > button strong, .video-custom-duration-card > button small { display: block; }
+.video-custom-duration-card > button strong { margin-bottom: 3px; font-size: 11.5px; }
+.video-custom-duration-card > button small { color: #8b8193; font-size: 9px; line-height: 1.35; }
+.video-custom-duration-card > label { display: flex; align-items: center; gap: 5px; padding: 0 11px 10px; color: #6f6478; font-size: 9.5px; font-weight: 750; }
+.video-custom-duration-card input { box-sizing: border-box; width: 58px; padding: 5px 7px; border: 1px solid #cfc1e8; border-radius: 7px; background: #fff; color: #2c2433; font: inherit; font-size: 11px; font-weight: 850; outline: none; }
+.video-custom-duration-card input:focus { border-color: #744bde; box-shadow: 0 0 0 2px rgba(116,75,222,.12); }
+.video-custom-duration-card > b { position: absolute; top: 8px; right: 8px; color: #744bde; font-size: 10px; }
 .video-duration-custom { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 11px 12px; border: 1px solid #e4dce9; border-radius: 11px; background: #fbfafc; }
 .video-duration-custom > span { color: #716879; font-size: 11.5px; font-weight: 750; }
 .video-duration-custom .video-chip-row { flex: 1; }
@@ -1687,7 +1700,9 @@
 	.video-ai-analysis-state { min-height: 330px; padding: 28px 16px; }
 	.video-ai-analysis-state > div:last-child { flex-direction: column; align-items: stretch; }
 	.video-ai-suggestion-heading { align-items: flex-start; flex-direction: column; gap: 6px; }
-	.video-ai-suggestion-card > div:last-child { align-items: flex-start; flex-direction: column; }
+	.video-ai-suggestion-actions { align-items: stretch; flex-direction: column; }
+	.video-ai-suggestion-actions > div { display: grid; width: 100%; grid-template-columns: 1fr; }
+	.video-ai-suggestion-actions button { width: 100%; min-height: 34px; }
 	.video-reference-mode-grid,
 	.video-casting-grid,
 	.video-duration-grid { grid-template-columns: 1fr; }

@@ -1,10 +1,10 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
-import { analyzeVideoReference, buildVideoPrompt, startGeminiOmniVideo, VIDEO_DURATIONS, VIDEO_MODELS, VIDEO_SIZES, type VideoCreativePlan } from '../../../lib/creattia/video-engines';
+import { analyzeVideoReference, buildVideoPrompt, startGeminiOmniVideo, VIDEO_MODELS, VIDEO_SIZES, type VideoCreativePlan } from '../../../lib/creattia/video-engines';
 import { normalizeImageInput } from '../../../lib/creattia/ad-analysis';
 import { resolveAvatarReferences, type AvatarMode } from '../../../lib/creattia/avatar-assets';
 import { splitVideoBuffer } from '../../../lib/creattia/video-media';
-import { dialogueForSegment, referenceSegmentForOutput, scenesForSegment, videoCreditCost, videoSegmentsForDuration } from '../../../lib/creattia/video-pipeline';
+import { dialogueForSegment, isVideoOutputDuration, referenceSegmentForOutput, scenesForSegment, videoCreditCost, videoSegmentsForDuration } from '../../../lib/creattia/video-pipeline';
 
 export const prerender = false;
 
@@ -98,7 +98,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 		if (!referenceVideoUrl || !referencePosterUrl) return json({ error: 'Falta la referencia de video.' }, 400);
 		const referenceVideo = await downloadReferenceVideo(referenceVideoUrl);
-		if (!VIDEO_DURATIONS.includes(duration as typeof VIDEO_DURATIONS[number])) return json({ error: 'Duración inválida.' }, 400);
+		if (!isVideoOutputDuration(duration)) return json({ error: 'La duración debe estar entre 4 y 30 segundos.' }, 400);
 		if (!VIDEO_SIZES.includes(size as typeof VIDEO_SIZES[number])) return json({ error: 'Formato inválido.' }, 400);
 		if (!VIDEO_MODELS.includes(model as typeof VIDEO_MODELS[number])) return json({ error: 'Modelo de video inválido.' }, 400);
 

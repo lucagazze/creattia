@@ -60,6 +60,9 @@ fake_suggestions = {
     "audioDirection": "Beat moderno suave con efectos sincronizados.",
     "captionMode": "dynamic",
     "captions": "Hook, beneficio y CTA en textos breves.",
+    "formatMode": "vertical",
+    "durationSeconds": 13,
+    "durationReason": "La demostracion y el dialogo necesitan 13 segundos.",
 }
 fake_analysis["creativeSuggestions"] = fake_suggestions
 
@@ -305,6 +308,7 @@ try:
             assert benefit_input.input_value() == fake_suggestions["benefit"]
             assert "active" in (page.get_by_role("button", name="Idea + guion adaptado", exact=False).get_attribute("class") or "")
             assert "active" in (page.get_by_role("button", name="UGC / Testimonial", exact=False).get_attribute("class") or "")
+            assert page.get_by_role("button", name="Crear guion con esta propuesta", exact=False).count() == 1
             suggestion_screenshot_path = os.environ.get("CREATTIA_VIDEO_SUGGESTIONS_SCREENSHOT", "").strip()
             if suggestion_screenshot_path:
                 Path(suggestion_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
@@ -323,8 +327,13 @@ try:
             page.get_by_role("button", name="Continuar", exact=True).click()
 
             page.get_by_text("Formato del video", exact=True).wait_for()
-            assert page.get_by_role("button", name="Igual al ganador", exact=False).count() == 1
-            assert page.get_by_role("button", name="Un poco más largo", exact=False).count() <= 1
+            assert page.locator(".video-duration-grid").get_by_role("button", name="Igual al ganador", exact=False).count() == 1
+            assert "active" in (page.locator(".video-format-grid .batch-format-card").nth(1).get_attribute("class") or "")
+            assert "active" in (page.get_by_role("button", name="Recomendada por IA · 13 s", exact=False).get_attribute("class") or "")
+            assert page.get_by_label("Duración personalizada").input_value() == "13"
+            page.get_by_label("Duración personalizada").fill("17")
+            assert page.get_by_label("Duración personalizada").input_value() == "17"
+            page.locator(".video-duration-custom").get_by_text("8 créditos", exact=True).wait_for()
             assert "active" in (page.locator(".video-option-grid button").filter(has_text="Adaptar el di").get_attribute("class") or "")
             suggested_music = page.locator(".video-audio-grid fieldset").nth(1).locator("button.active")
             assert suggested_music.count() == 1 and suggested_music.inner_text().startswith("Con m")
@@ -335,6 +344,11 @@ try:
             page.get_by_role("button", name="Con voz en off", exact=True).click()
             page.get_by_role("button", name="Con música", exact=True).click()
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "Producción no debe desbordar en mobile"
+            production_screenshot_path = os.environ.get("CREATTIA_VIDEO_PRODUCTION_SCREENSHOT", "").strip()
+            if production_screenshot_path:
+                Path(production_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                page.locator(".video-duration-grid").scroll_into_view_if_needed()
+                page.screenshot(path=production_screenshot_path, full_page=False)
 
             page.get_by_role("button", name="Analizar y crear guion", exact=True).click()
             page.get_by_text("PLAN Y GUION CREADOS PARA HYDRA 10").wait_for(timeout=10_000)

@@ -13,17 +13,27 @@ export type VideoSegment = {
 	duration: number;
 };
 
-export const VIDEO_OUTPUT_DURATIONS = ['4', '8', '10', '20', '30'] as const;
+export const VIDEO_OUTPUT_DURATION_MIN = 4;
+export const VIDEO_OUTPUT_DURATION_MAX = 30;
 export const VIDEO_SEGMENT_MAX_SECONDS = 10;
 export const VIDEO_CREDITS_PER_SEGMENT = 4;
 
+export function isVideoOutputDuration(value: string | number) {
+	const duration = Number(value);
+	return Number.isInteger(duration) && duration >= VIDEO_OUTPUT_DURATION_MIN && duration <= VIDEO_OUTPUT_DURATION_MAX;
+}
+
 export function videoSegmentsForDuration(value: string | number): VideoSegment[] {
 	const total = Number(value);
-	if (!Number.isFinite(total) || total <= 0 || total > 30) throw new Error('Duración de video inválida.');
+	if (!isVideoOutputDuration(total)) throw new Error('La duración debe ser un número entero entre 4 y 30 segundos.');
 	const segments: VideoSegment[] = [];
+	const segmentCount = Math.ceil(total / VIDEO_SEGMENT_MAX_SECONDS);
+	const baseDuration = Math.floor(total / segmentCount);
+	let remainder = total % segmentCount;
 	let start = 0;
-	while (start < total) {
-		const duration = Math.min(VIDEO_SEGMENT_MAX_SECONDS, total - start);
+	for (let index = 0; index < segmentCount; index += 1) {
+		const duration = baseDuration + (remainder > 0 ? 1 : 0);
+		remainder = Math.max(0, remainder - 1);
 		segments.push({ index: segments.length, start, end: start + duration, duration });
 		start += duration;
 	}

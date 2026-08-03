@@ -47,6 +47,7 @@ export async function analyzeFullVideoReference(input: {
 	productName: string;
 	brandName: string;
 	productFacts?: string;
+	referenceDuration?: number;
 }): Promise<FullVideoReferenceAnalysis> {
 	const ai = new GoogleGenAI({ apiKey: input.apiKey });
 	const bytes = new Uint8Array(input.video.buffer);
@@ -68,8 +69,9 @@ Pay special attention to every moment where a visible person speaks. Identify th
 
 Available notes: ${input.referenceNotes || 'None'}
 Verified product/page facts: ${input.productFacts || 'No additional facts were provided. Never invent claims, prices, testimonials or offers.'}
+Reference duration: ${Number(input.referenceDuration) > 0 ? `${Math.round(Number(input.referenceDuration))} seconds` : 'Infer it from the uploaded video'}.
 
-Also act as a conversion-focused creative strategist. Propose the strongest editable setup for the NEW product by combining verified page facts with the reusable strategy of the reference. Fill every creativeSuggestions field. If the page has no verified offer, explicitly write "Sin oferta específica: enfocar el beneficio principal". Use only these exact enum values:
+Also act as a conversion-focused creative strategist. Propose the strongest editable setup for the NEW product by combining verified page facts with the reusable strategy of the reference. Fill every creativeSuggestions field, including production, audio and timing. Recommend an integer duration from 4 to 30 seconds that gives the hook, proof, dialogue and CTA enough natural time. Prefer the exact reference duration when it already fits; change it only when the new product needs a clearly better pace. If the page has no verified offer, explicitly write "Sin oferta específica: enfocar el beneficio principal". Use only these exact enum values:
 - referenceMode: Idea + guion adaptado | Idea visual | Guion adaptado | Inspiración libre
 - objective: Conversión | Reconocimiento | UGC / Testimonial | Demostración
 - tone: UGC natural | Premium | Directo y vendedor | Educativo | Emocional | Divertido
@@ -79,8 +81,9 @@ Also act as a conversion-focused creative strategist. Propose the strongest edit
 - voiceoverMode: none | ai
 - musicMode: music | ambient | none
 - captionMode: dynamic | minimal | none
+- formatMode: reference | vertical | horizontal
 
-Return JSON only with: hook, visualStyle, pacing, camera, scenePlan (4-10 timed strings), transitions, audio, productRole, hasSpeakingPerson (boolean), speakers (array of label/role/performance), dialoguePurpose, speechStyle, referenceDialogueSummary, dialogueBeats (array of start/end/purpose/delivery), creativeSuggestions. creativeSuggestions must contain: concept, referenceMode, objective, audience, benefit, proof, offer, cta, tone, preserveDirection, changeDirection, castingMode, creatorAge, creatorStyle, peopleDirection, productUsage, mustAvoid, language, speechMode, dialogueInstructions, voiceoverMode, voiceover, musicMode, audioDirection, captionMode, captions.` },
+Return JSON only with: hook, visualStyle, pacing, camera, scenePlan (4-10 timed strings), transitions, audio, productRole, hasSpeakingPerson (boolean), speakers (array of label/role/performance), dialoguePurpose, speechStyle, referenceDialogueSummary, dialogueBeats (array of start/end/purpose/delivery), creativeSuggestions. creativeSuggestions must contain: concept, referenceMode, objective, audience, benefit, proof, offer, cta, tone, preserveDirection, changeDirection, castingMode, creatorAge, creatorStyle, peopleDirection, productUsage, mustAvoid, language, speechMode, dialogueInstructions, voiceoverMode, voiceover, musicMode, audioDirection, captionMode, captions, formatMode, durationSeconds, durationReason.` },
 				],
 			}],
 			config: { responseMimeType: 'application/json', temperature: 0.2 },
@@ -94,6 +97,7 @@ Return JSON only with: hook, visualStyle, pacing, camera, scenePlan (4-10 timed 
 				productFacts: input.productFacts,
 				hasSpeakingPerson: parsed.hasSpeakingPerson,
 				hook: parsed.hook,
+				referenceDuration: input.referenceDuration,
 			}),
 		};
 	} finally {

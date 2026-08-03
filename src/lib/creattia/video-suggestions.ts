@@ -7,6 +7,10 @@ export const VIDEO_SPEECH_MODES = ['adapt', 'new', 'none'] as const;
 export const VIDEO_MUSIC_MODES = ['music', 'ambient', 'none'] as const;
 export const VIDEO_VOICEOVER_MODES = ['none', 'ai'] as const;
 export const VIDEO_CAPTION_MODES = ['dynamic', 'minimal', 'none'] as const;
+export const VIDEO_FORMAT_MODES = ['reference', 'vertical', 'horizontal'] as const;
+
+export const VIDEO_MIN_DURATION_SECONDS = 4;
+export const VIDEO_MAX_DURATION_SECONDS = 30;
 
 export type VideoSetupSuggestions = {
 	concept: string;
@@ -35,6 +39,9 @@ export type VideoSetupSuggestions = {
 	audioDirection: string;
 	captionMode: typeof VIDEO_CAPTION_MODES[number];
 	captions: string;
+	formatMode: typeof VIDEO_FORMAT_MODES[number];
+	durationSeconds: number;
+	durationReason: string;
 };
 
 type SuggestionContext = {
@@ -43,6 +50,7 @@ type SuggestionContext = {
 	productFacts?: string;
 	hasSpeakingPerson?: boolean;
 	hook?: string;
+	referenceDuration?: number;
 };
 
 function text(value: unknown, fallback: string, max = 900) {
@@ -55,12 +63,21 @@ function choice<T extends readonly string[]>(value: unknown, options: T, fallbac
 	return (options as readonly string[]).includes(candidate) ? candidate as T[number] : fallback;
 }
 
+export function normalizeVideoDuration(value: unknown, fallback = 8) {
+	const parsed = Math.round(Number(value));
+	const safeFallback = Math.min(VIDEO_MAX_DURATION_SECONDS, Math.max(VIDEO_MIN_DURATION_SECONDS, Math.round(Number(fallback) || 8)));
+	return Number.isFinite(parsed)
+		? Math.min(VIDEO_MAX_DURATION_SECONDS, Math.max(VIDEO_MIN_DURATION_SECONDS, parsed))
+		: safeFallback;
+}
+
 export function fallbackVideoSetupSuggestions(context: SuggestionContext): VideoSetupSuggestions {
 	const productName = text(context.productName, 'el producto', 180);
 	const brandName = text(context.brandName, 'la marca', 120);
 	const facts = text(context.productFacts, `Datos verificables y uso real de ${productName}`, 500);
 	const benefit = facts.split(/[.!?·]/)[0]?.trim() || `Resolver el problema principal con ${productName}`;
 	const hasSpeakingPerson = context.hasSpeakingPerson !== false;
+	const durationSeconds = normalizeVideoDuration(context.referenceDuration, 8);
 	return {
 		concept: `Abrir con el problema que resuelve ${productName}, demostrarlo en uso y cerrar con una razón clara para elegir ${brandName}.`,
 		referenceMode: hasSpeakingPerson ? 'Idea + guion adaptado' : 'Idea visual',
@@ -88,6 +105,9 @@ export function fallbackVideoSetupSuggestions(context: SuggestionContext): Video
 		audioDirection: 'Música comercial moderna que acompañe los cortes, con efectos sutiles y sonido ambiente realista.',
 		captionMode: 'dynamic',
 		captions: 'Textos grandes y breves para el hook, el beneficio verificable y la acción final.',
+		formatMode: 'reference',
+		durationSeconds,
+		durationReason: `Mantener ${durationSeconds} segundos conserva el ritmo probado del anuncio ganador sin alargar el mensaje.`,
 	};
 }
 
@@ -121,5 +141,8 @@ export function normalizeVideoSetupSuggestions(value: unknown, context: Suggesti
 		audioDirection: text(raw.audioDirection, fallback.audioDirection, 300),
 		captionMode: choice(raw.captionMode, VIDEO_CAPTION_MODES, fallback.captionMode),
 		captions: text(raw.captions, fallback.captions, 300),
+		formatMode: choice(raw.formatMode, VIDEO_FORMAT_MODES, fallback.formatMode),
+		durationSeconds: normalizeVideoDuration(raw.durationSeconds, fallback.durationSeconds),
+		durationReason: text(raw.durationReason, fallback.durationReason, 300),
 	};
 }

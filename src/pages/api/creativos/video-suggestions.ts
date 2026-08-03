@@ -35,6 +35,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const form = await request.formData();
 		const referenceVideoUrl = clean(form.get('referenceVideoUrl'), 1000);
 		const referenceNotes = clean(form.get('referenceScript'), 8000);
+		const referenceDuration = Number(form.get('referenceDuration') || 0);
 		const productId = clean(form.get('productId'), 80);
 		let productName = clean(form.get('productName'), 180);
 		let productFacts = clean(form.get('productFacts'), 4000);
@@ -67,7 +68,7 @@ export const POST: APIRoute = async ({ request }) => {
 		if (googleKey) {
 			try {
 				const video = await downloadReferenceVideo(referenceVideoUrl);
-				analysis = await analyzeFullVideoReference({ apiKey: googleKey, video, referenceNotes, productName, brandName, productFacts });
+				analysis = await analyzeFullVideoReference({ apiKey: googleKey, video, referenceNotes, referenceDuration, productName, brandName, productFacts });
 				source = 'ai';
 			} catch (analysisError) {
 				console.warn('[video-suggestions] no se pudo completar el análisis inteligente:', analysisError);
@@ -78,6 +79,7 @@ export const POST: APIRoute = async ({ request }) => {
 			...context,
 			hasSpeakingPerson: analysis.hasSpeakingPerson,
 			hook: analysis.hook,
+			referenceDuration,
 		});
 		analysis = { ...analysis, creativeSuggestions: suggestions };
 		return json({ ok: true, source, analysis, suggestions });
