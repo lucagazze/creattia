@@ -3,6 +3,7 @@ import { supabase } from '../../lib/creattia/supabase-browser';
 import { creativeCatalog } from '../../lib/creattia/catalog';
 import { isAdminEmail } from '../../lib/creattia/admin';
 import CreationFlow from './CreationFlow';
+import VideoCreationFlow from './VideoCreationFlow';
 
 function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number; fill?: string }) {
 	const common = { width: size, height: size, viewBox: '0 0 24 24', fill, stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
@@ -296,6 +297,7 @@ export default function WinnersLibrary({
 	// pasar por los botones chiquitos superpuestos a la imagen.
 	const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; item: WinnerItem } | null>(null);
 	const [videoLightbox, setVideoLightbox] = useState<WinnerItem | null>(null);
+	const [videoCreationRef, setVideoCreationRef] = useState<WinnerItem | null>(null);
 	const [copiedScriptPath, setCopiedScriptPath] = useState<string | null>(null);
 	// Página actual de cada carrusel, por imagePath.
 	const [carouselSlideIndex, setCarouselSlideIndex] = useState<Record<string, number>>({});
@@ -473,6 +475,14 @@ export default function WinnersLibrary({
 		setCustomInstructions('');
 		// Load saved products when opening modal
 		void loadSavedProducts();
+	};
+
+	const handleCreateVideo = (item: WinnerItem) => {
+		savedScrollY.current = window.scrollY;
+		void loadSavedProducts();
+		setCardContextMenu(null);
+		setVideoLightbox(null);
+		setVideoCreationRef(item);
 	};
 
 	const copyScript = (item: WinnerItem) => {
@@ -1078,6 +1088,22 @@ export default function WinnersLibrary({
 
 	// Página completa de creación (sin modal): elegir producto, formato, idioma,
 	// estilo, revisar/editar los textos propuestos y recién ahí generar.
+	if (videoCreationRef) {
+		return (
+			<VideoCreationFlow
+				reference={videoCreationRef}
+				session={session}
+				profile={profile}
+				savedProducts={savedProducts}
+				onToast={onToast}
+				onBack={() => {
+					setVideoCreationRef(null);
+					requestAnimationFrame(() => window.scrollTo({ top: savedScrollY.current, behavior: 'auto' }));
+				}}
+			/>
+		);
+	}
+
 	if (activeAd) {
 		return (
 			<CreationFlow
@@ -1781,6 +1807,13 @@ export default function WinnersLibrary({
 									📋 Copiar guion
 								</button>
 							)}
+							<button
+								type="button"
+								onClick={() => handleCreateVideo(cardContextMenu.item)}
+								style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f4edff', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#6333c9', fontWeight: 700, textAlign: 'left', width: '100%', fontFamily: 'inherit' }}
+							>
+								🎬 Crear video para mi marca
+							</button>
 						</>
 					) : (
 						<button
@@ -1853,6 +1886,13 @@ export default function WinnersLibrary({
 									{copiedScriptPath === videoLightbox.imagePath ? '✓ Copiado' : 'Copiar guion'}
 								</button>
 							)}
+							<button
+								type="button"
+								onClick={() => handleCreateVideo(videoLightbox)}
+								style={{ flex: '1 1 100%', padding: '10px 0', borderRadius: '10px', border: 0, background: 'linear-gradient(135deg, #744bde, #ef3f83)', color: '#fff', fontSize: '13px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+							>
+								🎬 Crear video para mi marca
+							</button>
 						</div>
 						{videoLightbox.promptNotes && (
 							<p style={{ margin: 0, fontSize: '12.5px', color: '#716d79', lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: '160px', overflowY: 'auto' }}>
