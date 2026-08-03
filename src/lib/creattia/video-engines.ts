@@ -1,6 +1,10 @@
 import OpenAI from 'openai';
+import RunwayML, { toFile } from '@runwayml/sdk';
+import { GoogleGenAI } from '@google/genai';
+import { VIDEO_OUTPUT_DURATIONS, VIDEO_CREDITS_PER_SEGMENT, type VideoDialogueLine } from './video-pipeline';
+import type { FullVideoReferenceAnalysis } from './video-reference';
 
-export type VideoReferenceAnalysis = {
+export type VideoReferenceAnalysis = FullVideoReferenceAnalysis & {
 	hook?: string;
 	visualStyle?: string;
 	pacing?: string;
@@ -16,6 +20,8 @@ export type VideoJobStatus = {
 	status: string;
 	progress?: number;
 	error?: string;
+	outputUrl?: string;
+	outputData?: string;
 };
 
 export type VideoCreativePlan = {
@@ -29,12 +35,15 @@ export type VideoCreativePlan = {
 	audio: string;
 	cta: string;
 	scenes: string[];
+	speechMode: 'adapt' | 'new' | 'none';
+	hasSpokenDialogue: boolean;
+	dialogueLines: VideoDialogueLine[];
 };
 
-export const VIDEO_CREDIT_COST = 4;
-export const VIDEO_MODELS = ['sora-2', 'sora-2-pro'] as const;
-export const VIDEO_DURATIONS = ['4', '8', '12'] as const;
-export const VIDEO_SIZES = ['720x1280', '1280x720', '1024x1792', '1792x1024'] as const;
+export const VIDEO_CREDIT_COST = VIDEO_CREDITS_PER_SEGMENT;
+export const VIDEO_MODELS = ['gemini-omni-flash-preview'] as const;
+export const VIDEO_DURATIONS = VIDEO_OUTPUT_DURATIONS;
+export const VIDEO_SIZES = ['720x1280', '1280x720'] as const;
 
 function imageDataUrl(image: { buffer: Buffer; type: string }) {
 	return `data:${image.type};base64,${image.buffer.toString('base64')}`;
@@ -52,6 +61,8 @@ function fallbackVideoPlan(input: {
 	audioDirection: string;
 	voiceover: string;
 	captions: string;
+	speechMode?: 'adapt' | 'new' | 'none';
+	dialogueInstructions?: string;
 }): VideoCreativePlan {
 	const isShort = Number(input.duration) <= 4;
 	return {
@@ -64,6 +75,15 @@ function fallbackVideoPlan(input: {
 		captions: input.captions || `Textos cortos en ${input.language || 'español'}, grandes y fáciles de leer.`,
 		audio: input.audioDirection || 'Música comercial moderna, con sonido ambiente suave y cortes al ritmo.',
 		cta: input.cta || 'Descubrilo ahora',
+		speechMode: input.speechMode || 'adapt',
+		hasSpokenDialogue: input.speechMode !== 'none',
+		dialogueLines: input.speechMode === 'none' ? [] : [{
+			start: 0.5,
+			end: Math.max(2.5, Number(input.duration) - 0.5),
+			speaker: 'Creadora',
+			line: input.dialogueInstructions || `${input.brandName || 'Esta marca'} presenta ${input.productName}: ${input.benefit || 'una solución simple para tu día a día'}. ${input.cta || 'Descubrilo ahora'}.`,
+			delivery: 'Natural, clara y convincente; mirando a cámara cuando corresponda.',
+		}],
 		scenes: isShort
 			? ['0–1s: Gancho visual con el producto y el beneficio principal.', '1–3s: Demostración rápida del uso o resultado.', '3–4s: Producto, marca y CTA claro.']
 			: ['0–2s: Gancho visual con el producto y el beneficio principal.', '2–4s: Situación o problema que vive la audiencia.', '4–6s: Demostración del producto en uso.', '6–7s: Resultado o prueba visual del beneficio.', '7–8s: Cierre con producto, marca y CTA claro.'],
@@ -73,8 +93,13 @@ function fallbackVideoPlan(input: {
 export async function createVideoPlan(input: {
 	apiKey: string;
 	poster?: { buffer: Buffer; type: string };
-	productImage?: { buffer: Buffer; type: string };
+	productImages?: Array<{ buffer: Buffer; type: string }>;
+	avatarImages?: Array<{ buffer: Buffer; type: string }>;
+	avatarMode: 'original' | 'saved' | 'upload' | 'none';
+	avatarName: string;
+	avatarDescription: string;
 	referenceNotes?: string;
+	referenceDuration?: string;
 	productName: string;
 	productFacts?: string;
 	brandName: string;
@@ -92,6 +117,14 @@ export async function createVideoPlan(input: {
 	voiceover: string;
 	captions: string;
 	peopleDirection: string;
+	referenceMode: string;
+	preserveDirection: string;
+	changeDirection: string;
+	productUsage: string;
+	mustAvoid: string;
+	speechMode?: 'adapt' | 'new' | 'none';
+	dialogueInstructions?: string;
+	referenceAnalysis?: VideoReferenceAnalysis;
 }): Promise<VideoCreativePlan> {
 	const fallback = fallbackVideoPlan(input);
 	if (!input.apiKey) return fallback;
@@ -118,12 +151,30 @@ Audio direction: ${input.audioDirection}
 Voice-over preference: ${input.voiceover}
 Caption preference: ${input.captions}
 People/creator direction: ${input.peopleDirection}
+Person identity mode: ${input.avatarMode}
+Selected avatar: ${input.avatarName || 'None'}
+Avatar identity and direction: ${input.avatarDescription || 'None'}
+Identity rule: ${input.avatarMode === 'saved' || input.avatarMode === 'upload' ? 'Use the supplied avatar images as the only identity reference. Preserve that person consistently, but do not copy the person from the winning reference video.' : input.avatarMode === 'none' ? 'Do not show an identifiable person. Use product shots, environments or anonymous hands only.' : 'Create a new original person who is clearly different from the person in the winning reference video. The reference person is only a performance and blocking example, never an identity reference.'}
 Reference notes/script: ${input.referenceNotes || 'Not available'}
+Reference duration: ${input.referenceDuration || 'Not available'} seconds
+Reference fidelity requested: ${input.referenceMode}
+Elements to preserve: ${input.preserveDirection || 'The reusable hook, pacing and storytelling structure.'}
+Elements to change: ${input.changeDirection || 'Product, brand, copy, people, setting and claims.'}
+Required product interaction: ${input.productUsage || 'Show the product naturally and keep its identity consistent.'}
+Forbidden elements or claims: ${input.mustAvoid || 'No additional restrictions provided.'}
+Full reference analysis: ${JSON.stringify(input.referenceAnalysis || {})}
+Speech mode: ${input.speechMode || 'adapt'}
+Mandatory dialogue ideas: ${input.dialogueInstructions || 'No additional mandatory phrase.'}
 
-Return strict JSON with exactly these keys: hook, objective, audience, coreMessage, visualStyle, voiceover, captions, audio, cta, scenes. scenes must be an array of 3 to 8 strings, each starting with a time range and describing action, camera, product visibility, text and audio beat. Keep claims factual, make the product the visual source of truth, and make every scene feasible for a generative video model.`,
+Return strict JSON with exactly these keys: hook, objective, audience, coreMessage, visualStyle, voiceover, captions, audio, cta, scenes, speechMode, hasSpokenDialogue, dialogueLines. scenes must be an array of 3 to 12 strings, each starting with a time range and describing action, camera, product visibility, text and audio beat. dialogueLines must be an array of {start, end, speaker, line, delivery}. If speechMode is "none", return no dialogue. Otherwise write completely new, natural spoken lines for the NEW brand and product in the requested language; use the reference only for timing, persuasive purpose and delivery. Every spoken claim, price, testimonial and offer must be supported by Product facts, Proof or Offer. Make the words short enough to be spoken naturally inside their time range, include the new brand/product where useful, and align visible mouth movement with the line. Keep claims factual, make the product the visual source of truth, and make every scene feasible for a generative video model.`,
 		}];
 		if (input.poster) content.push({ type: 'image_url', image_url: { url: imageDataUrl(input.poster) } });
-		if (input.productImage) content.push({ type: 'image_url', image_url: { url: imageDataUrl(input.productImage) } });
+		for (const productImage of (input.productImages || []).slice(0, 5)) {
+			content.push({ type: 'image_url', image_url: { url: imageDataUrl(productImage) } });
+		}
+		for (const avatarImage of (input.avatarImages || []).slice(0, 5)) {
+			content.push({ type: 'image_url', image_url: { url: imageDataUrl(avatarImage) } });
+		}
 		const response = await openai.chat.completions.create({
 			model,
 			response_format: { type: 'json_object' },
@@ -136,7 +187,18 @@ Return strict JSON with exactly these keys: hook, objective, audience, coreMessa
 		return {
 			...fallback,
 			...parsed,
-			scenes: Array.isArray(parsed.scenes) && parsed.scenes.length ? parsed.scenes.slice(0, 8).map(String) : fallback.scenes,
+			speechMode: input.speechMode || parsed.speechMode || fallback.speechMode,
+			hasSpokenDialogue: input.speechMode === 'none' ? false : Boolean(parsed.hasSpokenDialogue ?? fallback.hasSpokenDialogue),
+			dialogueLines: input.speechMode === 'none' ? [] : Array.isArray(parsed.dialogueLines)
+				? parsed.dialogueLines.slice(0, 12).map((line) => ({
+					start: Math.max(0, Number(line.start) || 0),
+					end: Math.min(Number(input.duration), Math.max(Number(line.start) || 0, Number(line.end) || 0)),
+					speaker: String(line.speaker || 'Creadora'),
+					line: String(line.line || '').trim(),
+					delivery: String(line.delivery || '').trim(),
+				})).filter((line) => line.line && line.end > line.start)
+				: fallback.dialogueLines,
+			scenes: Array.isArray(parsed.scenes) && parsed.scenes.length ? parsed.scenes.slice(0, 12).map(String) : fallback.scenes,
 		};
 	} catch (error) {
 		console.warn('[video-engines] no se pudo crear el plan de video; se usa el plan base:', error);
@@ -187,7 +249,7 @@ export async function analyzeVideoReference(input: {
 			messages: [
 				{
 					role: 'system',
-					content: `You are a senior performance-video creative director. Analyze one representative poster frame plus the reference notes of an ad video. Return strict JSON with these keys: hook, visualStyle, pacing, camera, scenePlan (array of 4 to 8 short scenes), transitions, audio, productRole. Explain the reusable creative grammar, not the original brand. The new advertiser brand is "${input.brandName || 'the advertiser'}" and the new product is "${input.productName}". Never preserve another brand's logo, name, claims, or watermark. Keep claims factual and avoid inventing offers.`,
+					content: `You are a senior performance-video creative director. Analyze one representative poster frame plus the reference notes of an ad video. Return strict JSON with these keys: hook, visualStyle, pacing, camera, scenePlan (array of 4 to 8 short scenes), transitions, audio, productRole. Explain reusable creative grammar, never a shot-by-shot reconstruction. The new advertiser brand is "${input.brandName || 'the advertiser'}" and the new product is "${input.productName}". A visible person in the winner is not an identity reference. Never preserve another person's identity, brand logo, name, claims, watermark or exact frame sequence. Keep claims factual and avoid inventing offers.`,
 				},
 				{
 					role: 'user',
@@ -212,6 +274,7 @@ export function buildVideoPrompt(input: {
 	productFacts?: string;
 	brandName: string;
 	brief?: string;
+	identityDirection?: string;
 	duration: string;
 	size: string;
 	creativePlan?: Partial<VideoCreativePlan>;
@@ -219,31 +282,123 @@ export function buildVideoPrompt(input: {
 	const scenes = (input.analysis.scenePlan || []).map((scene, index) => `${index + 1}. ${scene}`).join('\n');
 	const plan = input.creativePlan || {};
 	const plannedScenes = Array.isArray(plan.scenes) && plan.scenes.length ? plan.scenes.map((scene, index) => `${index + 1}. ${scene}`).join('\n') : scenes;
+	const dialogue = Array.isArray(plan.dialogueLines) && plan.dialogueLines.length
+		? plan.dialogueLines.map((line) => `${line.start}-${line.end}s · ${line.speaker}: “${line.line}” (${line.delivery || 'natural'})`).join('\n')
+		: 'No spoken dialogue.';
+	const visibleSpeakerAllowed = !/do not show an identifiable person/i.test(input.identityDirection || '');
 	return [
-		`Create a polished ${input.duration}-second marketing video in ${input.size} for ${input.brandName || 'the advertiser'} and its product ${input.productName}.`,
-		'Use the attached product image as the source of truth for the product identity, shape, color, label and packaging. Do not redesign, invent or morph the product.',
-		'Recreate the reference video\'s creative grammar — hook, pacing, camera language, scene rhythm and emotional payoff — but make an original execution for the new brand and product. Do not copy the original brand, logo, watermark, person identity, exact frames or unverified claims.',
-		`Reference hook: ${input.analysis.hook || 'a clear product-led hook'}`,
-		`Visual style: ${input.analysis.visualStyle || 'premium direct-response advertising'}`,
-		`Pacing: ${input.analysis.pacing || 'fast but legible'}`,
-		`Camera: ${input.analysis.camera || 'close product shots and natural movement'}`,
-		`Transitions: ${input.analysis.transitions || 'clean, motivated cuts'}`,
-		`Audio direction: ${input.analysis.audio || 'commercial music and natural sound'}`,
-		`Approved creative hook: ${plan.hook || input.analysis.hook || 'a clear product-led hook'}`,
-		`Objective: ${plan.objective || 'conversion'}`,
-		`Audience: ${plan.audience || 'the target audience'}`,
-		`Core message: ${plan.coreMessage || 'Show a clear product benefit.'}`,
-		`Visual style: ${plan.visualStyle || input.analysis.visualStyle || 'premium direct-response advertising'}`,
-		`Voice-over: ${plan.voiceover || 'No voice-over unless clearly requested.'}`,
-		`Captions/on-screen text: ${plan.captions || 'Minimal, readable captions only.'}`,
-		`Audio: ${plan.audio || input.analysis.audio || 'commercial music and natural sound'}`,
-		`CTA: ${plan.cta || 'Discover more'}`,
-		`Approved scene plan:\n${plannedScenes}`,
-		`Verified product facts: ${input.productFacts || 'Only show what is visibly supported by the product image.'}`,
-		`Existing reference notes for creative intent: ${input.referenceNotes || 'None.'}`,
-		`Additional direction from the advertiser: ${input.brief || 'Keep it clear, premium and conversion-focused.'}`,
-		'Use readable, minimal on-screen text only when it is necessary. Prefer showing the product in use over dense captions. End with a clean brand/product shot and a generic action such as Discover more or Shop now, without inventing a discount, guarantee or deadline.',
-	].join('\n\n');
+		`Create an original marketing video for ${input.brandName || 'the advertiser'} and ${input.productName}. Use the supplied winner only as high-level inspiration for hook logic, pacing and storytelling grammar. Do not recreate it shot-by-shot: vary composition, actions, setting, transitions and performance while preserving the strategic idea.`,
+		`PERSON IDENTITY: ${input.identityDirection || 'The person in the winning reference is not an identity reference. Create a clearly different original person.'}`,
+		`PRODUCT TRUTH: preserve the supplied product references exactly: shape, color, label and packaging. Verified facts: ${input.productFacts || 'only what is visible in the product references'}.`,
+		`APPROVED HOOK: ${plan.hook || input.analysis.hook || 'Show the product and its benefit immediately.'}`,
+		`APPROVED SCENES:\n${plannedScenes}`,
+		`MESSAGE: ${plan.coreMessage || 'Show one clear product benefit.'}. CTA: ${plan.cta || 'Discover more'}.`,
+		`STYLE: ${plan.visualStyle || input.analysis.visualStyle || 'premium direct-response advertising'}. Pacing: ${input.analysis.pacing || 'fast but legible'}. Camera: ${input.analysis.camera || 'product-led close shots and natural motion'}.`,
+		`AUDIO/TEXT: ${plan.audio || input.analysis.audio || 'coherent commercial audio'}. ${plan.voiceover || ''} ${plan.captions || ''}`,
+		`APPROVED SPOKEN DIALOGUE:\n${dialogue}`,
+		plan.hasSpokenDialogue
+			? visibleSpeakerAllowed
+				? 'DIALOGUE PERFORMANCE: the visible speaker must say the approved words naturally, with synchronized mouth movement, matching emotion and enough time for every line. Never say the reference brand or reuse its wording.'
+				: 'DIALOGUE PERFORMANCE: use the approved words as an off-camera voice-over because no identifiable person may appear. Never say the reference brand or reuse its wording.'
+			: 'DIALOGUE PERFORMANCE: nobody speaks on camera. Do not generate intelligible speech.',
+		`USER RULES: ${input.brief || 'Keep the result clear, premium and conversion-focused.'}`,
+		'Do not copy the original sequence, exact frames, logo, watermark, brand, person identity, claims or readable text. Do not invent offers or product properties. Keep on-screen text minimal because final typography will be added separately.',
+	].join('\n');
+}
+
+export async function startGeminiOmniVideo(input: {
+	apiKey: string;
+	prompt: string;
+	size: string;
+	referenceVideo: { buffer: Buffer; type: string };
+	visualReferences: Array<{ buffer: Buffer; type: string }>;
+}): Promise<VideoJobStatus> {
+	const ai = new GoogleGenAI({ apiKey: input.apiKey });
+	const references = input.visualReferences.slice(0, 6);
+	const tags = references.map((_, index) => `<IMAGE_REF_${index}>`).join(' ');
+	const prompt = references.length
+		? `[# References ${references.map((_, index) => `<IMAGE_REF_${index}>@Image${index + 1}`).join(' ')}]\n${input.prompt}\nUse ${tags} only as subject and product identity references. Do not use them as literal first frames.`
+		: input.prompt;
+	const interaction = await ai.interactions.create({
+		model: 'gemini-omni-flash-preview',
+		input: [
+			{ type: 'video' as const, data: input.referenceVideo.buffer.toString('base64'), mime_type: input.referenceVideo.type || 'video/mp4' },
+			...references.map((reference) => ({ type: 'image' as const, data: reference.buffer.toString('base64'), mime_type: reference.type })),
+			{ type: 'text' as const, text: prompt },
+		],
+		background: true,
+		store: true,
+		response_format: {
+			type: 'video',
+			delivery: 'uri',
+		},
+		generation_config: { video_config: { task: 'edit' } },
+	});
+	return {
+		id: interaction.id,
+		status: interaction.status === 'completed' ? 'completed' : interaction.status === 'in_progress' ? 'in_progress' : 'queued',
+		progress: interaction.status === 'completed' ? 100 : 0,
+		outputUrl: interaction.output_video?.uri,
+		outputData: interaction.output_video?.data,
+	};
+}
+
+export async function retrieveGeminiOmniVideo(apiKey: string, id: string): Promise<VideoJobStatus> {
+	const ai = new GoogleGenAI({ apiKey });
+	const interaction = await ai.interactions.get(id);
+	if (interaction.status === 'completed') return { id, status: 'completed', progress: 100, outputUrl: interaction.output_video?.uri, outputData: interaction.output_video?.data };
+	if (['failed', 'cancelled', 'incomplete', 'budget_exceeded'].includes(interaction.status)) {
+		return { id, status: 'failed', progress: 0, error: interaction.output_text || `Gemini finalizó con estado ${interaction.status}.` };
+	}
+	return { id, status: interaction.status === 'in_progress' ? 'in_progress' : 'queued', progress: interaction.status === 'in_progress' ? 45 : 0 };
+}
+
+export async function downloadGeminiOmniVideo(apiKey: string, result: VideoJobStatus): Promise<Buffer> {
+	if (result.outputData) return Buffer.from(result.outputData, 'base64');
+	if (!result.outputUrl) throw new Error('Gemini no devolvió el archivo de video.');
+	const response = await fetch(result.outputUrl, { headers: { 'x-goog-api-key': apiKey } });
+	if (!response.ok) throw new Error(`No se pudo descargar el resultado de Gemini (${response.status}).`);
+	return Buffer.from(await response.arrayBuffer());
+}
+
+export async function startRunwayVideo(input: {
+	apiKey: string;
+	prompt: string;
+	referenceVideoUrl: string;
+	visualReferences: Array<{ buffer: Buffer; type: string }>;
+}): Promise<VideoJobStatus> {
+	const client = new RunwayML({ apiKey: input.apiKey });
+	const references = [];
+	for (const [index, reference] of input.visualReferences.slice(0, 5).entries()) {
+		const extension = reference.type.includes('png') ? 'png' : reference.type.includes('webp') ? 'webp' : 'jpg';
+		const upload = await client.uploads.createEphemeral({
+			file: await toFile(reference.buffer, `product-reference-${index + 1}.${extension}`, { type: reference.type }),
+		});
+		references.push({ uri: upload.uri });
+	}
+	const task = await client.videoToVideo.create({
+		model: 'gemini_omni_flash',
+		videoUri: input.referenceVideoUrl,
+		promptText: input.prompt.slice(0, 1000),
+		references,
+	});
+	return { id: task.id, status: 'queued', progress: 0 };
+}
+
+export async function retrieveRunwayVideo(apiKey: string, id: string): Promise<VideoJobStatus> {
+	const client = new RunwayML({ apiKey });
+	const task = await client.tasks.retrieve(id);
+	if (task.status === 'SUCCEEDED') return { id, status: 'completed', progress: 100, outputUrl: task.output[0] };
+	if (task.status === 'FAILED') return { id, status: 'failed', progress: 0, error: task.failure };
+	if (task.status === 'CANCELLED') return { id, status: 'failed', progress: 0, error: 'La generación fue cancelada por Runway.' };
+	if (task.status === 'RUNNING') return { id, status: 'in_progress', progress: Math.round(Math.max(0, Math.min(1, task.progress)) * 100) };
+	return { id, status: 'queued', progress: 0 };
+}
+
+export async function downloadRunwayVideo(outputUrl: string): Promise<Buffer> {
+	const response = await fetch(outputUrl);
+	if (!response.ok) throw new Error(`No se pudo descargar el resultado de Runway (${response.status}).`);
+	return Buffer.from(await response.arrayBuffer());
 }
 
 export async function startSoraVideo(input: {

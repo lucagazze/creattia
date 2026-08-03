@@ -1623,11 +1623,19 @@ export default function WinnersLibrary({
 											<div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 4, background: 'rgba(25,23,29,0.75)', backdropFilter: 'blur(4px)', color: '#fff', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
 												🎬 VIDEO{item.metadata?.durationSec ? ` · ${Math.round(item.metadata.durationSec)}s` : ''}
 											</div>
-											<span style={{ position: 'absolute', inset: 0, zIndex: 3, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
-												<span style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'rgba(255,255,255,0.92)', display: 'grid', placeItems: 'center', boxShadow: '0 8px 20px rgba(0,0,0,0.25)' }}>
+											<button
+												type="button"
+												className="winner-video-play"
+												onClick={(event) => {
+													event.stopPropagation();
+													setVideoLightbox(item);
+												}}
+												aria-label={`Reproducir video de ${item.name}`}
+											>
+												<span>
 													<svg width="16" height="16" viewBox="0 0 24 24" fill="#19171d"><path d="M8 5v14l11-7L8 5Z" /></svg>
 												</span>
-											</span>
+											</button>
 										</>
 									)}
 
@@ -1720,7 +1728,7 @@ export default function WinnersLibrary({
 									<button
 										onClick={(e) => {
 											e.stopPropagation();
-											if (isVideo) setVideoLightbox(item); else handleUseIdea(item);
+											if (isVideo) handleCreateVideo(item); else handleUseIdea(item);
 										}}
 										style={{
 											width: '100%',
@@ -1738,8 +1746,8 @@ export default function WinnersLibrary({
 											gap: '6px'
 										}}
 									>
-										{isVideo ? 'Ver video' : 'Usar esta idea'}
-										<Icon name={isVideo ? 'arrow' : 'arrow'} size={13} />
+										Usar esta idea
+										<Icon name="arrow" size={13} />
 									</button>
 								</div>
 							</article>
@@ -1812,7 +1820,7 @@ export default function WinnersLibrary({
 								onClick={() => handleCreateVideo(cardContextMenu.item)}
 								style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f4edff', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#6333c9', fontWeight: 700, textAlign: 'left', width: '100%', fontFamily: 'inherit' }}
 							>
-								🎬 Crear video para mi marca
+								Usar esta idea →
 							</button>
 						</>
 					) : (
@@ -1891,7 +1899,7 @@ export default function WinnersLibrary({
 								onClick={() => handleCreateVideo(videoLightbox)}
 								style={{ flex: '1 1 100%', padding: '10px 0', borderRadius: '10px', border: 0, background: 'linear-gradient(135deg, #744bde, #ef3f83)', color: '#fff', fontSize: '13px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
 							>
-								🎬 Crear video para mi marca
+								Usar esta idea →
 							</button>
 						</div>
 						{videoLightbox.promptNotes && (

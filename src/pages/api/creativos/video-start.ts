@@ -1,12 +1,16 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
-import { analyzeVideoReference, buildVideoPrompt, startSoraVideo, VIDEO_CREDIT_COST, VIDEO_DURATIONS, VIDEO_MODELS, VIDEO_SIZES, type VideoCreativePlan } from '../../../lib/creattia/video-engines';
+import { analyzeVideoReference, buildVideoPrompt, startGeminiOmniVideo, VIDEO_DURATIONS, VIDEO_MODELS, VIDEO_SIZES, type VideoCreativePlan } from '../../../lib/creattia/video-engines';
 import { normalizeImageInput } from '../../../lib/creattia/ad-analysis';
+import { resolveAvatarReferences, type AvatarMode } from '../../../lib/creattia/avatar-assets';
+import { splitVideoBuffer } from '../../../lib/creattia/video-media';
+import { dialogueForSegment, referenceSegmentForOutput, scenesForSegment, videoCreditCost, videoSegmentsForDuration } from '../../../lib/creattia/video-pipeline';
 
 export const prerender = false;
 
 const ASSETS = 'creative-assets';
 const MAX_PRODUCT_BYTES = 10 * 1024 * 1024;
+const MAX_REFERENCE_VIDEO_BYTES = 100 * 1024 * 1024;
 const VIDEO_REFERENCE_HOST = 'czocbnyoenjbpxmcqobn.supabase.co';
 
 async function downloadReferencePoster(value: string) {
@@ -29,6 +33,15 @@ function validateReferenceVideoUrl(value: string) {
 	return url.toString();
 }
 
+async function downloadReferenceVideo(value: string) {
+	const trustedUrl = validateReferenceVideoUrl(value);
+	const response = await fetch(trustedUrl);
+	if (!response.ok) throw new Error('No se pudo descargar el video de referencia.');
+	const buffer = Buffer.from(await response.arrayBuffer());
+	if (!buffer.length || buffer.length > MAX_REFERENCE_VIDEO_BYTES) throw new Error('El video de referencia supera el límite de 100 MB.');
+	return { url: trustedUrl, buffer, type: response.headers.get('content-type')?.split(';')[0] || 'video/mp4' };
+}
+
 export const POST: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error || 'Sesión requerida.' }, 401);
@@ -38,12 +51,15 @@ export const POST: APIRoute = async ({ request }) => {
 
 	const openAIKey = process.env.OPENAI_API_KEY || import.meta.env.OPENAI_API_KEY || '';
 	if (!openAIKey) return json({ error: 'Falta configurar OPENAI_API_KEY para generar videos.', requiresConfiguration: true }, 503);
+	const googleKey = process.env.GOOGLE_AI_API_KEY || import.meta.env.GOOGLE_AI_API_KEY || '';
+	if (!googleKey) return json({ error: 'Falta configurar GOOGLE_AI_API_KEY para generar videos con Gemini.', requiresConfiguration: true }, 503);
 
 	try {
 		const form = await request.formData();
 		const referenceVideoUrl = String(form.get('referenceVideoUrl') || '').trim();
 		const referencePosterUrl = String(form.get('referencePosterUrl') || '').trim();
 		const referenceScript = String(form.get('referenceScript') || '').trim().slice(0, 8000);
+		const referenceDuration = Number(form.get('referenceDuration') || 0);
 		const creativePlan = (() => {
 			try { return JSON.parse(String(form.get('videoPlan') || '{}')) as Partial<VideoCreativePlan>; } catch { return {}; }
 		})();
@@ -54,7 +70,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const brief = String(form.get('brief') || '').trim().slice(0, 1500);
 		const duration = String(form.get('duration') || '8');
 		const size = String(form.get('size') || '720x1280');
-		const model = String(form.get('model') || process.env.OPENAI_VIDEO_MODEL || import.meta.env.OPENAI_VIDEO_MODEL || 'sora-2');
+		const model = String(form.get('model') || 'gemini-omni-flash-preview');
 		const objective = String(form.get('objective') || '').trim().slice(0, 180);
 		const audience = String(form.get('audience') || '').trim().slice(0, 500);
 		const benefit = String(form.get('benefit') || '').trim().slice(0, 500);
@@ -66,9 +82,22 @@ export const POST: APIRoute = async ({ request }) => {
 		const voiceover = String(form.get('voiceover') || '').trim().slice(0, 300);
 		const captions = String(form.get('captions') || '').trim().slice(0, 300);
 		const peopleDirection = String(form.get('peopleDirection') || '').trim().slice(0, 400);
+		const referenceMode = String(form.get('referenceMode') || 'Equilibrado').trim().slice(0, 80);
+		const preserveDirection = String(form.get('preserveDirection') || '').trim().slice(0, 800);
+		const changeDirection = String(form.get('changeDirection') || '').trim().slice(0, 800);
+		const productUsage = String(form.get('productUsage') || '').trim().slice(0, 800);
+		const mustAvoid = String(form.get('mustAvoid') || '').trim().slice(0, 800);
+		const rawAvatarMode = String(form.get('avatarMode') || 'original');
+		const avatarMode: AvatarMode = ['original', 'saved', 'upload', 'none'].includes(rawAvatarMode) ? rawAvatarMode as AvatarMode : 'original';
+		const avatarId = String(form.get('avatarId') || '').trim().slice(0, 80);
+		const avatarDescriptionInput = String(form.get('avatarDescription') || '').trim().slice(0, 800);
+		const avatarConsent = String(form.get('avatarConsent') || '') === 'true';
+		const rawSpeechMode = String(form.get('speechMode') || creativePlan.speechMode || 'adapt');
+		const speechMode = ['adapt', 'new', 'none'].includes(rawSpeechMode) ? rawSpeechMode as 'adapt' | 'new' | 'none' : 'adapt';
+		const dialogueInstructions = String(form.get('dialogueInstructions') || '').trim().slice(0, 1200);
 
 		if (!referenceVideoUrl || !referencePosterUrl) return json({ error: 'Falta la referencia de video.' }, 400);
-		const trustedReferenceVideoUrl = validateReferenceVideoUrl(referenceVideoUrl);
+		const referenceVideo = await downloadReferenceVideo(referenceVideoUrl);
 		if (!VIDEO_DURATIONS.includes(duration as typeof VIDEO_DURATIONS[number])) return json({ error: 'Duración inválida.' }, 400);
 		if (!VIDEO_SIZES.includes(size as typeof VIDEO_SIZES[number])) return json({ error: 'Formato inválido.' }, 400);
 		if (!VIDEO_MODELS.includes(model as typeof VIDEO_MODELS[number])) return json({ error: 'Modelo de video inválido.' }, 400);
@@ -78,7 +107,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 		let productName = productNameInput;
 		let productFacts = productFactsInput;
-		let productImage: { buffer: Buffer; type: string } | null = null;
+		const productReferences: Array<{ buffer: Buffer; type: string }> = [];
 		let productRecord: any = null;
 
 		if (productId) {
@@ -92,24 +121,43 @@ export const POST: APIRoute = async ({ request }) => {
 			if (product.image_path) {
 				const { data: blob, error: imageError } = await admin.storage.from(ASSETS).download(product.image_path);
 				if (imageError) throw imageError;
-				if (blob) productImage = await normalizeImageInput(Buffer.from(await blob.arrayBuffer()));
+				if (blob) {
+					const normalized = await normalizeImageInput(Buffer.from(await blob.arrayBuffer()));
+					if (normalized) productReferences.push(normalized);
+				}
 			}
-		} else {
-			const uploaded = form.get('productImage');
-			if (uploaded instanceof File && uploaded.size > 0) {
-				if (uploaded.size > MAX_PRODUCT_BYTES) return json({ error: 'La foto del producto no puede superar 10 MB.' }, 400);
-				productImage = await normalizeImageInput(Buffer.from(await uploaded.arrayBuffer()));
-			}
+		}
+		for (const uploaded of form.getAll('productImages').slice(0, Math.max(0, 5 - productReferences.length))) {
+			if (!(uploaded instanceof File) || uploaded.size <= 0) continue;
+			if (uploaded.size > MAX_PRODUCT_BYTES) return json({ error: 'Cada foto del producto puede pesar hasta 10 MB.' }, 400);
+			const normalized = await normalizeImageInput(Buffer.from(await uploaded.arrayBuffer()));
+			if (normalized) productReferences.push(normalized);
 		}
 
 		if (!productName) return json({ error: 'Escribí el nombre del producto.' }, 400);
-		if (!productImage) return json({ error: 'Elegí un producto guardado o subí una foto real del producto.' }, 400);
+		if (!productReferences.length) return json({ error: 'Elegí un producto guardado o subí al menos una foto real del producto.' }, 400);
+		const avatar = await resolveAvatarReferences({
+			admin,
+			userId: auth.user.id,
+			mode: avatarMode,
+			avatarId,
+			directImages: form.getAll('avatarImages'),
+			directConsent: avatarConsent,
+		});
+		const identityDirection = avatarMode === 'saved' || avatarMode === 'upload'
+			? `Use ${avatar.name || 'the supplied avatar'} as the only person identity. Preserve facial identity and distinctive features from the avatar images throughout the video. Never copy the person from the winning reference. ${avatar.description || ''} ${avatarDescriptionInput}`
+			: avatarMode === 'none'
+				? 'Do not show an identifiable person. Use product shots, anonymous hands or environments only.'
+				: `Create a new original person who is clearly different from the person in the winning reference video. The reference person only informs performance, framing and blocking. ${peopleDirection}`;
+		const visualReferences = avatar.images.length
+			? [...productReferences.slice(0, 2), ...avatar.images.slice(0, 3)]
+			: productReferences.slice(0, 5);
 
-		productFacts = [
+		productFacts = productRecord ? [
 			productRecord?.description,
 			productRecord?.price_text && `Precio exacto: ${productRecord.price_text}`,
 			productRecord?.analysis?.category,
-		].filter(Boolean).join(' · ');
+		].filter(Boolean).join(' · ') : productFactsInput;
 
 		const analysis = await analyzeVideoReference({
 			apiKey: openAIKey,
@@ -118,48 +166,82 @@ export const POST: APIRoute = async ({ request }) => {
 			productName,
 			brandName,
 		});
+		const approvedPlan: Partial<VideoCreativePlan> = {
+			...creativePlan,
+			speechMode,
+			hasSpokenDialogue: speechMode !== 'none' && Boolean(creativePlan.hasSpokenDialogue ?? creativePlan.dialogueLines?.length),
+			dialogueLines: speechMode === 'none' ? [] : creativePlan.dialogueLines || [],
+		};
 		const prompt = buildVideoPrompt({
 			analysis,
 			referenceNotes: referenceScript,
 			productName,
 			productFacts,
 			brandName,
-			brief: [brief, objective && `Objetivo: ${objective}`, audience && `Audiencia: ${audience}`, benefit && `Beneficio principal: ${benefit}`, proof && `Prueba: ${proof}`, offer && `Oferta: ${offer}`, tone && `Tono: ${tone}`, language && `Idioma: ${language}`, audioDirection && `Audio: ${audioDirection}`, voiceover && `Voz en off: ${voiceover}`, captions && `Textos: ${captions}`, peopleDirection && `Personas/creador: ${peopleDirection}`].filter(Boolean).join('\n'),
+			identityDirection,
+			brief: [brief, objective && `Objetivo: ${objective}`, audience && `Audiencia: ${audience}`, benefit && `Beneficio principal: ${benefit}`, proof && `Prueba: ${proof}`, offer && `Oferta: ${offer}`, tone && `Tono: ${tone}`, language && `Idioma: ${language}`, `Fidelidad a la referencia: ${referenceMode}`, preserveDirection && `Conservar: ${preserveDirection}`, changeDirection && `Cambiar: ${changeDirection}`, productUsage && `Uso del producto: ${productUsage}`, mustAvoid && `Evitar: ${mustAvoid}`, audioDirection && `Audio: ${audioDirection}`, voiceover && `Voz en off: ${voiceover}`, captions && `Textos: ${captions}`, peopleDirection && `Personas/creador: ${peopleDirection}`].filter(Boolean).join('\n'),
 			duration,
 			size,
-			creativePlan,
+			creativePlan: approvedPlan,
 		});
+		const outputSegments = videoSegmentsForDuration(duration);
+		const referenceSegments = outputSegments.map((segment) => referenceSegmentForOutput(segment, referenceDuration));
+		const referenceBuffers = await splitVideoBuffer(referenceVideo.buffer, referenceSegments, size as '720x1280' | '1280x720');
+		const creditCost = videoCreditCost(duration);
 
 		const { data: remaining, error: reserveError } = await admin.rpc('reserve_creative_credits', {
 			p_user_id: auth.user.id,
-			p_amount: VIDEO_CREDIT_COST,
+			p_amount: creditCost,
 		});
 		if (reserveError) throw reserveError;
-		if (remaining === -1) return json({ error: `Necesitás ${VIDEO_CREDIT_COST} créditos para generar un video.`, code: 'INSUFFICIENT_CREDITS' }, 402);
+		if (remaining === -1) return json({ error: `Necesitás ${creditCost} créditos para generar un video.`, code: 'INSUFFICIENT_CREDITS' }, 402);
 
-		let providerJob;
+		const providerJobs: Array<{ id: string; index: number; start: number; duration: number; status: string; progress: number }> = [];
 		try {
-			providerJob = await startSoraVideo({
-				apiKey: openAIKey,
-				model,
-				prompt,
-				seconds: duration,
-				size,
-				product: productImage,
-			});
+			for (const segment of outputSegments) {
+				const segmentPlan: Partial<VideoCreativePlan> = {
+					...approvedPlan,
+					scenes: scenesForSegment(approvedPlan.scenes, segment),
+					dialogueLines: dialogueForSegment(approvedPlan.dialogueLines, segment),
+				};
+				segmentPlan.hasSpokenDialogue = Boolean(segmentPlan.dialogueLines?.length);
+				const segmentPrompt = buildVideoPrompt({
+					analysis,
+					referenceNotes: referenceScript,
+					productName,
+					productFacts,
+					brandName,
+					identityDirection,
+					brief: `${brief}\nThis is segment ${segment.index + 1} of ${outputSegments.length}, covering ${segment.start}-${segment.end}s of the approved full video. ${dialogueInstructions ? `Mandatory dialogue direction: ${dialogueInstructions}` : ''}`,
+					duration: String(segment.duration),
+					size,
+					creativePlan: segmentPlan,
+				});
+				const providerJob = await startGeminiOmniVideo({
+					apiKey: googleKey,
+					prompt: segmentPrompt,
+					size,
+					referenceVideo: { buffer: referenceBuffers[segment.index], type: 'video/mp4' },
+					visualReferences,
+				});
+				providerJobs.push({ id: providerJob.id, index: segment.index, start: segment.start, duration: segment.duration, status: providerJob.status, progress: providerJob.progress || 0 });
+			}
 		} catch (providerError) {
-			await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: VIDEO_CREDIT_COST });
+			await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: creditCost });
 			throw providerError;
 		}
+		const allCompleted = providerJobs.every((job) => job.status === 'completed');
+		const anyStarted = providerJobs.some((job) => job.status === 'in_progress');
+		const averageProgress = Math.round(providerJobs.reduce((total, job) => total + job.progress, 0) / Math.max(1, providerJobs.length));
 
 		const { data: job, error: insertError } = await admin.from('creative_video_generations').insert({
 			user_id: auth.user.id,
-			provider: 'openai',
-			provider_job_id: providerJob.id,
-			status: providerJob.status === 'completed' ? 'completed' : providerJob.status === 'in_progress' ? 'in_progress' : 'queued',
-			progress: providerJob.progress || 0,
+			provider: 'gemini',
+			provider_job_id: providerJobs[0]?.id,
+			status: allCompleted ? 'in_progress' : anyStarted ? 'in_progress' : 'queued',
+			progress: averageProgress,
 			title: `${productName} · video de referencia`,
-			reference_video_url: trustedReferenceVideoUrl,
+			reference_video_url: referenceVideo.url,
 			reference_poster_url: referencePosterUrl,
 			reference_script: referenceScript,
 			product_id: productId,
@@ -167,14 +249,14 @@ export const POST: APIRoute = async ({ request }) => {
 			model,
 			duration_seconds: Number(duration),
 			size,
-			settings_snapshot: { brandName, brief, objective, audience, benefit, proof, offer, tone, language, audioDirection, voiceover, captions, peopleDirection, creditCost: VIDEO_CREDIT_COST, analysis, creativePlan },
+			settings_snapshot: { brandName, brief, objective, audience, benefit, proof, offer, tone, language, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, audioDirection, voiceover, captions, peopleDirection, speechMode, dialogueInstructions, avatarMode, avatarId: avatarId || null, avatarName: avatar.name || null, avatarSourceImageCount: avatar.sourceImageCount, referenceCount: visualReferences.length, referenceDuration, creditCost, analysis, creativePlan: approvedPlan, segmentJobs: providerJobs },
 		}).select('id,status,progress,title').single();
 		if (insertError || !job) {
-			await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: VIDEO_CREDIT_COST });
+			await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: creditCost });
 			throw insertError || new Error('No se pudo guardar el trabajo de video.');
 		}
 
-		return json({ ok: true, job, creditsRemaining: remaining, creditCost: VIDEO_CREDIT_COST });
+		return json({ ok: true, job, creditsRemaining: remaining, creditCost });
 	} catch (error) {
 		console.error('[video-start]', error);
 		return json({ error: error instanceof Error ? error.message : 'No se pudo iniciar el video.' }, 500);

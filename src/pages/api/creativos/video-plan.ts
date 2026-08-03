@@ -2,11 +2,14 @@ import type { APIRoute } from 'astro';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { analyzeVideoReference, createVideoPlan } from '../../../lib/creattia/video-engines';
 import { normalizeImageInput } from '../../../lib/creattia/ad-analysis';
+import { resolveAvatarReferences, type AvatarMode } from '../../../lib/creattia/avatar-assets';
+import { analyzeFullVideoReference } from '../../../lib/creattia/video-reference';
 
 export const prerender = false;
 
 const ASSETS = 'creative-assets';
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
 const VIDEO_REFERENCE_HOST = 'czocbnyoenjbpxmcqobn.supabase.co';
 
 async function downloadPoster(value: string) {
@@ -19,6 +22,16 @@ async function downloadPoster(value: string) {
 	return normalizeImageInput(buffer);
 }
 
+async function downloadReferenceVideo(value: string) {
+	const url = new URL(value);
+	if (url.protocol !== 'https:' || url.hostname !== VIDEO_REFERENCE_HOST) throw new Error('La referencia debe venir de la Biblioteca de ganadores.');
+	const response = await fetch(url);
+	if (!response.ok) throw new Error('No se pudo leer el video ganador.');
+	const buffer = Buffer.from(await response.arrayBuffer());
+	if (!buffer.length || buffer.length > MAX_VIDEO_BYTES) throw new Error('El video de referencia supera el límite de 80 MB.');
+	return { buffer, type: response.headers.get('content-type')?.split(';')[0] || 'video/mp4' };
+}
+
 export const POST: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error || 'Sesión requerida.' }, 401);
@@ -26,11 +39,15 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 	const apiKey = process.env.OPENAI_API_KEY || import.meta.env.OPENAI_API_KEY || '';
 	if (!apiKey) return json({ error: 'Falta configurar OPENAI_API_KEY para planificar videos.', requiresConfiguration: true }, 503);
+	const googleKey = process.env.GOOGLE_AI_API_KEY || import.meta.env.GOOGLE_AI_API_KEY || '';
+	if (!googleKey) return json({ error: 'Falta configurar GOOGLE_AI_API_KEY para analizar videos.', requiresConfiguration: true }, 503);
 
 	try {
 		const form = await request.formData();
 		const posterUrl = String(form.get('referencePosterUrl') || '').trim();
+		const referenceVideoUrl = String(form.get('referenceVideoUrl') || '').trim();
 		const referenceNotes = String(form.get('referenceScript') || '').trim().slice(0, 8000);
+		const referenceDuration = String(form.get('referenceDuration') || '').trim().slice(0, 20);
 		const productId = String(form.get('productId') || '').trim() || null;
 		let productName = String(form.get('productName') || '').trim().slice(0, 180);
 		const productFactsInput = String(form.get('productFacts') || '').trim().slice(0, 3000);
@@ -49,12 +66,25 @@ export const POST: APIRoute = async ({ request }) => {
 		const voiceover = String(form.get('voiceover') || '').trim().slice(0, 300);
 		const captions = String(form.get('captions') || '').trim().slice(0, 300);
 		const peopleDirection = String(form.get('peopleDirection') || '').trim().slice(0, 400);
-		if (!posterUrl || !productName && !productId) return json({ error: 'Completá la referencia y el producto.' }, 400);
+		const referenceMode = String(form.get('referenceMode') || 'Equilibrado').trim().slice(0, 80);
+		const preserveDirection = String(form.get('preserveDirection') || '').trim().slice(0, 800);
+		const changeDirection = String(form.get('changeDirection') || '').trim().slice(0, 800);
+		const productUsage = String(form.get('productUsage') || '').trim().slice(0, 800);
+		const mustAvoid = String(form.get('mustAvoid') || '').trim().slice(0, 800);
+		const rawAvatarMode = String(form.get('avatarMode') || 'original');
+		const avatarMode: AvatarMode = ['original', 'saved', 'upload', 'none'].includes(rawAvatarMode) ? rawAvatarMode as AvatarMode : 'original';
+		const avatarId = String(form.get('avatarId') || '').trim().slice(0, 80);
+		const avatarDescription = String(form.get('avatarDescription') || '').trim().slice(0, 800);
+		const avatarConsent = String(form.get('avatarConsent') || '') === 'true';
+		const rawSpeechMode = String(form.get('speechMode') || 'adapt');
+		const speechMode = ['adapt', 'new', 'none'].includes(rawSpeechMode) ? rawSpeechMode as 'adapt' | 'new' | 'none' : 'adapt';
+		const dialogueInstructions = String(form.get('dialogueInstructions') || '').trim().slice(0, 1200);
+		if (!posterUrl || !referenceVideoUrl || !productName && !productId) return json({ error: 'Completá la referencia y el producto.' }, 400);
 
 		const poster = await downloadPoster(posterUrl);
 		if (!poster) throw new Error('No se pudo procesar el fotograma de referencia.');
 		let productFacts = productFactsInput;
-		let productImage: { buffer: Buffer; type: string } | null = null;
+		const productImages: Array<{ buffer: Buffer; type: string }> = [];
 		if (productId) {
 			const { data: product, error } = await admin.from('creative_products')
 				.select('id,name,description,price_text,image_path,analysis').eq('id', productId).eq('user_id', auth.user.id).maybeSingle();
@@ -65,19 +95,36 @@ export const POST: APIRoute = async ({ request }) => {
 			if (product.image_path) {
 				const { data: blob, error: imageError } = await admin.storage.from(ASSETS).download(product.image_path);
 				if (imageError) throw imageError;
-				if (blob) productImage = await normalizeImageInput(Buffer.from(await blob.arrayBuffer()));
-			}
-		} else {
-			const uploaded = form.get('productImage');
-			if (uploaded instanceof File && uploaded.size > 0) {
-				if (uploaded.size > MAX_IMAGE_BYTES) return json({ error: 'La foto del producto no puede superar 10 MB.' }, 400);
-				productImage = await normalizeImageInput(Buffer.from(await uploaded.arrayBuffer()));
+				if (blob) {
+					const normalized = await normalizeImageInput(Buffer.from(await blob.arrayBuffer()));
+					if (normalized) productImages.push(normalized);
+				}
 			}
 		}
-		if (!productImage) return json({ error: 'Elegí un producto guardado o subí una foto real del producto.' }, 400);
+		for (const uploaded of form.getAll('productImages').slice(0, Math.max(0, 5 - productImages.length))) {
+			if (!(uploaded instanceof File) || uploaded.size <= 0) continue;
+			if (uploaded.size > MAX_IMAGE_BYTES) return json({ error: 'Cada foto del producto puede pesar hasta 10 MB.' }, 400);
+			const normalized = await normalizeImageInput(Buffer.from(await uploaded.arrayBuffer()));
+			if (normalized) productImages.push(normalized);
+		}
+		if (!productImages.length) return json({ error: 'Elegí un producto guardado o subí al menos una foto real del producto.' }, 400);
+		const avatar = await resolveAvatarReferences({
+			admin,
+			userId: auth.user.id,
+			mode: avatarMode,
+			avatarId,
+			directImages: form.getAll('avatarImages'),
+			directConsent: avatarConsent,
+		});
 
-		const analysis = await analyzeVideoReference({ apiKey, poster, referenceNotes, productName, brandName });
-		const plan = await createVideoPlan({ apiKey, poster, productImage: productImage || undefined, referenceNotes, productName, productFacts, brandName, objective, audience, benefit, proof, offer, cta, tone, language, duration, size, audioDirection, voiceover, captions, peopleDirection });
+		const referenceVideo = await downloadReferenceVideo(referenceVideoUrl);
+		let analysis = await analyzeVideoReference({ apiKey, poster, referenceNotes, productName, brandName });
+		try {
+			analysis = { ...analysis, ...await analyzeFullVideoReference({ apiKey: googleKey, video: referenceVideo, referenceNotes, productName, brandName }) };
+		} catch (analysisError) {
+			console.warn('[video-plan] Gemini no pudo analizar el video completo; se conserva el análisis visual base:', analysisError);
+		}
+		const plan = await createVideoPlan({ apiKey, poster, productImages, avatarImages: avatar.images, avatarMode, avatarName: avatar.name, avatarDescription: [avatar.description, avatarDescription].filter(Boolean).join(' · '), referenceNotes, referenceDuration, productName, productFacts, brandName, objective, audience, benefit, proof, offer, cta, tone, language, duration, size, audioDirection, voiceover, captions, peopleDirection, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, speechMode, dialogueInstructions, referenceAnalysis: analysis });
 		return json({ ok: true, analysis, plan });
 	} catch (error) {
 		console.error('[video-plan]', error);

@@ -717,7 +717,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 											disabled={carouselStarting}
 											className="url-batch-submit-btn"
 										>
-											{carouselStarting ? <><span className="studio-spinner small" aria-hidden="true" /> Iniciando el carrusel…</> : `Generar carrusel (${carouselSlides.length} imágenes)`}
+											{carouselStarting ? <><span className="studio-spinner small" aria-hidden="true" /> Preparando carrusel…</> : `Generar ${carouselSlides.length} imágenes`}
 										</button>
 										{!carouselStarting && <span className="batch-credit-note">{carouselSlides.length} {carouselSlides.length === 1 ? 'crédito' : 'créditos'}</span>}
 									</div>
@@ -729,7 +729,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 											disabled={phase === 'planning'}
 											className="url-batch-submit-btn"
 										>
-											{phase === 'planning' ? <><span className="studio-spinner small" aria-hidden="true" /> Analizando el ganador y escribiendo los textos…</> : 'Generar textos del anuncio'}
+											{phase === 'planning' ? <><span className="studio-spinner small" aria-hidden="true" /> Analizando anuncio…</> : 'Crear textos del anuncio'}
 										</button>
 										{phase !== 'planning' && <span className="batch-credit-note">Todavía no gastás créditos</span>}
 									</div>
@@ -874,14 +874,20 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 
 						{/* Comparación: qué poner en los ítems que no son tu producto */}
 						{comparisons.length > 0 && (
-							<div style={{ marginBottom: '18px' }}>
-								<strong style={label}>⚖️ Comparación detectada</strong>
-								<p style={{ margin: '-4px 0 10px', fontSize: '12px', color: '#8b8490' }}>Tu producto es el destacado. En los otros ítems comparados podés decir qué poner (por defecto: alternativas neutras sin marca).</p>
-								<div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+							<div className="comparison-review">
+								<strong style={label}>⚖️ ¿Qué mostramos como alternativa?</strong>
+								<p>Decinos qué debe aparecer junto a tu producto. Vacío = producto genérico sin marca.</p>
+								<div className="comparison-list">
 									{comparisons.map((item, index) => (
-										<div key={index} style={{ padding: '12px 14px', border: '1px solid #eee6f2', borderRadius: '11px', background: '#fcfbfe' }}>
-											<p style={{ margin: '0 0 7px', fontSize: '12.5px', color: '#5f5a67' }}>{item.description || item.where || 'Ítem comparado'}{item.role ? ` · ${item.role}` : ''}</p>
-											<input value={item.directive || ''} onChange={(e) => setComparisons(comparisons.map((c, i) => i === index ? { ...c, directive: e.target.value } : c))} placeholder="Ej: otras barritas genéricas, sin marca ni logo…" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '9px', border: '1px solid #e2dde9', fontSize: '13px' }} />
+										<div key={index} className="comparison-item" title={item.description || item.where || undefined}>
+											<label htmlFor={`comparison-${index}`}>{comparisons.length === 1 ? 'Alternativa' : `Alternativa ${index + 1}`}</label>
+											<input
+												id={`comparison-${index}`}
+												className="comparison-input"
+												value={item.directive || ''}
+												onChange={(e) => setComparisons(comparisons.map((c, i) => i === index ? { ...c, directive: e.target.value } : c))}
+								placeholder="Ej.: producto genérico o envase sin logo"
+											/>
 										</div>
 									))}
 								</div>
@@ -898,7 +904,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 								disabled={phase === 'starting'}
 								className="url-batch-submit-btn"
 							>
-								{phase === 'starting' ? <><span className="studio-spinner small" aria-hidden="true" /> Iniciando generación…</> : <span>Aprobar y generar ✓ · {count} {count === 1 ? 'crédito' : 'créditos'}</span>}
+								{phase === 'starting' ? <><span className="studio-spinner small" aria-hidden="true" /> Generando imagen…</> : <span>Aprobar y generar ✓ · {count} {count === 1 ? 'crédito' : 'créditos'}</span>}
 							</button>
 						</div>
 					</>}

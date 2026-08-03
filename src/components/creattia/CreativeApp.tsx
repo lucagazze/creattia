@@ -8,6 +8,7 @@ import { isAdminEmail } from '../../lib/creattia/admin';
 import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
 import WinnersLibrary from './WinnersLibrary';
+import AvatarManager from './AvatarManager';
 import { UrlBatchSection, driveBatchWorkers } from './UrlBatchSection';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
 
@@ -1342,7 +1343,24 @@ export default function CreativeApp() {
 	return (
 		<div className={`creative-app-shell ${sidebarMinimized ? 'sidebar-minimized' : ''}`}>
 			{toast && <div className="studio-toast"><span><Icon name="check" size={16}/></span>{toast}</div>}
-			{lightbox && <ImageLightbox item={lightbox} session={session} onClose={() => setLightbox(null)} onStarted={startBatchTracking} onGenerationRequested={() => { setLightbox(null); setView('history'); }} products={products} onProductsChanged={refreshProducts} />}
+			{lightbox && <ImageLightbox
+				item={lightbox}
+				session={session}
+				onClose={() => setLightbox(null)}
+				onStarted={startBatchTracking}
+				onGenerationRequested={() => { setLightbox(null); setView('history'); }}
+				products={products}
+				onProductsChanged={refreshProducts}
+				isReferenceLiked={Boolean(lightbox.referencePath && likedScrapedPaths.has(lightbox.referencePath))}
+				onToggleReferenceLike={toggleLikedScraped}
+				onUseReference={(path) => {
+					setLightbox(null);
+					setPreselectedWinnerPath(path);
+					setOpenedFromView('history');
+					navigateTo('winners');
+					window.scrollTo({ top: 0, behavior: 'smooth' });
+				}}
+			/>}
 			{activeBatch && view !== 'generation' && activeBatch.status !== 'failed' && (
 				<div className="active-batch-notice" style={{ position: 'fixed', bottom: '18px', right: '18px', zIndex: 80, display: 'flex', alignItems: 'center', gap: '8px' }}>
 					<button
@@ -1638,15 +1656,13 @@ export default function CreativeApp() {
 							onViewProgress={() => navigateTo('generation')}
 							likedImageIds={likedImageIds}
 							onToggleLike={toggleLike}
-							folders={folders}
-							onToggleFolder={toggleFolder}
-							onRemoveFolder={(fid) => {
-								if (window.confirm('¿Seguro que querés eliminar esta carpeta? Las imágenes seguirán en "Mis imágenes".')) {
-									setFolders((prev) => prev.filter(f => f.id !== fid));
-								}
-							}}
-							onCreateFolder={(name) => {
-								setFolders((prev) => [...prev, { id: crypto.randomUUID(), name, imageIds: [] }]);
+							likedReferencePaths={likedScrapedPaths}
+							onToggleReferenceLike={toggleLikedScraped}
+							onUseReference={(path) => {
+								setPreselectedWinnerPath(path);
+								setOpenedFromView('history');
+								navigateTo('winners');
+								window.scrollTo({ top: 0, behavior: 'smooth' });
 							}}
 							onDeleteImage={deleteImage}
 							activeBatch={activeBatch}
@@ -1656,7 +1672,10 @@ export default function CreativeApp() {
 					)}
 					{view === 'plans' && <Plans profile={profile} session={session} />}
 					{view === 'brand' && (
-						<BrandsManager session={session} planCode={profile.planCode} onPlans={() => navigateTo('plans')} />
+						<div className="brand-workspace-stack">
+							<BrandsManager session={session} planCode={profile.planCode} onPlans={() => navigateTo('plans')} />
+							<AvatarManager session={session} />
+						</div>
 					)}
 				</div>
 			</main>
@@ -2948,10 +2967,9 @@ function History({
 	onViewProgress,
 	likedImageIds = [],
 	onToggleLike,
-	folders = [],
-	onToggleFolder,
-	onRemoveFolder,
-	onCreateFolder,
+	likedReferencePaths = new Set<string>(),
+	onToggleReferenceLike,
+	onUseReference,
 	onDeleteImage,
 	activeBatch,
 	stuckCount,
@@ -2965,37 +2983,25 @@ function History({
 	onViewProgress?: () => void;
 	likedImageIds?: string[];
 	onToggleLike?: (id: string) => void;
-	folders?: Array<{ id: string; name: string; imageIds: string[] }>;
-	onToggleFolder?: (imgId: string, folderId: string) => void;
-	onRemoveFolder?: (folderId: string) => void;
-	onCreateFolder?: (name: string) => void;
+	likedReferencePaths?: Set<string>;
+	onToggleReferenceLike?: (path: string) => void;
+	onUseReference?: (path: string) => void;
 	onDeleteImage?: (imgIds: string | string[]) => void;
 	activeBatch?: ActiveBatch | null;
 	stuckCount?: number;
 	onCleanupStuck?: (generationId?: string) => void;
 }) {
 	const [currentFolderId, setCurrentFolderId] = useState<string>('all');
-	const [showCreateFolder, setShowCreateFolder] = useState(false);
-	const [newFolderName, setNewFolderName] = useState('');
 	// Selección múltiple para borrar varias de una: se guardan las "keys" de
 	// grupo (id de la imagen, o batchId si es un carrusel agrupado).
 	const [multiSelectMode, setMultiSelectMode] = useState(false);
 	const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
 	const toggleMultiSelect = () => { setMultiSelectMode((v) => !v); setSelectedKeys(new Set()); };
 
-	function handleCreateFolder() {
-		if (newFolderName.trim() && onCreateFolder) {
-			onCreateFolder(newFolderName.trim());
-			setNewFolderName('');
-			setShowCreateFolder(false);
-		}
-	}
-
 	const filteredHistory = history.filter((item) => {
 		if (currentFolderId === 'all') return true;
 		if (currentFolderId === 'liked') return likedImageIds.includes(item.id);
-		const folder = folders.find(f => f.id === currentFolderId);
-		return folder ? folder.imageIds.includes(item.id) : true;
+		return true;
 	});
 
 	const hasContent = filteredHistory.length > 0 || Boolean(pending);
@@ -3050,7 +3056,7 @@ function History({
 				</div>
 			)}
 
-			{/* Folders navigation bar */}
+			{/* Library filters */}
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px', alignItems: 'center', background: '#fcfbfe', padding: '10px 14px', borderRadius: '12px', border: '1px solid #eee9f3' }}>
 				<button 
 					onClick={() => setCurrentFolderId('all')} 
@@ -3061,7 +3067,7 @@ function History({
 						fontSize: '13px', fontWeight: 700, cursor: 'pointer'
 					}}
 				>
-					📁 Todas ({history.length})
+					Todas ({history.length})
 				</button>
 				<button 
 					onClick={() => setCurrentFolderId('liked')} 
@@ -3081,73 +3087,6 @@ function History({
 				>
 					❤️ Favoritas ({history.filter(h => likedImageIds.includes(h.id)).length})
 				</button>
-
-				{folders.map(folder => (
-					<div 
-						key={folder.id} 
-						onDragOver={(e) => e.preventDefault()}
-						onDrop={(e) => {
-							const imgId = e.dataTransfer.getData("text/plain");
-							if (imgId && onToggleFolder) {
-								const fObj = folders.find(f => f.id === folder.id);
-								if (fObj && !fObj.imageIds.includes(imgId)) {
-									onToggleFolder(imgId, folder.id);
-								}
-							}
-						}}
-						style={{ display: 'flex', alignItems: 'center', background: currentFolderId === folder.id ? '#744bde' : '#f0eef4', borderRadius: '8px', overflow: 'hidden' }}
-					>
-						<button 
-							onClick={() => setCurrentFolderId(folder.id)}
-							style={{
-								padding: '6px 10px 6px 12px', border: 0,
-								background: 'transparent',
-								color: currentFolderId === folder.id ? '#fff' : '#5b5561',
-								fontSize: '13px', fontWeight: 700, cursor: 'pointer'
-							}}
-						>
-							📁 {folder.name} ({folder.imageIds.length})
-						</button>
-						<button 
-							onClick={() => onRemoveFolder && onRemoveFolder(folder.id)}
-							style={{
-								padding: '6px 8px', border: 0, background: 'transparent',
-								color: currentFolderId === folder.id ? 'rgba(255,255,255,0.7)' : '#8b8490',
-								fontSize: '11px', cursor: 'pointer', borderLeft: '1px solid rgba(0,0,0,0.06)'
-							}}
-							title="Eliminar carpeta"
-						>
-							✕
-						</button>
-					</div>
-				))}
-
-				{showCreateFolder ? (
-					<div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '20px' }}>
-						<input 
-							value={newFolderName}
-							onChange={(e) => setNewFolderName(e.target.value)}
-							placeholder="Nombre..."
-							style={{ height: '30px', padding: '0 8px', borderRadius: '6px', border: '1px solid #dcd5e4', fontSize: '12.5px', outline: 'none' }}
-							onKeyDown={(e) => { if (e.key === 'Enter') handleCreateFolder(); }}
-						/>
-						<button onClick={handleCreateFolder} style={{ height: '30px', padding: '0 10px', borderRadius: '6px', border: 0, background: '#744bde', color: '#fff', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}>Crear</button>
-						<button onClick={() => setShowCreateFolder(false)} style={{ height: '30px', padding: '0 8px', borderRadius: '6px', border: 0, background: '#f2eef6', color: '#4b4452', fontSize: '12px', cursor: 'pointer' }}>Cancelar</button>
-					</div>
-				) : (
-					<button 
-						onClick={() => setShowCreateFolder(true)} 
-						style={{
-							padding: '6px 12px', borderRadius: '8px', border: '1px dashed #744bde',
-							background: 'transparent',
-							color: '#744bde',
-							fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-							marginBottom: '20px'
-						}}
-					>
-						+ Nueva carpeta
-					</button>
-				)}
 
 				{Boolean(stuckCount) && onCleanupStuck && (
 					<button
@@ -3174,8 +3113,9 @@ function History({
 							slides={group.slides}
 							isLiked={likedImageIds.includes(group.item.id)}
 							onToggleLike={onToggleLike ? () => onToggleLike(group.item.id) : undefined}
-							folders={folders}
-							onToggleFolder={onToggleFolder ? (fid) => onToggleFolder(group.item.id, fid) : undefined}
+							likedReferencePaths={likedReferencePaths}
+							onToggleReferenceLike={onToggleReferenceLike}
+							onUseReference={onUseReference}
 							onExpand={onExpand}
 							onReuse={onReuse}
 							onDeleteImage={group.slides ? (onDeleteImage ? () => onDeleteImage(group.slides!.map((s) => s.id)) : undefined) : onDeleteImage}
@@ -3233,6 +3173,59 @@ async function downloadImage(url: string, name: string) {
 	}
 }
 
+function WinnerReferenceModal({
+	reference,
+	isLiked,
+	onClose,
+	onToggleLike,
+	onUse,
+}: {
+	reference: { path: string; name: string };
+	isLiked?: boolean;
+	onClose: () => void;
+	onToggleLike?: (path: string) => void;
+	onUse?: (path: string) => void;
+}) {
+	return (
+		<div className="ref-modal" onClick={(event) => { event.stopPropagation(); onClose(); }} role="dialog" aria-modal="true" aria-label="Anuncio ganador de referencia">
+			<div className="ref-modal-box" onClick={(event) => event.stopPropagation()}>
+				<div className="ref-modal-head">
+					<div>
+						<span className="ref-modal-kicker">🏆 ANUNCIO GANADOR DE REFERENCIA</span>
+						<h4>{reference.name || 'Idea ganadora de la biblioteca'}</h4>
+					</div>
+					<button type="button" onClick={onClose} aria-label="Cerrar">✕</button>
+				</div>
+				<div className="ref-modal-visual">
+					<img src={`${REFERENCES_PUBLIC_BASE}/${reference.path}`} alt={reference.name || 'Anuncio ganador'} />
+				</div>
+				<div className="ref-modal-context">
+					<span>REFERENCIA ORIGINAL</span>
+					<p>Guardala para volver después o usala ahora como punto de partida para una imagen nueva.</p>
+				</div>
+				<div className="ref-modal-actions">
+					{onToggleLike && (
+						<button
+							type="button"
+							className={`ref-modal-like ${isLiked ? 'active' : ''}`}
+							onClick={() => onToggleLike(reference.path)}
+							aria-pressed={Boolean(isLiked)}
+						>
+							<Icon name="heart" size={16} fill={isLiked ? 'currentColor' : 'none'} />
+							{isLiked ? 'Te gusta' : 'Me gusta'}
+						</button>
+					)}
+					{onUse && (
+						<button type="button" className="ref-modal-use" onClick={() => { onClose(); onUse(reference.path); }}>
+							Usar esta idea <Icon name="arrow" size={16} />
+						</button>
+					)}
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function GenerationCard({
 	item,
 	slides,
@@ -3240,6 +3233,9 @@ function GenerationCard({
 	onExpand,
 	isLiked,
 	onToggleLike,
+	likedReferencePaths = new Set<string>(),
+	onToggleReferenceLike,
+	onUseReference,
 	folders = [],
 	onToggleFolder,
 	onDeleteImage,
@@ -3255,6 +3251,9 @@ function GenerationCard({
 	onExpand?: (gen: Generation) => void;
 	isLiked?: boolean;
 	onToggleLike?: () => void;
+	likedReferencePaths?: Set<string>;
+	onToggleReferenceLike?: (path: string) => void;
+	onUseReference?: (path: string) => void;
 	folders?: Array<{ id: string; name: string; imageIds: string[] }>;
 	onToggleFolder?: (folderId: string) => void;
 	onDeleteImage?: (imgId: string) => void;
@@ -3512,21 +3511,13 @@ function GenerationCard({
 				{(onExpand || onReuse) && <button onClick={() => (onExpand || onReuse)?.(active)}><Icon name="history" size={14}/>Crear otra versión</button>}
 			</footer>
 
-			{/* Modal del anuncio ganador de referencia */}
-			{refPreview && (
-				<div className="ref-modal" onClick={() => setRefPreview(null)}>
-					<div className="ref-modal-box" onClick={(event) => event.stopPropagation()}>
-						<div className="ref-modal-head">
-							<div>
-								<span className="ref-modal-kicker">🏆 ANUNCIO GANADOR DE REFERENCIA</span>
-								{refPreview.name && <h4>{refPreview.name}</h4>}
-							</div>
-							<button type="button" onClick={() => setRefPreview(null)} aria-label="Cerrar">✕</button>
-						</div>
-						<img src={`${REFERENCES_PUBLIC_BASE}/${refPreview.path}`} alt={refPreview.name || 'Anuncio ganador'} />
-					</div>
-				</div>
-			)}
+			{refPreview && <WinnerReferenceModal
+				reference={refPreview}
+				isLiked={likedReferencePaths.has(refPreview.path)}
+				onClose={() => setRefPreview(null)}
+				onToggleLike={onToggleReferenceLike}
+				onUse={onUseReference}
+			/>}
 
 			{/* Context menu for right-click premium features */}
 			{contextMenu && (
@@ -3629,7 +3620,7 @@ function GenerationCard({
 	);
 }
 
-function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequested, products, onProductsChanged }: {
+function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequested, products, onProductsChanged, isReferenceLiked, onToggleReferenceLike, onUseReference }: {
 	item: Generation;
 	session: AppSession;
 	onClose: () => void;
@@ -3637,6 +3628,9 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 	onGenerationRequested?: () => void;
 	products: Product[];
 	onProductsChanged?: () => void;
+	isReferenceLiked?: boolean;
+	onToggleReferenceLike?: (path: string) => void;
+	onUseReference?: (path: string) => void;
 }) {
 	const [revision, setRevision] = useState('');
 	const [starting, setStarting] = useState(false);
@@ -3978,21 +3972,13 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 				</aside>
 			</div>
 
-			{/* Ganador de referencia, en modal sobre el lightbox */}
-			{lightboxRef && (
-				<div className="ref-modal" onClick={() => setLightboxRef(null)}>
-					<div className="ref-modal-box" onClick={(event) => event.stopPropagation()}>
-						<div className="ref-modal-head">
-							<div>
-								<span className="ref-modal-kicker">🏆 ANUNCIO GANADOR DE REFERENCIA</span>
-								{lightboxRef.name && <h4>{lightboxRef.name}</h4>}
-							</div>
-							<button type="button" onClick={() => setLightboxRef(null)} aria-label="Cerrar">✕</button>
-						</div>
-						<img src={`${REFERENCES_PUBLIC_BASE}/${lightboxRef.path}`} alt={lightboxRef.name || 'Anuncio ganador'} />
-					</div>
-				</div>
-			)}
+			{lightboxRef && <WinnerReferenceModal
+				reference={lightboxRef}
+				isLiked={isReferenceLiked}
+				onClose={() => setLightboxRef(null)}
+				onToggleLike={onToggleReferenceLike}
+				onUse={onUseReference}
+			/>}
 		</div>
 	);
 }
