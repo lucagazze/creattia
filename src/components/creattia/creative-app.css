@@ -5181,3 +5181,56 @@
 		gap: 7px;
 	}
 }
+
+/* El creador de video comparte la composicion compacta del creador de imagenes.
+   La columna del formulario no debe crecer con monitores anchos: eso separaba
+   visualmente los campos del progreso y estiraba el CTA hasta el borde. */
+.video-guided-flow {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 1140px;
+	margin-inline: auto;
+}
+
+.video-guided-flow .video-creation-grid {
+	grid-template-columns: minmax(280px, 380px) minmax(0, 720px);
+	justify-content: center;
+	gap: 28px;
+}
+
+.video-guided-flow .video-reference-aside,
+.video-guided-flow .video-image-flow-panel,
+.video-guided-flow .video-wizard-step,
+.video-guided-flow .video-wizard-step .wiz-body {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+}
+
+.video-guided-flow .video-product-tabs {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 920px) {
+	.video-guided-flow {
+		max-width: 720px;
+	}
+
+	.video-guided-flow .video-creation-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.video-guided-flow .video-reference-aside {
+		position: static;
+	}
+}
+
+@media (max-width: 640px) {
+	.video-guided-flow {
+		max-width: 100%;
+	}
+
+	.video-guided-flow .video-product-tabs {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}

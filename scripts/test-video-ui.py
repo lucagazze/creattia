@@ -148,8 +148,28 @@ try:
             page.get_by_role("heading", name="Adaptá la idea ganadora a tu negocio").wait_for(timeout=10_000)
             assert page.locator(".video-reference-note, .video-analysis-card").count() == 0
 
+            page.set_viewport_size({"width": 1440, "height": 900})
+            page.wait_for_timeout(300)
+            flow_box = page.locator(".video-guided-flow").bounding_box()
+            form_box = page.locator(".video-image-flow-panel").bounding_box()
+            assert flow_box and flow_box["width"] <= 1142, "El flujo de video debe conservar un ancho compacto en desktop"
+            assert form_box and form_box["width"] <= 722, "El formulario no debe estirarse hasta el borde del monitor"
+            product_tabs = page.locator(".video-product-tabs .wiz-tab")
+            tab_boxes = [product_tabs.nth(index).bounding_box() for index in range(product_tabs.count())]
+            assert len(tab_boxes) == 3 and all(box for box in tab_boxes)
+            assert max(box["y"] for box in tab_boxes if box) - min(box["y"] for box in tab_boxes if box) < 2, "Las tres formas de cargar el producto deben quedar en una sola fila"
+            setup_screenshot_path = os.environ.get("CREATTIA_VIDEO_SETUP_SCREENSHOT", "").strip()
+            if setup_screenshot_path:
+                Path(setup_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=setup_screenshot_path, full_page=False)
+
+            page.set_viewport_size({"width": 390, "height": 844})
             page.wait_for_timeout(500)
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "El paso de producto no debe desbordar en mobile"
+            setup_mobile_screenshot_path = os.environ.get("CREATTIA_VIDEO_SETUP_MOBILE_SCREENSHOT", "").strip()
+            if setup_mobile_screenshot_path:
+                Path(setup_mobile_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=setup_mobile_screenshot_path, full_page=False)
             page.get_by_placeholder("Ej.: https://mitienda.com/producto").wait_for()
             page.get_by_role("button", name=re.compile("Cargar a mano")).click()
             page.get_by_placeholder("Ej.: Sérum hidratante Hydra 10").fill("Hydra 10")
