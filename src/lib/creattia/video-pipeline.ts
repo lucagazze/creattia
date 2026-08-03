@@ -44,6 +44,10 @@ export function videoCreditCost(value: string | number) {
 	return videoSegmentsForDuration(value).length * VIDEO_CREDITS_PER_SEGMENT;
 }
 
+export function videoCreditCostForAccount(value: string | number, isAdmin: boolean) {
+	return isAdmin ? 0 : videoCreditCost(value);
+}
+
 export function fallbackScenesForDuration(rawDuration: string | number, productName: string) {
 	const duration = Math.max(4, Number(rawDuration) || 8);
 	if (duration <= 4) return [

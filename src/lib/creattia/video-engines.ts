@@ -3,6 +3,7 @@ import RunwayML, { toFile } from '@runwayml/sdk';
 import { GoogleGenAI } from '@google/genai';
 import { fallbackScenesForDuration, VIDEO_CREDITS_PER_SEGMENT, type VideoDialogueLine } from './video-pipeline';
 import type { FullVideoReferenceAnalysis } from './video-reference';
+import { naturalFallbackDialogue, normalizeVideoProductName, sanitizeDialogueLine, sanitizeSpokenVideoText, stripVideoUrls } from './video-copy';
 
 export type VideoReferenceAnalysis = FullVideoReferenceAnalysis & {
 	hook?: string;
@@ -53,6 +54,12 @@ function fallbackVideoPlan(input: {
 	brandName: string;
 	objective: string;
 	audience: string;
+	audienceReason?: string;
+	audienceAlternatives?: string;
+	objections?: string;
+	hookIdea?: string;
+	performanceDirection?: string;
+	realismDirection?: string;
 	benefit: string;
 	cta: string;
 	duration: string;
@@ -63,12 +70,14 @@ function fallbackVideoPlan(input: {
 	speechMode?: 'adapt' | 'new' | 'none';
 	dialogueInstructions?: string;
 }): VideoCreativePlan {
+	const productName = normalizeVideoProductName(input.productName);
+	const dialogue = naturalFallbackDialogue({ productName, benefit: input.benefit, cta: input.cta, duration: input.duration });
 	return {
-		hook: `Mostrar ${input.productName} en el primer segundo con una promesa clara para ${input.audience || 'la audiencia objetivo'}.`,
+		hook: `Mostrar ${productName} en el primer segundo con una situación concreta que la audiencia reconozca.`,
 		objective: input.objective || 'Conversión',
 		audience: input.audience || 'Personas que necesitan una solución simple y confiable.',
-		coreMessage: input.benefit || `${input.productName} resuelve una necesidad concreta de forma fácil.`,
-		visualStyle: 'UGC premium, natural, cercano y centrado en el producto.',
+		coreMessage: sanitizeSpokenVideoText(input.benefit) || `${productName} resuelve una necesidad concreta de forma fácil.`,
+		visualStyle: 'UGC premium y fotorealista: piel con textura natural, gestos pequeños, parpadeo, respiración, peso corporal y contacto físico creíbles; producto estable y fiel a las referencias.',
 		voiceover: input.voiceover || 'Sin voz en off; usar textos breves y demostración visual.',
 		captions: input.captions || `Textos cortos en ${input.language || 'español'}, grandes y fáciles de leer.`,
 		audio: input.audioDirection || 'Música comercial moderna, con sonido ambiente suave y cortes al ritmo.',
@@ -79,10 +88,10 @@ function fallbackVideoPlan(input: {
 			start: 0.5,
 			end: Math.max(2.5, Number(input.duration) - 0.5),
 			speaker: 'Creadora',
-			line: input.dialogueInstructions || `${input.brandName || 'Esta marca'} presenta ${input.productName}: ${input.benefit || 'una solución simple para tu día a día'}. ${input.cta || 'Descubrilo ahora'}.`,
-			delivery: 'Natural, clara y convincente; mirando a cámara cuando corresponda.',
+			line: dialogue,
+			delivery: 'Conversacional y espontánea; respiraciones, pausas y mirada naturales, sin tono de locución ni gestos exagerados.',
 		}],
-		scenes: fallbackScenesForDuration(input.duration, input.productName),
+		scenes: fallbackScenesForDuration(input.duration, productName),
 	};
 }
 
@@ -101,6 +110,12 @@ export async function createVideoPlan(input: {
 	brandName: string;
 	objective: string;
 	audience: string;
+	audienceReason?: string;
+	audienceAlternatives?: string;
+	objections?: string;
+	hookIdea?: string;
+	performanceDirection?: string;
+	realismDirection?: string;
 	benefit: string;
 	proof: string;
 	offer: string;
@@ -122,7 +137,8 @@ export async function createVideoPlan(input: {
 	dialogueInstructions?: string;
 	referenceAnalysis?: VideoReferenceAnalysis;
 }): Promise<VideoCreativePlan> {
-	const fallback = fallbackVideoPlan(input);
+	const productName = normalizeVideoProductName(input.productName);
+	const fallback = fallbackVideoPlan({ ...input, productName });
 	if (!input.apiKey) return fallback;
 
 	try {
@@ -133,10 +149,14 @@ export async function createVideoPlan(input: {
 			text: `Create a precise pre-production plan for an original ${input.duration}-second ${input.size} marketing video. The reference video is only a creative reference: preserve reusable hook, rhythm and storytelling grammar, but never copy its brand, logo, watermark, person identity, exact frames or unsupported claims.
 
 New brand: ${input.brandName || 'Not provided'}
-Product: ${input.productName}
+Product: ${productName}
 Product facts: ${input.productFacts || 'Only use what can be verified from the product image.'}
 Objective: ${input.objective}
 Audience: ${input.audience}
+Why this audience: ${input.audienceReason || 'Infer from the verified product facts.'}
+Alternative audiences: ${input.audienceAlternatives || 'None selected.'}
+Likely objections to resolve: ${input.objections || 'Infer the main purchase objection without inventing facts.'}
+Preferred adapted hook: ${input.hookIdea || 'Create the strongest truthful hook.'}
 Main benefit: ${input.benefit}
 Proof/social proof: ${input.proof}
 Offer: ${input.offer}
@@ -147,6 +167,8 @@ Audio direction: ${input.audioDirection}
 Voice-over preference: ${input.voiceover}
 Caption preference: ${input.captions}
 People/creator direction: ${input.peopleDirection}
+Natural performance direction: ${input.performanceDirection || 'Conversational, subtle and believable.'}
+Physical realism direction: ${input.realismDirection || 'Natural anatomy, motion, contact, inertia and identity consistency.'}
 Person identity mode: ${input.avatarMode}
 Selected avatar: ${input.avatarName || 'None'}
 Avatar identity and direction: ${input.avatarDescription || 'None'}
@@ -160,9 +182,11 @@ Required product interaction: ${input.productUsage || 'Show the product naturall
 Forbidden elements or claims: ${input.mustAvoid || 'No additional restrictions provided.'}
 Full reference analysis: ${JSON.stringify(input.referenceAnalysis || {})}
 Speech mode: ${input.speechMode || 'adapt'}
-Mandatory dialogue ideas: ${input.dialogueInstructions || 'No additional mandatory phrase.'}
+Mandatory dialogue ideas (instructions only; never recite these words literally and never speak a URL): ${stripVideoUrls(input.dialogueInstructions) || 'No additional mandatory phrase.'}
 
-Return strict JSON with exactly these keys: hook, objective, audience, coreMessage, visualStyle, voiceover, captions, audio, cta, scenes, speechMode, hasSpokenDialogue, dialogueLines. scenes must be an array of 3 to 12 strings, each starting with a time range and describing action, camera, product visibility, text and audio beat. dialogueLines must be an array of {start, end, speaker, line, delivery}. If speechMode is "none", return no dialogue. Otherwise write completely new, natural spoken lines for the NEW brand and product in the requested language; use the reference only for timing, persuasive purpose and delivery. Every spoken claim, price, testimonial and offer must be supported by Product facts, Proof or Offer. Make the words short enough to be spoken naturally inside their time range, include the new brand/product where useful, and align visible mouth movement with the line. Keep claims factual, make the product the visual source of truth, and make every scene feasible for a generative video model.`,
+Return strict JSON with exactly these keys: hook, objective, audience, coreMessage, visualStyle, voiceover, captions, audio, cta, scenes, speechMode, hasSpokenDialogue, dialogueLines. scenes must be an array of 3 to 12 strings, each starting with a time range and describing one feasible action, camera, product visibility, text and audio beat. dialogueLines must be an array of {start, end, speaker, line, delivery}. If speechMode is "none", return no dialogue. Otherwise write completely new, natural spoken lines for the NEW brand and product in the requested language; use the reference only for timing, persuasive purpose and delivery. Never put a URL, instruction, field label or raw product-page text inside spoken dialogue. Every spoken claim, price, testimonial and offer must be supported by Product facts, Proof or Offer. Keep the words short enough for a relaxed natural delivery with pauses and breaths.
+
+REALISM IS MANDATORY: direct subtle human acting with natural blinking, breathing, eye focus, weight shifts, hand-object contact, inertia and facial micro-expressions. Preserve face, hands, wardrobe and product geometry across frames. Avoid plastic skin, beauty-filter faces, frozen smiles, exaggerated gestures, body warping, extra fingers, floating objects, sliding feet, teleporting props, identity drift, impossible camera motion and unreadable generated text. Use simple physical actions and believable camera movement. Make the supplied product images the visual source of truth.`,
 		}];
 		if (input.poster) content.push({ type: 'image_url', image_url: { url: imageDataUrl(input.poster) } });
 		for (const productImage of (input.productImages || []).slice(0, 5)) {
@@ -175,14 +199,22 @@ Return strict JSON with exactly these keys: hook, objective, audience, coreMessa
 			model,
 			response_format: { type: 'json_object' },
 			messages: [
-				{ role: 'system', content: 'You are a senior direct-response video director and pre-production strategist. Return only valid JSON.' },
+				{ role: 'system', content: 'You are a senior direct-response video director, natural-dialogue writer and photorealistic performance supervisor. Return only valid JSON.' },
 				{ role: 'user', content },
 			],
 		});
 		const parsed = parseJson<Partial<VideoCreativePlan>>(response.choices[0]?.message?.content, {});
-		return {
+		const fallbackLine = fallback.dialogueLines[0]?.line || naturalFallbackDialogue({ productName, benefit: input.benefit, cta: input.cta, duration: input.duration });
+		const plan = {
 			...fallback,
 			...parsed,
+			hook: sanitizeSpokenVideoText(parsed.hook, 500) || fallback.hook,
+			coreMessage: sanitizeSpokenVideoText(parsed.coreMessage, 700) || fallback.coreMessage,
+			visualStyle: sanitizeSpokenVideoText(parsed.visualStyle, 900) || fallback.visualStyle,
+			voiceover: stripVideoUrls(parsed.voiceover || fallback.voiceover),
+			captions: stripVideoUrls(parsed.captions || fallback.captions),
+			audio: stripVideoUrls(parsed.audio || fallback.audio),
+			cta: sanitizeSpokenVideoText(parsed.cta, 120) || fallback.cta,
 			speechMode: input.speechMode || parsed.speechMode || fallback.speechMode,
 			hasSpokenDialogue: input.speechMode === 'none' ? false : Boolean(parsed.hasSpokenDialogue ?? fallback.hasSpokenDialogue),
 			dialogueLines: input.speechMode === 'none' ? [] : Array.isArray(parsed.dialogueLines)
@@ -190,12 +222,14 @@ Return strict JSON with exactly these keys: hook, objective, audience, coreMessa
 					start: Math.max(0, Number(line.start) || 0),
 					end: Math.min(Number(input.duration), Math.max(Number(line.start) || 0, Number(line.end) || 0)),
 					speaker: String(line.speaker || 'Creadora'),
-					line: String(line.line || '').trim(),
-					delivery: String(line.delivery || '').trim(),
+					line: sanitizeDialogueLine(line.line, fallbackLine),
+					delivery: sanitizeSpokenVideoText(line.delivery, 240) || fallback.dialogueLines[0]?.delivery || 'Natural y conversacional.',
 				})).filter((line) => line.line && line.end > line.start)
 				: fallback.dialogueLines,
-			scenes: Array.isArray(parsed.scenes) && parsed.scenes.length ? parsed.scenes.slice(0, 12).map(String) : fallback.scenes,
+			scenes: Array.isArray(parsed.scenes) && parsed.scenes.length ? parsed.scenes.slice(0, 12).map((scene) => stripVideoUrls(scene)).filter(Boolean) : fallback.scenes,
 		};
+		if (plan.speechMode !== 'none' && !plan.dialogueLines.length) plan.dialogueLines = fallback.dialogueLines;
+		return plan;
 	} catch (error) {
 		console.warn('[video-engines] no se pudo crear el plan de video; se usa el plan base:', error);
 		return fallback;
@@ -297,6 +331,7 @@ export function buildVideoPrompt(input: {
 				? 'DIALOGUE PERFORMANCE: the visible speaker must say the approved words naturally, with synchronized mouth movement, matching emotion and enough time for every line. Never say the reference brand or reuse its wording.'
 				: 'DIALOGUE PERFORMANCE: use the approved words as an off-camera voice-over because no identifiable person may appear. Never say the reference brand or reuse its wording.'
 			: 'DIALOGUE PERFORMANCE: nobody speaks on camera. Do not generate intelligible speech.',
+		'PHYSICAL REALISM: produce documentary-believable human motion with correct anatomy, natural skin texture, blinking, breathing, eye focus, weight transfer, inertia and precise hand-object contact. Keep face, hands, wardrobe, product packaging and scale consistent across every frame. Use subtle expressions and simple actions. Reject plastic skin, frozen smiles, extra fingers, warped limbs, sliding feet, floating or melting objects, identity drift, impossible camera motion, abrupt pose changes and generated gibberish text.',
 		`USER RULES: ${input.brief || 'Keep the result clear, premium and conversion-focused.'}`,
 		'Do not copy the original sequence, exact frames, logo, watermark, brand, person identity, claims or readable text. Do not invent offers or product properties. Keep on-screen text minimal because final typography will be added separately.',
 	].join('\n');

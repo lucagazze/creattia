@@ -63,6 +63,15 @@ fake_suggestions = {
     "formatMode": "vertical",
     "durationSeconds": 13,
     "durationReason": "La demostracion y el dialogo necesitan 13 segundos.",
+    "audienceReason": "Reconoce el problema y valora una demostracion real.",
+    "audienceAlternatives": [
+        {"name": "Rutinas simples", "ageRange": "25 a 40 años", "insight": "Busca una solucion facil.", "angle": "Problema y demostracion."},
+        {"name": "Compradores informados", "ageRange": "30 a 50 años", "insight": "Compara textura y uso.", "angle": "Prueba visual verificable."},
+    ],
+    "objections": "Dudas sobre textura, uso y resultados.",
+    "hookIdea": "Mostrar la incomodidad y resolverla en el primer segundo.",
+    "performanceDirection": "Conversacional, con pausas y gestos pequeños.",
+    "realismDirection": "Piel, manos, contacto y movimientos naturales sin deformaciones.",
 }
 fake_analysis["creativeSuggestions"] = fake_suggestions
 
@@ -309,6 +318,12 @@ try:
             assert "active" in (page.get_by_role("button", name="Idea + guion adaptado", exact=False).get_attribute("class") or "")
             assert "active" in (page.get_by_role("button", name="UGC / Testimonial", exact=False).get_attribute("class") or "")
             assert page.get_by_role("button", name="Crear guion con esta propuesta", exact=False).count() == 1
+            page.get_by_text("La IA ya eligió el enfoque más fuerte", exact=True).wait_for()
+            assert page.get_by_text(fake_suggestions["audienceReason"], exact=True).count() == 1
+            assert page.get_by_text(fake_suggestions["hookIdea"], exact=True).count() == 1
+            page.get_by_text("Ver públicos alternativos y dirección completa", exact=True).click()
+            assert page.get_by_role("button", name=re.compile("25 a 40 años.*Rutinas simples", re.S)).count() == 1
+            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "La guía inteligente no debe desbordar en mobile"
             suggestion_screenshot_path = os.environ.get("CREATTIA_VIDEO_SUGGESTIONS_SCREENSHOT", "").strip()
             if suggestion_screenshot_path:
                 Path(suggestion_screenshot_path).parent.mkdir(parents=True, exist_ok=True)

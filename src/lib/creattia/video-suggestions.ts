@@ -12,6 +12,13 @@ export const VIDEO_FORMAT_MODES = ['reference', 'vertical', 'horizontal'] as con
 export const VIDEO_MIN_DURATION_SECONDS = 4;
 export const VIDEO_MAX_DURATION_SECONDS = 30;
 
+export type VideoAudienceSuggestion = {
+	name: string;
+	ageRange: string;
+	insight: string;
+	angle: string;
+};
+
 export type VideoSetupSuggestions = {
 	concept: string;
 	referenceMode: typeof VIDEO_REFERENCE_MODES[number];
@@ -42,6 +49,12 @@ export type VideoSetupSuggestions = {
 	formatMode: typeof VIDEO_FORMAT_MODES[number];
 	durationSeconds: number;
 	durationReason: string;
+	audienceReason: string;
+	audienceAlternatives: VideoAudienceSuggestion[];
+	objections: string;
+	hookIdea: string;
+	performanceDirection: string;
+	realismDirection: string;
 };
 
 type SuggestionContext = {
@@ -71,6 +84,21 @@ export function normalizeVideoDuration(value: unknown, fallback = 8) {
 		: safeFallback;
 }
 
+function audienceOptions(value: unknown, fallback: VideoAudienceSuggestion[]) {
+	if (!Array.isArray(value)) return fallback;
+	const normalized = value.slice(0, 3).map((item, index) => {
+		const raw = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+		const base = fallback[index] || fallback[0];
+		return {
+			name: text(raw.name, base.name, 120),
+			ageRange: text(raw.ageRange, base.ageRange, 80),
+			insight: text(raw.insight, base.insight, 260),
+			angle: text(raw.angle, base.angle, 260),
+		};
+	});
+	return normalized.length ? normalized : fallback;
+}
+
 export function fallbackVideoSetupSuggestions(context: SuggestionContext): VideoSetupSuggestions {
 	const productName = text(context.productName, 'el producto', 180);
 	const brandName = text(context.brandName, 'la marca', 120);
@@ -78,6 +106,11 @@ export function fallbackVideoSetupSuggestions(context: SuggestionContext): Video
 	const benefit = facts.split(/[.!?·]/)[0]?.trim() || `Resolver el problema principal con ${productName}`;
 	const hasSpeakingPerson = context.hasSpeakingPerson !== false;
 	const durationSeconds = normalizeVideoDuration(context.referenceDuration, 8);
+	const audienceAlternatives: VideoAudienceSuggestion[] = [
+		{ name: 'Compradores por resolver el problema', ageRange: '25 a 44 años', insight: `Ya buscan una solución como ${productName} y necesitan una demostración clara.`, angle: 'Problema cotidiano → uso real → resultado verificable.' },
+		{ name: 'Personas comparando opciones', ageRange: '30 a 54 años', insight: 'Quieren entender la diferencia antes de decidir.', angle: 'Comparación honesta basada en beneficio, material o experiencia de uso.' },
+		{ name: 'Nuevos en la categoría', ageRange: '21 a 39 años', insight: 'Necesitan una explicación simple, visual y sin tecnicismos.', angle: 'Descubrimiento rápido con una recomendación cercana.' },
+	];
 	return {
 		concept: `Abrir con el problema que resuelve ${productName}, demostrarlo en uso y cerrar con una razón clara para elegir ${brandName}.`,
 		referenceMode: hasSpeakingPerson ? 'Idea + guion adaptado' : 'Idea visual',
@@ -108,6 +141,12 @@ export function fallbackVideoSetupSuggestions(context: SuggestionContext): Video
 		formatMode: 'reference',
 		durationSeconds,
 		durationReason: `Mantener ${durationSeconds} segundos conserva el ritmo probado del anuncio ganador sin alargar el mensaje.`,
+		audienceReason: `Es el grupo con mayor probabilidad de reconocer el problema y valorar una demostración real de ${productName}.`,
+		audienceAlternatives,
+		objections: 'Dudas sobre si funciona, si el producto será igual a las imágenes y si vale la pena elegirlo frente a otras opciones.',
+		hookIdea: context.hook || `Mostrar el problema en el primer segundo y revelar ${productName} como solución concreta.`,
+		performanceDirection: 'Hablar como una recomendación personal: ritmo conversacional, pausas breves, mirada natural y gestos pequeños.',
+		realismDirection: 'Piel con textura real, manos correctas, contacto físico creíble, parpadeo y respiración naturales; sin deformaciones, deslizamientos ni cambios de identidad.',
 	};
 }
 
@@ -144,5 +183,11 @@ export function normalizeVideoSetupSuggestions(value: unknown, context: Suggesti
 		formatMode: choice(raw.formatMode, VIDEO_FORMAT_MODES, fallback.formatMode),
 		durationSeconds: normalizeVideoDuration(raw.durationSeconds, fallback.durationSeconds),
 		durationReason: text(raw.durationReason, fallback.durationReason, 300),
+		audienceReason: text(raw.audienceReason, fallback.audienceReason, 500),
+		audienceAlternatives: audienceOptions(raw.audienceAlternatives, fallback.audienceAlternatives),
+		objections: text(raw.objections, fallback.objections, 600),
+		hookIdea: text(raw.hookIdea, fallback.hookIdea, 500),
+		performanceDirection: text(raw.performanceDirection, fallback.performanceDirection, 600),
+		realismDirection: text(raw.realismDirection, fallback.realismDirection, 700),
 	};
 }

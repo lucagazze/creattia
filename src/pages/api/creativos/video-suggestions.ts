@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 import { analyzeFullVideoReference, type FullVideoReferenceAnalysis } from '../../../lib/creattia/video-reference';
 import { normalizeVideoSetupSuggestions } from '../../../lib/creattia/video-suggestions';
+import { normalizeVideoProductName } from '../../../lib/creattia/video-copy';
 
 export const prerender = false;
 
@@ -58,6 +59,7 @@ export const POST: APIRoute = async ({ request }) => {
 				productFacts,
 			].map((part) => clean(part, 1600)).filter(Boolean).join(' · ').slice(0, 4000);
 		}
+		productName = normalizeVideoProductName(productName, '');
 
 		if (!productName) return json({ error: 'Completá el producto antes de pedir sugerencias.' }, 400);
 		const context = { productName, brandName, productFacts };

@@ -4,6 +4,7 @@ import { analyzeVideoReference, createVideoPlan, type VideoReferenceAnalysis } f
 import { normalizeImageInput } from '../../../lib/creattia/ad-analysis';
 import { resolveAvatarReferences, type AvatarMode } from '../../../lib/creattia/avatar-assets';
 import { analyzeFullVideoReference } from '../../../lib/creattia/video-reference';
+import { normalizeVideoProductName } from '../../../lib/creattia/video-copy';
 
 export const prerender = false;
 
@@ -66,6 +67,12 @@ export const POST: APIRoute = async ({ request }) => {
 		const brandName = String(form.get('brandName') || '').trim().slice(0, 120);
 		const objective = String(form.get('objective') || 'Conversión').trim().slice(0, 180);
 		const audience = String(form.get('audience') || '').trim().slice(0, 500);
+		const audienceReason = String(form.get('audienceReason') || '').trim().slice(0, 500);
+		const audienceAlternatives = String(form.get('audienceAlternatives') || '').trim().slice(0, 1800);
+		const objections = String(form.get('objections') || '').trim().slice(0, 600);
+		const hookIdea = String(form.get('hookIdea') || '').trim().slice(0, 500);
+		const performanceDirection = String(form.get('performanceDirection') || '').trim().slice(0, 600);
+		const realismDirection = String(form.get('realismDirection') || '').trim().slice(0, 700);
 		const benefit = String(form.get('benefit') || '').trim().slice(0, 500);
 		const proof = String(form.get('proof') || '').trim().slice(0, 500);
 		const offer = String(form.get('offer') || '').trim().slice(0, 300);
@@ -114,6 +121,7 @@ export const POST: APIRoute = async ({ request }) => {
 				}
 			}
 		}
+		productName = normalizeVideoProductName(productName);
 		for (const uploaded of form.getAll('productImages').slice(0, Math.max(0, 5 - productImages.length))) {
 			if (!(uploaded instanceof File) || uploaded.size <= 0) continue;
 			if (uploaded.size > MAX_IMAGE_BYTES) return json({ error: 'Cada foto del producto puede pesar hasta 10 MB.' }, 400);
@@ -134,12 +142,12 @@ export const POST: APIRoute = async ({ request }) => {
 		if (!suppliedAnalysis) {
 			const referenceVideo = await downloadReferenceVideo(referenceVideoUrl);
 			try {
-				analysis = { ...analysis, ...await analyzeFullVideoReference({ apiKey: googleKey, video: referenceVideo, referenceNotes, productName, brandName, productFacts }) };
+				analysis = { ...analysis, ...await analyzeFullVideoReference({ apiKey: googleKey, video: referenceVideo, referenceNotes, referenceDuration: Number(referenceDuration || 0), productName, brandName, productFacts }) };
 			} catch (analysisError) {
 				console.warn('[video-plan] Gemini no pudo analizar el video completo; se conserva el análisis visual base:', analysisError);
 			}
 		}
-		const plan = await createVideoPlan({ apiKey, poster, productImages, avatarImages: avatar.images, avatarMode, avatarName: avatar.name, avatarDescription: [avatar.description, avatarDescription].filter(Boolean).join(' · '), referenceNotes, referenceDuration, productName, productFacts, brandName, objective, audience, benefit, proof, offer, cta, tone, language, duration, size, audioDirection, voiceover, captions, peopleDirection, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, speechMode, dialogueInstructions, referenceAnalysis: analysis });
+		const plan = await createVideoPlan({ apiKey, poster, productImages, avatarImages: avatar.images, avatarMode, avatarName: avatar.name, avatarDescription: [avatar.description, avatarDescription].filter(Boolean).join(' · '), referenceNotes, referenceDuration, productName, productFacts, brandName, objective, audience, audienceReason, audienceAlternatives, objections, hookIdea, performanceDirection, realismDirection, benefit, proof, offer, cta, tone, language, duration, size, audioDirection, voiceover, captions, peopleDirection, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, speechMode, dialogueInstructions, referenceAnalysis: analysis });
 		return json({ ok: true, analysis, plan });
 	} catch (error) {
 		console.error('[video-plan]', error);

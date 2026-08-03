@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { SavedAvatar } from './AvatarManager';
 import { prepareReferenceImages } from '../../lib/creattia/client-image';
 import { videoCreditCost, type VideoDialogueLine } from '../../lib/creattia/video-pipeline';
-import { fallbackVideoSetupSuggestions, normalizeVideoDuration, type VideoSetupSuggestions } from '../../lib/creattia/video-suggestions';
+import { fallbackVideoSetupSuggestions, normalizeVideoDuration, type VideoAudienceSuggestion, type VideoSetupSuggestions } from '../../lib/creattia/video-suggestions';
+import { isAdminEmail } from '../../lib/creattia/admin';
+import { normalizeVideoProductName } from '../../lib/creattia/video-copy';
 
 type VideoReference = {
 	name: string;
@@ -123,6 +125,12 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 	const [brandName, setBrandName] = useState(profile?.brandName || profile?.brand_name || '');
 	const [objective, setObjective] = useState('Conversión');
 	const [audience, setAudience] = useState('');
+	const [audienceReason, setAudienceReason] = useState('');
+	const [audienceAlternatives, setAudienceAlternatives] = useState<VideoAudienceSuggestion[]>([]);
+	const [objections, setObjections] = useState('');
+	const [hookIdea, setHookIdea] = useState('');
+	const [performanceDirection, setPerformanceDirection] = useState('');
+	const [realismDirection, setRealismDirection] = useState('');
 	const [benefit, setBenefit] = useState('');
 	const [proof, setProof] = useState('');
 	const [offer, setOffer] = useState('');
@@ -176,7 +184,8 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 	const avatarMode = castingMode === 'saved' ? 'saved' : castingMode === 'upload' ? 'upload' : castingMode === 'none' ? 'none' : 'original';
 	const productPreviewUrls = useMemo(() => productFiles.map((file) => URL.createObjectURL(file)), [productFiles]);
 	const avatarPreviewUrls = useMemo(() => avatarFiles.map((file) => URL.createObjectURL(file)), [avatarFiles]);
-	const currentProductName = selectedProduct?.name || importedProductName || productName.trim() || 'Tu producto';
+	const currentProductName = normalizeVideoProductName(selectedProduct?.name || importedProductName || productName.trim(), 'Tu producto');
+	const isAdmin = isAdminEmail(session?.user?.email);
 	useEffect(() => setCreditCost(videoCreditCost(duration)), [duration]);
 	useEffect(() => {
 		window.scrollTo(0, 0);
@@ -251,6 +260,12 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 		setReferenceMode(suggestions.referenceMode);
 		setObjective(suggestions.objective);
 		setAudience(suggestions.audience);
+		setAudienceReason(suggestions.audienceReason);
+		setAudienceAlternatives(suggestions.audienceAlternatives);
+		setObjections(suggestions.objections);
+		setHookIdea(suggestions.hookIdea);
+		setPerformanceDirection(suggestions.performanceDirection);
+		setRealismDirection(suggestions.realismDirection);
 		setBenefit(suggestions.benefit);
 		setProof(suggestions.proof);
 		setOffer(suggestions.offer);
@@ -293,12 +308,13 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 			if (!response.ok || !payload.importedIds?.length) throw new Error(payload.errors?.[0]?.error || payload.error || 'No pudimos analizar esa URL.');
 			const importedId = String(payload.importedIds[0]);
 			const imported = (payload.products || []).find((item: any) => String(item.id) === importedId);
+			const cleanImportedName = normalizeVideoProductName(imported?.name, 'Producto analizado');
 			setProductId(importedId);
-			setImportedProductName(imported?.name || 'Producto analizado');
-			if (imported?.name) setProductName(imported.name);
+			setImportedProductName(cleanImportedName);
+			if (imported?.name) setProductName(cleanImportedName);
 			if (imported?.description) setProductFacts(imported.description);
 			onToast?.('Analizamos la página y cargamos los datos del producto.');
-			return { productId: importedId, productName: imported?.name || 'Producto analizado', productFacts: imported?.description || '' };
+			return { productId: importedId, productName: cleanImportedName, productFacts: imported?.description || '' };
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No pudimos analizar esa URL.');
 			return null;
@@ -377,6 +393,8 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 		form.set('brandName', brandName.trim());
 		form.set('objective', objective); form.set('audience', audience.trim()); form.set('benefit', benefit.trim());
 		form.set('proof', proof.trim()); form.set('offer', offer.trim()); form.set('cta', cta.trim()); form.set('tone', tone);
+		form.set('audienceReason', audienceReason.trim()); form.set('audienceAlternatives', JSON.stringify(audienceAlternatives)); form.set('objections', objections.trim()); form.set('hookIdea', hookIdea.trim());
+		form.set('performanceDirection', performanceDirection.trim()); form.set('realismDirection', realismDirection.trim());
 		form.set('language', language); form.set('duration', duration); form.set('size', outputSize); form.set('audioDirection', finalAudio);
 		form.set('voiceover', finalVoiceover); form.set('captions', finalCaptions); form.set('peopleDirection', personDirection);
 		form.set('speechMode', speechMode); form.set('dialogueInstructions', dialogueInstructions.trim());
@@ -417,7 +435,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 			const response = await fetch('/api/creativos/video-start', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
 			const payload = await response.json().catch(() => ({}));
 			if (!response.ok) throw new Error(payload.error || 'No se pudo iniciar el video.');
-			setCreditCost(Number(payload.creditCost || creditCost)); setJobId(payload.job?.id || null); setProgress(Number(payload.job?.progress || 0));
+			setCreditCost(Number(payload.creditCost ?? creditCost)); setJobId(payload.job?.id || null); setProgress(Number(payload.job?.progress || 0));
 		} catch (cause) { setPhase('review'); setError(cause instanceof Error ? cause.message : 'No se pudo iniciar el video.'); }
 	};
 
@@ -462,7 +480,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 				<section className="video-creation-form-panel video-image-flow-panel">
 					<header className="video-flow-title">
 						<div><span className="studio-kicker">CREAR CON ESTE VIDEO</span><h1>Adaptá la idea ganadora a tu negocio</h1><p>Te guiamos, analizamos el video y preparamos el guion antes de generar.</p></div>
-						<span className="video-creation-cost">{phase === 'review' ? 'Plan listo' : `${creditCost} créditos al generar`}</span>
+						<span className={`video-creation-cost ${isAdmin ? 'admin' : ''}`}>{phase === 'review' ? 'Plan listo' : isAdmin ? 'Admin · generación sin créditos' : `${creditCost} créditos al generar`}</span>
 					</header>
 
 					<ol className="wiz-progress video-five-step-progress" aria-label="Progreso del video">
@@ -500,6 +518,11 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 						<details className="video-advanced-details"><summary>Ajustar qué conservar y qué cambiar</summary><div className="video-wizard-fields"><label>Conservar de la idea</label><textarea value={preserveDirection} onChange={(event) => setPreserveDirection(event.target.value)} rows={3} /><label>Cambiar para mi versión</label><textarea value={changeDirection} onChange={(event) => setChangeDirection(event.target.value)} rows={3} /></div></details>
 						<label className="picker-label">¿Qué tiene que lograr?</label><div className="video-option-grid">{OBJECTIVES.map(([value, hint]) => <button type="button" key={value} className={objective === value ? 'active' : ''} onClick={() => setObjective(value)}><strong>{value}</strong><small>{hint}</small></button>)}</div>
 						<div className="video-wizard-fields video-brief-fields"><label>¿A quién le hablamos?</label><input value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="Ej.: mujeres de 25 a 40 con piel sensible" /><label>¿Cuál es el beneficio principal?</label><input value={benefit} onChange={(event) => setBenefit(event.target.value)} placeholder="Ej.: hidrata sin dejar sensación grasa" /><label>¿Qué prueba podemos mostrar?</label><input value={proof} onChange={(event) => setProof(event.target.value)} placeholder="Ej.: textura real, ingrediente, reseña o resultado verificable" /><div className="video-form-row"><div><label>Oferta, si existe</label><input value={offer} onChange={(event) => setOffer(event.target.value)} placeholder="Ej.: 20% off o envío gratis" /></div><div><label>Acción final</label><input value={cta} onChange={(event) => setCta(event.target.value)} placeholder="Ej.: Compralo hoy" /></div></div></div>
+						{suggestionsReady && <section className="video-ai-strategy-board">
+							<header><span>✦</span><div><strong>La IA ya eligió el enfoque más fuerte</strong><small>Basado en la página, el producto y la mecánica del video ganador.</small></div></header>
+							<div className="video-ai-strategy-grid"><article><small>PÚBLICO RECOMENDADO</small><strong>{audience}</strong><p>{audienceReason}</p></article><article><small>HOOK ADAPTADO</small><strong>{hookIdea}</strong><p>La IA lo convertirá en apertura visual y verbal.</p></article></div>
+							<details><summary>Ver públicos alternativos y dirección completa</summary><div className="video-audience-alternatives">{audienceAlternatives.map((item) => <button type="button" key={`${item.name}-${item.ageRange}`} onClick={() => { setAudience(`${item.name}, ${item.ageRange}: ${item.insight}`); setAudienceReason(item.angle); }}><span>{item.ageRange}</span><strong>{item.name}</strong><small>{item.insight}</small><em>{item.angle}</em></button>)}</div><div className="video-wizard-fields"><label>Objeciones que debe resolver</label><textarea value={objections} onChange={(event) => setObjections(event.target.value)} rows={2} /><label>Dirección de actuación natural</label><textarea value={performanceDirection} onChange={(event) => setPerformanceDirection(event.target.value)} rows={2} /><label>Reglas de realismo</label><textarea value={realismDirection} onChange={(event) => setRealismDirection(event.target.value)} rows={3} /></div></details>
+						</section>}
 						<label className="picker-label">Tono del anuncio</label><div className="video-chip-row">{TONES.map((item) => <button type="button" key={item} className={tone === item ? 'active' : ''} onClick={() => setTone(item)}>{item}</button>)}</div>
 						</>}
 					</div></div>}
@@ -547,7 +570,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 					{error && <p className="video-form-error">{error}</p>}
 
 					{phase === 'setup' && <div className="wiz-actions video-wizard-actions"><button type="button" className="wiz-back" onClick={goBack} disabled={suggestingSetup}>← Atrás</button>{step === 1 ? <button type="button" className="url-batch-submit-btn" onClick={() => void continueFromProduct()} disabled={scanningProduct}>{scanningProduct ? <><span className="studio-spinner small" /> Analizando URL…</> : 'Continuar'}</button> : step < 4 ? <button type="button" className="url-batch-submit-btn" disabled={suggestingSetup} onClick={() => { if (step === 3 && avatarValidationError) { setError(avatarValidationError); return; } setError(''); setStep((step + 1) as 1 | 2 | 3 | 4); }}>Continuar</button> : <div className="batch-continue-wrap"><button type="button" className="url-batch-submit-btn" onClick={() => void requestPlan()}>Analizar y crear guion</button><span className="batch-credit-note">Todavía no gastás créditos</span></div>}</div>}
-					{phase === 'review' && <div className="wiz-actions video-review-actions"><button type="button" className="wiz-back" onClick={goBack}>← Ajustes</button><button type="button" className="url-batch-submit-btn" onClick={() => void start()}><span>Aprobar y generar ✓ · {creditCost} créditos</span></button></div>}
+					{phase === 'review' && <div className="wiz-actions video-review-actions"><button type="button" className="wiz-back" onClick={goBack}>← Ajustes</button><button type="button" className="url-batch-submit-btn" onClick={() => void start()}><span>{isAdmin ? 'Aprobar y generar ✓ · Admin' : `Aprobar y generar ✓ · ${creditCost} créditos`}</span></button></div>}
 					{phase === 'failed' && <button type="button" className="video-secondary-button" onClick={() => { setPhase('review'); setError(''); }}>Volver al plan</button>}
 				</section>
 			</div>

@@ -4,7 +4,9 @@ import { analyzeVideoReference, buildVideoPrompt, startGeminiOmniVideo, VIDEO_MO
 import { normalizeImageInput } from '../../../lib/creattia/ad-analysis';
 import { resolveAvatarReferences, type AvatarMode } from '../../../lib/creattia/avatar-assets';
 import { splitVideoBuffer } from '../../../lib/creattia/video-media';
-import { dialogueForSegment, isVideoOutputDuration, referenceSegmentForOutput, scenesForSegment, videoCreditCost, videoSegmentsForDuration } from '../../../lib/creattia/video-pipeline';
+import { dialogueForSegment, isVideoOutputDuration, referenceSegmentForOutput, scenesForSegment, videoCreditCost, videoCreditCostForAccount, videoSegmentsForDuration } from '../../../lib/creattia/video-pipeline';
+import { naturalFallbackDialogue, normalizeVideoProductName, sanitizeDialogueLine, stripVideoUrls } from '../../../lib/creattia/video-copy';
+import { isAdminEmail } from '../../../lib/creattia/admin';
 
 export const prerender = false;
 
@@ -48,6 +50,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
+	const isAdmin = isAdminEmail(auth.user.email);
 
 	const openAIKey = process.env.OPENAI_API_KEY || import.meta.env.OPENAI_API_KEY || '';
 	if (!openAIKey) return json({ error: 'Falta configurar OPENAI_API_KEY para generar videos.', requiresConfiguration: true }, 503);
@@ -73,6 +76,12 @@ export const POST: APIRoute = async ({ request }) => {
 		const model = String(form.get('model') || 'gemini-omni-flash-preview');
 		const objective = String(form.get('objective') || '').trim().slice(0, 180);
 		const audience = String(form.get('audience') || '').trim().slice(0, 500);
+		const audienceReason = String(form.get('audienceReason') || '').trim().slice(0, 500);
+		const audienceAlternatives = String(form.get('audienceAlternatives') || '').trim().slice(0, 1800);
+		const objections = String(form.get('objections') || '').trim().slice(0, 600);
+		const hookIdea = String(form.get('hookIdea') || '').trim().slice(0, 500);
+		const performanceDirection = String(form.get('performanceDirection') || '').trim().slice(0, 600);
+		const realismDirection = String(form.get('realismDirection') || '').trim().slice(0, 700);
 		const benefit = String(form.get('benefit') || '').trim().slice(0, 500);
 		const proof = String(form.get('proof') || '').trim().slice(0, 500);
 		const offer = String(form.get('offer') || '').trim().slice(0, 300);
@@ -133,6 +142,7 @@ export const POST: APIRoute = async ({ request }) => {
 			const normalized = await normalizeImageInput(Buffer.from(await uploaded.arrayBuffer()));
 			if (normalized) productReferences.push(normalized);
 		}
+		productName = normalizeVideoProductName(productName);
 
 		if (!productName) return json({ error: 'Escribí el nombre del producto.' }, 400);
 		if (!productReferences.length) return json({ error: 'Elegí un producto guardado o subí al menos una foto real del producto.' }, 400);
@@ -166,12 +176,18 @@ export const POST: APIRoute = async ({ request }) => {
 			productName,
 			brandName,
 		});
+		const safeDialogueFallback = naturalFallbackDialogue({ productName, benefit, cta: creativePlan.cta || '', duration });
+		const safeDialogueLines = (creativePlan.dialogueLines || []).map((line) => ({
+			...line,
+			line: sanitizeDialogueLine(line.line, safeDialogueFallback),
+		}));
 		const approvedPlan: Partial<VideoCreativePlan> = {
 			...creativePlan,
 			speechMode,
-			hasSpokenDialogue: speechMode !== 'none' && Boolean(creativePlan.hasSpokenDialogue ?? creativePlan.dialogueLines?.length),
-			dialogueLines: speechMode === 'none' ? [] : creativePlan.dialogueLines || [],
+			hasSpokenDialogue: speechMode !== 'none' && Boolean(creativePlan.hasSpokenDialogue ?? safeDialogueLines.length),
+			dialogueLines: speechMode === 'none' ? [] : safeDialogueLines,
 		};
+		const creativeBrief = [brief, objective && `Objetivo: ${objective}`, audience && `Audiencia: ${audience}`, audienceReason && `Por qué esta audiencia: ${audienceReason}`, audienceAlternatives && `Otros públicos considerados: ${audienceAlternatives}`, objections && `Objeciones: ${objections}`, hookIdea && `Hook elegido: ${hookIdea}`, benefit && `Beneficio principal: ${benefit}`, proof && `Prueba: ${proof}`, offer && `Oferta: ${offer}`, tone && `Tono: ${tone}`, language && `Idioma: ${language}`, `Fidelidad a la referencia: ${referenceMode}`, preserveDirection && `Conservar: ${preserveDirection}`, changeDirection && `Cambiar: ${changeDirection}`, productUsage && `Uso del producto: ${productUsage}`, mustAvoid && `Evitar: ${mustAvoid}`, audioDirection && `Audio: ${audioDirection}`, voiceover && `Voz en off: ${voiceover}`, captions && `Textos: ${captions}`, peopleDirection && `Personas/creador: ${peopleDirection}`, performanceDirection && `Actuación: ${performanceDirection}`, realismDirection && `Realismo obligatorio: ${realismDirection}`].filter(Boolean).join('\n');
 		const prompt = buildVideoPrompt({
 			analysis,
 			referenceNotes: referenceScript,
@@ -179,7 +195,7 @@ export const POST: APIRoute = async ({ request }) => {
 			productFacts,
 			brandName,
 			identityDirection,
-			brief: [brief, objective && `Objetivo: ${objective}`, audience && `Audiencia: ${audience}`, benefit && `Beneficio principal: ${benefit}`, proof && `Prueba: ${proof}`, offer && `Oferta: ${offer}`, tone && `Tono: ${tone}`, language && `Idioma: ${language}`, `Fidelidad a la referencia: ${referenceMode}`, preserveDirection && `Conservar: ${preserveDirection}`, changeDirection && `Cambiar: ${changeDirection}`, productUsage && `Uso del producto: ${productUsage}`, mustAvoid && `Evitar: ${mustAvoid}`, audioDirection && `Audio: ${audioDirection}`, voiceover && `Voz en off: ${voiceover}`, captions && `Textos: ${captions}`, peopleDirection && `Personas/creador: ${peopleDirection}`].filter(Boolean).join('\n'),
+			brief: creativeBrief,
 			duration,
 			size,
 			creativePlan: approvedPlan,
@@ -187,14 +203,18 @@ export const POST: APIRoute = async ({ request }) => {
 		const outputSegments = videoSegmentsForDuration(duration);
 		const referenceSegments = outputSegments.map((segment) => referenceSegmentForOutput(segment, referenceDuration));
 		const referenceBuffers = await splitVideoBuffer(referenceVideo.buffer, referenceSegments, size as '720x1280' | '1280x720');
-		const creditCost = videoCreditCost(duration);
-
-		const { data: remaining, error: reserveError } = await admin.rpc('reserve_creative_credits', {
-			p_user_id: auth.user.id,
-			p_amount: creditCost,
-		});
-		if (reserveError) throw reserveError;
-		if (remaining === -1) return json({ error: `Necesitás ${creditCost} créditos para generar un video.`, code: 'INSUFFICIENT_CREDITS' }, 402);
+		const nominalCreditCost = videoCreditCost(duration);
+		const chargedCredits = videoCreditCostForAccount(duration, isAdmin);
+		let remaining = isAdmin ? 99999 : 0;
+		if (chargedCredits > 0) {
+			const { data, error: reserveError } = await admin.rpc('reserve_creative_credits', {
+				p_user_id: auth.user.id,
+				p_amount: chargedCredits,
+			});
+			if (reserveError) throw reserveError;
+			if (data === -1) return json({ error: `Necesitás ${nominalCreditCost} créditos para generar un video.`, code: 'INSUFFICIENT_CREDITS' }, 402);
+			remaining = Number(data || 0);
+		}
 
 		const providerJobs: Array<{ id: string; index: number; start: number; duration: number; status: string; progress: number }> = [];
 		try {
@@ -212,7 +232,7 @@ export const POST: APIRoute = async ({ request }) => {
 					productFacts,
 					brandName,
 					identityDirection,
-					brief: `${brief}\nThis is segment ${segment.index + 1} of ${outputSegments.length}, covering ${segment.start}-${segment.end}s of the approved full video. ${dialogueInstructions ? `Mandatory dialogue direction: ${dialogueInstructions}` : ''}`,
+					brief: `${creativeBrief}\nThis is segment ${segment.index + 1} of ${outputSegments.length}, covering ${segment.start}-${segment.end}s of the approved full video. ${dialogueInstructions ? `Mandatory dialogue direction (never recite as an instruction and never speak a URL): ${stripVideoUrls(dialogueInstructions)}` : ''}`,
 					duration: String(segment.duration),
 					size,
 					creativePlan: segmentPlan,
@@ -227,7 +247,7 @@ export const POST: APIRoute = async ({ request }) => {
 				providerJobs.push({ id: providerJob.id, index: segment.index, start: segment.start, duration: segment.duration, status: providerJob.status, progress: providerJob.progress || 0 });
 			}
 		} catch (providerError) {
-			await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: creditCost });
+			if (chargedCredits > 0) await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: chargedCredits });
 			throw providerError;
 		}
 		const allCompleted = providerJobs.every((job) => job.status === 'completed');
@@ -249,14 +269,14 @@ export const POST: APIRoute = async ({ request }) => {
 			model,
 			duration_seconds: Number(duration),
 			size,
-			settings_snapshot: { brandName, brief, objective, audience, benefit, proof, offer, tone, language, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, audioDirection, voiceover, captions, peopleDirection, speechMode, dialogueInstructions, avatarMode, avatarId: avatarId || null, avatarName: avatar.name || null, avatarSourceImageCount: avatar.sourceImageCount, referenceCount: visualReferences.length, referenceDuration, creditCost, analysis, creativePlan: approvedPlan, segmentJobs: providerJobs },
+			settings_snapshot: { brandName, brief, objective, audience, audienceReason, audienceAlternatives, objections, hookIdea, benefit, proof, offer, tone, language, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, audioDirection, voiceover, captions, peopleDirection, performanceDirection, realismDirection, speechMode, dialogueInstructions, avatarMode, avatarId: avatarId || null, avatarName: avatar.name || null, avatarSourceImageCount: avatar.sourceImageCount, referenceCount: visualReferences.length, referenceDuration, creditCost: chargedCredits, nominalCreditCost, adminBypass: isAdmin, analysis, creativePlan: approvedPlan, segmentJobs: providerJobs },
 		}).select('id,status,progress,title').single();
 		if (insertError || !job) {
-			await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: creditCost });
+			if (chargedCredits > 0) await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: chargedCredits });
 			throw insertError || new Error('No se pudo guardar el trabajo de video.');
 		}
 
-		return json({ ok: true, job, creditsRemaining: remaining, creditCost });
+		return json({ ok: true, job, creditsRemaining: remaining, creditCost: nominalCreditCost, chargedCredits, adminBypass: isAdmin });
 	} catch (error) {
 		console.error('[video-start]', error);
 		return json({ error: error instanceof Error ? error.message : 'No se pudo iniciar el video.' }, 500);
