@@ -5188,13 +5188,13 @@
 .video-guided-flow {
 	box-sizing: border-box;
 	width: 100%;
-	max-width: 1140px;
-	margin-inline: auto;
+	max-width: none;
+	margin-inline: 0;
 }
 
 .video-guided-flow .video-creation-grid {
-	grid-template-columns: minmax(280px, 380px) minmax(0, 720px);
-	justify-content: center;
+	grid-template-columns: minmax(260px, 380px) minmax(0, 1fr);
+	justify-content: stretch;
 	gap: 28px;
 }
 
@@ -5213,7 +5213,7 @@
 
 @media (max-width: 920px) {
 	.video-guided-flow {
-		max-width: 720px;
+		max-width: none;
 	}
 
 	.video-guided-flow .video-creation-grid {

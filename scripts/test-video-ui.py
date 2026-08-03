@@ -115,6 +115,8 @@ try:
             static_card.wait_for(timeout=30_000)
             static_card.click()
             page.get_by_role("heading", name="Crear con este diseño").wait_for(timeout=10_000)
+            static_grid_box = page.locator(".creation-flow-layout").bounding_box()
+            assert static_grid_box, "El creador estático debe renderizar su grilla"
             page.locator(".creation-reference-copy").wait_for(timeout=10_000)
             reference_image = page.locator(".creation-flow-aside img").first
             reference_image.wait_for(timeout=10_000)
@@ -169,13 +171,18 @@ try:
             page.set_viewport_size({"width": 1440, "height": 900})
             page.wait_for_timeout(300)
             flow_box = page.locator(".video-guided-flow").bounding_box()
+            video_grid_box = page.locator(".video-creation-grid").bounding_box()
             form_box = page.locator(".video-image-flow-panel").bounding_box()
-            assert flow_box and flow_box["width"] <= 1142, "El flujo de video debe conservar un ancho compacto en desktop"
-            assert form_box and form_box["width"] <= 722, "El formulario no debe estirarse hasta el borde del monitor"
+            assert flow_box and video_grid_box and abs(video_grid_box["width"] - static_grid_box["width"]) < 2, "El flujo de video debe usar el mismo ancho disponible que el estático"
+            assert form_box and abs((form_box["x"] + form_box["width"]) - (video_grid_box["x"] + video_grid_box["width"])) < 2, "El formulario debe llegar hasta el borde derecho disponible"
             product_tabs = page.locator(".video-product-tabs .wiz-tab")
             tab_boxes = [product_tabs.nth(index).bounding_box() for index in range(product_tabs.count())]
             assert len(tab_boxes) == 3 and all(box for box in tab_boxes)
             assert max(box["y"] for box in tab_boxes if box) - min(box["y"] for box in tab_boxes if box) < 2, "Las tres formas de cargar el producto deben quedar en una sola fila"
+            page.set_viewport_size({"width": 1728, "height": 900})
+            page.wait_for_timeout(300)
+            wide_video_grid_box = page.locator(".video-creation-grid").bounding_box()
+            assert wide_video_grid_box and wide_video_grid_box["width"] > 1142, "El creador de video no debe quedar limitado a 1140 px en monitores anchos"
             setup_screenshot_path = os.environ.get("CREATTIA_VIDEO_SETUP_SCREENSHOT", "").strip()
             if setup_screenshot_path:
                 Path(setup_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
