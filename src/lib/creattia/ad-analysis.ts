@@ -1,9 +1,11 @@
 import OpenAI from 'openai';
+import { normalizeAdCopy, type AdaptedAdCopy } from './ad-copy';
 
 // ── Compartido entre /api/creativos/plan y /api/creativos/generate ──────────
 
 export type LayoutAnalysis = {
 	messageStrategy?: string;
+	adCopy?: AdaptedAdCopy;
 	textZones?: Array<{ where?: string; onProduct?: boolean; original?: string; messageRole?: string; replacement?: string }>;
 	productHasPackaging?: boolean;
 	referenceHasProduct?: boolean;
@@ -116,6 +118,12 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 Return STRICT JSON:
 {
   "messageStrategy": "2-3 sentences decoding the template's persuasion: which emotion it triggers, which objection it kills, what promise it makes and through which mechanism (nostalgia, guilt-removal, social proof, price anchor, before/after, authority, scarcity...)",
+  "adCopy": {
+    "primaryText": "ready-to-publish Meta/Instagram primary text. Open with a strong first-line hook, then the verified benefit or proof, then a clear action. Natural language, short paragraphs, maximum 700 characters",
+    "headline": "benefit-led headline, maximum 60 characters",
+    "description": "supporting detail that does not repeat the headline, maximum 90 characters",
+    "cta": "short action label, maximum 30 characters"
+  },
   "textZones": [
     { "where": "short position description (e.g. 'main headline, top center, two lines')",
       "onProduct": true|false,
@@ -171,6 +179,7 @@ Return STRICT JSON:
 }
 
 Rules:
+- "adCopy" is the publication copy that appears outside the image. Adapt the winning message strategy to the target product, front-load the hook, use only verified facts, avoid unsupported urgency or claims, and complement rather than repeat the words rendered inside the creative. Write it in the requested ad language.
 - COPY THAT STOPS THE SCROLL: the winning ad earns attention with its wording, not only its layout. Every replacement has to hit as hard as the original — same punch, same rhythm, same length, same device (a paradox, a question, a number, a blunt claim, a quote). Never soften a bold line into a polite description. If the original testimonial says "Thanks Billie for this smooth shave!", the replacement must name the ADVERTISER, not the product's manufacturer${input.brandName ? ` — the advertiser is "${input.brandName}"` : ', and if no advertiser brand is given, rewrite it so it thanks nobody and speaks about the experience instead'}. A first line that reads like a spec sheet is a failure.
 - FIRST decode the template's message strategy. THEN write every replacement so it performs the SAME persuasive job for the target product: same emotional angle, same rhetorical device (paradox, contrast, question, quote, number), same energy and tone. An emotional hook must stay an emotional hook adapted to the new product — never flatten it into a generic benefit statement.
 - Enumerate EVERY visible text zone in the template (headline, subcopy, review, badges, pills, CTA, small print). None may be missed.
@@ -195,7 +204,12 @@ Rules:
 	const validate = (raw: string | null | undefined): LayoutAnalysis | null => {
 		try {
 			const parsed = JSON.parse(raw || 'null');
-			if (!parsed || !Array.isArray(parsed.textZones) || !parsed.textZones.length) return null;
+			if (!parsed || !Array.isArray(parsed.textZones)) return null;
+			parsed.adCopy = normalizeAdCopy(parsed.adCopy, {
+				productName: input.productName,
+				productFacts: input.productFacts,
+				brandName: input.brandName,
+			});
 			return parsed as LayoutAnalysis;
 		} catch { return null; }
 	};

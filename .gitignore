@@ -15,3 +15,5 @@ npm-debug.log*
 public/scraped_ads/
 public/scraped_videos/
 scripts/_quality_review_cache.json
+__pycache__/
+*.pyc

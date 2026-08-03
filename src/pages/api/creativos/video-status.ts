@@ -35,7 +35,7 @@ async function completeVideo(admin: NonNullable<ReturnType<typeof getAdminClient
 	}).eq('id', row.id).eq('user_id', row.user_id);
 	if (completeError) throw completeError;
 	const { data: signed } = await admin.storage.from(OUTPUTS).createSignedUrl(outputPath, 60 * 60);
-	return json({ ok: true, id: row.id, status: 'completed', progress: 100, title: row.title, videoUrl: signed?.signedUrl || '' });
+	return json({ ok: true, id: row.id, status: 'completed', progress: 100, title: row.title, videoUrl: signed?.signedUrl || '', adCopy: row.settings_snapshot?.adCopy || null });
 }
 
 export const GET: APIRoute = async ({ request, url }) => {
@@ -55,7 +55,7 @@ export const GET: APIRoute = async ({ request, url }) => {
 
 	if (row.status === 'completed' && row.output_path) {
 		const { data: signed } = await admin.storage.from(OUTPUTS).createSignedUrl(row.output_path, 60 * 60);
-		return json({ ok: true, id: row.id, status: row.status, progress: 100, title: row.title, videoUrl: signed?.signedUrl || '' });
+		return json({ ok: true, id: row.id, status: row.status, progress: 100, title: row.title, videoUrl: signed?.signedUrl || '', adCopy: row.settings_snapshot?.adCopy || null });
 	}
 	if (row.status === 'failed') return json({ ok: false, id: row.id, status: row.status, progress: row.progress, error: row.error_code || 'El video no pudo generarse.' });
 

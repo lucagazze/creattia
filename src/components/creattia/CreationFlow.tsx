@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, driveBatchWorkers } from './UrlBatchSection';
+import AdCopyPanel from './AdCopyPanel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Página completa de creación fiel al ganador (reemplaza el modal). Mismo
@@ -862,6 +863,12 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 								);
 							})}
 						</div>
+
+						{plan.adCopy && <AdCopyPanel
+							copy={plan.adCopy}
+							onChange={(adCopy) => setPlan((current: any) => ({ ...(current || {}), adCopy }))}
+							title="Copy adaptado para publicar"
+						/>}
 
 						{/* Personas detectadas en el anuncio */}
 						{people.length > 0 && (

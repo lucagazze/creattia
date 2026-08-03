@@ -5,6 +5,7 @@ import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput,
 import { generateAdImage } from '../../../lib/creattia/image-engines';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { isAdminEmail } from '../../../lib/creattia/admin';
+import { fallbackAdCopy } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -373,6 +374,19 @@ export const POST: APIRoute = async ({ request }) => {
 		const generationTitle = storedProducts.length
 			? storedProducts.map((item) => item.name).join(' + ')
 			: (requestedTemplateName || templateName);
+		const fallbackPublicationCopy = fallbackAdCopy({
+			productName: generationTitle,
+			productFacts: storedProducts.map((item) => item.description).filter(Boolean).join(' · ') || brief,
+			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
+		});
+		const generationSettingsSnapshot = {
+			format, imageType, preset, quality, productIds, productNames: storedProducts.map((item) => item.name),
+			adCopy: approvedPlan?.adCopy || fallbackPublicationCopy,
+			// Las revisiones heredan el anuncio ganador de la imagen original.
+			referencePath: storedReference?.image_path || (sourceGeneration as any)?.settings_snapshot?.referencePath || null,
+			sourceGenerationId: sourceGeneration?.id || null,
+			variationStrength: sourceGeneration ? variationStrength : null,
+		};
 		const generationRows = Array.from({ length: count }, (_, index) => ({
 			user_id: auth.user!.id,
 			template_id: templateId,
@@ -386,13 +400,7 @@ export const POST: APIRoute = async ({ request }) => {
 			batch_id: batchId,
 			output_index: index + 1,
 			requested_outputs: count,
-			settings_snapshot: {
-				format, imageType, preset, quality, productIds, productNames: storedProducts.map((item) => item.name),
-				// Las revisiones heredan el anuncio ganador de la imagen original.
-				referencePath: storedReference?.image_path || (sourceGeneration as any)?.settings_snapshot?.referencePath || null,
-				sourceGenerationId: sourceGeneration?.id || null,
-				variationStrength: sourceGeneration ? variationStrength : null,
-			},
+			settings_snapshot: generationSettingsSnapshot,
 			status: 'processing',
 		}));
 		const { data: generations, error: insertError } = await admin.from('creative_generations')
@@ -747,6 +755,11 @@ The result must look like the same image with only that one adjustment applied.`
 			const { error: completionError } = await admin.from('creative_generations').update({
 				status: 'completed',
 				output_path: outputPath,
+				settings_snapshot: {
+					...generationSettingsSnapshot,
+					adCopy: layoutAnalysis?.adCopy || generationSettingsSnapshot.adCopy,
+					creative: layoutAnalysis?.creative || null,
+				},
 				completed_at: new Date().toISOString(),
 			}).eq('id', generationId);
 			if (completionError) {

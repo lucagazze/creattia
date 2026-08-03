@@ -11,6 +11,8 @@ import WinnersLibrary from './WinnersLibrary';
 import AvatarManager from './AvatarManager';
 import { UrlBatchSection, driveBatchWorkers } from './UrlBatchSection';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
+import { normalizeAdCopy, type AdaptedAdCopy } from '../../lib/creattia/ad-copy';
+import AdCopyPanel from './AdCopyPanel';
 
 type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved' | 'discover';
 
@@ -70,7 +72,12 @@ type Generation = {
 	referenceName?: string;
 	status?: 'processing' | 'completed' | 'failed';
 	error?: string;
+	adCopy?: AdaptedAdCopy;
 };
+
+function adCopyFromSnapshot(snapshot: any): AdaptedAdCopy | undefined {
+	return snapshot?.adCopy ? normalizeAdCopy(snapshot.adCopy) : undefined;
+}
 
 type HistoryGroup = { key: string; createdAt: string; item: Generation; slides?: Generation[] };
 
@@ -854,6 +861,7 @@ export default function CreativeApp() {
 								outputIndex: record.output_index || 1,
 								referencePath: record.settings_snapshot?.referencePath || '',
 								referenceName: record.settings_snapshot?.referenceName || '',
+								adCopy: adCopyFromSnapshot(record.settings_snapshot),
 								status: record.status || (imgUrl ? 'completed' : 'processing'),
 							};
 						});
@@ -939,6 +947,7 @@ export default function CreativeApp() {
 								templateId: r.template_id,
 								referencePath: (r as any).settings_snapshot?.referencePath || '',
 								referenceName: (r as any).settings_snapshot?.referenceName || '',
+								adCopy: adCopyFromSnapshot((r as any).settings_snapshot),
 								status: imgUrl ? 'completed' : r.status,
 							} as any);
 						} else if ((existing as any).status !== r.status || (!existing.imageUrl && imgUrl)) {
@@ -948,6 +957,7 @@ export default function CreativeApp() {
 							map.set(r.id, {
 								...existing,
 								imageUrl: imgUrl || existing.imageUrl,
+								adCopy: adCopyFromSnapshot((r as any).settings_snapshot) || existing.adCopy,
 								status: imgUrl ? 'completed' : r.status,
 							} as any);
 						}
@@ -1210,6 +1220,7 @@ export default function CreativeApp() {
 						status: row.status || 'processing',
 						referencePath: row.settings_snapshot?.referencePath || '',
 						referenceName: row.settings_snapshot?.referenceName || '',
+						adCopy: adCopyFromSnapshot(row.settings_snapshot),
 					} as Generation));
 					setHistory((previous) => {
 						const byId = new Map(previous.map((item) => [item.id, item]));
@@ -1281,6 +1292,7 @@ export default function CreativeApp() {
 					outputIndex: row.output_index,
 					referencePath: row.settings_snapshot?.referencePath || '',
 					referenceName: row.settings_snapshot?.referenceName || '',
+					adCopy: adCopyFromSnapshot(row.settings_snapshot),
 					error: row.error_code || '',
 					status: row.status,
 				} as any);
@@ -2674,6 +2686,7 @@ function GenerationView({ batch, onBack, onReuse, onHistory }: { batch: ActiveBa
 						{batch.results.map((generation) => (
 							<figure key={generation.id} style={{ margin: 0, background: '#fff', border: '1px solid #eee9f2', borderRadius: '16px', padding: '14px' }}>
 								<img src={generation.imageUrl} alt={generation.title} style={{ width: '100%', borderRadius: '10px', display: 'block' }} />
+								{generation.adCopy && <AdCopyPanel copy={generation.adCopy} compact />}
 								<figcaption style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
 									<button onClick={() => void downloadImage(generation.imageUrl, `creattia-${generation.id}.png`)} style={{ flex: 1, padding: '11px 0', borderRadius: '10px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Descargar</button>
 									<button onClick={() => onReuse(generation)} style={{ flex: 1, padding: '11px 0', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#19171d', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Nueva versión</button>
@@ -3510,6 +3523,7 @@ function GenerationCard({
 				<span>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(new Date(item.createdAt))}</span>
 				{(onExpand || onReuse) && <button onClick={() => (onExpand || onReuse)?.(active)}><Icon name="history" size={14}/>Crear otra versión</button>}
 			</footer>
+			{item.adCopy && <AdCopyPanel copy={item.adCopy} compact title={isCarousel ? 'Copy del carrusel' : 'Copy del anuncio'} />}
 
 			{refPreview && <WinnerReferenceModal
 				reference={refPreview}
@@ -3797,6 +3811,7 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 							</span>
 						</button>
 					)}
+					{item.adCopy && <AdCopyPanel copy={item.adCopy} title="Copy para publicar" />}
 					<button onClick={() => void downloadImage(item.imageUrl, `creattia-${item.id}.png`)} style={{ width: '100%', height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>Descargar imagen</button>
 					{item.referenceUrl && (
 						<button onClick={() => setShowReference(!showReference)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: showReference ? '#eceaef' : '#f8f6fb', border: showReference ? '1px solid #cfc9d8' : '1px solid transparent', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>

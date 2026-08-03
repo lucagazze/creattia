@@ -9,6 +9,7 @@ import { generateAdImage, type EngineImage } from '../../../lib/creattia/image-e
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { isAdminEmail } from '../../../lib/creattia/admin';
+import { fallbackAdCopy } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -266,6 +267,7 @@ export const POST: APIRoute = async ({ request }) => {
 			prompt,
 			settings_snapshot: {
 				...snapshot,
+				adCopy: analysis?.adCopy || snapshot.adCopy || fallbackAdCopy({ productName, productFacts, brandName }),
 				qualityTier: decision.tier,
 				qualityReason: decision.reason,
 				engine,

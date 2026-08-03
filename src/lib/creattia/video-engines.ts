@@ -4,6 +4,7 @@ import { GoogleGenAI } from '@google/genai';
 import { fallbackScenesForDuration, VIDEO_CREDITS_PER_SEGMENT, type VideoDialogueLine } from './video-pipeline';
 import type { FullVideoReferenceAnalysis } from './video-reference';
 import { naturalFallbackDialogue, normalizeVideoProductName, sanitizeDialogueLine, sanitizeSpokenVideoText, stripVideoUrls } from './video-copy';
+import { fallbackAdCopy, normalizeAdCopy, type AdaptedAdCopy } from './ad-copy';
 
 export type VideoReferenceAnalysis = FullVideoReferenceAnalysis & {
 	hook?: string;
@@ -26,6 +27,7 @@ export type VideoJobStatus = {
 };
 
 export type VideoCreativePlan = {
+	adCopy: AdaptedAdCopy;
 	hook: string;
 	objective: string;
 	audience: string;
@@ -61,6 +63,7 @@ function fallbackVideoPlan(input: {
 	performanceDirection?: string;
 	realismDirection?: string;
 	benefit: string;
+	productFacts?: string;
 	cta: string;
 	duration: string;
 	language: string;
@@ -73,6 +76,7 @@ function fallbackVideoPlan(input: {
 	const productName = normalizeVideoProductName(input.productName);
 	const dialogue = naturalFallbackDialogue({ productName, benefit: input.benefit, cta: input.cta, duration: input.duration });
 	return {
+		adCopy: fallbackAdCopy({ productName, productFacts: input.productFacts, brandName: input.brandName, benefit: input.benefit, cta: input.cta }),
 		hook: `Mostrar ${productName} en el primer segundo con una situación concreta que la audiencia reconozca.`,
 		objective: input.objective || 'Conversión',
 		audience: input.audience || 'Personas que necesitan una solución simple y confiable.',
@@ -184,7 +188,7 @@ Full reference analysis: ${JSON.stringify(input.referenceAnalysis || {})}
 Speech mode: ${input.speechMode || 'adapt'}
 Mandatory dialogue ideas (instructions only; never recite these words literally and never speak a URL): ${stripVideoUrls(input.dialogueInstructions) || 'No additional mandatory phrase.'}
 
-Return strict JSON with exactly these keys: hook, objective, audience, coreMessage, visualStyle, voiceover, captions, audio, cta, scenes, speechMode, hasSpokenDialogue, dialogueLines. scenes must be an array of 3 to 12 strings, each starting with a time range and describing one feasible action, camera, product visibility, text and audio beat. dialogueLines must be an array of {start, end, speaker, line, delivery}. If speechMode is "none", return no dialogue. Otherwise write completely new, natural spoken lines for the NEW brand and product in the requested language; use the reference only for timing, persuasive purpose and delivery. Never put a URL, instruction, field label or raw product-page text inside spoken dialogue. Every spoken claim, price, testimonial and offer must be supported by Product facts, Proof or Offer. Keep the words short enough for a relaxed natural delivery with pauses and breaths.
+Return strict JSON with exactly these keys: adCopy, hook, objective, audience, coreMessage, visualStyle, voiceover, captions, audio, cta, scenes, speechMode, hasSpokenDialogue, dialogueLines. adCopy must be {primaryText, headline, description, cta}: publication copy for Meta/Instagram adapted to the new product and winning angle, with a strong first-line hook, only verified claims, headline <= 60 characters, description <= 90 and CTA <= 30. It complements the video and must not transcribe the spoken script. scenes must be an array of 3 to 12 strings, each starting with a time range and describing one feasible action, camera, product visibility, text and audio beat. dialogueLines must be an array of {start, end, speaker, line, delivery}. If speechMode is "none", return no dialogue. Otherwise write completely new, natural spoken lines for the NEW brand and product in the requested language; use the reference only for timing, persuasive purpose and delivery. Never put a URL, instruction, field label or raw product-page text inside spoken dialogue. Every spoken claim, price, testimonial and offer must be supported by Product facts, Proof or Offer. Keep the words short enough for a relaxed natural delivery with pauses and breaths.
 
 REALISM IS MANDATORY: direct subtle human acting with natural blinking, breathing, eye focus, weight shifts, hand-object contact, inertia and facial micro-expressions. Preserve face, hands, wardrobe and product geometry across frames. Avoid plastic skin, beauty-filter faces, frozen smiles, exaggerated gestures, body warping, extra fingers, floating objects, sliding feet, teleporting props, identity drift, impossible camera motion and unreadable generated text. Use simple physical actions and believable camera movement. Make the supplied product images the visual source of truth.`,
 		}];
@@ -208,6 +212,7 @@ REALISM IS MANDATORY: direct subtle human acting with natural blinking, breathin
 		const plan = {
 			...fallback,
 			...parsed,
+			adCopy: normalizeAdCopy(parsed.adCopy, { productName, productFacts: input.productFacts, brandName: input.brandName, benefit: input.benefit, cta: input.cta }),
 			hook: sanitizeSpokenVideoText(parsed.hook, 500) || fallback.hook,
 			coreMessage: sanitizeSpokenVideoText(parsed.coreMessage, 700) || fallback.coreMessage,
 			visualStyle: sanitizeSpokenVideoText(parsed.visualStyle, 900) || fallback.visualStyle,

@@ -32,6 +32,12 @@ fake_analysis = {
     "camera": "Primeros planos UGC, cámara en mano estable y detalle del producto.",
     "hasSpeakingPerson": True,
     "dialoguePurpose": "Convertir el problema en una recomendación creíble y cerrar con una acción.",
+    "adCopy": {
+        "primaryText": "Tu piel sensible no necesita una rutina complicada. Hydra 10 suma hidratacion ligera y una textura facil de incorporar. Conocelo hoy.",
+        "headline": "Hidratacion simple para tu piel",
+        "description": "Textura ligera para tu rutina diaria",
+        "cta": "Conocelo hoy",
+    },
 }
 fake_suggestions = {
     "concept": "Una creadora abre con el problema, demuestra la textura de Hydra 10 y cierra con una recomendacion directa.",
@@ -76,6 +82,7 @@ fake_suggestions = {
 fake_analysis["creativeSuggestions"] = fake_suggestions
 
 fake_plan = {
+    "adCopy": fake_analysis["adCopy"],
     "hook": "¿Tu piel queda tirante después de lavarla? Mirá esto.",
     "objective": "Conversión",
     "audience": "Personas con piel sensible",
@@ -369,6 +376,9 @@ try:
             page.get_by_text("PLAN Y GUION CREADOS PARA HYDRA 10").wait_for(timeout=10_000)
             page.get_by_text("Hook detectado", exact=True).wait_for()
             page.get_by_text("Guion hablado", exact=True).wait_for()
+            page.get_by_text("Copy adaptado para publicar el video", exact=True).wait_for()
+            assert page.get_by_label("Texto principal").input_value().startswith("Tu piel sensible")
+            assert page.get_by_label("Título").input_value() == fake_analysis["adCopy"]["headline"]
             assert page.get_by_role("textbox", name="Diálogo 1", exact=True).input_value().startswith("Si tu piel")
             assert "Aprobar y generar" in page.locator(".video-review-actions").inner_text()
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "La revisión del guion no debe desbordar en mobile"

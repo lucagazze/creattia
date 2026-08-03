@@ -12,6 +12,7 @@ import {
 import { normalizeVideoSetupSuggestions } from '../src/lib/creattia/video-suggestions.ts';
 import { naturalFallbackDialogue, normalizeVideoProductName, sanitizeDialogueLine, stripVideoUrls } from '../src/lib/creattia/video-copy.ts';
 import { isAdminEmail } from '../src/lib/creattia/admin.ts';
+import { adCopyToText, fallbackAdCopy, normalizeAdCopy } from '../src/lib/creattia/ad-copy.ts';
 
 assert.deepEqual(videoSegmentsForDuration(4), [{ index: 0, start: 0, end: 4, duration: 4 }]);
 assert.deepEqual(videoSegmentsForDuration(10), [{ index: 0, start: 0, end: 10, duration: 10 }]);
@@ -72,4 +73,13 @@ const fallbackDialogue = naturalFallbackDialogue({ productName: 'Hydra 10', bene
 assert.doesNotMatch(fallbackDialogue, /https?:|www\./i);
 assert.equal(sanitizeDialogueLine('Nombrar Hydra 10 y cerrar con https://example.com', fallbackDialogue), fallbackDialogue);
 
-console.log('video-pipeline: 39 assertions passed');
+const publicationCopy = fallbackAdCopy({ productName: 'Hydra 10 https://example.com', productFacts: 'Hidratación ligera para piel sensible', cta: 'Conocelo hoy' });
+assert.doesNotMatch(adCopyToText(publicationCopy), /https?:|www\./i);
+assert.ok(publicationCopy.headline.length <= 60);
+assert.ok(publicationCopy.description.length <= 90);
+const normalizedCopy = normalizeAdCopy({ primaryText: 'Un hook concreto', headline: 'Hydra 10', description: '', cta: '' }, { productName: 'Hydra 10', productFacts: 'Hidratación ligera' });
+assert.equal(normalizedCopy.primaryText, 'Un hook concreto');
+assert.ok(normalizedCopy.description.length > 0);
+assert.match(adCopyToText(normalizedCopy), /Título: Hydra 10/);
+
+console.log('video-pipeline: 45 assertions passed');
