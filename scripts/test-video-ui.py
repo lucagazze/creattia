@@ -111,6 +111,44 @@ try:
 
             page.get_by_text("Biblioteca de ganadores", exact=True).first.click()
             page.get_by_role("heading", name="Biblioteca de ganadores").wait_for(timeout=20_000)
+            duration_trigger = page.locator(".duration-filter .niche-dd-trigger")
+            duration_trigger.wait_for(timeout=10_000)
+            page.wait_for_function(
+                "() => Number(document.querySelector('.duration-filter .niche-dd-badge')?.textContent || 0) > 0",
+                timeout=30_000,
+            )
+            page.evaluate("window.scrollTo(0, 180)")
+            duration_trigger.click()
+            duration_items = page.locator(".duration-filter .niche-dd-item")
+            selected_duration_item = None
+            selected_duration_label = ""
+            for index in range(1, duration_items.count()):
+                item = duration_items.nth(index)
+                count_text = item.locator(".niche-dd-count").inner_text().strip()
+                if count_text.isdigit() and int(count_text) > 0:
+                    selected_duration_item = item
+                    selected_duration_label = item.locator(".niche-dd-name").inner_text().strip()
+                    break
+            assert selected_duration_item and selected_duration_label, "Debe existir al menos un rango de duración con videos"
+            filter_scroll_before = page.evaluate("window.scrollY")
+            selected_duration_item.evaluate(
+                "el => { el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); el.click(); }"
+            )
+            page.locator(".library-active-filters").get_by_text(selected_duration_label, exact=False).wait_for(timeout=10_000)
+            page.wait_for_timeout(500)
+            filter_scroll_after = page.evaluate("window.scrollY")
+            assert abs(filter_scroll_after - filter_scroll_before) <= 3, (
+                f"Aplicar un filtro no debe mover la posición de la biblioteca "
+                f"(antes={filter_scroll_before}, después={filter_scroll_after})"
+            )
+            assert "Video" in page.locator(".library-filter-controls .niche-dd").nth(2).inner_text()
+            duration_screenshot_path = os.environ.get("CREATTIA_DURATION_FILTER_SCREENSHOT", "").strip()
+            if duration_screenshot_path:
+                Path(duration_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=duration_screenshot_path, full_page=False)
+            page.get_by_role("button", name="Limpiar todo", exact=True).click()
+            page.wait_for_timeout(300)
+
             static_card = page.locator("article.library-ad-card-masonry:not(:has(.winner-video-play))").first
             static_card.wait_for(timeout=30_000)
             static_card.click()
@@ -120,8 +158,11 @@ try:
             page.locator(".creation-reference-copy").wait_for(timeout=10_000)
             reference_image = page.locator(".creation-flow-aside img").first
             reference_image.wait_for(timeout=10_000)
-            page.wait_for_timeout(2_000)
-            assert reference_image.evaluate("el => el.complete && el.naturalWidth > 0"), f"La referencia estática debe cargar antes del copy: {reference_image.get_attribute('src')}"
+            page.wait_for_function(
+                "el => el.complete && el.naturalWidth > 0",
+                arg=reference_image.element_handle(),
+                timeout=15_000,
+            )
             static_screenshot_path = os.environ.get("CREATTIA_STATIC_COPY_SCREENSHOT", "").strip()
             if static_screenshot_path:
                 Path(static_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
@@ -135,7 +176,18 @@ try:
             play_buttons.first.wait_for(timeout=30_000)
             video_count = play_buttons.count()
             assert video_count > 0, "La biblioteca debe renderizar videos ganadores"
-            play_buttons.first.click()
+            video_cards = page.locator("article.library-ad-card-masonry:has(.winner-video-play)")
+            selected_video_card = None
+            reference_copy = ""
+            for index in range(video_cards.count()):
+                card = video_cards.nth(index)
+                copy_text = card.locator(".library-card-copy").inner_text().strip()
+                if copy_text and copy_text != "Inspiración publicitaria ganadora.":
+                    selected_video_card = card
+                    reference_copy = copy_text
+                    break
+            assert selected_video_card and reference_copy, "Debe existir un video con copy para comprobar el detalle"
+            selected_video_card.locator('[aria-label^="Reproducir video de"]').click()
             inline_video = page.locator("video.winner-inline-video:visible").first
             inline_video.wait_for(timeout=10_000)
             assert inline_video.get_attribute("controls") is not None
@@ -147,6 +199,15 @@ try:
             video_card = inline_video.locator("xpath=ancestor::article[1]")
             video_card.get_by_role("button", name="Usar esta idea", exact=True).click()
             page.get_by_role("heading", name="Adaptá la idea ganadora a tu negocio").wait_for(timeout=10_000)
+            video_copy_panel = page.locator(".video-reference-copy")
+            video_copy_panel.wait_for(timeout=10_000)
+            opened_reference_copy = video_copy_panel.locator("p").inner_text().strip()
+            normalized_card_copy = re.sub(r"\s+", " ", reference_copy).strip()
+            normalized_opened_copy = re.sub(r"\s+", " ", opened_reference_copy).strip()
+            assert normalized_card_copy == normalized_opened_copy, (
+                "El copy visible en la tarjeta debe aparecer debajo del video abierto "
+                f"(tarjeta={reference_copy[:120]!r}, abierto={opened_reference_copy[:120]!r})"
+            )
             page.get_by_role("button", name="Volver a la biblioteca", exact=False).click()
             page.get_by_role("heading", name="Biblioteca de ganadores").wait_for(timeout=10_000)
             page.wait_for_timeout(500)
@@ -156,7 +217,7 @@ try:
                 Path(return_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
                 page.screenshot(path=return_screenshot_path, full_page=False)
 
-            play_buttons.first.click()
+            page.locator('[aria-label^="Reproducir video de"]:visible').first.click()
             inline_video = page.locator("video.winner-inline-video:visible").first
             inline_video.wait_for(timeout=10_000)
             page.set_viewport_size({"width": 390, "height": 844})

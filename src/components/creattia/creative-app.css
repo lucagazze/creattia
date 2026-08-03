@@ -3376,7 +3376,7 @@
 .niche-dd-menu::-webkit-scrollbar { width: 8px; }
 .niche-dd-menu::-webkit-scrollbar-thumb { background: #e2dcec; border-radius: 8px; }
 
-/* Filtros de la biblioteca en mobile: cada desplegable (nicho/ángulo/formato)
+/* Filtros de la biblioteca en mobile: cada desplegable
    ocupaba casi todo el ancho en su propia fila — se ven grandes y
    desbalanceados. Acá van lado a lado dentro de cada fila, más chicos. */
 @media (max-width: 640px) {
@@ -5132,6 +5132,10 @@
 /* Biblioteca: los filtros deben respirar dentro del viewport móvil.
    El menú de una píldora ubicada en la segunda columna se alinea a la
    derecha para no desbordar la pantalla. */
+.winners-library-container {
+	overflow-anchor: none;
+}
+
 .library-filter-controls {
 	width: 100%;
 	justify-content: flex-start;

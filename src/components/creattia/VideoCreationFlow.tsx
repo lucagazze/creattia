@@ -368,6 +368,12 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 						<div className="video-reference-badges"><span>▶ Video ganador</span><span>≈ {Math.round(referenceDuration)} s</span></div>
 					</div>
 					<p className="video-reference-title">Anuncio ganador: <b>{reference.name}</b></p>
+					{reference.promptNotes && (
+						<div className="creation-reference-copy video-reference-copy">
+							<span>Copy del anuncio</span>
+							<p>{reference.promptNotes}</p>
+						</div>
+					)}
 				</aside>
 
 				<section className="video-creation-form-panel video-image-flow-panel">

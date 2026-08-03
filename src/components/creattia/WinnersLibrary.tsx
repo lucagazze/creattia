@@ -106,6 +106,14 @@ const formatOptions: Array<{ id: 'static_image' | 'carousel' | 'video'; label: s
 	{ id: 'video', label: 'Video', icon: '🎬' },
 ];
 const formatLabels: Record<string, string> = Object.fromEntries(formatOptions.map((f) => [f.id, f.label]));
+type DurationFilter = 'todos' | 'hasta-15' | '16-30' | '31-60' | 'mas-60';
+const durationOptions: Array<{ id: Exclude<DurationFilter, 'todos'>; label: string; icon: string }> = [
+	{ id: 'hasta-15', label: 'Hasta 15 s', icon: '⚡' },
+	{ id: '16-30', label: '16 a 30 s', icon: '⏱️' },
+	{ id: '31-60', label: '31 a 60 s', icon: '🎬' },
+	{ id: 'mas-60', label: 'Más de 60 s', icon: '🕒' },
+];
+const durationLabels: Record<string, string> = Object.fromEntries(durationOptions.map((option) => [option.id, option.label]));
 const categoryIcons: Record<string, string> = Object.fromEntries(winnersCategories.map((c) => [c.id, c.icon]));
 const categoryLabels: Record<string, string> = Object.fromEntries(winnersCategories.map((c) => [c.id, c.label]));
 
@@ -279,6 +287,8 @@ export default function WinnersLibrary({
 	const [selectedCategories, setSelectedCategories] = useState<string[]>(['todos']);
 	const [showCategoryMenu, setShowCategoryMenu] = useState(false);
 	const [showFormatMenu, setShowFormatMenu] = useState(false);
+	const [selectedDuration, setSelectedDuration] = useState<DurationFilter>('todos');
+	const [showDurationMenu, setShowDurationMenu] = useState(false);
 
 	useEffect(() => {
 		if (!showCategoryMenu) return;
@@ -293,6 +303,13 @@ export default function WinnersLibrary({
 		window.addEventListener('click', close);
 		return () => window.removeEventListener('click', close);
 	}, [showFormatMenu]);
+
+	useEffect(() => {
+		if (!showDurationMenu) return;
+		const close = () => setShowDurationMenu(false);
+		window.addEventListener('click', close);
+		return () => window.removeEventListener('click', close);
+	}, [showDurationMenu]);
 	// Menú de click derecho sobre una tarjeta: guardar/usar sin tener que
 	// pasar por los botones chiquitos superpuestos a la imagen.
 	const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; item: WinnerItem } | null>(null);
@@ -830,6 +847,15 @@ export default function WinnersLibrary({
 	const itemFormat = (item: WinnerItem): 'static_image' | 'carousel' | 'video' =>
 		item.metadata?.mediaType === 'carousel' ? 'carousel' : item.metadata?.mediaType === 'video' ? 'video' : 'static_image';
 	const matchesFormat = (item: WinnerItem) => selectedFormat === 'todos' || itemFormat(item) === selectedFormat;
+	const matchesDuration = (item: WinnerItem) => {
+		if (selectedDuration === 'todos') return true;
+		if (itemFormat(item) !== 'video') return false;
+		const seconds = Number(item.metadata?.durationSec) || 0;
+		if (selectedDuration === 'hasta-15') return seconds > 0 && seconds <= 15;
+		if (selectedDuration === '16-30') return seconds > 15 && seconds <= 30;
+		if (selectedDuration === '31-60') return seconds > 30 && seconds <= 60;
+		return seconds > 60;
+	};
 	const matchesCategory = (item: WinnerItem) =>
 		selectedCategories.includes('todos') || selectedCategories.length === 0 || selectedCategories.includes((item as any).category || 'hero');
 	const matchesNiche = (item: WinnerItem) => {
@@ -848,19 +874,19 @@ export default function WinnersLibrary({
 	const nicheCounts = useMemo(() => {
 		const m: Record<string, number> = {};
 		items.forEach((item) => {
-			if (!matchesSaved(item) || !matchesFormat(item) || !matchesCategory(item) || !matchesSearch(item)) return;
+			if (!matchesSaved(item) || !matchesFormat(item) || !matchesDuration(item) || !matchesCategory(item) || !matchesSearch(item)) return;
 			const ns = item.metadata?.foreplayNiches;
 			if (Array.isArray(ns)) ns.forEach((n: string) => { const k = (n || '').trim(); if (k) m[k] = (m[k] || 0) + 1; });
 		});
 		return m;
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedFormat, selectedCategories, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedFormat, selectedDuration, selectedCategories, query, likedScrapedPaths, favorites]);
 	const availableNiches = useMemo(() => Object.keys(nicheCounts).sort((a, b) => nicheCounts[b] - nicheCounts[a]), [nicheCounts]);
 	// "Todos los nichos" no puede sumar los buckets (un anuncio puede tener
 	// varios nichos y se contaría dos veces): se cuenta directo.
-	const nicheAllCount = useMemo(() => items.filter((item) => matchesSaved(item) && matchesFormat(item) && matchesCategory(item) && matchesSearch(item)).length,
+	const nicheAllCount = useMemo(() => items.filter((item) => matchesSaved(item) && matchesFormat(item) && matchesDuration(item) && matchesCategory(item) && matchesSearch(item)).length,
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[items, savedOnly, selectedFormat, selectedCategories, query, likedScrapedPaths, favorites]);
+		[items, savedOnly, selectedFormat, selectedDuration, selectedCategories, query, likedScrapedPaths, favorites]);
 
 	// Cuántos ganadores hay de cada formato, ya filtrados por guardados/nicho/
 	// ángulo/búsqueda (todo menos el formato en sí).
@@ -869,7 +895,7 @@ export default function WinnersLibrary({
 		let carouselCount = 0;
 		let videoCount = 0;
 		items.forEach((item) => {
-			if (!matchesSaved(item) || !matchesCategory(item) || !matchesNiche(item) || !matchesSearch(item)) return;
+			if (!matchesSaved(item) || !matchesDuration(item) || !matchesCategory(item) || !matchesNiche(item) || !matchesSearch(item)) return;
 			const f = itemFormat(item);
 			if (f === 'carousel') carouselCount += 1;
 			else if (f === 'video') videoCount += 1;
@@ -877,7 +903,7 @@ export default function WinnersLibrary({
 		});
 		return { static_image: staticCount, carousel: carouselCount, video: videoCount };
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedDuration, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
 	const formatAllCount = formatCounts.static_image + formatCounts.carousel + formatCounts.video;
 
 	// Cuántos ganadores hay de cada ángulo (hero, precio, reseñas, etc.), ya
@@ -885,27 +911,56 @@ export default function WinnersLibrary({
 	const categoryCounts = useMemo(() => {
 		const m: Record<string, number> = {};
 		items.forEach((item) => {
-			if (!matchesSaved(item) || !matchesFormat(item) || !matchesNiche(item) || !matchesSearch(item)) return;
+			if (!matchesSaved(item) || !matchesFormat(item) || !matchesDuration(item) || !matchesNiche(item) || !matchesSearch(item)) return;
 			const c = (item as any).category || 'hero';
 			m[c] = (m[c] || 0) + 1;
 		});
 		return m;
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedFormat, selectedNiches, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedFormat, selectedDuration, selectedNiches, query, likedScrapedPaths, favorites]);
 	// El ángulo es un solo valor por anuncio: sumar los buckets da el total real.
 	const categoryAllCount = useMemo(() => Object.values(categoryCounts).reduce((a, b) => a + b, 0), [categoryCounts]);
+
+	// Duraciones disponibles, considerando todos los filtros menos la propia duración.
+	const durationCounts = useMemo(() => {
+		const counts: Record<Exclude<DurationFilter, 'todos'>, number> = { 'hasta-15': 0, '16-30': 0, '31-60': 0, 'mas-60': 0 };
+		items.forEach((item) => {
+			if (itemFormat(item) !== 'video' || !matchesSaved(item) || !matchesFormat(item) || !matchesCategory(item) || !matchesNiche(item) || !matchesSearch(item)) return;
+			const seconds = Number(item.metadata?.durationSec) || 0;
+			if (seconds <= 0) return;
+			if (seconds <= 15) counts['hasta-15'] += 1;
+			else if (seconds <= 30) counts['16-30'] += 1;
+			else if (seconds <= 60) counts['31-60'] += 1;
+			else counts['mas-60'] += 1;
+		});
+		return counts;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [items, savedOnly, selectedFormat, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
+	const durationAllCount = useMemo(() => Object.values(durationCounts).reduce((sum, count) => sum + count, 0), [durationCounts]);
 
 	// Filter items: los 5 filtros combinados, para lo que realmente se ve en la grilla.
 	const filteredItems = useMemo(() => {
 		return items.filter((item) =>
-			matchesSaved(item) && matchesFormat(item) && matchesCategory(item) && matchesNiche(item) && matchesSearch(item)
+			matchesSaved(item) && matchesFormat(item) && matchesDuration(item) && matchesCategory(item) && matchesNiche(item) && matchesSearch(item)
 		);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedFormat, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedFormat, selectedDuration, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
 
 	// Lazy load: primeras 20 tarjetas y +20 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(20);
-	useEffect(() => { setVisibleCount(20); }, [savedOnly, selectedFormat, selectedCategories, selectedNiches, query]);
+	const pendingFilterScrollY = useRef<number | null>(null);
+	const rememberFilterPosition = useCallback(() => {
+		pendingFilterScrollY.current = window.scrollY;
+	}, []);
+	useEffect(() => {
+		if (pendingFilterScrollY.current === null) return;
+		const targetY = pendingFilterScrollY.current;
+		pendingFilterScrollY.current = null;
+		requestAnimationFrame(() => requestAnimationFrame(() => {
+			const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+			window.scrollTo({ top: Math.min(targetY, maxY), behavior: 'auto' });
+		}));
+	}, [filteredItems]);
 
 	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
 	// imagen al instante en vez de esperar a que baje cada foto de a una.
@@ -1233,19 +1288,19 @@ export default function WinnersLibrary({
 					<Icon name="search" size={18} />
 					<input
 						value={query}
-						onChange={(e) => setQuery(e.target.value)}
+						onChange={(e) => { rememberFilterPosition(); setQuery(e.target.value); }}
 						placeholder="Buscar por marca o palabra clave..."
 					/>
 				</label>
 			</div>
 
-			{/* Nicho, Ángulo, Formato y Guardados: un solo contenedor que envuelve.
-			    En computadora entran los 4 en una fila; en mobile, al no entrar,
+			{/* Nicho, Ángulo, Formato, Duración y Guardados: un solo contenedor.
+			    En computadora se acomodan en una fila; en mobile, al no entrar,
 			    el propio wrap los acomoda de a 2 (gracias al ancho fijo/50% de
 			    cada .niche-dd) sin necesidad de filas separadas a mano. */}
-			<div className="library-filters-row library-filter-controls" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
+			<div className="library-filters-row library-filter-controls" onPointerDown={rememberFilterPosition} style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
 				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
-					<button type="button" className="niche-dd-trigger" onClick={() => { setShowNicheMenu((v) => !v); setShowCategoryMenu(false); setShowFormatMenu(false); }}>
+					<button type="button" className="niche-dd-trigger" onClick={() => { setShowNicheMenu((v) => !v); setShowCategoryMenu(false); setShowFormatMenu(false); setShowDurationMenu(false); }}>
 						<span className="niche-dd-label">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? 'Nicho' : a.length === 1 ? (nicheLabels[a[0]] || a[0]) : `${a.length} nichos`; })()}</span>
 						<span className="niche-dd-badge">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? nicheAllCount : a.reduce((s, x) => s + (nicheCounts[x] || 0), 0); })()}</span>
 						<span className={`niche-dd-caret${showNicheMenu ? ' is-open' : ''}`}>▾</span>
@@ -1276,7 +1331,7 @@ export default function WinnersLibrary({
 				</div>
 
 				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
-					<button type="button" className="niche-dd-trigger" onClick={() => { setShowCategoryMenu((v) => !v); setShowNicheMenu(false); setShowFormatMenu(false); }}>
+					<button type="button" className="niche-dd-trigger" onClick={() => { setShowCategoryMenu((v) => !v); setShowNicheMenu(false); setShowFormatMenu(false); setShowDurationMenu(false); }}>
 						<span className="niche-dd-label">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? 'Ángulo' : a.length === 1 ? (categoryLabels[a[0]] || a[0]) : `${a.length} ángulos`; })()}</span>
 						<span className="niche-dd-badge">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? categoryAllCount : a.reduce((s, x) => s + (categoryCounts[x] || 0), 0); })()}</span>
 						<span className={`niche-dd-caret${showCategoryMenu ? ' is-open' : ''}`}>▾</span>
@@ -1307,7 +1362,7 @@ export default function WinnersLibrary({
 				</div>
 
 				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
-					<button type="button" className="niche-dd-trigger" onClick={() => { setShowFormatMenu((v) => !v); setShowNicheMenu(false); setShowCategoryMenu(false); }}>
+					<button type="button" className="niche-dd-trigger" onClick={() => { setShowFormatMenu((v) => !v); setShowNicheMenu(false); setShowCategoryMenu(false); setShowDurationMenu(false); }}>
 						<span className="niche-dd-label">{selectedFormat === 'todos' ? 'Formato' : formatLabels[selectedFormat]}</span>
 						<span className="niche-dd-badge">{selectedFormat === 'todos' ? formatAllCount : formatCounts[selectedFormat]}</span>
 						<span className={`niche-dd-caret${showFormatMenu ? ' is-open' : ''}`}>▾</span>
@@ -1322,9 +1377,36 @@ export default function WinnersLibrary({
 							{formatOptions.map((opt) => {
 								const active = selectedFormat === opt.id;
 								return (
-									<button type="button" key={opt.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => { setSelectedFormat(opt.id); setShowFormatMenu(false); }}>
+									<button type="button" key={opt.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => { setSelectedFormat(opt.id); if (opt.id !== 'video') setSelectedDuration('todos'); setShowFormatMenu(false); }}>
 										<span className="niche-dd-icon" aria-hidden>{opt.icon}</span>
 										<span className="niche-dd-name">{opt.label}</span><span className="niche-dd-count">{formatCounts[opt.id] || 0}</span>
+										<span className="niche-dd-check">{active ? '✓' : ''}</span>
+									</button>
+								);
+							})}
+						</div>
+					)}
+				</div>
+
+				<div className="niche-dd duration-filter" onClick={(e) => e.stopPropagation()}>
+					<button type="button" className="niche-dd-trigger" onClick={() => { setShowDurationMenu((value) => !value); setShowNicheMenu(false); setShowCategoryMenu(false); setShowFormatMenu(false); }}>
+						<span className="niche-dd-label">{selectedDuration === 'todos' ? 'Duración' : durationLabels[selectedDuration]}</span>
+						<span className="niche-dd-badge">{selectedDuration === 'todos' ? durationAllCount : durationCounts[selectedDuration]}</span>
+						<span className={`niche-dd-caret${showDurationMenu ? ' is-open' : ''}`}>▾</span>
+					</button>
+					{showDurationMenu && (
+						<div className="niche-dd-menu">
+							<button type="button" className={`niche-dd-item${selectedDuration === 'todos' ? ' is-active' : ''}`} onClick={() => { setSelectedDuration('todos'); setShowDurationMenu(false); }}>
+								<span className="niche-dd-icon" aria-hidden>✨</span>
+								<span className="niche-dd-name">Cualquier duración</span><span className="niche-dd-count">{durationAllCount}</span>
+								<span className="niche-dd-check">{selectedDuration === 'todos' ? '✓' : ''}</span>
+							</button>
+							{durationOptions.map((option) => {
+								const active = selectedDuration === option.id;
+								return (
+									<button type="button" key={option.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => { setSelectedDuration(option.id); setSelectedFormat('video'); setShowDurationMenu(false); }}>
+										<span className="niche-dd-icon" aria-hidden>{option.icon}</span>
+										<span className="niche-dd-name">{option.label}</span><span className="niche-dd-count">{durationCounts[option.id]}</span>
 										<span className="niche-dd-check">{active ? '✓' : ''}</span>
 									</button>
 								);
@@ -1353,10 +1435,14 @@ export default function WinnersLibrary({
 					key: 'format', label: `${formatOptions.find((f) => f.id === selectedFormat)?.icon || ''} ${formatLabels[selectedFormat]}`,
 					onRemove: () => setSelectedFormat('todos'),
 				});
+				if (selectedDuration !== 'todos') chips.push({
+					key: 'duration', label: `⏱️ ${durationLabels[selectedDuration]}`,
+					onRemove: () => setSelectedDuration('todos'),
+				});
 				if (savedOnly) chips.push({ key: 'saved', label: '❤️ Guardados', onRemove: () => setSavedOnly(false) });
 				if (!chips.length) return null;
 				return (
-					<div className="library-active-filters" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+					<div className="library-active-filters" onPointerDown={rememberFilterPosition} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
 						{chips.map((chip) => (
 							<button
 								key={chip.key}
@@ -1370,7 +1456,7 @@ export default function WinnersLibrary({
 						))}
 						<button
 							type="button"
-							onClick={() => { setSelectedNiches(['todos']); setSelectedCategories(['todos']); setSelectedFormat('todos'); setSavedOnly(false); }}
+							onClick={() => { setSelectedNiches(['todos']); setSelectedCategories(['todos']); setSelectedFormat('todos'); setSelectedDuration('todos'); setSavedOnly(false); }}
 							style={{ border: 0, background: 'transparent', color: '#8b8490', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
 						>
 							Limpiar todo
@@ -1400,7 +1486,7 @@ export default function WinnersLibrary({
 					<Icon name="search" size={40} />
 					<h3>No encontramos anuncios</h3>
 					<p>Probá cambiando el nicho o la palabra clave de búsqueda.</p>
-					<button onClick={() => { setSelectedNiches(['todos']); setSavedOnly(false); setQuery(''); }}>Limpiar filtros</button>
+					<button onPointerDown={rememberFilterPosition} onClick={() => { setSelectedNiches(['todos']); setSelectedCategories(['todos']); setSelectedFormat('todos'); setSelectedDuration('todos'); setSavedOnly(false); setQuery(''); }}>Limpiar filtros</button>
 				</div>
 			) : (<>
 				<div ref={gridRef} className="library-masonry-columns" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
@@ -1710,7 +1796,7 @@ export default function WinnersLibrary({
 								{/* Copy text and Meta Ads Stats */}
 								<div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
 									<div>
-										<p 
+										<p className="library-card-copy"
 											style={{ 
 												fontSize: '11px', 
 												color: '#4a444f', 
