@@ -2958,10 +2958,10 @@
 	   eso era lo que dejaba un hueco enorme entre el texto y el numerito
 	   cuando el label era corto ("Nicho"). Ahora quedan agrupados y prolijos,
 	   con el mismo ancho fijo que "Guardados" para que las 4 píldoras midan igual. */
-	display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 13px;
-	width: 152px; box-sizing: border-box;
+	display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 7px; height: 42px; padding: 0 13px;
+	width: 158px; box-sizing: border-box;
 	border-radius: 19px; border: 1px solid #dcd5e4; background: #fff; cursor: pointer;
-	font-family: inherit; font-size: 12.5px; font-weight: 700; color: #19171d;
+	font-family: inherit; font-size: 13px; font-weight: 750; color: #19171d;
 	box-shadow: 0 2px 6px rgba(0,0,0,0.02); transition: border-color .15s ease, box-shadow .15s ease;
 }
 .niche-dd-trigger:hover { border-color: #c9bce6; }
@@ -3004,7 +3004,7 @@
    desbalanceados. Acá van lado a lado dentro de cada fila, más chicos. */
 @media (max-width: 640px) {
 	.niche-dd { flex: 1 1 calc(50% - 6px); min-width: 0; }
-	.niche-dd-trigger { width: 100%; height: 38px; padding: 0 10px; gap: 6px; font-size: 12px; }
+	.niche-dd-trigger { width: 100%; height: 42px; padding: 0 10px; gap: 5px; font-size: 12px; }
 	.niche-dd-label { max-width: none; flex: 0 1 auto; min-width: 0; font-size: 11.5px; }
 	.niche-dd-badge { font-size: 10px; padding: 1px 6px; }
 }
@@ -4653,12 +4653,12 @@
    derecha para no desbordar la pantalla. */
 .library-filter-controls {
 	width: 100%;
-	justify-content: center;
-	margin-inline: auto;
+	justify-content: flex-start;
+	margin-inline: 0;
 }
 .library-active-filters {
 	width: 100%;
-	justify-content: center;
+	justify-content: flex-start;
 }
 .library-active-filters > button {
 	max-width: 100%;
@@ -4667,7 +4667,7 @@
 @media (max-width: 640px) {
 	.library-filter-controls {
 		align-items: stretch !important;
-		justify-content: center !important;
+		justify-content: flex-start !important;
 		gap: 10px !important;
 	}
 	.library-filter-controls > .niche-dd {
@@ -4676,7 +4676,7 @@
 		min-width: 0;
 	}
 	.library-filter-controls .niche-dd-trigger {
-		justify-content: center;
+		justify-content: initial;
 		width: 100%;
 		min-width: 0;
 		padding-inline: 9px;
@@ -4696,7 +4696,7 @@
 		padding-inline: 9px;
 	}
 	.library-active-filters {
-		justify-content: center;
+		justify-content: flex-start;
 		gap: 7px;
 	}
 }
