@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
 	dialogueForSegment,
+	fallbackScenesForDuration,
 	referenceSegmentForOutput,
 	scenesForSegment,
 	videoCreditCost,
@@ -24,4 +25,9 @@ assert.deepEqual(scenesForSegment(['0–4s: Hook', '10–16s: Demostración'], s
 assert.deepEqual(referenceSegmentForOutput(second, 30), { index: 1, start: 10, end: 20, duration: 10 });
 assert.deepEqual(referenceSegmentForOutput(videoSegmentsForDuration(30)[2], 8), { index: 2, start: 0, end: 8, duration: 8 });
 
-console.log('video-pipeline: 15 assertions passed');
+const fallbackThirty = fallbackScenesForDuration(30, 'Hydra 10');
+assert.equal(fallbackThirty.length, 6);
+assert.match(fallbackThirty.at(-1) || '', /30s/);
+assert.match(fallbackThirty[2], /Hydra 10/);
+
+console.log('video-pipeline: 18 assertions passed');

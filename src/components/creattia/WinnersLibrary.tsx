@@ -296,9 +296,8 @@ export default function WinnersLibrary({
 	// Menú de click derecho sobre una tarjeta: guardar/usar sin tener que
 	// pasar por los botones chiquitos superpuestos a la imagen.
 	const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; item: WinnerItem } | null>(null);
-	const [videoLightbox, setVideoLightbox] = useState<WinnerItem | null>(null);
+	const [playingVideoPath, setPlayingVideoPath] = useState<string | null>(null);
 	const [videoCreationRef, setVideoCreationRef] = useState<WinnerItem | null>(null);
-	const [copiedScriptPath, setCopiedScriptPath] = useState<string | null>(null);
 	// Página actual de cada carrusel, por imagePath.
 	const [carouselSlideIndex, setCarouselSlideIndex] = useState<Record<string, number>>({});
 
@@ -481,16 +480,13 @@ export default function WinnersLibrary({
 		savedScrollY.current = window.scrollY;
 		void loadSavedProducts();
 		setCardContextMenu(null);
-		setVideoLightbox(null);
+		setPlayingVideoPath(null);
 		setVideoCreationRef(item);
 	};
 
 	const copyScript = (item: WinnerItem) => {
 		if (!item.promptNotes) return;
-		navigator.clipboard.writeText(item.promptNotes).then(() => {
-			setCopiedScriptPath(item.imagePath);
-			window.setTimeout(() => setCopiedScriptPath((curr) => (curr === item.imagePath ? null : curr)), 1800);
-		}).catch(() => {});
+		void navigator.clipboard.writeText(item.promptNotes).catch(() => {});
 	};
 
 	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1431,6 +1427,7 @@ export default function WinnersLibrary({
 						};
 
 						const isSelected = selectedImagePaths.includes(item.imagePath);
+						const isVideoPlaying = isVideo && playingVideoPath === item.imagePath;
 
 						return (
 							<article 
@@ -1448,8 +1445,8 @@ export default function WinnersLibrary({
 								onClick={() => {
 									if (multiSelectMode) {
 										toggleSelectPath(item.imagePath);
-									} else if (isVideo) {
-										setVideoLightbox(item);
+									} else if (isVideo && !isVideoPlaying) {
+										setPlayingVideoPath(item.imagePath);
 									} else {
 										handleUseIdea(item);
 									}
@@ -1548,17 +1545,19 @@ export default function WinnersLibrary({
 										overflow: 'hidden' 
 									}}
 								>
-									{/* Protection overlay */}
-									<div 
-										style={{
-											position: 'absolute',
-											inset: 0,
-											zIndex: 2,
-											background: 'transparent'
-										}}
-										onContextMenu={(e) => e.preventDefault()}
-										onDragStart={(e) => e.preventDefault()}
-									/>
+									{/* La capa protege las portadas, pero se retira al reproducir para no bloquear los controles. */}
+									{!isVideoPlaying && (
+										<div
+											style={{
+												position: 'absolute',
+												inset: 0,
+												zIndex: 2,
+												background: 'transparent'
+											}}
+											onContextMenu={(e) => e.preventDefault()}
+											onDragStart={(e) => e.preventDefault()}
+										/>
+									)}
 									
 									{/* Heart Button */}
 									<button 
@@ -1618,7 +1617,7 @@ export default function WinnersLibrary({
 										</div>
 									)}
 
-									{isVideo && (
+									{isVideo && !isVideoPlaying && (
 										<>
 											<div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 4, background: 'rgba(25,23,29,0.75)', backdropFilter: 'blur(4px)', color: '#fff', borderRadius: '6px', padding: '4px 8px', fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
 												🎬 VIDEO{item.metadata?.durationSec ? ` · ${Math.round(item.metadata.durationSec)}s` : ''}
@@ -1628,7 +1627,7 @@ export default function WinnersLibrary({
 												className="winner-video-play"
 												onClick={(event) => {
 													event.stopPropagation();
-													setVideoLightbox(item);
+													setPlayingVideoPath(item.imagePath);
 												}}
 												aria-label={`Reproducir video de ${item.name}`}
 											>
@@ -1686,6 +1685,20 @@ export default function WinnersLibrary({
 										onContextMenu={(e) => e.preventDefault()}
 										onDragStart={(e) => e.preventDefault()}
 									/>
+									{isVideoPlaying && item.metadata?.videoPath && (
+										<video
+											key={item.metadata.videoPath}
+											className="winner-inline-video"
+											src={item.metadata.videoPath}
+											poster={slideUrl}
+											controls
+											autoPlay
+											playsInline
+											preload="metadata"
+											onClick={(event) => event.stopPropagation()}
+											onDoubleClick={(event) => event.stopPropagation()}
+										/>
+									)}
 								</div>
 
 								{/* Copy text and Meta Ads Stats */}
@@ -1793,7 +1806,7 @@ export default function WinnersLibrary({
 						<>
 							<button
 								type="button"
-								onClick={() => { setVideoLightbox(cardContextMenu.item); setCardContextMenu(null); }}
+								onClick={() => { setPlayingVideoPath(cardContextMenu.item.imagePath); setCardContextMenu(null); }}
 								style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'transparent', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#19171d', fontWeight: 600, textAlign: 'left', width: '100%', fontFamily: 'inherit' }}
 							>
 								▶️ Reproducir
@@ -1856,58 +1869,6 @@ export default function WinnersLibrary({
 							🗑️ Eliminar ganador
 						</button>
 					)}
-				</div>
-			)}
-
-			{videoLightbox && (
-				<div className="ref-modal" onClick={() => setVideoLightbox(null)}>
-					<div className="ref-modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(420px, 92vw)', padding: '14px' }}>
-						<div className="ref-modal-head">
-							<div>
-								<span className="ref-modal-kicker">🎬 {categoryLabels[(videoLightbox as any).category] || (videoLightbox as any).category}{videoLightbox.metadata?.domain ? ` · ${videoLightbox.metadata.domain}` : ''}</span>
-								<h4>{videoLightbox.name}</h4>
-							</div>
-							<button type="button" onClick={() => setVideoLightbox(null)} aria-label="Cerrar">✕</button>
-						</div>
-						<video
-							key={videoLightbox.metadata?.videoPath}
-							src={videoLightbox.metadata?.videoPath}
-							controls
-							autoPlay
-							playsInline
-							style={{ width: '100%', maxHeight: '68vh', borderRadius: '12px', display: 'block', background: '#000' }}
-						/>
-						<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-							<a
-								href={videoLightbox.metadata?.videoPath}
-								download
-								style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: '10px', background: '#19171d', color: '#fff', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}
-							>
-								Descargar
-							</a>
-							{videoLightbox.promptNotes && (
-								<button
-									type="button"
-									onClick={() => copyScript(videoLightbox)}
-									style={{ flex: 1, padding: '10px 0', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
-								>
-									{copiedScriptPath === videoLightbox.imagePath ? '✓ Copiado' : 'Copiar guion'}
-								</button>
-							)}
-							<button
-								type="button"
-								onClick={() => handleCreateVideo(videoLightbox)}
-								style={{ flex: '1 1 100%', padding: '10px 0', borderRadius: '10px', border: 0, background: 'linear-gradient(135deg, #744bde, #ef3f83)', color: '#fff', fontSize: '13px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
-							>
-								Usar esta idea →
-							</button>
-						</div>
-						{videoLightbox.promptNotes && (
-							<p style={{ margin: 0, fontSize: '12.5px', color: '#716d79', lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: '160px', overflowY: 'auto' }}>
-								{videoLightbox.promptNotes}
-							</p>
-						)}
-					</div>
 				</div>
 			)}
 

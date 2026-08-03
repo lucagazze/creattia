@@ -1,4 +1,6 @@
+import json
 import os
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -24,6 +26,35 @@ created = requests.post(f"{supabase_url}/auth/v1/admin/users", headers=admin_hea
 created.raise_for_status()
 user_id = created.json()["id"]
 
+fake_analysis = {
+    "hook": "Una creadora muestra el problema en el primer segundo y promete una solución simple.",
+    "pacing": "Cortes rápidos al inicio, demostración central y cierre claro.",
+    "camera": "Primeros planos UGC, cámara en mano estable y detalle del producto.",
+    "hasSpeakingPerson": True,
+    "dialoguePurpose": "Convertir el problema en una recomendación creíble y cerrar con una acción.",
+}
+fake_plan = {
+    "hook": "¿Tu piel queda tirante después de lavarla? Mirá esto.",
+    "objective": "Conversión",
+    "audience": "Personas con piel sensible",
+    "coreMessage": "Hydra 10 hidrata con una textura liviana y fácil de incorporar.",
+    "visualStyle": "UGC realista, luz natural y producto siempre fiel a las fotos.",
+    "voiceover": "Voz cálida y natural.",
+    "captions": "Hook, beneficio y CTA en textos breves.",
+    "audio": "Beat moderno suave con efectos sincronizados.",
+    "cta": "Conocé Hydra 10",
+    "scenes": [
+        "0–3s: Hook a cámara, problema visible y producto entrando en cuadro.",
+        "3–8s: Demostración de textura y aplicación con primer plano del envase.",
+        "8–10s: Resultado, marca y CTA final.",
+    ],
+    "speechMode": "adapt",
+    "hasSpokenDialogue": True,
+    "dialogueLines": [
+        {"start": 0.5, "end": 4, "speaker": "Creadora", "line": "Si tu piel queda tirante, Hydra 10 puede simplificar tu rutina.", "delivery": "Natural, cercana y mirando a cámara."}
+    ],
+}
+
 try:
     requests.patch(
         f"{supabase_url}/rest/v1/creative_profiles?user_id=eq.{user_id}",
@@ -46,6 +77,10 @@ try:
             page = browser.new_page(viewport={"width": 1440, "height": 900})
             browser_errors = []
             page.on("pageerror", lambda error: browser_errors.append(str(error)))
+            page.route(
+                "**/api/creativos/video-plan",
+                lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps({"ok": True, "analysis": fake_analysis, "plan": fake_plan})),
+            )
             page.goto("http://localhost:4321/app")
             page.wait_for_load_state("networkidle")
             page.get_by_role("button", name="Ingresar", exact=True).click()
@@ -56,40 +91,79 @@ try:
             page.get_by_text("Biblioteca de ganadores", exact=True).first.wait_for(timeout=20_000)
             page.get_by_text("Biblioteca de ganadores", exact=True).first.click()
             page.get_by_role("heading", name="Biblioteca de ganadores").wait_for(timeout=20_000)
-            play_buttons = page.locator('[aria-label^="Reproducir video de"]')
+            play_buttons = page.locator('[aria-label^="Reproducir video de"]:visible')
             play_buttons.first.wait_for(timeout=30_000)
             video_count = play_buttons.count()
             assert video_count > 0, "La biblioteca debe renderizar videos ganadores"
             play_buttons.first.click()
-            lightbox_video = page.locator(".ref-modal video")
-            lightbox_video.wait_for(timeout=10_000)
-            assert lightbox_video.get_attribute("controls") is not None
-            page.get_by_role("button", name="Usar esta idea →").click()
-            page.get_by_role("heading", name="Construí el video antes de generarlo.").wait_for(timeout=10_000)
-
+            inline_video = page.locator("video.winner-inline-video:visible").first
+            inline_video.wait_for(timeout=10_000)
+            assert inline_video.get_attribute("controls") is not None
+            assert page.locator(".ref-modal video").count() == 0, "El video no debe abrirse en un modal"
+            inline_screenshot_path = os.environ.get("CREATTIA_INLINE_VIDEO_SCREENSHOT", "").strip()
+            if inline_screenshot_path:
+                Path(inline_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=inline_screenshot_path, full_page=False)
             page.set_viewport_size({"width": 390, "height": 844})
+            page.wait_for_timeout(300)
+            assert inline_video.is_visible(), "El reproductor inline debe seguir visible en mobile"
+            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "El reproductor inline no debe desbordar en mobile"
+            video_card = inline_video.locator("xpath=ancestor::article[1]")
+            video_card.get_by_role("button", name="Usar esta idea", exact=True).click()
+            page.get_by_role("heading", name="Adaptá la idea ganadora a tu negocio").wait_for(timeout=10_000)
+
             page.wait_for_timeout(500)
-            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "El flujo no debe desbordar horizontalmente en mobile"
-            page.get_by_placeholder("Nombre del producto").fill("Producto UI Creattia")
-            page.get_by_placeholder("Ej: Creattia").fill("Marca UI Creattia")
-            page.locator('.video-file-picker input[type="file"]').first.set_input_files(str(product_path))
-            page.get_by_role("button", name="Continuar →").click()
+            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "El paso de producto no debe desbordar en mobile"
+            page.get_by_placeholder("Ej.: https://mitienda.com/producto").wait_for()
+            page.get_by_role("button", name=re.compile("Cargar a mano")).click()
+            page.get_by_placeholder("Ej.: Sérum hidratante Hydra 10").fill("Hydra 10")
+            page.get_by_placeholder("Ej.: hidrata 24 h, apto para piel sensible, cuesta $29.900 y tiene envío gratis").fill("Hidratación ligera para piel sensible")
+            page.locator('.video-manual-product input[type="file"]').set_input_files(str(product_path))
+            page.get_by_role("button", name="Continuar", exact=True).click()
+
+            page.get_by_text("¿Qué querés tomar del anuncio ganador?").wait_for()
+            page.get_by_role("button", name="Idea + guion adaptado", exact=False).click()
+            page.get_by_placeholder("Ej.: mujeres de 25 a 40 con piel sensible").fill("Personas de 25 a 40 con piel sensible")
+            page.get_by_placeholder("Ej.: hidrata sin dejar sensación grasa").fill("Hidrata sin sensación grasa")
+            page.get_by_role("button", name="Continuar", exact=True).click()
+
+            page.get_by_text("¿Quién aparece en el video?").wait_for()
             page.get_by_role("button", name="Sin personas", exact=False).click()
-            page.get_by_role("button", name="Continuar →").click()
-            duration_select = page.locator('select:has(option[value="30"])')
-            assert "20 segundos" in duration_select.inner_text()
-            assert "30 segundos" in duration_select.inner_text()
-            duration_select.select_option("30")
-            assert "12 créditos al generar" in page.locator(".video-creation-cost").inner_text()
-            page.get_by_role("button", name="Adaptar el diálogo", exact=False).click()
-            page.get_by_placeholder("Ej: nombrar a MiMarca, explicar que el sérum hidrata y cerrar con Compralo hoy").wait_for()
-            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "El paso de producción no debe desbordar en mobile"
+            page.get_by_placeholder("Ej.: abre el envase, aplica dos gotas y muestra la textura de cerca").fill("Mostrar el envase y la textura en primer plano")
+            page.get_by_role("button", name="Continuar", exact=True).click()
+
+            page.get_by_text("Formato del video", exact=True).wait_for()
+            assert page.get_by_role("button", name="Igual al ganador", exact=False).count() == 1
+            assert page.get_by_role("button", name="Un poco más largo", exact=False).count() <= 1
+            page.get_by_role("button", name="30 s", exact=True).click()
+            page.locator(".video-duration-custom").get_by_text("12 créditos", exact=True).wait_for()
+            page.get_by_role("button", name="Adaptar el diálogo ganador", exact=False).click()
+            page.get_by_placeholder("Ej.: nombrar a Marca UI Creattia", exact=False).fill("Nombrar Hydra 10 y cerrar con Conocelo hoy")
+            page.get_by_role("button", name="Con voz en off", exact=True).click()
+            page.get_by_role("button", name="Con música", exact=True).click()
+            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "Producción no debe desbordar en mobile"
+
+            page.get_by_role("button", name="Analizar y crear guion", exact=True).click()
+            page.get_by_text("PLAN Y GUION CREADOS PARA HYDRA 10").wait_for(timeout=10_000)
+            page.get_by_text("Hook detectado", exact=True).wait_for()
+            page.get_by_text("Guion hablado", exact=True).wait_for()
+            assert page.get_by_role("textbox", name="Diálogo 1", exact=True).input_value().startswith("Si tu piel")
+            assert "Aprobar y generar" in page.locator(".video-review-actions").inner_text()
+            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "La revisión del guion no debe desbordar en mobile"
+            mobile_screenshot_path = os.environ.get("CREATTIA_UI_MOBILE_SCREENSHOT", "").strip()
+            if mobile_screenshot_path:
+                Path(mobile_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=mobile_screenshot_path, full_page=True)
 
             page.set_viewport_size({"width": 1440, "height": 900})
             page.wait_for_timeout(300)
+            screenshot_path = os.environ.get("CREATTIA_UI_SCREENSHOT", "").strip()
+            if screenshot_path:
+                Path(screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=screenshot_path, full_page=True)
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "El flujo no debe desbordar en desktop"
             assert not browser_errors, f"Errores de navegador: {browser_errors}"
-            print(f"video-ui: PASS; {video_count} videos visibles, player y wizard verificados en 390px/1440px")
+            print(f"video-ui: PASS; {video_count} videos, intake URL/manual, casting, producción y guion verificados en 390px/1440px")
             browser.close()
 finally:
     requests.delete(f"{supabase_url}/auth/v1/admin/users/{user_id}", headers=admin_headers, timeout=30)

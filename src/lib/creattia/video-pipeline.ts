@@ -34,6 +34,37 @@ export function videoCreditCost(value: string | number) {
 	return videoSegmentsForDuration(value).length * VIDEO_CREDITS_PER_SEGMENT;
 }
 
+export function fallbackScenesForDuration(rawDuration: string | number, productName: string) {
+	const duration = Math.max(4, Number(rawDuration) || 8);
+	if (duration <= 4) return [
+		`0–1s: Hook visual inmediato con ${productName} y el problema principal.`,
+		`1–3s: Demostración rápida del uso o del beneficio con el producto visible.`,
+		`3–${duration}s: Resultado, marca y CTA claro.`,
+	];
+	if (duration <= 10) {
+		const hookEnd = Math.min(2, duration * .2);
+		const problemEnd = Math.min(duration - 3, duration * .42);
+		const demoEnd = Math.min(duration - 2, duration * .7);
+		const proofEnd = Math.min(duration - 1, duration * .86);
+		return [
+			`0–${hookEnd}s: Hook visual y verbal con el beneficio principal.`,
+			`${hookEnd}–${problemEnd}s: Problema cotidiano que vive la audiencia.`,
+			`${problemEnd}–${demoEnd}s: ${productName} en uso, con envase y acción claramente visibles.`,
+			`${demoEnd}–${proofEnd}s: Resultado o prueba visual verificable.`,
+			`${proofEnd}–${duration}s: Producto, marca y CTA final.`,
+		];
+	}
+	const marks = [0, .1, .25, .45, .65, .82, 1].map((ratio) => Math.round(duration * ratio * 10) / 10);
+	return [
+		`${marks[0]}–${marks[1]}s: Hook que detiene el scroll y presenta el problema.`,
+		`${marks[1]}–${marks[2]}s: Situación reconocible y promesa de solución.`,
+		`${marks[2]}–${marks[3]}s: Presentación de ${productName} con detalle fiel del envase.`,
+		`${marks[3]}–${marks[4]}s: Demostración paso a paso y diálogo adaptado a la marca.`,
+		`${marks[4]}–${marks[5]}s: Beneficio, prueba o resultado visual verificable.`,
+		`${marks[5]}–${marks[6]}s: Resumen, marca, oferta válida y CTA final.`,
+	];
+}
+
 export function dialogueForSegment(lines: VideoDialogueLine[] | undefined, segment: VideoSegment) {
 	return (lines || [])
 		.filter((line) => Number(line.end) > segment.start && Number(line.start) < segment.end)

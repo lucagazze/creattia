@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import RunwayML, { toFile } from '@runwayml/sdk';
 import { GoogleGenAI } from '@google/genai';
-import { VIDEO_OUTPUT_DURATIONS, VIDEO_CREDITS_PER_SEGMENT, type VideoDialogueLine } from './video-pipeline';
+import { fallbackScenesForDuration, VIDEO_OUTPUT_DURATIONS, VIDEO_CREDITS_PER_SEGMENT, type VideoDialogueLine } from './video-pipeline';
 import type { FullVideoReferenceAnalysis } from './video-reference';
 
 export type VideoReferenceAnalysis = FullVideoReferenceAnalysis & {
@@ -64,7 +64,6 @@ function fallbackVideoPlan(input: {
 	speechMode?: 'adapt' | 'new' | 'none';
 	dialogueInstructions?: string;
 }): VideoCreativePlan {
-	const isShort = Number(input.duration) <= 4;
 	return {
 		hook: `Mostrar ${input.productName} en el primer segundo con una promesa clara para ${input.audience || 'la audiencia objetivo'}.`,
 		objective: input.objective || 'Conversión',
@@ -84,9 +83,7 @@ function fallbackVideoPlan(input: {
 			line: input.dialogueInstructions || `${input.brandName || 'Esta marca'} presenta ${input.productName}: ${input.benefit || 'una solución simple para tu día a día'}. ${input.cta || 'Descubrilo ahora'}.`,
 			delivery: 'Natural, clara y convincente; mirando a cámara cuando corresponda.',
 		}],
-		scenes: isShort
-			? ['0–1s: Gancho visual con el producto y el beneficio principal.', '1–3s: Demostración rápida del uso o resultado.', '3–4s: Producto, marca y CTA claro.']
-			: ['0–2s: Gancho visual con el producto y el beneficio principal.', '2–4s: Situación o problema que vive la audiencia.', '4–6s: Demostración del producto en uso.', '6–7s: Resultado o prueba visual del beneficio.', '7–8s: Cierre con producto, marca y CTA claro.'],
+		scenes: fallbackScenesForDuration(input.duration, input.productName),
 	};
 }
 
