@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '../../lib/creattia/supabase-browser';
 import { creativeCatalog } from '../../lib/creattia/catalog';
 import { isAdminEmail } from '../../lib/creattia/admin';
@@ -224,6 +224,7 @@ type WinnerItem = {
 };
 
 const VIDEOS_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-videos';
+let winnersLibraryCache: WinnerItem[] | null = null;
 
 export default function WinnersLibrary({
 	session,
@@ -705,10 +706,21 @@ export default function WinnersLibrary({
 		}
 	};
 
-	const loadWinners = async () => {
+	const loadWinners = async (force = false) => {
+		if (!force && winnersLibraryCache) {
+			setError('');
+			setItems(winnersLibraryCache);
+			setLoading(false);
+			return;
+		}
 		try {
 			setLoading(true);
 			let rawItems: any[] = [];
+			// El manifiesto de videos es independiente: arrancarlo ya evita una
+			// espera secuencial después de descargar el catálogo de imágenes.
+			const videoManifestPromise = fetch(`${VIDEOS_BASE}/manifests/video-library.json`)
+				.then(async (res) => res.ok ? res.json() : null)
+				.catch(() => null);
 			if (supabase) {
 				const { data: manifestUrl } = supabase.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
 				let res = await fetch(manifestUrl.publicUrl);
@@ -729,31 +741,26 @@ export default function WinnersLibrary({
 			// Videos ganadores: misma biblioteca, un bucket aparte. Se normalizan al
 			// mismo shape (imagePath = poster en URL absoluta) para que compartan
 			// filtro, grilla y clasificación con las imágenes.
-			try {
-				const videoRes = await fetch(`${VIDEOS_BASE}/manifests/video-library.json`);
-				if (videoRes.ok) {
-					const videoData = await videoRes.json();
-					const videoItems = (videoData.items || [])
-						.filter((v: any) => v.videoPath && v.thumbnailPath)
-						.map((v: any) => ({
-							templateId: -1,
-							name: v.name || 'Video ganador',
-							imagePath: `${VIDEOS_BASE}/${v.thumbnailPath}`,
-							promptNotes: v.promptNotes || null,
-							categoryLeaf: v.category || null,
-							metadata: {
-								mediaType: 'video',
-								foreplayNiches: v.metadata?.foreplayNiches || [],
-								domain: v.metadata?.domain || '',
-								videoPath: `${VIDEOS_BASE}/${v.videoPath}`,
-								durationSec: v.metadata?.durationSec || undefined,
-								likes: v.metadata?.likes || 0,
-							},
-						}));
-					rawItems = [...rawItems, ...videoItems];
-				}
-			} catch {
-				// Sin videos no se corta la biblioteca de imágenes.
+			const videoData = await videoManifestPromise;
+			if (videoData) {
+				const videoItems = (videoData.items || [])
+					.filter((v: any) => v.videoPath && v.thumbnailPath)
+					.map((v: any) => ({
+						templateId: -1,
+						name: v.name || 'Video ganador',
+						imagePath: `${VIDEOS_BASE}/${v.thumbnailPath}`,
+						promptNotes: v.promptNotes || null,
+						categoryLeaf: v.category || null,
+						metadata: {
+							mediaType: 'video',
+							foreplayNiches: v.metadata?.foreplayNiches || [],
+							domain: v.metadata?.domain || '',
+							videoPath: `${VIDEOS_BASE}/${v.videoPath}`,
+							durationSec: v.metadata?.durationSec || undefined,
+							likes: v.metadata?.likes || 0,
+						},
+					}));
+				rawItems = [...rawItems, ...videoItems];
 			}
 
 			const classified = rawItems.map(item => {
@@ -776,7 +783,8 @@ export default function WinnersLibrary({
 				const j = Math.floor(Math.random() * (i + 1));
 				[deduped[i], deduped[j]] = [deduped[j], deduped[i]];
 			}
-			setItems(deduped);
+			winnersLibraryCache = deduped as WinnerItem[];
+			setItems(winnersLibraryCache);
 		} catch (err: any) {
 			setError(err.message || 'Error cargando ganadores.');
 		} finally {
@@ -917,24 +925,46 @@ export default function WinnersLibrary({
 		observer.observe(element);
 		return () => observer.disconnect();
 	}, [activeAd, loading, filteredItems.length]);
+	const loadMore = useCallback(() => {
+		setVisibleCount((current) => Math.min(current + 20, filteredItems.length));
+	}, [filteredItems.length]);
+	const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
+	const visibleColumns = useMemo(() => splitColumns(visibleItems, columnCount), [visibleItems, columnCount]);
+	const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
 	// Al volver de "Crear con este diseño" a la grilla, restaura el scroll
 	// guardado en handleUseIdea en vez de dejar la página arriba de todo.
 	useEffect(() => {
 		if (activeAd) return;
 		const y = savedScrollY.current;
 		if (!y) return;
-		requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
-	}, [activeAd]);
-	const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
+		requestAnimationFrame(() => requestAnimationFrame(() => {
+			window.scrollTo(0, y);
+			requestAnimationFrame(() => {
+				const sentinel = loadMoreRef.current;
+				if (sentinel && sentinel.getBoundingClientRect().top <= window.innerHeight + 900) loadMore();
+			});
+		}));
+	}, [activeAd, loadMore]);
 	useEffect(() => {
 		const sentinel = loadMoreRef.current;
 		if (!sentinel || visibleCount >= filteredItems.length) return;
+		const maybeLoadMore = () => {
+			if (sentinel.getBoundingClientRect().top <= window.innerHeight + 900) loadMore();
+		};
 		const observer = new IntersectionObserver((entries) => {
-			if (entries[0]?.isIntersecting) setVisibleCount((current) => current + 20);
+			if (entries[0]?.isIntersecting) loadMore();
 		}, { rootMargin: '600px' });
 		observer.observe(sentinel);
-		return () => observer.disconnect();
-	}, [visibleCount, filteredItems.length, activeAd]);
+		window.addEventListener('scroll', maybeLoadMore, { passive: true });
+		window.addEventListener('resize', maybeLoadMore);
+		const frame = requestAnimationFrame(maybeLoadMore);
+		return () => {
+			observer.disconnect();
+			window.removeEventListener('scroll', maybeLoadMore);
+			window.removeEventListener('resize', maybeLoadMore);
+			cancelAnimationFrame(frame);
+		};
+	}, [visibleCount, filteredItems.length, activeAd, loadMore]);
 
 	// Delete winner handler
 	const handleDelete = async (imagePath: string) => {
@@ -950,6 +980,7 @@ export default function WinnersLibrary({
 			if (!res.ok) throw new Error(payload.error || 'Error al eliminar.');
 			
 			// Update local state
+			winnersLibraryCache = null;
 			setItems(prev => prev.filter(item => item.imagePath !== imagePath));
 			setSelectedImagePaths(prev => prev.filter(p => p !== imagePath));
 		} catch (err: any) {
@@ -975,6 +1006,7 @@ export default function WinnersLibrary({
 			if (!res.ok) throw new Error(payload.error || 'Error al eliminar selección.');
 
 			const removeSet = new Set(selectedImagePaths);
+			winnersLibraryCache = null;
 			setItems(prev => prev.filter(item => !removeSet.has(item.imagePath)));
 			setSelectedImagePaths([]);
 			if (onToast) onToast(`¡${payload.deletedCount || selectedImagePaths.length} anuncios eliminados con éxito!`);
@@ -1036,7 +1068,7 @@ export default function WinnersLibrary({
 			setNewAdFile(null);
 			setNewAdMediaType('static_image');
 			setNewAdCarouselFiles([]);
-			void loadWinners();
+			void loadWinners(true);
 		} catch (err: any) {
 			alert(err.message);
 		} finally {
@@ -1183,7 +1215,7 @@ export default function WinnersLibrary({
 			    En computadora entran los 4 en una fila; en mobile, al no entrar,
 			    el propio wrap los acomoda de a 2 (gracias al ancho fijo/50% de
 			    cada .niche-dd) sin necesidad de filas separadas a mano. */}
-			<div className="library-filters-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
+			<div className="library-filters-row library-filter-controls" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
 				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
 					<button type="button" className="niche-dd-trigger" onClick={() => { setShowNicheMenu((v) => !v); setShowCategoryMenu(false); setShowFormatMenu(false); }}>
 						<span className="niche-dd-label">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? 'Nicho' : a.length === 1 ? (nicheLabels[a[0]] || a[0]) : `${a.length} nichos`; })()}</span>
@@ -1296,7 +1328,7 @@ export default function WinnersLibrary({
 				if (savedOnly) chips.push({ key: 'saved', label: '❤️ Guardados', onRemove: () => setSavedOnly(false) });
 				if (!chips.length) return null;
 				return (
-					<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+					<div className="library-active-filters" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
 						{chips.map((chip) => (
 							<button
 								key={chip.key}
@@ -1333,7 +1365,7 @@ export default function WinnersLibrary({
 					<Icon name="close" size={40} />
 					<h3>Error de conexión</h3>
 					<p>{error}</p>
-					<button onClick={() => void loadWinners()}>Reintentar</button>
+					<button onClick={() => void loadWinners(true)}>Reintentar</button>
 				</div>
 			) : filteredItems.length === 0 ? (
 				<div className="studio-empty large">
@@ -1344,7 +1376,7 @@ export default function WinnersLibrary({
 				</div>
 			) : (<>
 				<div ref={gridRef} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-					{splitColumns(filteredItems.slice(0, visibleCount), columnCount).map((columnItems, columnIndex) => (
+					{visibleColumns.map((columnItems, columnIndex) => (
 					<div key={columnIndex} style={{ flex: '1 1 0%', minWidth: 0, maxWidth: `${100 / columnCount}%`, display: 'flex', flexDirection: 'column', gap: '16px' }}>
 					{columnItems.map((item, idx) => {
 						const hasFailed = item.imagePath ? failedImages.has(item.imagePath) : false;
@@ -1599,7 +1631,8 @@ export default function WinnersLibrary({
 										src={slideUrl}
 										alt={item.name}
 										style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }}
-										loading="lazy"
+										loading={idx < 2 ? 'eager' : 'lazy'}
+										decoding="async"
 										onError={(event) => {
 											// Reintento único: el CDN a veces devuelve 429 bajo carga.
 											const img = event.currentTarget;

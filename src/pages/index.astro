@@ -63,10 +63,10 @@ const cylinderImages = [
 ];
 
 const plans = [
-	{ name: 'Gratis', price: '0', description: 'Probá el flujo completo antes de elegir.', credits: '3 imágenes', href: '/app/?plan=free', features: ['1 marca conectada', 'Biblioteca completa', 'Sin tarjeta de crédito'] },
-	{ name: 'Pro', price: '39', description: 'Para crear y probar nuevas ideas cada semana.', credits: '120 imágenes/mes', href: '/app/?plan=pro', features: ['1 marca conectada', 'Hasta 5 productos por pieza', 'Historial, favoritos y variantes'], featured: true },
-	{ name: 'Escala', price: '79', description: 'Para negocios con más volumen creativo.', credits: '300 imágenes/mes', href: '/app/?plan=scale', features: ['Todo lo de Pro', 'Mayor volumen mensual', 'Flujo de trabajo prioritario'] },
-	{ name: 'Agencia', price: '149', description: 'Para agencias y marcas en rápido crecimiento.', credits: '800 imágenes/mes', href: '/app/?plan=agency', features: ['Marcas ilimitadas', 'Soporte premium 24/7', 'Acceso anticipado a funciones', 'API de generación'] }
+	{ name: 'Gratis / Pago por uso', price: '0', description: 'Probá gratis y comprá packs sueltos por imagen.', cta: 'Pagar por imagen', href: '/app/?plan=free', features: ['3 créditos de regalo al registrarte', 'Págs de destino y biblioteca de ganadores', 'Comprá packs individuales por imagen', '1 marca activa', 'Soporte por email estándar'] },
+	{ name: 'Starter', price: '29', description: 'Para creadores de contenido que recién empiezan.', cta: 'Elegir Starter', href: '/app/?plan=creator', features: ['40 imágenes al mes', '≈ $0.72 por imagen', 'Hasta 2 generaciones simultáneas', '1 marca activa', 'Soporte estándar por email'] },
+	{ name: 'Pro', price: '59', description: 'Para marcas en crecimiento y e-commerce activos.', cta: 'Elegir Pro', href: '/app/?plan=pro', features: ['120 imágenes al mes', '≈ $0.49 por imagen — el más elegido', 'Hasta 6 generaciones simultáneas', 'Hasta 3 marcas activas', 'Soporte prioritario por email'], featured: true },
+	{ name: 'Scale', price: '99', description: 'Para agencias y equipos que escalan contenido.', cta: 'Elegir Scale', href: '/app/?plan=scale', features: ['300 imágenes al mes', '≈ $0.33 por imagen — menor costo', 'Generaciones simultáneas ilimitadas', 'Hasta 5 marcas activas', 'Soporte prioritario y acceso anticipado'] }
 ];
 
 
@@ -141,22 +141,12 @@ const faqs = [
 							<span class="hero-badge-text">IA PARA MARKETING</span>
 						</div>
 					</div>
-					<h1 class="hero-title">Anuncios que venden,<br/>para tu negocio.</h1>
+					<h1 class="hero-title"><span>Convertí ideas ganadoras</span><span>en anuncios que venden.</span></h1>
 					<p class="hero-subtitle">Elegí un anuncio que ya está funcionando y Creattia lo recrea con tu producto: creativos de alto rendimiento, listos para publicar en minutos.</p>
-					<form class="hero-url-batch-form" action="/app/" method="GET" style="display: flex; align-items: center; gap: 10px; margin-top: 28px; width: 100%; max-width: 620px; box-sizing: border-box; background: #ffffff; padding: 6px 8px 6px 18px; border-radius: 999px; box-shadow: 0 12px 36px rgba(116, 75, 222, 0.16);">
-						<span style="font-size: 18px; flex-shrink: 0;">🔗</span>
-						<input
-							type="url"
-							name="batchUrl"
-							placeholder="Pegá la URL de tu producto (ej: mi-tienda.com/producto)"
-							required
-							style="flex: 1 1 0; min-width: 0; background: transparent; border: none; outline: none; color: #19171d; font-size: 14.5px; font-weight: 600;"
-						/>
-						<button type="submit" class="gradient-cta" style="height: 46px; padding: 0 22px; font-size: 14.5px; flex-shrink: 0; border: none !important; outline: none !important; cursor: pointer;">
-							<span>Generar Anuncios Probados</span>
-							<svg class="cta-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"></path></svg>
-						</button>
-					</form>
+					<a class="gradient-cta hero-primary-cta" href="/app/">
+						<span>Empezar gratis</span>
+						<svg class="cta-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"></path></svg>
+					</a>
 					</div>
 				<!-- Hero Video Container matching TryHolo look -->
 				<div class="hero-video-container">
@@ -650,9 +640,9 @@ const faqs = [
 		<!-- Pricing Section -->
 		<section class="pricing-section" id="precios">
 			<div class="section-header max-w-[800px] margin-auto">
-				<span class="section-tag">PRECIOS CLAROS</span>
-				<h2>Elegí el volumen de creación que necesitás.</h2>
-				<p class="section-desc">Todos los planes incluyen acceso a nuestra biblioteca completa de ideas y flujos inteligentes.</p>
+				<span class="section-tag">PLANES</span>
+				<h2>Elegí cuántas imágenes querés crear.</h2>
+				<p class="section-desc">Todos los planes incluyen las mismas herramientas. Solo cambia la cantidad mensual.</p>
 			</div>
 
 			<div class="plans-grid">
@@ -663,16 +653,13 @@ const faqs = [
 						<p class="plan-desc">{plan.description}</p>
 						
 						<div class="plan-price">
-							<span class="currency">USD</span>
-							<b class="amount">${plan.price}</b>
-							<span class="period">/mes</span>
+							<span class="currency">$</span>
+							<b class="amount">{plan.price}</b>
+							{plan.price !== '0' && <span class="period">/mes</span>}
 						</div>
 
-						<strong class="plan-credits">{plan.credits}</strong>
-
 						<a href={plan.href} class="plan-cta">
-							<span>Elegir {plan.name}</span>
-							<span>→</span>
+							<span>{plan.cta}</span>
 						</a>
 
 						<ul class="plan-features">
@@ -3342,5 +3329,160 @@ const faqs = [
 	/* Red de contención: ninguna imagen ni media puede pasarse del contenedor. */
 	img, svg, video, canvas, iframe {
 		max-width: 100%;
+	}
+
+	/* Hero: promesa corta, memorable y siempre en dos líneas. */
+	.hero-title span {
+		display: block;
+		white-space: nowrap;
+	}
+
+	.hero-primary-cta {
+		justify-content: center;
+		min-width: 248px;
+		margin-top: 28px;
+	}
+
+	/* Pricing landing: la misma estructura y oferta que la pantalla de planes. */
+	.pricing-section {
+		padding: 96px 30px 84px;
+		background: linear-gradient(180deg, #fff 0%, #fbf9fd 100%);
+		overflow: visible;
+	}
+
+	.pricing-section > .section-header {
+		max-width: 1200px;
+		margin-inline: auto;
+		text-align: left;
+	}
+
+	.plans-grid {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 24px;
+		max-width: 1200px;
+		margin: 86px auto 0;
+	}
+
+	.plan-card {
+		min-width: 0;
+		padding: 34px 24px 30px;
+		border-radius: 24px;
+		box-shadow: 0 14px 34px rgba(33, 24, 43, 0.05);
+	}
+
+	.plan-card h3 {
+		font-size: 23px;
+		line-height: 1.15;
+		margin-bottom: 10px;
+	}
+
+	.plan-desc {
+		min-height: 44px;
+		margin-bottom: 28px;
+		font-size: 14px;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+	}
+
+	.plan-price {
+		align-items: flex-end;
+		gap: 5px;
+		min-height: 64px;
+		margin-bottom: 22px;
+	}
+
+	.plan-price .currency {
+		margin-bottom: 9px;
+		font-size: 17px;
+	}
+
+	.plan-price .amount {
+		font-size: 52px;
+	}
+
+	.plan-price .period {
+		margin-bottom: 8px;
+		font-size: 13px;
+	}
+
+	.plan-cta {
+		justify-content: center;
+		margin-bottom: 18px;
+		background: #19171d;
+	}
+
+	.plan-card.featured .plan-cta {
+		background: #19171d;
+	}
+
+	.plan-features {
+		gap: 12px;
+		padding-top: 20px;
+	}
+
+	.plan-features li {
+		font-size: 13px;
+		line-height: 1.35;
+	}
+
+	.featured-badge {
+		top: -12px;
+		left: 50%;
+		right: auto;
+		width: max-content;
+		min-width: 150px;
+		box-sizing: border-box;
+		padding: 5px 16px;
+		text-align: center;
+		white-space: nowrap;
+		line-height: 1.15;
+		transform: translateX(-50%);
+		z-index: 2;
+	}
+
+	@media (max-width: 1100px) {
+		.plans-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			max-width: 820px;
+		}
+	}
+
+	@media (max-width: 620px) {
+		.hero-title {
+			font-size: clamp(28px, 8.2vw, 44px);
+			line-height: 1.02;
+			letter-spacing: -0.055em;
+		}
+
+		.hero-title span {
+			white-space: nowrap;
+		}
+
+		.hero-primary-cta {
+			width: min(100%, 290px);
+			box-sizing: border-box;
+		}
+
+		.pricing-section {
+			padding: 76px 16px 68px;
+		}
+
+		.pricing-section > .section-header {
+			text-align: center;
+		}
+
+		.plans-grid {
+			grid-template-columns: 1fr;
+			gap: 22px;
+			margin-top: 70px;
+		}
+
+		.plan-card {
+			padding: 32px 24px 28px;
+		}
+
+		.plan-desc {
+			min-height: 0;
+		}
 	}
 </style>

@@ -4305,3 +4305,63 @@
 @media (max-width: 640px) {
 	.batch-format-card { min-height: 78px; padding: 8px; }
 }
+
+/* La biblioteca puede tener miles de tarjetas. El navegador posterga el
+   layout/paint de las que todavía están fuera de pantalla. */
+.library-ad-card-masonry {
+	content-visibility: auto;
+	contain-intrinsic-size: 0 430px;
+}
+
+/* Biblioteca: los filtros deben respirar dentro del viewport móvil.
+   El menú de una píldora ubicada en la segunda columna se alinea a la
+   derecha para no desbordar la pantalla. */
+.library-filter-controls {
+	width: 100%;
+	justify-content: center;
+	margin-inline: auto;
+}
+.library-active-filters {
+	width: 100%;
+	justify-content: center;
+}
+.library-active-filters > button {
+	max-width: 100%;
+}
+
+@media (max-width: 640px) {
+	.library-filter-controls {
+		align-items: stretch !important;
+		justify-content: center !important;
+		gap: 10px !important;
+	}
+	.library-filter-controls > .niche-dd {
+		width: calc(50% - 5px);
+		flex: 1 1 calc(50% - 5px);
+		min-width: 0;
+	}
+	.library-filter-controls .niche-dd-trigger {
+		justify-content: center;
+		width: 100%;
+		min-width: 0;
+		padding-inline: 9px;
+	}
+	.library-filter-controls .niche-dd:nth-child(even) .niche-dd-menu {
+		left: auto;
+		right: 0;
+	}
+	.niche-dd-menu {
+		box-sizing: border-box;
+		width: min(300px, calc(100vw - 24px));
+		max-width: calc(100vw - 24px);
+		max-height: min(460px, calc(100dvh - 100px));
+	}
+	.niche-dd-item {
+		min-width: 0;
+		padding-inline: 9px;
+	}
+	.library-active-filters {
+		justify-content: center;
+		gap: 7px;
+	}
+}
