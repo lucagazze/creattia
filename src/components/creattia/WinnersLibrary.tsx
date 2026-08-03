@@ -925,12 +925,18 @@ export default function WinnersLibrary({
 		const element = gridRef.current;
 		if (!element) return;
 		// Mínimo 2 columnas siempre, también en celular.
-		const update = () => setColumnCount(Math.max(2, Math.min(6, Math.floor(element.clientWidth / 300))));
+		const update = () => {
+			const width = element.clientWidth;
+			// Al abrir un creador la grilla sale del DOM. ResizeObserver puede
+			// informar ancho 0 durante ese desmontaje: no convertirlo en 2 columnas.
+			if (!element.isConnected || width <= 0) return;
+			setColumnCount(Math.max(2, Math.min(6, Math.floor(width / 300))));
+		};
 		update();
 		const observer = new ResizeObserver(update);
 		observer.observe(element);
 		return () => observer.disconnect();
-	}, [activeAd, loading, filteredItems.length]);
+	}, [activeAd, videoCreationRef, loading, filteredItems.length]);
 	const loadMore = useCallback(() => {
 		setVisibleCount((current) => Math.min(current + 20, filteredItems.length));
 	}, [filteredItems.length]);
@@ -1397,9 +1403,9 @@ export default function WinnersLibrary({
 					<button onClick={() => { setSelectedNiches(['todos']); setSavedOnly(false); setQuery(''); }}>Limpiar filtros</button>
 				</div>
 			) : (<>
-				<div ref={gridRef} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+				<div ref={gridRef} className="library-masonry-columns" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
 					{visibleColumns.map((columnItems, columnIndex) => (
-					<div key={columnIndex} style={{ flex: '1 1 0%', minWidth: 0, maxWidth: `${100 / columnCount}%`, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+					<div key={columnIndex} className="library-masonry-column" style={{ flex: '1 1 0%', minWidth: 0, maxWidth: `${100 / columnCount}%`, display: 'flex', flexDirection: 'column', gap: '16px' }}>
 					{columnItems.map((item, idx) => {
 						const hasFailed = item.imagePath ? failedImages.has(item.imagePath) : false;
 						if (hasFailed) return null; // imagen rota: no mostrar placeholder genérico

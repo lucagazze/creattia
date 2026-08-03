@@ -126,6 +126,9 @@ try:
                 page.screenshot(path=static_screenshot_path, full_page=False)
             page.get_by_role("button", name="Volver a la biblioteca", exact=False).click()
             page.get_by_role("heading", name="Biblioteca de ganadores").wait_for(timeout=10_000)
+            library_columns = page.locator(".library-masonry-column")
+            initial_column_count = library_columns.count()
+            assert initial_column_count > 2, "La biblioteca desktop debe mostrar más de dos columnas"
             play_buttons = page.locator('[aria-label^="Reproducir video de"]:visible')
             play_buttons.first.wait_for(timeout=30_000)
             video_count = play_buttons.count()
@@ -139,6 +142,21 @@ try:
             if inline_screenshot_path:
                 Path(inline_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
                 page.screenshot(path=inline_screenshot_path, full_page=False)
+            video_card = inline_video.locator("xpath=ancestor::article[1]")
+            video_card.get_by_role("button", name="Usar esta idea", exact=True).click()
+            page.get_by_role("heading", name="Adaptá la idea ganadora a tu negocio").wait_for(timeout=10_000)
+            page.get_by_role("button", name="Volver a la biblioteca", exact=False).click()
+            page.get_by_role("heading", name="Biblioteca de ganadores").wait_for(timeout=10_000)
+            page.wait_for_timeout(500)
+            assert library_columns.count() == initial_column_count, "Al volver del creador de video debe restaurarse la cantidad de columnas"
+            return_screenshot_path = os.environ.get("CREATTIA_LIBRARY_RETURN_SCREENSHOT", "").strip()
+            if return_screenshot_path:
+                Path(return_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=return_screenshot_path, full_page=False)
+
+            play_buttons.first.click()
+            inline_video = page.locator("video.winner-inline-video:visible").first
+            inline_video.wait_for(timeout=10_000)
             page.set_viewport_size({"width": 390, "height": 844})
             page.wait_for_timeout(300)
             assert inline_video.is_visible(), "El reproductor inline debe seguir visible en mobile"
