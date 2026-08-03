@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
-import { analyzeVideoReference, buildVideoPrompt, startSoraVideo, VIDEO_CREDIT_COST, VIDEO_DURATIONS, VIDEO_MODELS, VIDEO_SIZES } from '../../../lib/creattia/video-engines';
+import { analyzeVideoReference, buildVideoPrompt, startSoraVideo, VIDEO_CREDIT_COST, VIDEO_DURATIONS, VIDEO_MODELS, VIDEO_SIZES, type VideoCreativePlan } from '../../../lib/creattia/video-engines';
 import { normalizeImageInput } from '../../../lib/creattia/ad-analysis';
 
 export const prerender = false;
@@ -44,13 +44,28 @@ export const POST: APIRoute = async ({ request }) => {
 		const referenceVideoUrl = String(form.get('referenceVideoUrl') || '').trim();
 		const referencePosterUrl = String(form.get('referencePosterUrl') || '').trim();
 		const referenceScript = String(form.get('referenceScript') || '').trim().slice(0, 8000);
+		const creativePlan = (() => {
+			try { return JSON.parse(String(form.get('videoPlan') || '{}')) as Partial<VideoCreativePlan>; } catch { return {}; }
+		})();
 		const productId = String(form.get('productId') || '').trim() || null;
 		const productNameInput = String(form.get('productName') || '').trim().slice(0, 180);
+		const productFactsInput = String(form.get('productFacts') || '').trim().slice(0, 3000);
 		const brandName = String(form.get('brandName') || '').trim().slice(0, 120);
 		const brief = String(form.get('brief') || '').trim().slice(0, 1500);
 		const duration = String(form.get('duration') || '8');
 		const size = String(form.get('size') || '720x1280');
 		const model = String(form.get('model') || process.env.OPENAI_VIDEO_MODEL || import.meta.env.OPENAI_VIDEO_MODEL || 'sora-2');
+		const objective = String(form.get('objective') || '').trim().slice(0, 180);
+		const audience = String(form.get('audience') || '').trim().slice(0, 500);
+		const benefit = String(form.get('benefit') || '').trim().slice(0, 500);
+		const proof = String(form.get('proof') || '').trim().slice(0, 500);
+		const offer = String(form.get('offer') || '').trim().slice(0, 300);
+		const tone = String(form.get('tone') || '').trim().slice(0, 180);
+		const language = String(form.get('language') || '').trim().slice(0, 80);
+		const audioDirection = String(form.get('audioDirection') || '').trim().slice(0, 300);
+		const voiceover = String(form.get('voiceover') || '').trim().slice(0, 300);
+		const captions = String(form.get('captions') || '').trim().slice(0, 300);
+		const peopleDirection = String(form.get('peopleDirection') || '').trim().slice(0, 400);
 
 		if (!referenceVideoUrl || !referencePosterUrl) return json({ error: 'Falta la referencia de video.' }, 400);
 		const trustedReferenceVideoUrl = validateReferenceVideoUrl(referenceVideoUrl);
@@ -62,7 +77,7 @@ export const POST: APIRoute = async ({ request }) => {
 		if (!poster) return json({ error: 'No se pudo procesar el fotograma de referencia.' }, 400);
 
 		let productName = productNameInput;
-		let productFacts = '';
+		let productFacts = productFactsInput;
 		let productImage: { buffer: Buffer; type: string } | null = null;
 		let productRecord: any = null;
 
@@ -109,9 +124,10 @@ export const POST: APIRoute = async ({ request }) => {
 			productName,
 			productFacts,
 			brandName,
-			brief,
+			brief: [brief, objective && `Objetivo: ${objective}`, audience && `Audiencia: ${audience}`, benefit && `Beneficio principal: ${benefit}`, proof && `Prueba: ${proof}`, offer && `Oferta: ${offer}`, tone && `Tono: ${tone}`, language && `Idioma: ${language}`, audioDirection && `Audio: ${audioDirection}`, voiceover && `Voz en off: ${voiceover}`, captions && `Textos: ${captions}`, peopleDirection && `Personas/creador: ${peopleDirection}`].filter(Boolean).join('\n'),
 			duration,
 			size,
+			creativePlan,
 		});
 
 		const { data: remaining, error: reserveError } = await admin.rpc('reserve_creative_credits', {
@@ -151,7 +167,7 @@ export const POST: APIRoute = async ({ request }) => {
 			model,
 			duration_seconds: Number(duration),
 			size,
-			settings_snapshot: { brandName, brief, creditCost: VIDEO_CREDIT_COST, analysis },
+			settings_snapshot: { brandName, brief, objective, audience, benefit, proof, offer, tone, language, audioDirection, voiceover, captions, peopleDirection, creditCost: VIDEO_CREDIT_COST, analysis, creativePlan },
 		}).select('id,status,progress,title').single();
 		if (insertError || !job) {
 			await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: VIDEO_CREDIT_COST });
