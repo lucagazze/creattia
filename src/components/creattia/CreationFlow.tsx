@@ -40,7 +40,8 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	}, []);
 
 	const REFERENCES_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references';
-	const referenceUrl = `${REFERENCES_BASE}/${ad.imagePath}`;
+	const referenceUrlFor = (path: string) => path.startsWith('http') ? path : `${REFERENCES_BASE}/${path}`;
+	const referenceUrl = referenceUrlFor(ad.imagePath);
 
 	// Carrusel ganador: varias páginas para elegir cómo generar.
 	const carouselSlides: string[] = ad.metadata?.mediaType === 'carousel' && Array.isArray(ad.metadata?.carouselImages) && ad.metadata.carouselImages.length > 1
@@ -59,7 +60,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	// página que se está mirando (se puede pasar de página para verlas
 	// todas), sea cual sea el modo elegido.
 	const previewSlidePath = isCarouselAd ? carouselSlides[selectedSlideIndex] : ad.imagePath;
-	const previewUrl = `${REFERENCES_BASE}/${previewSlidePath}`;
+	const previewUrl = referenceUrlFor(previewSlidePath);
 	const goToPreviewSlide = (delta: number) => {
 		if (!isCarouselAd) return;
 		setSelectedSlideIndex((prev) => (prev + delta + carouselSlides.length) % carouselSlides.length);
@@ -405,6 +406,12 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 						)}
 					</div>
 					<p style={{ margin: '12px 0 0', fontSize: '14px', color: '#716d79' }}>Anuncio ganador: <b style={{ color: '#19171d' }}>{ad.name}</b></p>
+					{ad.promptNotes && (
+						<div className="creation-reference-copy">
+							<span>Copy del anuncio</span>
+							<p>{ad.promptNotes}</p>
+						</div>
+					)}
 					{isCarouselAd && carouselMode === 'single' && (
 						<p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#744bde', fontWeight: 700 }}>✓ Vas a clonar esta página</p>
 					)}

@@ -89,8 +89,43 @@ try:
             page.get_by_label("Contraseña").fill(password)
             page.get_by_role("button", name="Ingresar", exact=True).click()
             page.get_by_text("Biblioteca de ganadores", exact=True).first.wait_for(timeout=20_000)
+
+            page.set_viewport_size({"width": 390, "height": 844})
+            selected_count = page.locator("button.picker-pill.active")
+            selected_count.wait_for()
+            assert selected_count.evaluate("el => getComputedStyle(el).backgroundColor") != "rgb(25, 23, 29)", "La cantidad seleccionada no debe usar fondo negro"
+            count_screenshot_path = os.environ.get("CREATTIA_COUNT_UI_SCREENSHOT", "").strip()
+            if count_screenshot_path:
+                Path(count_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=count_screenshot_path, full_page=False)
+            page.get_by_role("button", name="Continuar", exact=True).click()
+            search_cta = page.locator('button[type="submit"].url-batch-submit-btn')
+            search_cta.wait_for()
+            assert search_cta.inner_text().replace("\n", " ").strip() == "Buscar 10 anuncios Gratis"
+            assert search_cta.evaluate("el => el.scrollWidth <= el.clientWidth + 1"), "El CTA debe entrar en una sola línea"
+            batch_screenshot_path = os.environ.get("CREATTIA_BATCH_UI_SCREENSHOT", "").strip()
+            if batch_screenshot_path:
+                Path(batch_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=batch_screenshot_path, full_page=False)
+            page.set_viewport_size({"width": 1440, "height": 900})
+
             page.get_by_text("Biblioteca de ganadores", exact=True).first.click()
             page.get_by_role("heading", name="Biblioteca de ganadores").wait_for(timeout=20_000)
+            static_card = page.locator("article.library-ad-card-masonry:not(:has(.winner-video-play))").first
+            static_card.wait_for(timeout=30_000)
+            static_card.click()
+            page.get_by_role("heading", name="Crear con este diseño").wait_for(timeout=10_000)
+            page.locator(".creation-reference-copy").wait_for(timeout=10_000)
+            reference_image = page.locator(".creation-flow-aside img").first
+            reference_image.wait_for(timeout=10_000)
+            page.wait_for_timeout(2_000)
+            assert reference_image.evaluate("el => el.complete && el.naturalWidth > 0"), f"La referencia estática debe cargar antes del copy: {reference_image.get_attribute('src')}"
+            static_screenshot_path = os.environ.get("CREATTIA_STATIC_COPY_SCREENSHOT", "").strip()
+            if static_screenshot_path:
+                Path(static_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=static_screenshot_path, full_page=False)
+            page.get_by_role("button", name="Volver a la biblioteca", exact=False).click()
+            page.get_by_role("heading", name="Biblioteca de ganadores").wait_for(timeout=10_000)
             play_buttons = page.locator('[aria-label^="Reproducir video de"]:visible')
             play_buttons.first.wait_for(timeout=30_000)
             video_count = play_buttons.count()
@@ -111,6 +146,7 @@ try:
             video_card = inline_video.locator("xpath=ancestor::article[1]")
             video_card.get_by_role("button", name="Usar esta idea", exact=True).click()
             page.get_by_role("heading", name="Adaptá la idea ganadora a tu negocio").wait_for(timeout=10_000)
+            assert page.locator(".video-reference-note, .video-analysis-card").count() == 0
 
             page.wait_for_timeout(500)
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "El paso de producto no debe desbordar en mobile"

@@ -763,11 +763,11 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							disabled={isScanning || (mode === 'url' ? !url.trim() : !manualName.trim())}
 						>
 							{isScanning ? (
-								<><span className="studio-spinner small" aria-hidden="true" /> Buscando los mejores anuncios ganadores…</>
+								<><span className="studio-spinner small" aria-hidden="true" /> Buscando anuncios…</>
 							) : (
 								<>
-									<span>Buscar {count} anuncios para mi producto</span>
-									<span className="btn-credits-badge">Gratis · todavía no gastás créditos</span>
+									<span>Buscar {count} anuncios</span>
+									<span className="btn-credits-badge">Gratis</span>
 								</>
 							)}
 						</button>

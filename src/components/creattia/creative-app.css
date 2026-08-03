@@ -1184,62 +1184,6 @@
 .video-reference-player {
 	max-height: 540px;
 }
-.video-reference-note {
-	margin: 14px 0 0;
-	padding: 12px;
-	border-radius: 11px;
-	background: #faf7fd;
-	color: #70697a;
-	font-size: 12.5px;
-	line-height: 1.55;
-	white-space: pre-wrap;
-}
-.video-analysis-card {
-	margin-top: 12px;
-	padding: 13px;
-	border: 1px solid #e8dff5;
-	border-radius: 12px;
-	background: linear-gradient(145deg, #fbf9ff, #f5efff);
-	color: #51475d;
-}
-.video-analysis-card > span {
-	display: block;
-	margin-bottom: 8px;
-	color: #744bde;
-	font-size: 9.5px;
-	font-weight: 900;
-	letter-spacing: .12em;
-}
-.video-analysis-card ul {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 7px 12px;
-	margin: 0;
-	padding: 0;
-	list-style: none;
-}
-.video-analysis-card li {
-	position: relative;
-	padding-left: 15px;
-	font-size: 11.5px;
-	line-height: 1.4;
-}
-.video-analysis-card li::before {
-	position: absolute;
-	left: 0;
-	content: '✓';
-	color: #744bde;
-	font-weight: 900;
-}
-.video-analysis-card dl,
-.video-analysis-card dl > div {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-.video-analysis-card dl { margin: 0; gap: 9px; }
-.video-analysis-card dt { color: #292231; font-size: 10.5px; font-weight: 900; }
-.video-analysis-card dd { margin: 0; color: #71687c; font-size: 11.5px; line-height: 1.45; }
 .winner-video-play {
 	position: absolute;
 	inset: 0;
@@ -1562,7 +1506,6 @@
 .video-reference-badges span { padding: 5px 8px; border-radius: 7px; background: rgba(24, 19, 29, .78); color: #fff; font-size: 10px; font-weight: 850; backdrop-filter: blur(8px); }
 .video-reference-title { margin: 12px 0 0; color: #716d79; font-size: 14px; }
 .video-reference-title b { color: #19171d; }
-.video-reference-note strong { display: block; margin-bottom: 3px; color: #3d3345; }
 .video-image-flow-panel { min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .video-flow-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 17px; }
 .video-flow-title > div { min-width: 0; }
@@ -1708,7 +1651,6 @@
 	.video-person-mode-grid { grid-template-columns: 1fr; }
 	.video-avatar-picker { grid-template-columns: 1fr; }
 	.video-avatar-preview-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-	.video-analysis-card ul { grid-template-columns: 1fr; }
 	.video-plan-header,
 	.video-scenes-heading { align-items: flex-start; flex-direction: column; }
 	.video-secondary-button { white-space: normal; }
@@ -3099,6 +3041,31 @@
 /* ── CreationFlow responsive ── */
 .creation-flow-layout { display: grid; grid-template-columns: minmax(260px, 380px) 1fr; gap: 28px; align-items: start; }
 .creation-flow-aside { position: sticky; top: 20px; }
+.creation-reference-copy {
+	margin-top: 10px;
+	padding: 11px 12px;
+	border: 1px solid #e8e1ef;
+	border-radius: 11px;
+	background: rgba(255,255,255,.78);
+}
+.creation-reference-copy > span {
+	display: block;
+	margin-bottom: 5px;
+	color: #744bde;
+	font-size: 9px;
+	font-weight: 900;
+	letter-spacing: .1em;
+	text-transform: uppercase;
+}
+.creation-reference-copy > p {
+	max-height: 112px;
+	margin: 0;
+	overflow-y: auto;
+	color: #5f5867;
+	font-size: 11.5px;
+	line-height: 1.5;
+	white-space: pre-wrap;
+}
 @media (max-width: 920px) {
 	.creation-flow-layout { grid-template-columns: 1fr; }
 	.creation-flow-aside { position: static; max-width: 100%; margin: 0 auto; width: 100%; }
@@ -3586,10 +3553,16 @@
 }
 
 .picker-pill.active {
-	border-color: #19171d;
-	background: #19171d;
-	color: #ffffff;
-	box-shadow: 0 6px 18px rgba(25, 23, 29, 0.18);
+	border-color: #9a78e8;
+	background: #eee8ff;
+	color: #5b32c7;
+	box-shadow: 0 6px 18px rgba(116, 75, 222, 0.13);
+}
+
+.picker-pill.active:hover {
+	border-color: #875edd;
+	background: #e7ddff;
+	box-shadow: 0 8px 20px rgba(116, 75, 222, 0.18);
 }
 
 .pill-count {
@@ -4776,8 +4749,9 @@
 .wiz-ghost:hover { text-decoration-color: #5f32cf; }
 
 /* Botón principal: alto fijo y tipografía pareja con el resto de la app. */
-.url-batch-submit-btn { height: 50px; border-radius: 13px; font-size: 14px; }
-.btn-credits-badge { font-size: 11.5px; opacity: .85; }
+.url-batch-submit-btn { height: 50px; min-width: 0; border-radius: 13px; font-size: 14px; white-space: nowrap; }
+.url-batch-submit-btn > span:not(.studio-spinner) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.btn-credits-badge { flex: 0 0 auto; padding: 3px 7px; border-radius: 999px; background: rgba(255,255,255,.16); font-size: 10.5px; opacity: 1; }
 .wiz-back { padding: 0 18px; border-width: 1.5px; border-radius: 13px; font-size: 12.5px; }
 
 /* Indicador de progreso: un poco más chico para no competir con el título. */

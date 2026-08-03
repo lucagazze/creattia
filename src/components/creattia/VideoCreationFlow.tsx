@@ -368,16 +368,6 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 						<div className="video-reference-badges"><span>▶ Video ganador</span><span>≈ {Math.round(referenceDuration)} s</span></div>
 					</div>
 					<p className="video-reference-title">Anuncio ganador: <b>{reference.name}</b></p>
-					<div className="video-reference-note"><strong>No lo copiamos cuadro por cuadro.</strong> Usamos su hook, estructura y ritmo como referencia; cambiamos identidad, producto, marca, escenas exactas y palabras.</div>
-					<div className="video-analysis-card">
-						<span>{analysis ? 'LECTURA DEL VIDEO COMPLETO' : 'QUÉ VA A ENTENDER LA IA'}</span>
-						{analysis ? <dl>
-							<div><dt>Hook ganador</dt><dd>{analysis.hook}</dd></div>
-							<div><dt>Estructura y ritmo</dt><dd>{analysis.pacing}</dd></div>
-							<div><dt>Persona y diálogo</dt><dd>{analysis.hasSpeakingPerson ? analysis.dialoguePurpose || analysis.referenceDialogueSummary : 'No detectamos una persona hablando.'}</dd></div>
-							<div><dt>Cámara</dt><dd>{analysis.camera}</dd></div>
-						</dl> : <ul><li>Hook y promesa inicial</li><li>Escenas y ritmo de edición</li><li>Guion y función de cada frase</li><li>Cámara, audio y cierre</li></ul>}
-					</div>
 				</aside>
 
 				<section className="video-creation-form-panel video-image-flow-panel">
