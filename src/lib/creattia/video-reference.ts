@@ -1,4 +1,5 @@
 import { createPartFromUri, FileState, GoogleGenAI } from '@google/genai';
+import { normalizeVideoSetupSuggestions, type VideoSetupSuggestions } from './video-suggestions';
 
 export type FullVideoReferenceAnalysis = {
 	hook?: string;
@@ -15,6 +16,7 @@ export type FullVideoReferenceAnalysis = {
 	speechStyle?: string;
 	referenceDialogueSummary?: string;
 	dialogueBeats?: Array<{ start: number; end: number; purpose: string; delivery: string }>;
+	creativeSuggestions?: VideoSetupSuggestions;
 };
 
 function parseJson<T>(value: string | undefined, fallback: T): T {
@@ -44,6 +46,7 @@ export async function analyzeFullVideoReference(input: {
 	referenceNotes?: string;
 	productName: string;
 	brandName: string;
+	productFacts?: string;
 }): Promise<FullVideoReferenceAnalysis> {
 	const ai = new GoogleGenAI({ apiKey: input.apiKey });
 	const bytes = new Uint8Array(input.video.buffer);
@@ -64,13 +67,35 @@ export async function analyzeFullVideoReference(input: {
 Pay special attention to every moment where a visible person speaks. Identify the purpose, timing and delivery of each speech beat, but summarize the original wording instead of quoting it. The replacement script must later be written specifically for the new brand and product.
 
 Available notes: ${input.referenceNotes || 'None'}
+Verified product/page facts: ${input.productFacts || 'No additional facts were provided. Never invent claims, prices, testimonials or offers.'}
 
-Return JSON only with: hook, visualStyle, pacing, camera, scenePlan (4-10 timed strings), transitions, audio, productRole, hasSpeakingPerson (boolean), speakers (array of label/role/performance), dialoguePurpose, speechStyle, referenceDialogueSummary, dialogueBeats (array of start/end/purpose/delivery).` },
+Also act as a conversion-focused creative strategist. Propose the strongest editable setup for the NEW product by combining verified page facts with the reusable strategy of the reference. Fill every creativeSuggestions field. If the page has no verified offer, explicitly write "Sin oferta específica: enfocar el beneficio principal". Use only these exact enum values:
+- referenceMode: Idea + guion adaptado | Idea visual | Guion adaptado | Inspiración libre
+- objective: Conversión | Reconocimiento | UGC / Testimonial | Demostración
+- tone: UGC natural | Premium | Directo y vendedor | Educativo | Emocional | Divertido
+- castingMode: woman | man | custom | none
+- language: Español rioplatense | Español neutro | Inglés | Portugués de Brasil
+- speechMode: adapt | new | none
+- voiceoverMode: none | ai
+- musicMode: music | ambient | none
+- captionMode: dynamic | minimal | none
+
+Return JSON only with: hook, visualStyle, pacing, camera, scenePlan (4-10 timed strings), transitions, audio, productRole, hasSpeakingPerson (boolean), speakers (array of label/role/performance), dialoguePurpose, speechStyle, referenceDialogueSummary, dialogueBeats (array of start/end/purpose/delivery), creativeSuggestions. creativeSuggestions must contain: concept, referenceMode, objective, audience, benefit, proof, offer, cta, tone, preserveDirection, changeDirection, castingMode, creatorAge, creatorStyle, peopleDirection, productUsage, mustAvoid, language, speechMode, dialogueInstructions, voiceoverMode, voiceover, musicMode, audioDirection, captionMode, captions.` },
 				],
 			}],
 			config: { responseMimeType: 'application/json', temperature: 0.2 },
 		});
-		return parseJson<FullVideoReferenceAnalysis>(response.text, {});
+		const parsed = parseJson<FullVideoReferenceAnalysis>(response.text, {});
+		return {
+			...parsed,
+			creativeSuggestions: normalizeVideoSetupSuggestions(parsed.creativeSuggestions, {
+				productName: input.productName,
+				brandName: input.brandName,
+				productFacts: input.productFacts,
+				hasSpeakingPerson: parsed.hasSpeakingPerson,
+				hook: parsed.hook,
+			}),
+		};
 	} finally {
 		if (file.name) await ai.files.delete({ name: file.name }).catch(() => undefined);
 	}

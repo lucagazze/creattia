@@ -33,6 +33,36 @@ fake_analysis = {
     "hasSpeakingPerson": True,
     "dialoguePurpose": "Convertir el problema en una recomendación creíble y cerrar con una acción.",
 }
+fake_suggestions = {
+    "concept": "Una creadora abre con el problema, demuestra la textura de Hydra 10 y cierra con una recomendacion directa.",
+    "referenceMode": "Idea + guion adaptado",
+    "objective": "UGC / Testimonial",
+    "audience": "Personas de 25 a 40 con piel sensible",
+    "benefit": "Hidratacion ligera sin sensacion grasa",
+    "proof": "Mostrar la textura y la aplicacion real del producto",
+    "offer": "Sin oferta especifica: enfocar el beneficio principal.",
+    "cta": "Conoce Hydra 10",
+    "tone": "UGC natural",
+    "preserveDirection": "Conservar el hook, el ritmo y la progresion del ganador.",
+    "changeDirection": "Crear persona, escenas, palabras y locacion originales para Hydra 10.",
+    "castingMode": "custom",
+    "creatorAge": "25 a 40 anos",
+    "creatorStyle": "Natural, cercana y realista, con luz de ventana.",
+    "peopleDirection": "Usuaria real de skincare que habla a camara.",
+    "productUsage": "Mostrar el envase y la textura en primer plano.",
+    "mustAvoid": "No prometer resultados medicos ni copiar a la persona del ganador.",
+    "language": "Español rioplatense",
+    "speechMode": "adapt",
+    "dialogueInstructions": "Nombrar Hydra 10, explicar el beneficio y cerrar con Conocelo hoy.",
+    "voiceoverMode": "none",
+    "voiceover": "Voz natural, calida y creible.",
+    "musicMode": "music",
+    "audioDirection": "Beat moderno suave con efectos sincronizados.",
+    "captionMode": "dynamic",
+    "captions": "Hook, beneficio y CTA en textos breves.",
+}
+fake_analysis["creativeSuggestions"] = fake_suggestions
+
 fake_plan = {
     "hook": "¿Tu piel queda tirante después de lavarla? Mirá esto.",
     "objective": "Conversión",
@@ -77,6 +107,10 @@ try:
             page = browser.new_page(viewport={"width": 1440, "height": 900})
             browser_errors = []
             page.on("pageerror", lambda error: browser_errors.append(str(error)))
+            page.route(
+                "**/api/creativos/video-suggestions",
+                lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps({"ok": True, "source": "ai", "analysis": fake_analysis, "suggestions": fake_suggestions})),
+            )
             page.route(
                 "**/api/creativos/video-plan",
                 lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps({"ok": True, "analysis": fake_analysis, "plan": fake_plan})),
@@ -264,12 +298,26 @@ try:
             page.get_by_role("button", name="Continuar", exact=True).click()
 
             page.get_by_text("¿Qué querés tomar del anuncio ganador?").wait_for()
+            page.get_by_text("Propuesta de la IA", exact=False).wait_for(timeout=10_000)
+            audience_input = page.locator(".video-brief-fields input").nth(0)
+            benefit_input = page.locator(".video-brief-fields input").nth(1)
+            assert audience_input.input_value() == fake_suggestions["audience"]
+            assert benefit_input.input_value() == fake_suggestions["benefit"]
+            assert "active" in (page.get_by_role("button", name="Idea + guion adaptado", exact=False).get_attribute("class") or "")
+            assert "active" in (page.get_by_role("button", name="UGC / Testimonial", exact=False).get_attribute("class") or "")
+            suggestion_screenshot_path = os.environ.get("CREATTIA_VIDEO_SUGGESTIONS_SCREENSHOT", "").strip()
+            if suggestion_screenshot_path:
+                Path(suggestion_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                page.screenshot(path=suggestion_screenshot_path, full_page=False)
             page.get_by_role("button", name="Idea + guion adaptado", exact=False).click()
             page.get_by_placeholder("Ej.: mujeres de 25 a 40 con piel sensible").fill("Personas de 25 a 40 con piel sensible")
             page.get_by_placeholder("Ej.: hidrata sin dejar sensación grasa").fill("Hidrata sin sensación grasa")
             page.get_by_role("button", name="Continuar", exact=True).click()
 
             page.get_by_text("¿Quién aparece en el video?").wait_for()
+            assert "active" in (page.get_by_role("button", name="Definir persona", exact=False).get_attribute("class") or "")
+            product_usage_input = page.locator('.video-wizard-fields textarea[placeholder^="Ej.: abre el envase"]')
+            assert product_usage_input.input_value() == fake_suggestions["productUsage"]
             page.get_by_role("button", name="Sin personas", exact=False).click()
             page.get_by_placeholder("Ej.: abre el envase, aplica dos gotas y muestra la textura de cerca").fill("Mostrar el envase y la textura en primer plano")
             page.get_by_role("button", name="Continuar", exact=True).click()
@@ -277,6 +325,9 @@ try:
             page.get_by_text("Formato del video", exact=True).wait_for()
             assert page.get_by_role("button", name="Igual al ganador", exact=False).count() == 1
             assert page.get_by_role("button", name="Un poco más largo", exact=False).count() <= 1
+            assert "active" in (page.locator(".video-option-grid button").filter(has_text="Adaptar el di").get_attribute("class") or "")
+            suggested_music = page.locator(".video-audio-grid fieldset").nth(1).locator("button.active")
+            assert suggested_music.count() == 1 and suggested_music.inner_text().startswith("Con m")
             page.get_by_role("button", name="30 s", exact=True).click()
             page.locator(".video-duration-custom").get_by_text("12 créditos", exact=True).wait_for()
             page.get_by_role("button", name="Adaptar el diálogo ganador", exact=False).click()

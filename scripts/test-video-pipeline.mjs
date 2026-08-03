@@ -7,6 +7,7 @@ import {
 	videoCreditCost,
 	videoSegmentsForDuration,
 } from '../src/lib/creattia/video-pipeline.ts';
+import { normalizeVideoSetupSuggestions } from '../src/lib/creattia/video-suggestions.ts';
 
 assert.deepEqual(videoSegmentsForDuration(4), [{ index: 0, start: 0, end: 4, duration: 4 }]);
 assert.deepEqual(videoSegmentsForDuration(10), [{ index: 0, start: 0, end: 10, duration: 10 }]);
@@ -30,4 +31,16 @@ assert.equal(fallbackThirty.length, 6);
 assert.match(fallbackThirty.at(-1) || '', /30s/);
 assert.match(fallbackThirty[2], /Hydra 10/);
 
-console.log('video-pipeline: 18 assertions passed');
+const normalizedSuggestions = normalizeVideoSetupSuggestions({
+	objective: 'not-valid',
+	tone: 'Premium',
+	audience: '',
+	offer: '',
+	speechMode: 'adapt',
+}, { productName: 'Hydra 10', brandName: 'Creattia', productFacts: 'Hidratación ligera para piel sensible', hasSpeakingPerson: true });
+assert.equal(normalizedSuggestions.objective, 'UGC / Testimonial');
+assert.equal(normalizedSuggestions.tone, 'Premium');
+assert.match(normalizedSuggestions.audience, /Hydra 10/);
+assert.match(normalizedSuggestions.offer, /Sin oferta específica/);
+
+console.log('video-pipeline: 22 assertions passed');

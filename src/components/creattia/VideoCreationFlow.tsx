@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { SavedAvatar } from './AvatarManager';
 import { prepareReferenceImages } from '../../lib/creattia/client-image';
 import { videoCreditCost, type VideoDialogueLine } from '../../lib/creattia/video-pipeline';
+import { fallbackVideoSetupSuggestions, type VideoSetupSuggestions } from '../../lib/creattia/video-suggestions';
 
 type VideoReference = {
 	name: string;
@@ -38,7 +39,10 @@ type VideoReferenceAnalysis = {
 	speechStyle?: string;
 	referenceDialogueSummary?: string;
 	scenePlan?: string[];
+	creativeSuggestions?: VideoSetupSuggestions;
 };
+
+type ProductSuggestionContext = { productId?: string; productName: string; productFacts?: string };
 
 type Props = {
 	reference: VideoReference;
@@ -109,6 +113,11 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 	const [productMode, setProductMode] = useState<ProductMode>('url');
 	const [productUrl, setProductUrl] = useState('');
 	const [scanningProduct, setScanningProduct] = useState(false);
+	const [suggestingSetup, setSuggestingSetup] = useState(false);
+	const [suggestionsReady, setSuggestionsReady] = useState(false);
+	const [suggestionSource, setSuggestionSource] = useState<'ai' | 'fallback'>('ai');
+	const [suggestionConcept, setSuggestionConcept] = useState('');
+	const [suggestionFingerprint, setSuggestionFingerprint] = useState('');
 	const [productId, setProductId] = useState('');
 	const [importedProductName, setImportedProductName] = useState('');
 	const [productName, setProductName] = useState('');
@@ -250,8 +259,37 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 		dialogueLines: (current?.dialogueLines || []).map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item),
 	}));
 
-	async function scanProductUrl() {
-		if (!productUrl.trim()) { setError('Pegá la URL de la página de tu producto o servicio.'); return false; }
+	function applySetupSuggestions(suggestions: VideoSetupSuggestions) {
+		setSuggestionConcept(suggestions.concept);
+		setReferenceMode(suggestions.referenceMode);
+		setObjective(suggestions.objective);
+		setAudience(suggestions.audience);
+		setBenefit(suggestions.benefit);
+		setProof(suggestions.proof);
+		setOffer(suggestions.offer);
+		setCta(suggestions.cta);
+		setTone(suggestions.tone);
+		setPreserveDirection(suggestions.preserveDirection);
+		setChangeDirection(suggestions.changeDirection);
+		setCastingMode(suggestions.castingMode);
+		setCreatorAge(suggestions.creatorAge);
+		setCreatorStyle(suggestions.creatorStyle);
+		setPeopleDirection(suggestions.peopleDirection);
+		setProductUsage(suggestions.productUsage);
+		setMustAvoid(suggestions.mustAvoid);
+		setLanguage(suggestions.language);
+		setSpeechMode(suggestions.speechMode);
+		setDialogueInstructions(suggestions.dialogueInstructions);
+		setVoiceoverMode(suggestions.voiceoverMode);
+		setVoiceover(suggestions.voiceover);
+		setMusicMode(suggestions.musicMode);
+		setAudioDirection(suggestions.audioDirection);
+		setCaptionMode(suggestions.captionMode);
+		setCaptions(suggestions.captions);
+	}
+
+	async function scanProductUrl(): Promise<ProductSuggestionContext | null> {
+		if (!productUrl.trim()) { setError('Pegá la URL de la página de tu producto o servicio.'); return null; }
 		setScanningProduct(true); setError('');
 		try {
 			const response = await fetch('/api/creativos/products', {
@@ -268,24 +306,75 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 			if (imported?.name) setProductName(imported.name);
 			if (imported?.description) setProductFacts(imported.description);
 			onToast?.('Analizamos la página y cargamos los datos del producto.');
-			return true;
+			return { productId: importedId, productName: imported?.name || 'Producto analizado', productFacts: imported?.description || '' };
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No pudimos analizar esa URL.');
-			return false;
+			return null;
 		} finally { setScanningProduct(false); }
+	}
+
+	async function requestSetupSuggestions(context?: ProductSuggestionContext, force = false) {
+		const suggestionContext = context || {
+			productId: productMode === 'manual' ? '' : productId,
+			productName: currentProductName,
+			productFacts,
+		};
+		const fingerprint = [referenceVideoUrl, suggestionContext.productId, suggestionContext.productName, suggestionContext.productFacts, brandName.trim()].join('|');
+		if (!force && suggestionsReady && suggestionFingerprint === fingerprint) return;
+		setSuggestingSetup(true); setSuggestionsReady(false); setError('');
+		try {
+			const form = new FormData();
+			form.set('referenceVideoUrl', referenceVideoUrl);
+			form.set('referenceScript', reference.promptNotes || '');
+			form.set('referenceDuration', String(referenceDuration || ''));
+			form.set('productId', suggestionContext.productId || '');
+			form.set('productName', suggestionContext.productName);
+			form.set('productFacts', suggestionContext.productFacts || '');
+			form.set('brandName', brandName.trim());
+			const response = await fetch('/api/creativos/video-suggestions', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok || !payload.suggestions) throw new Error(payload.error || 'No pudimos preparar las sugerencias.');
+			applySetupSuggestions(payload.suggestions as VideoSetupSuggestions);
+			setAnalysis(payload.analysis || null);
+			setSuggestionSource(payload.source === 'fallback' ? 'fallback' : 'ai');
+			setSuggestionFingerprint(fingerprint);
+			setSuggestionsReady(true);
+		} catch (cause) {
+			const fallback = fallbackVideoSetupSuggestions({
+				productName: suggestionContext.productName,
+				brandName,
+				productFacts: suggestionContext.productFacts,
+				hasSpeakingPerson: true,
+			});
+			applySetupSuggestions(fallback);
+			setSuggestionSource('fallback');
+			setSuggestionFingerprint(fingerprint);
+			setSuggestionsReady(true);
+			onToast?.(cause instanceof Error ? `${cause.message} Dejamos una propuesta base editable.` : 'Dejamos una propuesta base editable.');
+		} finally {
+			setSuggestingSetup(false);
+		}
 	}
 
 	async function continueFromProduct() {
 		setError('');
+		let suggestionContext: ProductSuggestionContext;
 		if (productMode === 'url') {
-			const ok = productId && importedProductName ? true : await scanProductUrl();
-			if (!ok) return;
+			const scanned = productId && importedProductName
+				? { productId, productName: importedProductName, productFacts }
+				: await scanProductUrl();
+			if (!scanned) return;
+			suggestionContext = scanned;
 		} else if (productMode === 'saved') {
 			if (!productId) { setError('Elegí uno de tus productos guardados.'); return; }
+			suggestionContext = { productId, productName: selectedProduct?.name || 'Producto guardado', productFacts: selectedProduct?.description || '' };
 		} else if (!productName.trim() || !productFiles.length) {
 			setError('Escribí el nombre y subí al menos una foto real del producto.'); return;
+		} else {
+			suggestionContext = { productName: productName.trim(), productFacts: productFacts.trim() };
 		}
 		setStep(2);
+		await requestSetupSuggestions(suggestionContext);
 	}
 
 	function appendBrief(form: FormData) {
@@ -314,6 +403,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 			form.set('referenceVideoUrl', referenceVideoUrl);
 			form.set('referenceScript', reference.promptNotes || '');
 			form.set('referenceDuration', String(referenceDuration || ''));
+			if (analysis) form.set('referenceAnalysis', JSON.stringify(analysis));
 			appendBrief(form);
 			const response = await fetch('/api/creativos/video-plan', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
 			const payload = await response.json().catch(() => ({}));
@@ -390,7 +480,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 						<label className="picker-label">¿Qué vas a promocionar?</label>
 						<p className="batch-detail-help">Elegí la forma más fácil de contarnos qué producto o servicio debe aparecer.</p>
 						<div className="wiz-tabs video-product-tabs">
-							{([['url', '🔗', 'Con URL', 'Analizamos tu página'], ['saved', '📦', 'Ya guardado', 'Elegí de Mi marca'], ['manual', '✍️', 'Cargar a mano', 'Fotos y datos']] as const).map(([value, icon, label, hint]) => <button type="button" key={value} className={`wiz-tab ${productMode === value ? 'active' : ''}`} onClick={() => { setProductMode(value); setProductId(''); setImportedProductName(''); setError(''); }}><span className="wiz-tab-icon">{icon}</span><span className="wiz-tab-label">{label}</span><small>{hint}</small></button>)}
+							{([['url', '🔗', 'Con URL', 'Analizamos tu página'], ['saved', '📦', 'Ya guardado', 'Elegí de Mi marca'], ['manual', '✍️', 'Cargar a mano', 'Fotos y datos']] as const).map(([value, icon, label, hint]) => <button type="button" key={value} className={`wiz-tab ${productMode === value ? 'active' : ''}`} onClick={() => { setProductMode(value); setProductId(''); setImportedProductName(''); setSuggestionsReady(false); setError(''); }}><span className="wiz-tab-icon">{icon}</span><span className="wiz-tab-label">{label}</span><small>{hint}</small></button>)}
 						</div>
 						{productMode === 'url' && <div className="video-url-intake"><label htmlFor="video-product-url">URL del producto o servicio</label><div><input id="video-product-url" className="wiz-input" value={productUrl} onChange={(event) => { setProductUrl(event.target.value); setProductId(''); setImportedProductName(''); }} placeholder="Ej.: https://mitienda.com/producto" inputMode="url" /><span>🔗</span></div><small>Leemos nombre, descripción, precio, imágenes y datos reales de la página.</small>{productId && importedProductName && <div className="video-product-ready"><span>✓</span><p><strong>{importedProductName}</strong><small>Producto analizado y listo para adaptar</small></p></div>}</div>}
 						{productMode === 'saved' && <div className="video-saved-product-grid">{savedProducts.length ? savedProducts.map((product) => <button type="button" key={product.id} className={productId === String(product.id) ? 'active' : ''} onClick={() => setProductId(String(product.id))}>{product.imageUrl ? <img src={product.imageUrl} alt="" /> : <span>📦</span>}<div><strong>{product.name}</strong><small>{product.description || 'Producto guardado'}</small></div>{productId === String(product.id) && <b>✓</b>}</button>) : <p className="video-empty-choice">Todavía no hay productos guardados. Usá una URL o cargalo a mano.</p>}</div>}
@@ -400,12 +490,25 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 					</div></div>}
 
 					{phase === 'setup' && step === 2 && <div className="wiz-step video-wizard-step"><div className="wiz-body">
+						{suggestingSetup ? <div className="video-ai-analysis-state" role="status" aria-live="polite">
+							<div className="video-ai-orbit"><span>✦</span><i /><i /><i /></div>
+							<span className="studio-kicker">DIRECCIÓN CREATIVA CON IA</span>
+							<h2>Estamos armando tu mejor versión</h2>
+							<p>Combinamos lo que funciona del video ganador con los datos reales de tu producto.</p>
+							<div><span>✓ Analizando hook, escenas y diálogo</span><span>✓ Detectando público, beneficio y prueba</span><span>✓ Eligiendo tono, persona, audio y textos</span></div>
+						</div> : <>
+						{suggestionsReady && <div className="video-ai-suggestion-card">
+							<div className="video-ai-suggestion-heading"><span>✦ Propuesta de la IA</span><small>{suggestionSource === 'ai' ? `${productMode === 'url' ? 'Página' : 'Producto'} + video analizados` : 'Propuesta base automática'}</small></div>
+							<p>{suggestionConcept}</p>
+							<div><span>✓ Todo está preseleccionado</span><button type="button" onClick={() => void requestSetupSuggestions(undefined, true)}>Volver a analizar</button></div>
+						</div>}
 						<label className="picker-label">¿Qué querés tomar del anuncio ganador?</label><p className="batch-detail-help">La IA siempre crea una ejecución nueva. Elegí qué parte de la estrategia querés conservar.</p>
 						<div className="video-option-grid video-reference-mode-grid">{REFERENCE_MODES.map(([value, hint]) => <button type="button" key={value} className={referenceMode === value ? 'active' : ''} onClick={() => setReferenceMode(value)}><strong>{value}</strong><small>{hint}</small>{referenceMode === value && <b>✓</b>}</button>)}</div>
 						<details className="video-advanced-details"><summary>Ajustar qué conservar y qué cambiar</summary><div className="video-wizard-fields"><label>Conservar de la idea</label><textarea value={preserveDirection} onChange={(event) => setPreserveDirection(event.target.value)} rows={3} /><label>Cambiar para mi versión</label><textarea value={changeDirection} onChange={(event) => setChangeDirection(event.target.value)} rows={3} /></div></details>
 						<label className="picker-label">¿Qué tiene que lograr?</label><div className="video-option-grid">{OBJECTIVES.map(([value, hint]) => <button type="button" key={value} className={objective === value ? 'active' : ''} onClick={() => setObjective(value)}><strong>{value}</strong><small>{hint}</small></button>)}</div>
 						<div className="video-wizard-fields video-brief-fields"><label>¿A quién le hablamos?</label><input value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="Ej.: mujeres de 25 a 40 con piel sensible" /><label>¿Cuál es el beneficio principal?</label><input value={benefit} onChange={(event) => setBenefit(event.target.value)} placeholder="Ej.: hidrata sin dejar sensación grasa" /><label>¿Qué prueba podemos mostrar?</label><input value={proof} onChange={(event) => setProof(event.target.value)} placeholder="Ej.: textura real, ingrediente, reseña o resultado verificable" /><div className="video-form-row"><div><label>Oferta, si existe</label><input value={offer} onChange={(event) => setOffer(event.target.value)} placeholder="Ej.: 20% off o envío gratis" /></div><div><label>Acción final</label><input value={cta} onChange={(event) => setCta(event.target.value)} placeholder="Ej.: Compralo hoy" /></div></div></div>
 						<label className="picker-label">Tono del anuncio</label><div className="video-chip-row">{TONES.map((item) => <button type="button" key={item} className={tone === item ? 'active' : ''} onClick={() => setTone(item)}>{item}</button>)}</div>
+						</>}
 					</div></div>}
 
 					{phase === 'setup' && step === 3 && <div className="wiz-step video-wizard-step"><div className="wiz-body">
@@ -446,7 +549,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 					{phase === 'starting' && <div className="video-job-progress"><div><strong>Generando tu video…</strong><span>{progress}%</span></div><div className="video-progress-track"><span style={{ width: `${Math.max(5, progress)}%` }} /></div><small>La generación puede tardar varios minutos. Podés dejar esta pestaña abierta.</small></div>}
 					{error && <p className="video-form-error">{error}</p>}
 
-					{phase === 'setup' && <div className="wiz-actions video-wizard-actions"><button type="button" className="wiz-back" onClick={goBack}>← Atrás</button>{step === 1 ? <button type="button" className="url-batch-submit-btn" onClick={() => void continueFromProduct()} disabled={scanningProduct}>{scanningProduct ? <><span className="studio-spinner small" /> Analizando URL…</> : 'Continuar'}</button> : step < 4 ? <button type="button" className="url-batch-submit-btn" onClick={() => { if (step === 3 && avatarValidationError) { setError(avatarValidationError); return; } setError(''); setStep((step + 1) as 1 | 2 | 3 | 4); }}>Continuar</button> : <div className="batch-continue-wrap"><button type="button" className="url-batch-submit-btn" onClick={() => void requestPlan()}>Analizar y crear guion</button><span className="batch-credit-note">Todavía no gastás créditos</span></div>}</div>}
+					{phase === 'setup' && <div className="wiz-actions video-wizard-actions"><button type="button" className="wiz-back" onClick={goBack} disabled={suggestingSetup}>← Atrás</button>{step === 1 ? <button type="button" className="url-batch-submit-btn" onClick={() => void continueFromProduct()} disabled={scanningProduct}>{scanningProduct ? <><span className="studio-spinner small" /> Analizando URL…</> : 'Continuar'}</button> : step < 4 ? <button type="button" className="url-batch-submit-btn" disabled={suggestingSetup} onClick={() => { if (step === 3 && avatarValidationError) { setError(avatarValidationError); return; } setError(''); setStep((step + 1) as 1 | 2 | 3 | 4); }}>Continuar</button> : <div className="batch-continue-wrap"><button type="button" className="url-batch-submit-btn" onClick={() => void requestPlan()}>Analizar y crear guion</button><span className="batch-credit-note">Todavía no gastás créditos</span></div>}</div>}
 					{phase === 'review' && <div className="wiz-actions video-review-actions"><button type="button" className="wiz-back" onClick={goBack}>← Ajustes</button><button type="button" className="url-batch-submit-btn" onClick={() => void start()}><span>Aprobar y generar ✓ · {creditCost} créditos</span></button></div>}
 					{phase === 'failed' && <button type="button" className="video-secondary-button" onClick={() => { setPhase('review'); setError(''); }}>Volver al plan</button>}
 				</section>

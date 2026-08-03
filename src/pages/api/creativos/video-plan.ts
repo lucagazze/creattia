@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
-import { analyzeVideoReference, createVideoPlan } from '../../../lib/creattia/video-engines';
+import { analyzeVideoReference, createVideoPlan, type VideoReferenceAnalysis } from '../../../lib/creattia/video-engines';
 import { normalizeImageInput } from '../../../lib/creattia/ad-analysis';
 import { resolveAvatarReferences, type AvatarMode } from '../../../lib/creattia/avatar-assets';
 import { analyzeFullVideoReference } from '../../../lib/creattia/video-reference';
@@ -30,6 +30,18 @@ async function downloadReferenceVideo(value: string) {
 	const buffer = Buffer.from(await response.arrayBuffer());
 	if (!buffer.length || buffer.length > MAX_VIDEO_BYTES) throw new Error('El video de referencia supera el límite de 80 MB.');
 	return { buffer, type: response.headers.get('content-type')?.split(';')[0] || 'video/mp4' };
+}
+
+function readSuppliedAnalysis(value: FormDataEntryValue | null): VideoReferenceAnalysis | null {
+	try {
+		const parsed = JSON.parse(String(value || ''));
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+		const serialized = JSON.stringify(parsed);
+		if (serialized.length > 30_000) return null;
+		return parsed as VideoReferenceAnalysis;
+	} catch {
+		return null;
+	}
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -79,6 +91,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const rawSpeechMode = String(form.get('speechMode') || 'adapt');
 		const speechMode = ['adapt', 'new', 'none'].includes(rawSpeechMode) ? rawSpeechMode as 'adapt' | 'new' | 'none' : 'adapt';
 		const dialogueInstructions = String(form.get('dialogueInstructions') || '').trim().slice(0, 1200);
+		const suppliedAnalysis = readSuppliedAnalysis(form.get('referenceAnalysis'));
 		if (!posterUrl || !referenceVideoUrl || !productName && !productId) return json({ error: 'Completá la referencia y el producto.' }, 400);
 
 		const poster = await downloadPoster(posterUrl);
@@ -117,12 +130,14 @@ export const POST: APIRoute = async ({ request }) => {
 			directConsent: avatarConsent,
 		});
 
-		const referenceVideo = await downloadReferenceVideo(referenceVideoUrl);
-		let analysis = await analyzeVideoReference({ apiKey, poster, referenceNotes, productName, brandName });
-		try {
-			analysis = { ...analysis, ...await analyzeFullVideoReference({ apiKey: googleKey, video: referenceVideo, referenceNotes, productName, brandName }) };
-		} catch (analysisError) {
-			console.warn('[video-plan] Gemini no pudo analizar el video completo; se conserva el análisis visual base:', analysisError);
+		let analysis = suppliedAnalysis || await analyzeVideoReference({ apiKey, poster, referenceNotes, productName, brandName });
+		if (!suppliedAnalysis) {
+			const referenceVideo = await downloadReferenceVideo(referenceVideoUrl);
+			try {
+				analysis = { ...analysis, ...await analyzeFullVideoReference({ apiKey: googleKey, video: referenceVideo, referenceNotes, productName, brandName, productFacts }) };
+			} catch (analysisError) {
+				console.warn('[video-plan] Gemini no pudo analizar el video completo; se conserva el análisis visual base:', analysisError);
+			}
 		}
 		const plan = await createVideoPlan({ apiKey, poster, productImages, avatarImages: avatar.images, avatarMode, avatarName: avatar.name, avatarDescription: [avatar.description, avatarDescription].filter(Boolean).join(' · '), referenceNotes, referenceDuration, productName, productFacts, brandName, objective, audience, benefit, proof, offer, cta, tone, language, duration, size, audioDirection, voiceover, captions, peopleDirection, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, speechMode, dialogueInstructions, referenceAnalysis: analysis });
 		return json({ ok: true, analysis, plan });

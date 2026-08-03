@@ -1529,6 +1529,28 @@
 .video-product-ready p { display: flex; min-width: 0; flex-direction: column; gap: 2px; margin: 0; }
 .video-product-ready strong { overflow: hidden; color: #2b4737; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .video-product-ready small { color: #6d8a79; font-size: 10px; }
+.video-ai-analysis-state { display: flex; min-height: 390px; box-sizing: border-box; flex-direction: column; align-items: center; justify-content: center; padding: 34px; border: 1px solid #e5daf8; border-radius: 16px; background: radial-gradient(circle at 50% 12%, rgba(225,211,255,.72), transparent 32%), linear-gradient(145deg, #fcfaff, #f7f2ff); text-align: center; }
+.video-ai-analysis-state .studio-kicker { margin-top: 19px; color: #744bde; font-size: 9px; font-weight: 900; letter-spacing: .16em; }
+.video-ai-analysis-state h2 { margin: 7px 0 0; color: #241c2b; font-size: 22px; letter-spacing: -.025em; }
+.video-ai-analysis-state > p { max-width: 520px; margin: 8px 0 19px; color: #786f81; font-size: 12px; line-height: 1.55; }
+.video-ai-analysis-state > div:last-child { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.video-ai-analysis-state > div:last-child span { padding: 7px 10px; border: 1px solid #e7def5; border-radius: 999px; background: rgba(255,255,255,.78); color: #6b5686; font-size: 9.5px; font-weight: 750; }
+.video-ai-orbit { position: relative; width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(145deg, #7140dd, #a983f1); box-shadow: 0 12px 28px rgba(92,48,185,.24); }
+.video-ai-orbit > span { color: #fff; font-size: 21px; animation: video-ai-pulse 1.5s ease-in-out infinite; }
+.video-ai-orbit > i { position: absolute; inset: -6px; border: 1px solid rgba(116,75,222,.22); border-radius: 50%; animation: video-ai-orbit 2.4s linear infinite; }
+.video-ai-orbit > i:nth-of-type(2) { inset: -12px; animation-duration: 3.2s; animation-direction: reverse; }
+.video-ai-orbit > i:nth-of-type(3) { inset: -18px; animation-duration: 4s; }
+@keyframes video-ai-pulse { 50% { transform: scale(.82) rotate(12deg); opacity: .7; } }
+@keyframes video-ai-orbit { to { transform: rotate(360deg); } }
+.video-ai-suggestion-card { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; padding: 13px 14px; border: 1px solid #d9c8fa; border-radius: 13px; background: linear-gradient(135deg, #f7f2ff, #fff 72%); box-shadow: 0 8px 24px rgba(83,50,142,.07); }
+.video-ai-suggestion-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.video-ai-suggestion-heading > span { color: #6333c9; font-size: 11.5px; font-weight: 900; }
+.video-ai-suggestion-heading > small { padding: 4px 7px; border-radius: 999px; background: #e9defd; color: #6842bc; font-size: 8.5px; font-weight: 850; white-space: nowrap; }
+.video-ai-suggestion-card > p { margin: 0; color: #43384c; font-size: 11.5px; line-height: 1.52; }
+.video-ai-suggestion-card > div:last-child { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 3px; }
+.video-ai-suggestion-card > div:last-child > span { color: #278258; font-size: 9.5px; font-weight: 850; }
+.video-ai-suggestion-card button { padding: 5px 8px; border: 1px solid #d9cafa; border-radius: 8px; background: #fff; color: #6333c9; font: inherit; font-size: 9.5px; font-weight: 850; cursor: pointer; }
+.video-ai-suggestion-card button:hover { background: #f2ebff; }
 .video-saved-product-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 280px; overflow-y: auto; }
 .video-saved-product-grid > button { position: relative; display: grid; min-width: 0; grid-template-columns: 46px minmax(0, 1fr); align-items: center; gap: 9px; padding: 8px; border: 1px solid #e1dbe6; border-radius: 11px; background: #fff; color: #39323f; text-align: left; cursor: pointer; }
 .video-saved-product-grid > button.active { border-color: #744bde; background: #f7f3ff; box-shadow: 0 0 0 2px rgba(116,75,222,.08); }
@@ -1662,6 +1684,10 @@
 	.video-product-tabs { grid-template-columns: 1fr; }
 	.video-product-tabs .wiz-tab { min-height: 66px; }
 	.video-saved-product-grid { grid-template-columns: 1fr; }
+	.video-ai-analysis-state { min-height: 330px; padding: 28px 16px; }
+	.video-ai-analysis-state > div:last-child { flex-direction: column; align-items: stretch; }
+	.video-ai-suggestion-heading { align-items: flex-start; flex-direction: column; gap: 6px; }
+	.video-ai-suggestion-card > div:last-child { align-items: flex-start; flex-direction: column; }
 	.video-reference-mode-grid,
 	.video-casting-grid,
 	.video-duration-grid { grid-template-columns: 1fr; }
