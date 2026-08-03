@@ -108,7 +108,7 @@ try:
     requests.patch(
         f"{supabase_url}/rest/v1/creative_profiles?user_id=eq.{user_id}",
         headers={**admin_headers, "prefer": "return=minimal"},
-        json={"credits_remaining": 20, "brand_name": "Marca UI Creattia"},
+        json={"credits_remaining": 20, "brand_name": "Marca UI Creattia", "website_url": "https://www.creattia.example/productos/hydra-10"},
         timeout=30,
     ).raise_for_status()
     manifest = requests.get(f"{supabase_url}/storage/v1/object/public/creative-videos/manifests/video-library.json", timeout=30).json()
@@ -126,6 +126,17 @@ try:
             page = browser.new_page(viewport={"width": 1440, "height": 900})
             browser_errors = []
             page.on("pageerror", lambda error: browser_errors.append(str(error)))
+            # Las referencias estáticas viven en storage remoto. Servimos una
+            # imagen válida local para que una demora de red no vuelva flaky la
+            # verificación del wizard y sus controles.
+            page.route(
+                re.compile(r"/creative-references/(?!manifests/).+\.(?:png|jpe?g|webp|avif)(?:\?.*)?$", re.I),
+                lambda route: route.fulfill(status=200, content_type="image/jpeg", body=product_path.read_bytes()),
+            )
+            page.route(
+                "**/storage/v1/object/public/creative-videos/manifests/video-library.json",
+                lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps(manifest)),
+            )
             page.route(
                 "**/api/creativos/video-suggestions",
                 lambda route: route.fulfill(status=200, content_type="application/json", body=json.dumps({"ok": True, "source": "ai", "analysis": fake_analysis, "suggestions": fake_suggestions})),
@@ -202,7 +213,7 @@ try:
             page.get_by_role("button", name="Limpiar todo", exact=True).click()
             page.wait_for_timeout(300)
 
-            static_card = page.locator("article.library-ad-card-masonry:not(:has(.winner-video-play))").first
+            static_card = page.locator("article.library-ad-card-masonry:not(:has(.winner-video-play)):has(.library-card-copy)").first
             static_card.wait_for(timeout=30_000)
             static_card.click()
             page.get_by_role("heading", name="Crear con este diseño").wait_for(timeout=10_000)
@@ -216,6 +227,22 @@ try:
                 arg=reference_image.element_handle(),
                 timeout=15_000,
             )
+            page.get_by_role("button", name=re.compile("Cargar a mano")).click()
+            page.get_by_placeholder("Nombre del servicio o producto...").fill("Hydra 10")
+            page.get_by_placeholder("Descripción de tu producto", exact=False).fill("Hidratación ligera para piel sensible")
+            page.locator("#creation-manual-imgs").set_input_files(str(product_path))
+            page.get_by_role("button", name="Continuar", exact=True).click()
+            page.get_by_role("button", name="Continuar", exact=True).click()
+            static_logo_group = page.locator(".batch-style-group").filter(has_text="¿Incluir el logo?")
+            static_url_group = page.locator(".batch-style-group").filter(has_text="¿Mostrar la URL en el creativo?")
+            static_logo_group.wait_for(timeout=10_000)
+            static_url_group.wait_for(timeout=10_000)
+            assert "active" in (static_logo_group.get_by_role("button", name="Sin logo", exact=True).get_attribute("class") or "")
+            assert "active" in (static_url_group.get_by_role("button", name="No mostrar", exact=True).get_attribute("class") or "")
+            static_logo_group.get_by_role("button", name="Incluir logo", exact=True).click()
+            static_url_group.get_by_role("button", name="Mostrar URL", exact=True).click()
+            assert "active" in (static_logo_group.get_by_role("button", name="Incluir logo", exact=True).get_attribute("class") or "")
+            assert "active" in (static_url_group.get_by_role("button", name="Mostrar URL", exact=True).get_attribute("class") or "")
             static_screenshot_path = os.environ.get("CREATTIA_STATIC_COPY_SCREENSHOT", "").strip()
             if static_screenshot_path:
                 Path(static_screenshot_path).parent.mkdir(parents=True, exist_ok=True)
@@ -357,6 +384,15 @@ try:
             assert page.get_by_label("Duración personalizada").input_value() == "17"
             page.locator(".video-duration-custom").get_by_text("8 créditos", exact=True).wait_for()
             assert "active" in (page.locator(".video-option-grid button").filter(has_text="Adaptar el di").get_attribute("class") or "")
+            video_logo_group = page.locator(".video-branding-grid fieldset").nth(0)
+            video_url_group = page.locator(".video-branding-grid fieldset").nth(1)
+            assert "active" in (video_logo_group.get_by_role("button", name="Sin logo", exact=True).get_attribute("class") or "")
+            assert "active" in (video_url_group.get_by_role("button", name="No mostrar", exact=True).get_attribute("class") or "")
+            video_logo_group.get_by_role("button", name="Incluir logo", exact=True).click()
+            video_url_group.get_by_role("button", name="Mostrar URL", exact=True).click()
+            assert "active" in (video_logo_group.get_by_role("button", name="Incluir logo", exact=True).get_attribute("class") or "")
+            assert "active" in (video_url_group.get_by_role("button", name="Mostrar URL", exact=True).get_attribute("class") or "")
+            video_url_group.get_by_text("Se mostrará sólo creattia.example.", exact=True).wait_for()
             suggested_music = page.locator(".video-audio-grid fieldset").nth(1).locator("button.active")
             assert suggested_music.count() == 1 and suggested_music.inner_text().startswith("Con m")
             page.get_by_role("button", name="30 s", exact=True).click()
@@ -380,6 +416,8 @@ try:
             assert page.get_by_label("Texto principal").input_value().startswith("Tu piel sensible")
             assert page.get_by_label("Título").input_value() == fake_analysis["adCopy"]["headline"]
             assert page.get_by_role("textbox", name="Diálogo 1", exact=True).input_value().startswith("Si tu piel")
+            assert "con logo" in page.locator(".video-analysis-summary").inner_text()
+            assert "con URL creattia.example" in page.locator(".video-analysis-summary").inner_text()
             assert "Aprobar y generar" in page.locator(".video-review-actions").inner_text()
             assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "La revisión del guion no debe desbordar en mobile"
             mobile_screenshot_path = os.environ.get("CREATTIA_UI_MOBILE_SCREENSHOT", "").strip()
@@ -398,4 +436,7 @@ try:
             print(f"video-ui: PASS; {video_count} videos, intake URL/manual, casting, producción y guion verificados en 390px/1440px")
             browser.close()
 finally:
-    requests.delete(f"{supabase_url}/auth/v1/admin/users/{user_id}", headers=admin_headers, timeout=30)
+    try:
+        requests.delete(f"{supabase_url}/auth/v1/admin/users/{user_id}", headers=admin_headers, timeout=30)
+    except requests.RequestException:
+        pass

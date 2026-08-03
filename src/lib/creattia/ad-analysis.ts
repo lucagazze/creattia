@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { normalizeAdCopy, type AdaptedAdCopy } from './ad-copy';
+import { normalizeAdCopy, stripWebReferences, type AdaptedAdCopy } from './ad-copy';
 
 // ── Compartido entre /api/creativos/plan y /api/creativos/generate ──────────
 
@@ -108,6 +108,8 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	productFacts: string;
 	brandName: string;
 	language?: string;
+	includeWebsite?: boolean;
+	displayWebsite?: string;
 }): Promise<LayoutAnalysis | null> {
 	const languageRule = input.language && LANGUAGE_NAMES[input.language]
 		? `Write ALL replacements in ${LANGUAGE_NAMES[input.language]} (the user chose this language; set "language" to "${input.language}"). creativeOptions stay in Argentine Spanish regardless.`
@@ -180,6 +182,7 @@ Return STRICT JSON:
 
 Rules:
 - "adCopy" is the publication copy that appears outside the image. Adapt the winning message strategy to the target product, front-load the hook, use only verified facts, avoid unsupported urgency or claims, and complement rather than repeat the words rendered inside the creative. Write it in the requested ad language.
+- WEBSITE PERMISSION: ${input.includeWebsite && input.displayWebsite ? `The user explicitly asked to show the website. Use exactly "${input.displayWebsite}" at most once, only in an existing footer, URL or CTA text slot; never show a long product path, protocol, query string or a different domain.` : 'The user did NOT authorize a website inside the creative. Do not write any URL, domain, web address, social handle or QR code anywhere. If the winning template has a URL slot, leave it clean or reuse the space without web text.'}
 - COPY THAT STOPS THE SCROLL: the winning ad earns attention with its wording, not only its layout. Every replacement has to hit as hard as the original — same punch, same rhythm, same length, same device (a paradox, a question, a number, a blunt claim, a quote). Never soften a bold line into a polite description. If the original testimonial says "Thanks Billie for this smooth shave!", the replacement must name the ADVERTISER, not the product's manufacturer${input.brandName ? ` — the advertiser is "${input.brandName}"` : ', and if no advertiser brand is given, rewrite it so it thanks nobody and speaks about the experience instead'}. A first line that reads like a spec sheet is a failure.
 - FIRST decode the template's message strategy. THEN write every replacement so it performs the SAME persuasive job for the target product: same emotional angle, same rhetorical device (paradox, contrast, question, quote, number), same energy and tone. An emotional hook must stay an emotional hook adapted to the new product — never flatten it into a generic benefit statement.
 - Enumerate EVERY visible text zone in the template (headline, subcopy, review, badges, pills, CTA, small print). None may be missed.
@@ -210,6 +213,12 @@ Rules:
 				productFacts: input.productFacts,
 				brandName: input.brandName,
 			});
+			if (!input.includeWebsite) {
+				parsed.textZones = parsed.textZones.map((zone: any) => ({
+					...zone,
+					replacement: stripWebReferences(zone?.replacement),
+				}));
+			}
 			return parsed as LayoutAnalysis;
 		} catch { return null; }
 	};
@@ -287,6 +296,8 @@ export function buildReferenceClonePrompt(input: {
 	typoMode?: 'winner' | 'brand';
 	brandColors?: string[];
 	brandTypography?: { headings?: string; body?: string };
+	includeWebsite?: boolean;
+	displayWebsite?: string;
 	adCopy?: {
 		headline?: string;
 		subheadline?: string;
@@ -451,7 +462,9 @@ ${textSwap || (input.analysis
 		: `- Adapt every template text block honestly to ${productLabel}, in ${language}, keeping the same message structure.`)}
 If a template text block has no replacement listed, adapt its message honestly to the new product${input.brandName ? '' : ". If that block was the advertiser's brand name or stamp, leave it visually clean and empty instead of writing a placeholder — never write words like \"null\", \"undefined\", \"marca\" or \"your brand\" inside the ad"}. Do not invent prices, percentages, reviews, certifications or claims. NEVER translate or carry over the template's guarantees, discounts, shipping promises, review counts, ratings, certifications, awards or deadlines — those are commitments of the template's brand, not of this advertiser. If such a badge or pill has no verified replacement, fill it with a real product benefit at the same size and in the same shape instead; leaving the template's promise there (even translated) is a hard error. NO EXTRA COPY: the finished ad must contain the SAME NUMBER of text blocks as the template, no more. Never add a headline, badge, feature box, bullet list, comparison row, seal or CTA that the template does not have — an ad with more text than its reference stops looking like the reference. Render all text sharp, correctly spelled, no gibberish or distorted words. NO DUPLICATION: each text appears exactly ONCE — never repeat a word, a line or the tail of a sentence on the next line (a heading ending in "...resultados visibles?" must not be followed by a stray "visibles?"), and never render the same block twice. FIT: every text MUST fit fully inside its card, bubble or badge with the same padding as the template — if a replacement is long, reduce its font size slightly or tighten line spacing; text must NEVER overflow, collide with other elements or spill outside its container. If the template shows a person next to a testimonial, keep that exact person unchanged and make the attribution plausibly match them.
 
-3. BRAND SWAP — ERASE every trace of the template's own brand. Its wordmark, logo, emblem, monogram and brand name must NOT appear anywhere in the output, in any size, not even faintly, partially, redrawn or stylised, and never merged with other text. Scan the whole canvas for it: corners, footer, badges, the product itself and any watermark. That brand belongs to a different company — leaving it in makes the ad unusable. ${input.hasLogo ? 'If the layout needs a brand mark, place the provided brand logo (last input image) in that same spot, ONCE, small and discreet. Reproduce that logo image EXACTLY as supplied and complete: it may itself contain more than one element (a shield plus a seal, a symbol plus a wordmark, several marks side by side) — keep every element it contains, in the same arrangement and proportions, and render any text inside it letter for letter. Never redraw, recolour, restyle, split or simplify it. Do NOT add any badge, seal, medallion, ribbon, star rating, laurel or certification stamp that is not part of that logo image.' : 'NO INVENTED MARKS — You have NOT been given a brand logo, so you must not draw one. Do not create shields, crests, badges, seals, medallions, ribbons, laurels, stars, monograms, initials, coats of arms or certification stamps anywhere in the image, not even small ones in a corner, and never text inside such a shape (it always comes out as gibberish). Where the template showed its brand mark, ' + (input.brandName ? `render ONLY a plain text wordmark reading exactly "${input.brandName}", in the same typeface family as the ad, with no surrounding shape or emblem.` : 'leave that area completely empty and clean — no invented name, no placeholder, no emblem.')}
+3. BRAND SWAP — ERASE every trace of the template's own brand. Its wordmark, logo, emblem, monogram and brand name must NOT appear anywhere in the output, in any size, not even faintly, partially, redrawn or stylised, and never merged with other text. Scan the whole canvas for it: corners, footer, badges, the product itself and any watermark. That brand belongs to a different company — leaving it in makes the ad unusable. ${input.hasLogo ? 'The user explicitly selected INCLUDE LOGO. If the layout needs a brand mark, place the provided brand logo (last input image) in that same spot, ONCE, small and discreet. Reproduce that logo image EXACTLY as supplied and complete: it may itself contain more than one element (a shield plus a seal, a symbol plus a wordmark, several marks side by side) — keep every element it contains, in the same arrangement and proportions, and render any text inside it letter for letter. Never redraw, recolour, restyle, split or simplify it. Do NOT add any badge, seal, medallion, ribbon, star rating, laurel or certification stamp that is not part of that logo image.' : 'The user explicitly selected NO ADDED LOGO. Do not add a separate logo, wordmark, emblem, monogram, initials, shield, crest, badge, seal, medallion, ribbon, laurel, star mark, coat of arms or certification stamp to the layout. Where the template showed its brand mark, leave that area completely empty and clean — no invented name, placeholder or symbol. This does not remove the real label or branding physically printed on the supplied product packaging, which must remain faithful to the product photo.'}
+
+WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website. Render exactly "${input.displayWebsite}" ONCE, discreetly, only in an existing footer, URL or CTA slot. Never render the protocol, a product path, query parameters, another domain, a social handle or a QR code.` : 'The user explicitly selected NO WEBSITE. Do not render any URL, domain, web address, social handle or QR code anywhere. Remove any website from the winning template and leave that space clean; never infer one from product data.'}
 
 4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
 ${peopleBlock}${comparisonBlock}

@@ -9,7 +9,7 @@ import { generateAdImage, type EngineImage } from '../../../lib/creattia/image-e
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { isAdminEmail } from '../../../lib/creattia/admin';
-import { fallbackAdCopy } from '../../../lib/creattia/ad-copy';
+import { fallbackAdCopy, normalizeDisplayWebsite, stripWebReferences } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -73,7 +73,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const snapshot: any = row.settings_snapshot || {};
 		const requestedFormat = String(row.format || snapshot.format || 'original');
 		const language = String(snapshot.language || 'es');
-		const brief = String(row.user_brief || '');
+		const brief = snapshot.includeWebsite === true ? String(row.user_brief || '') : stripWebReferences(row.user_brief);
 
 		// ── 1. El anuncio ganador que hay que clonar ──────────────────────────
 		const referencePath = String(snapshot.referencePath || '');
@@ -130,11 +130,12 @@ export const POST: APIRoute = async ({ request }) => {
 		// 'none' → ninguna: el anuncio habla solo del producto
 		const brandSource = String(snapshot.brandSource || 'url');
 		const { data: profile } = await admin.from('creative_profiles')
-			.select('brand_name,brand_colors,logo_path,brand_style').eq('user_id', userId).maybeSingle();
+			.select('brand_name,website_url,brand_colors,logo_path,brand_style').eq('user_id', userId).maybeSingle();
 
 		let brandName = '';
 		let brandColors: string[] = [];
 		let brandTypography: any = undefined;
+		let sourceWebsite = '';
 		let logoImage: EngineImage | null = null;
 		// El usuario elige explícitamente si quiere el logo en este anuncio: antes
 		// se agregaba solo porque había uno disponible, sin preguntar nunca. Las
@@ -144,6 +145,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 		if (brandSource === 'mine') {
 			brandName = profile?.brand_name || '';
+			sourceWebsite = profile?.website_url || '';
 			brandColors = Array.isArray(profile?.brand_colors) ? profile.brand_colors : [];
 			brandTypography = (profile?.brand_style as any)?.typography;
 			if (includeLogo && profile?.logo_path) {
@@ -154,6 +156,7 @@ export const POST: APIRoute = async ({ request }) => {
 		} else if (brandSource === 'url') {
 			const fromUrl = (productRecord?.metadata as any)?.brandFromUrl;
 			brandName = fromUrl?.name || '';
+			sourceWebsite = fromUrl?.website || '';
 			brandColors = Array.isArray(fromUrl?.colors) ? fromUrl.colors : [];
 			brandTypography = fromUrl?.typography || undefined;
 			// El logo del sitio viene como URL: se baja y se normaliza. Si sale
@@ -174,6 +177,8 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 		const hasLogo = Boolean(logoImage);
+		const includeWebsite = snapshot.includeWebsite === true;
+		const displayWebsite = includeWebsite ? normalizeDisplayWebsite(sourceWebsite) : '';
 
 		// ── 4. Análisis con visión del ganador: qué dice cada zona de texto y
 		// cómo se reemplaza para este producto, en el idioma elegido ──────────
@@ -188,6 +193,8 @@ export const POST: APIRoute = async ({ request }) => {
 				productFacts,
 				brandName,
 				language,
+				includeWebsite,
+				displayWebsite,
 			});
 		} catch (analysisError) {
 			console.error(`[batch-worker ${generationId}] análisis de layout falló:`, analysisError);
@@ -204,6 +211,8 @@ export const POST: APIRoute = async ({ request }) => {
 			typoMode: snapshot.typoMode === 'brand' ? 'brand' : 'winner',
 			brandColors,
 			brandTypography,
+			includeWebsite,
+			displayWebsite,
 		});
 
 		// ── 5. Formato: 'original' toma la proporción real del ganador ────────

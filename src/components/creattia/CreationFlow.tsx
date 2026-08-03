@@ -90,6 +90,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 	const [typoMode, setTypoMode] = useState<'winner' | 'brand'>('winner');
 	const [brandSource, setBrandSource] = useState('url');
 	const [includeLogo, setIncludeLogo] = useState(false);
+	const [includeWebsite, setIncludeWebsite] = useState(false);
 	// Carrusel completo: en cuáles páginas va el logo. Vacío = en ninguna.
 	const [logoCarouselPages, setLogoCarouselPages] = useState<Set<number>>(new Set());
 	const count = 1;
@@ -190,6 +191,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			form.set('referencePath', effectiveReferencePath);
 			form.set('language', language);
 			form.set('brandSource', brandSource);
+			form.set('includeWebsite', includeWebsite ? '1' : '0');
 			if (productMode === 'url' && productIds.length) {
 				form.set('productId', productIds[0]); // contexto de análisis
 			} else if (productMode === 'manual') {
@@ -232,6 +234,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
 			form.set('includeLogo', includeLogo ? '1' : '0');
+			form.set('includeWebsite', includeWebsite ? '1' : '0');
 			if (productMode === 'url' && scannedProductIds.length) {
 				scannedProductIds.forEach((id) => form.append('productIds', id));
 			} else if (productMode === 'manual') {
@@ -308,7 +311,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 					referenceName: ad.name || 'Carrusel ganador',
 					templateId: !isNaN(pathPrefixId) ? pathPrefixId : 40,
 					productIds,
-					format, language, colorMode, typoMode, brandSource,
+					format, language, colorMode, typoMode, brandSource, includeWebsite,
 					logoSlideIndexes: [...logoCarouselPages],
 				}),
 			});
@@ -621,7 +624,7 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 									<span className="picker-label">¿De quién es el anuncio?</span>
 									<div className="batch-brand-options">
 										{BRAND_OPTIONS.map((option) => (
-											<button key={option.value} type="button" className={`batch-brand-option ${brandSource === option.value ? 'active' : ''}`} onClick={() => setBrandSource(option.value)} aria-pressed={brandSource === option.value}>
+											<button key={option.value} type="button" className={`batch-brand-option ${brandSource === option.value ? 'active' : ''}`} onClick={() => { setBrandSource(option.value); if (option.value === 'none') { setIncludeLogo(false); setIncludeWebsite(false); setLogoCarouselPages(new Set()); } }} aria-pressed={brandSource === option.value}>
 												<span className="batch-brand-icon" aria-hidden="true">{option.emoji}</span>
 												<span><strong>{option.label}</strong><small>{option.hint}</small></span>
 												{brandSource === option.value && <b aria-hidden="true">✓</b>}
@@ -667,6 +670,28 @@ export default function CreationFlow({ ad, session, savedProducts, onToast, onGe
 												</div>
 											</>
 										)}
+									</div>
+								)}
+
+								{!wantsFullCarousel && brandSource !== 'none' && (
+									<div className="batch-style-group" style={{ marginBottom: '4px' }}>
+										<span className="picker-label">¿Incluir el logo?</span>
+										<div className="batch-style-options">
+											<button type="button" className={!includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(false)}>Sin logo</button>
+											<button type="button" className={includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(true)}>Incluir logo</button>
+										</div>
+										<small className="batch-brand-note">Usamos el logo oficial de la marca elegida. Por defecto no se agrega.</small>
+									</div>
+								)}
+
+								{brandSource !== 'none' && (
+									<div className="batch-style-group" style={{ marginBottom: '4px' }}>
+										<span className="picker-label">¿Mostrar la URL en el creativo?</span>
+										<div className="batch-style-options">
+											<button type="button" className={!includeWebsite ? 'active' : ''} onClick={() => setIncludeWebsite(false)}>No mostrar</button>
+											<button type="button" className={includeWebsite ? 'active' : ''} onClick={() => setIncludeWebsite(true)}>Mostrar URL</button>
+										</div>
+										<small className="batch-brand-note">La URL usada para analizar el producto no se imprime salvo que elijas “Mostrar URL”.</small>
 									</div>
 								)}
 

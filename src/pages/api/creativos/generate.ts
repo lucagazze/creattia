@@ -5,7 +5,7 @@ import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput,
 import { generateAdImage } from '../../../lib/creattia/image-engines';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { isAdminEmail } from '../../../lib/creattia/admin';
-import { fallbackAdCopy } from '../../../lib/creattia/ad-copy';
+import { fallbackAdCopy, normalizeDisplayWebsite, stripWebReferences } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -65,6 +65,7 @@ function buildPrompt(input: {
 	preset: string;
 	brandName: string;
 	website: string;
+	showWebsite: boolean;
 	instagram: string;
 	colors: string;
 	brandSummary: string;
@@ -131,7 +132,7 @@ OBJECTIVE
 
 VERIFIED BRAND CONTEXT
 - Brand name: ${input.brandName || 'Use a discreet generic brand lockup'}
-- Website: ${input.website || 'Not provided'}
+- Website available for display: ${input.showWebsite && input.website ? input.website : 'Not authorized for display'}
 - Instagram: ${input.instagram || 'Not provided'}
 - Brand colors: ${input.colors || '#18181b and #ffffff'}
 - Brand summary: ${input.brandSummary || 'Use only the supplied facts.'}
@@ -160,7 +161,8 @@ ${input.products.length === 0 && !input.hasUploadedProduct ? '- Build a brand-le
 ${input.imageType === 'lifestyle' ? '- Create a believable lifestyle scene. Every real product must remain commercially prominent.' : ''}
 ${input.imageType === 'catalog' ? '- Use a clean ecommerce catalog treatment: controlled lighting, precise product edges, minimal environment and premium spacing.' : ''}
 ${input.imageType === 'promotion' ? '- Prioritize the verified offer and brand message. Do not invent a product-specific claim.' : ''}
-${input.hasLogo ? '- Use the image identified as the brand logo in the input map. Preserve it accurately and place it once with comfortable clear space.' : '- Render the brand name as a simple wordmark only if needed.'}
+${input.hasLogo ? '- LOGO PERMISSION: the user selected INCLUDE LOGO. Use the image identified as the brand logo in the input map, preserve it accurately and place it once with comfortable clear space.' : '- LOGO PERMISSION: the user selected NO ADDED LOGO. Do not add any separate logo, wordmark, emblem, monogram, badge, seal, watermark or invented brand symbol to the layout. Preserve only branding physically printed on the real product packaging.'}
+${input.showWebsite && input.website ? `- WEBSITE PERMISSION: render exactly "${input.website}" at most once, discreetly. Never add a protocol, product path, query string, other domain, social handle or QR code.` : '- WEBSITE PERMISSION: the user selected NO WEBSITE. Do not render any URL, domain, web address, social handle or QR code anywhere, and do not infer one from the product data.'}
 - Write all visible copy in natural, high-converting ${input.adCopy?.language === 'en' ? 'American English' : 'Argentine Spanish'}.
 - Keep copy minimal, accurate and easy to read on a phone.
 - Do not invent prices, percentages, reviews, certifications, deadlines, product features or legal claims.
@@ -234,6 +236,8 @@ export const POST: APIRoute = async ({ request }) => {
 		// mandaban estos campos, así que terminaban agregando el logo guardado
 		// del usuario sin que nadie lo pidiera.
 		const includeLogo = clean(form.get('includeLogo'), 2) === '1';
+		const includeWebsite = clean(form.get('includeWebsite'), 2) === '1';
+		const effectiveBrief = includeWebsite ? brief : stripWebReferences(brief);
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		// 'url'  → la marca del sitio de donde salió el producto
 		// 'mine' → la que el usuario tiene guardada en Mi marca
@@ -321,6 +325,7 @@ export const POST: APIRoute = async ({ request }) => {
 			: brandSource === 'url' ? (Array.isArray(urlBrand?.colors) ? urlBrand.colors : []) : [];
 		const effectiveBrandTypography = brandSource === 'mine' ? brandStyle?.typography : brandSource === 'url' ? (urlBrand?.typography || undefined) : undefined;
 		const effectiveWebsite = brandSource === 'mine' ? (profile?.website_url || '') : brandSource === 'url' ? (urlBrand?.website || '') : '';
+		const displayWebsite = includeWebsite ? normalizeDisplayWebsite(effectiveWebsite || clean(form.get('website'), 300)) : '';
 		const effectiveInstagram = brandSource === 'mine' ? (profile?.instagram_handle || '') : '';
 		const effectiveBrandSummary = brandSource === 'mine' ? (profile?.brand_summary || '') : brandSource === 'url' ? (urlBrand?.styleSummary || '') : '';
 		const effectiveBrandVoice = brandSource === 'mine' ? (profile?.brand_voice || '') : '';
@@ -382,6 +387,9 @@ export const POST: APIRoute = async ({ request }) => {
 		const generationSettingsSnapshot = {
 			format, imageType, preset, quality, productIds, productNames: storedProducts.map((item) => item.name),
 			adCopy: approvedPlan?.adCopy || fallbackPublicationCopy,
+			includeLogo,
+			includeWebsite,
+			displayWebsite,
 			// Las revisiones heredan el anuncio ganador de la imagen original.
 			referencePath: storedReference?.image_path || (sourceGeneration as any)?.settings_snapshot?.referencePath || null,
 			sourceGenerationId: sourceGeneration?.id || null,
@@ -600,6 +608,8 @@ export const POST: APIRoute = async ({ request }) => {
 					productFacts,
 					brandName: effectiveBrandName || clean(form.get('brandName'), 80),
 					language,
+					includeWebsite,
+					displayWebsite,
 				});
 			} catch (analysisErr) {
 				console.error('Layout analysis failed, falling back to flat ad copy:', analysisErr);
@@ -666,13 +676,15 @@ The result must look like the same image with only that one adjustment applied.`
 			productNames: storedProducts.map((item) => item.name),
 			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
 			hasLogo,
-			brief,
+			brief: effectiveBrief,
 			analysis: layoutAnalysis,
 			languageCode: language || undefined,
 			colorMode,
 			typoMode,
 			brandColors: effectiveBrandColors,
 			brandTypography: effectiveBrandTypography,
+			includeWebsite,
+			displayWebsite,
 			adCopy,
 		}) : buildPrompt({
 			templateName,
@@ -680,8 +692,11 @@ The result must look like the same image with only that one adjustment applied.`
 			usageHint: templateUsageHint,
 			preset,
 			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
-			website: effectiveWebsite || clean(form.get('website'), 300),
-			instagram: effectiveInstagram || clean(form.get('instagram'), 300),
+			website: displayWebsite,
+			showWebsite: includeWebsite,
+			// Una red social también es un identificador web visible. No la
+			// exponemos al modelo si el usuario eligió no mostrar la URL.
+			instagram: includeWebsite ? (effectiveInstagram || clean(form.get('instagram'), 300)) : '',
 			colors: effectiveBrandColors.length ? effectiveBrandColors.join(', ') : clean(form.get('colors'), 80),
 			brandSummary: effectiveBrandSummary,
 			brandVoice: effectiveBrandVoice,
@@ -696,7 +711,7 @@ The result must look like the same image with only that one adjustment applied.`
 				description: [item.description, item.price_text && `${item.price_text} ${item.currency || ''}`, item.analysis?.category].filter(Boolean).join(' · '),
 			})),
 			imageType,
-			brief,
+			brief: effectiveBrief,
 			format,
 			hasLogo,
 			hasReference,

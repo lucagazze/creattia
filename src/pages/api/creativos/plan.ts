@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { analyzeReferenceLayout, normalizeImageInput, LANGUAGE_NAMES } from '../../../lib/creattia/ad-analysis';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
+import { normalizeDisplayWebsite } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -35,6 +36,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const product = form.get('product');
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		const brandSource = ['url', 'mine', 'none'].includes(brandSourceParam) ? brandSourceParam : 'mine';
+		const includeWebsite = clean(form.get('includeWebsite'), 5) === '1';
 
 		if (!referencePath || !/^[0-9]+\/[a-f0-9]{8,}\.(png|jpe?g|webp|avif)$/i.test(referencePath)) {
 			return json({ error: 'Elegí un anuncio ganador válido.' }, 400);
@@ -63,7 +65,7 @@ export const POST: APIRoute = async ({ request }) => {
 		let productB64: string | undefined;
 		let productMime: string | undefined;
 		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
-		let brandFromUrl: { name?: string } | null = null;
+		let brandFromUrl: { name?: string; website?: string } | null = null;
 		if (productId) {
 			const { data: stored, error } = await admin.from('creative_products')
 				.select('id,name,description,price_text,currency,image_path,analysis,metadata')
@@ -95,7 +97,7 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const { data: profile } = await admin.from('creative_profiles')
-			.select('brand_name').eq('user_id', auth.user.id).maybeSingle();
+			.select('brand_name,website_url').eq('user_id', auth.user.id).maybeSingle();
 
 		// Qué marca aparece en el mensaje: la del sitio del producto, la guardada
 		// en "Mi marca", o ninguna. Mismo criterio que la generación por lote.
@@ -104,6 +106,9 @@ export const POST: APIRoute = async ({ request }) => {
 			: brandSource === 'url'
 				? (brandFromUrl?.name || '')
 				: '';
+		const displayWebsite = includeWebsite
+			? normalizeDisplayWebsite(brandSource === 'mine' ? profile?.website_url : brandSource === 'url' ? brandFromUrl?.website : '')
+			: '';
 
 		const analysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
 			referenceB64: normalizedReference.buffer.toString('base64'),
@@ -114,6 +119,8 @@ export const POST: APIRoute = async ({ request }) => {
 			productFacts,
 			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
 			language,
+			includeWebsite,
+			displayWebsite,
 		});
 		if (!analysis) return json({ error: 'No pudimos analizar el anuncio. Probá de nuevo.' }, 502);
 

@@ -58,6 +58,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const brandSource = brandSources.has(String(body?.brandSource)) ? String(body?.brandSource) : 'url';
 		const colorMode = body?.colorMode === 'brand' ? 'brand' : 'winner';
 		const typoMode = body?.typoMode === 'brand' ? 'brand' : 'winner';
+		const includeWebsite = body?.includeWebsite === true;
 		// El usuario elige, página por página, en cuáles va su logo. Antes se
 		// agregaba solo si había uno disponible, sin preguntar nunca.
 		const logoSlideIndexes = new Set(
@@ -120,6 +121,7 @@ export const POST: APIRoute = async ({ request }) => {
 					typoMode,
 					brandSource,
 					includeLogo: logoSlideIndexes.has(index),
+					includeWebsite,
 					imageType: 'product',
 					referencePath: slidePath,
 					referenceName: `${referenceName} · página ${index + 1}/${count}`,

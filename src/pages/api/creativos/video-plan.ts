@@ -5,6 +5,7 @@ import { normalizeImageInput } from '../../../lib/creattia/ad-analysis';
 import { resolveAvatarReferences, type AvatarMode } from '../../../lib/creattia/avatar-assets';
 import { analyzeFullVideoReference } from '../../../lib/creattia/video-reference';
 import { normalizeVideoProductName } from '../../../lib/creattia/video-copy';
+import { normalizeDisplayWebsite } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
 
@@ -65,6 +66,9 @@ export const POST: APIRoute = async ({ request }) => {
 		let productName = String(form.get('productName') || '').trim().slice(0, 180);
 		const productFactsInput = String(form.get('productFacts') || '').trim().slice(0, 3000);
 		const brandName = String(form.get('brandName') || '').trim().slice(0, 120);
+		const includeLogo = String(form.get('includeLogo') || '') === '1';
+		const includeWebsite = String(form.get('includeWebsite') || '') === '1';
+		let displayWebsite = normalizeDisplayWebsite(form.get('displayWebsite'));
 		const objective = String(form.get('objective') || 'Conversión').trim().slice(0, 180);
 		const audience = String(form.get('audience') || '').trim().slice(0, 500);
 		const audienceReason = String(form.get('audienceReason') || '').trim().slice(0, 500);
@@ -104,14 +108,16 @@ export const POST: APIRoute = async ({ request }) => {
 		const poster = await downloadPoster(posterUrl);
 		if (!poster) throw new Error('No se pudo procesar el fotograma de referencia.');
 		let productFacts = productFactsInput;
+		let productWebsite = '';
 		const productImages: Array<{ buffer: Buffer; type: string }> = [];
 		if (productId) {
 			const { data: product, error } = await admin.from('creative_products')
-				.select('id,name,description,price_text,image_path,analysis').eq('id', productId).eq('user_id', auth.user.id).maybeSingle();
+				.select('id,name,description,price_text,image_path,analysis,metadata').eq('id', productId).eq('user_id', auth.user.id).maybeSingle();
 			if (error) throw error;
 			if (!product) return json({ error: 'El producto elegido no existe.' }, 404);
 			productName = product.name || productName;
 			productFacts = [product.description, product.price_text && `Precio exacto: ${product.price_text}`, product.analysis?.category].filter(Boolean).join(' · ');
+			productWebsite = (product.metadata as any)?.brandFromUrl?.website || '';
 			if (product.image_path) {
 				const { data: blob, error: imageError } = await admin.storage.from(ASSETS).download(product.image_path);
 				if (imageError) throw imageError;
@@ -129,6 +135,10 @@ export const POST: APIRoute = async ({ request }) => {
 			if (normalized) productImages.push(normalized);
 		}
 		if (!productImages.length) return json({ error: 'Elegí un producto guardado o subí al menos una foto real del producto.' }, 400);
+		if (includeWebsite && !displayWebsite) {
+			const { data: profile } = await admin.from('creative_profiles').select('website_url').eq('user_id', auth.user.id).maybeSingle();
+			displayWebsite = normalizeDisplayWebsite(productWebsite || profile?.website_url);
+		}
 		const avatar = await resolveAvatarReferences({
 			admin,
 			userId: auth.user.id,
@@ -147,7 +157,7 @@ export const POST: APIRoute = async ({ request }) => {
 				console.warn('[video-plan] Gemini no pudo analizar el video completo; se conserva el análisis visual base:', analysisError);
 			}
 		}
-		const plan = await createVideoPlan({ apiKey, poster, productImages, avatarImages: avatar.images, avatarMode, avatarName: avatar.name, avatarDescription: [avatar.description, avatarDescription].filter(Boolean).join(' · '), referenceNotes, referenceDuration, productName, productFacts, brandName, objective, audience, audienceReason, audienceAlternatives, objections, hookIdea, performanceDirection, realismDirection, benefit, proof, offer, cta, tone, language, duration, size, audioDirection, voiceover, captions, peopleDirection, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, speechMode, dialogueInstructions, referenceAnalysis: analysis });
+		const plan = await createVideoPlan({ apiKey, poster, productImages, avatarImages: avatar.images, avatarMode, avatarName: avatar.name, avatarDescription: [avatar.description, avatarDescription].filter(Boolean).join(' · '), referenceNotes, referenceDuration, productName, productFacts, brandName, includeLogo, includeWebsite, displayWebsite, objective, audience, audienceReason, audienceAlternatives, objections, hookIdea, performanceDirection, realismDirection, benefit, proof, offer, cta, tone, language, duration, size, audioDirection, voiceover, captions, peopleDirection, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, speechMode, dialogueInstructions, referenceAnalysis: analysis });
 		return json({ ok: true, analysis, plan });
 	} catch (error) {
 		console.error('[video-plan]', error);

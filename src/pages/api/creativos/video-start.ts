@@ -7,6 +7,7 @@ import { splitVideoBuffer } from '../../../lib/creattia/video-media';
 import { dialogueForSegment, isVideoOutputDuration, referenceSegmentForOutput, scenesForSegment, videoCreditCost, videoCreditCostForAccount, videoSegmentsForDuration } from '../../../lib/creattia/video-pipeline';
 import { naturalFallbackDialogue, normalizeVideoProductName, sanitizeDialogueLine, stripVideoUrls } from '../../../lib/creattia/video-copy';
 import { isAdminEmail } from '../../../lib/creattia/admin';
+import { normalizeDisplayWebsite, stripWebReferences } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
 
@@ -70,7 +71,11 @@ export const POST: APIRoute = async ({ request }) => {
 		const productNameInput = String(form.get('productName') || '').trim().slice(0, 180);
 		const productFactsInput = String(form.get('productFacts') || '').trim().slice(0, 3000);
 		const brandName = String(form.get('brandName') || '').trim().slice(0, 120);
-		const brief = String(form.get('brief') || '').trim().slice(0, 1500);
+		const includeLogo = String(form.get('includeLogo') || '') === '1';
+		const includeWebsite = String(form.get('includeWebsite') || '') === '1';
+		const requestedDisplayWebsite = normalizeDisplayWebsite(form.get('displayWebsite'));
+		let brief = String(form.get('brief') || '').trim().slice(0, 1500);
+		if (!includeWebsite) brief = stripWebReferences(brief);
 		const duration = String(form.get('duration') || '8');
 		const size = String(form.get('size') || '720x1280');
 		const model = String(form.get('model') || 'gemini-omni-flash-preview');
@@ -146,6 +151,20 @@ export const POST: APIRoute = async ({ request }) => {
 
 		if (!productName) return json({ error: 'Escribí el nombre del producto.' }, 400);
 		if (!productReferences.length) return json({ error: 'Elegí un producto guardado o subí al menos una foto real del producto.' }, 400);
+		const { data: brandProfile } = await admin.from('creative_profiles')
+			.select('website_url,logo_path').eq('user_id', auth.user.id).maybeSingle();
+		const productWebsite = (productRecord?.metadata as any)?.brandFromUrl?.website || '';
+		const displayWebsite = includeWebsite
+			? normalizeDisplayWebsite(requestedDisplayWebsite || productWebsite || brandProfile?.website_url)
+			: '';
+		let logoReference: { buffer: Buffer; type: string } | null = null;
+		if (includeLogo) {
+			if (!brandProfile?.logo_path) return json({ error: 'Elegiste incluir el logo, pero todavía no hay uno guardado en Mi marca.' }, 400);
+			const { data: logoBlob, error: logoError } = await admin.storage.from(ASSETS).download(brandProfile.logo_path);
+			if (logoError || !logoBlob) return json({ error: 'No pudimos cargar el logo guardado en Mi marca.' }, 400);
+			logoReference = await normalizeImageInput(Buffer.from(await logoBlob.arrayBuffer()));
+			if (!logoReference) return json({ error: 'El logo guardado no se pudo procesar. Subilo nuevamente en Mi marca.' }, 400);
+		}
 		const avatar = await resolveAvatarReferences({
 			admin,
 			userId: auth.user.id,
@@ -162,6 +181,14 @@ export const POST: APIRoute = async ({ request }) => {
 		const visualReferences = avatar.images.length
 			? [...productReferences.slice(0, 2), ...avatar.images.slice(0, 3)]
 			: productReferences.slice(0, 5);
+		const referenceLabels = [
+			...productReferences.slice(0, avatar.images.length ? 2 : 5).map((_, index) => `ProductReference${index + 1}`),
+			...avatar.images.slice(0, avatar.images.length ? 3 : 0).map((_, index) => `AvatarReference${index + 1}`),
+		];
+		if (logoReference) {
+			visualReferences.push(logoReference);
+			referenceLabels.push('OfficialBrandLogo');
+		}
 
 		productFacts = productRecord ? [
 			productRecord?.description,
@@ -187,13 +214,16 @@ export const POST: APIRoute = async ({ request }) => {
 			hasSpokenDialogue: speechMode !== 'none' && Boolean(creativePlan.hasSpokenDialogue ?? safeDialogueLines.length),
 			dialogueLines: speechMode === 'none' ? [] : safeDialogueLines,
 		};
-		const creativeBrief = [brief, objective && `Objetivo: ${objective}`, audience && `Audiencia: ${audience}`, audienceReason && `Por qué esta audiencia: ${audienceReason}`, audienceAlternatives && `Otros públicos considerados: ${audienceAlternatives}`, objections && `Objeciones: ${objections}`, hookIdea && `Hook elegido: ${hookIdea}`, benefit && `Beneficio principal: ${benefit}`, proof && `Prueba: ${proof}`, offer && `Oferta: ${offer}`, tone && `Tono: ${tone}`, language && `Idioma: ${language}`, `Fidelidad a la referencia: ${referenceMode}`, preserveDirection && `Conservar: ${preserveDirection}`, changeDirection && `Cambiar: ${changeDirection}`, productUsage && `Uso del producto: ${productUsage}`, mustAvoid && `Evitar: ${mustAvoid}`, audioDirection && `Audio: ${audioDirection}`, voiceover && `Voz en off: ${voiceover}`, captions && `Textos: ${captions}`, peopleDirection && `Personas/creador: ${peopleDirection}`, performanceDirection && `Actuación: ${performanceDirection}`, realismDirection && `Realismo obligatorio: ${realismDirection}`].filter(Boolean).join('\n');
+		const creativeBrief = [brief, objective && `Objetivo: ${objective}`, audience && `Audiencia: ${audience}`, audienceReason && `Por qué esta audiencia: ${audienceReason}`, audienceAlternatives && `Otros públicos considerados: ${audienceAlternatives}`, objections && `Objeciones: ${objections}`, hookIdea && `Hook elegido: ${hookIdea}`, benefit && `Beneficio principal: ${benefit}`, proof && `Prueba: ${proof}`, offer && `Oferta: ${offer}`, tone && `Tono: ${tone}`, language && `Idioma: ${language}`, includeLogo ? 'Logo: incluir una vez el logo oficial suministrado.' : 'Logo: no mostrar ningún logo.', includeWebsite && displayWebsite ? `URL visible: mostrar sólo ${displayWebsite} una vez.` : 'URL visible: no mostrar ninguna URL, dominio, web, usuario social ni QR.', `Fidelidad a la referencia: ${referenceMode}`, preserveDirection && `Conservar: ${preserveDirection}`, changeDirection && `Cambiar: ${changeDirection}`, productUsage && `Uso del producto: ${productUsage}`, mustAvoid && `Evitar: ${mustAvoid}`, audioDirection && `Audio: ${audioDirection}`, voiceover && `Voz en off: ${voiceover}`, captions && `Textos: ${captions}`, peopleDirection && `Personas/creador: ${peopleDirection}`, performanceDirection && `Actuación: ${performanceDirection}`, realismDirection && `Realismo obligatorio: ${realismDirection}`].filter(Boolean).join('\n');
 		const prompt = buildVideoPrompt({
 			analysis,
 			referenceNotes: referenceScript,
 			productName,
 			productFacts,
 			brandName,
+			includeLogo,
+			includeWebsite,
+			displayWebsite,
 			identityDirection,
 			brief: creativeBrief,
 			duration,
@@ -231,6 +261,9 @@ export const POST: APIRoute = async ({ request }) => {
 					productName,
 					productFacts,
 					brandName,
+					includeLogo,
+					includeWebsite,
+					displayWebsite,
 					identityDirection,
 					brief: `${creativeBrief}\nThis is segment ${segment.index + 1} of ${outputSegments.length}, covering ${segment.start}-${segment.end}s of the approved full video. ${dialogueInstructions ? `Mandatory dialogue direction (never recite as an instruction and never speak a URL): ${stripVideoUrls(dialogueInstructions)}` : ''}`,
 					duration: String(segment.duration),
@@ -243,6 +276,7 @@ export const POST: APIRoute = async ({ request }) => {
 					size,
 					referenceVideo: { buffer: referenceBuffers[segment.index], type: 'video/mp4' },
 					visualReferences,
+					referenceLabels,
 				});
 				providerJobs.push({ id: providerJob.id, index: segment.index, start: segment.start, duration: segment.duration, status: providerJob.status, progress: providerJob.progress || 0 });
 			}
@@ -269,7 +303,7 @@ export const POST: APIRoute = async ({ request }) => {
 			model,
 			duration_seconds: Number(duration),
 			size,
-			settings_snapshot: { brandName, brief, objective, audience, audienceReason, audienceAlternatives, objections, hookIdea, benefit, proof, offer, tone, language, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, audioDirection, voiceover, captions, peopleDirection, performanceDirection, realismDirection, speechMode, dialogueInstructions, avatarMode, avatarId: avatarId || null, avatarName: avatar.name || null, avatarSourceImageCount: avatar.sourceImageCount, referenceCount: visualReferences.length, referenceDuration, creditCost: chargedCredits, nominalCreditCost, adminBypass: isAdmin, adCopy: approvedPlan.adCopy, analysis, creativePlan: approvedPlan, segmentJobs: providerJobs },
+			settings_snapshot: { brandName, includeLogo, includeWebsite, displayWebsite, brief, objective, audience, audienceReason, audienceAlternatives, objections, hookIdea, benefit, proof, offer, tone, language, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, audioDirection, voiceover, captions, peopleDirection, performanceDirection, realismDirection, speechMode, dialogueInstructions, avatarMode, avatarId: avatarId || null, avatarName: avatar.name || null, avatarSourceImageCount: avatar.sourceImageCount, referenceCount: visualReferences.length, referenceDuration, creditCost: chargedCredits, nominalCreditCost, adminBypass: isAdmin, adCopy: approvedPlan.adCopy, analysis, creativePlan: approvedPlan, segmentJobs: providerJobs },
 		}).select('id,status,progress,title').single();
 		if (insertError || !job) {
 			if (chargedCredits > 0) await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: chargedCredits });

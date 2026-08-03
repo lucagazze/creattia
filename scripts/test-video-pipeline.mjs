@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
 	dialogueForSegment,
 	fallbackScenesForDuration,
@@ -12,7 +13,7 @@ import {
 import { normalizeVideoSetupSuggestions } from '../src/lib/creattia/video-suggestions.ts';
 import { naturalFallbackDialogue, normalizeVideoProductName, sanitizeDialogueLine, stripVideoUrls } from '../src/lib/creattia/video-copy.ts';
 import { isAdminEmail } from '../src/lib/creattia/admin.ts';
-import { adCopyToText, fallbackAdCopy, normalizeAdCopy } from '../src/lib/creattia/ad-copy.ts';
+import { adCopyToText, fallbackAdCopy, normalizeAdCopy, normalizeDisplayWebsite, stripWebReferences } from '../src/lib/creattia/ad-copy.ts';
 
 assert.deepEqual(videoSegmentsForDuration(4), [{ index: 0, start: 0, end: 4, duration: 4 }]);
 assert.deepEqual(videoSegmentsForDuration(10), [{ index: 0, start: 0, end: 10, duration: 10 }]);
@@ -82,4 +83,19 @@ assert.equal(normalizedCopy.primaryText, 'Un hook concreto');
 assert.ok(normalizedCopy.description.length > 0);
 assert.match(adCopyToText(normalizedCopy), /Título: Hydra 10/);
 
-console.log('video-pipeline: 45 assertions passed');
+assert.equal(normalizeDisplayWebsite('https://www.example.com/producto?variant=2'), 'example.com');
+assert.equal(stripWebReferences('Visitá example.com/producto para conocerlo'), 'Visitá para conocerlo');
+
+const staticPromptSource = readFileSync(new URL('../src/lib/creattia/ad-analysis.ts', import.meta.url), 'utf8');
+assert.match(staticPromptSource, /selected NO ADDED LOGO/i);
+assert.match(staticPromptSource, /selected NO WEBSITE/i);
+assert.match(staticPromptSource, /explicitly selected INCLUDE LOGO/i);
+assert.match(staticPromptSource, /Render exactly.*ONCE/i);
+
+const videoPromptSource = readFileSync(new URL('../src/lib/creattia/video-engines.ts', import.meta.url), 'utf8');
+assert.match(videoPromptSource, /selected NO ADDED LOGO/i);
+assert.match(videoPromptSource, /selected NO WEBSITE/i);
+assert.match(videoPromptSource, /LOGO PERMISSION: show the supplied official logo/i);
+assert.match(videoPromptSource, /show exactly.*once/i);
+
+console.log('video-pipeline: 55 assertions passed');

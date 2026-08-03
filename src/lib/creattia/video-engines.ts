@@ -112,6 +112,9 @@ export async function createVideoPlan(input: {
 	productName: string;
 	productFacts?: string;
 	brandName: string;
+	includeLogo: boolean;
+	includeWebsite: boolean;
+	displayWebsite?: string;
 	objective: string;
 	audience: string;
 	audienceReason?: string;
@@ -153,6 +156,8 @@ export async function createVideoPlan(input: {
 			text: `Create a precise pre-production plan for an original ${input.duration}-second ${input.size} marketing video. The reference video is only a creative reference: preserve reusable hook, rhythm and storytelling grammar, but never copy its brand, logo, watermark, person identity, exact frames or unsupported claims.
 
 New brand: ${input.brandName || 'Not provided'}
+Logo permission: ${input.includeLogo ? 'YES. Use the official logo reference once, small and undistorted, in a natural brand or closing frame.' : 'NO ADDED LOGO. Do not add, invent or infer any separate logo, emblem, watermark or branded seal. Preserve only branding physically printed on the real product packaging.'}
+Website permission: ${input.includeWebsite && input.displayWebsite ? `YES. Show exactly "${input.displayWebsite}" once in a discreet closing text slot.` : 'NO. Do not show any URL, domain, website, social handle or QR code, even if one appears in the source product data or reference.'}
 Product: ${productName}
 Product facts: ${input.productFacts || 'Only use what can be verified from the product image.'}
 Objective: ${input.objective}
@@ -261,6 +266,9 @@ export async function analyzeVideoReference(input: {
 	referenceNotes?: string;
 	productName: string;
 	brandName: string;
+	includeLogo?: boolean;
+	includeWebsite?: boolean;
+	displayWebsite?: string;
 }): Promise<VideoReferenceAnalysis> {
 	const fallback: VideoReferenceAnalysis = {
 		hook: input.referenceNotes || 'Abrir con el beneficio principal del producto y una demostración clara.',
@@ -308,6 +316,9 @@ export function buildVideoPrompt(input: {
 	productName: string;
 	productFacts?: string;
 	brandName: string;
+	includeLogo?: boolean;
+	includeWebsite?: boolean;
+	displayWebsite?: string;
 	brief?: string;
 	identityDirection?: string;
 	duration: string;
@@ -325,6 +336,12 @@ export function buildVideoPrompt(input: {
 		`Create an original marketing video for ${input.brandName || 'the advertiser'} and ${input.productName}. Use the supplied winner only as high-level inspiration for hook logic, pacing and storytelling grammar. Do not recreate it shot-by-shot: vary composition, actions, setting, transitions and performance while preserving the strategic idea.`,
 		`PERSON IDENTITY: ${input.identityDirection || 'The person in the winning reference is not an identity reference. Create a clearly different original person.'}`,
 		`PRODUCT TRUTH: preserve the supplied product references exactly: shape, color, label and packaging. Verified facts: ${input.productFacts || 'only what is visible in the product references'}.`,
+		input.includeLogo
+			? 'LOGO PERMISSION: show the supplied official logo image exactly once, small, undistorted and with clear space. Never invent or redraw it.'
+			: 'LOGO PERMISSION: the user selected NO ADDED LOGO. Do not show, invent or infer any separate logo, emblem, watermark, seal or brand icon. Preserve only branding physically printed on the supplied real product packaging.',
+		input.includeWebsite && input.displayWebsite
+			? `WEBSITE PERMISSION: show exactly "${input.displayWebsite}" once, discreetly, in the closing frame. Do not add a protocol, path, other domain, social handle or QR code.`
+			: 'WEBSITE PERMISSION: the user selected NO WEBSITE. Do not show any URL, domain, web address, social handle or QR code anywhere, even if visible in the product page or reference.',
 		`APPROVED HOOK: ${plan.hook || input.analysis.hook || 'Show the product and its benefit immediately.'}`,
 		`APPROVED SCENES:\n${plannedScenes}`,
 		`MESSAGE: ${plan.coreMessage || 'Show one clear product benefit.'}. CTA: ${plan.cta || 'Discover more'}.`,
@@ -348,12 +365,13 @@ export async function startGeminiOmniVideo(input: {
 	size: string;
 	referenceVideo: { buffer: Buffer; type: string };
 	visualReferences: Array<{ buffer: Buffer; type: string }>;
+	referenceLabels?: string[];
 }): Promise<VideoJobStatus> {
 	const ai = new GoogleGenAI({ apiKey: input.apiKey });
 	const references = input.visualReferences.slice(0, 6);
 	const tags = references.map((_, index) => `<IMAGE_REF_${index}>`).join(' ');
 	const prompt = references.length
-		? `[# References ${references.map((_, index) => `<IMAGE_REF_${index}>@Image${index + 1}`).join(' ')}]\n${input.prompt}\nUse ${tags} only as subject and product identity references. Do not use them as literal first frames.`
+		? `[# References ${references.map((_, index) => `<IMAGE_REF_${index}>@${input.referenceLabels?.[index] || `Image${index + 1}`}`).join(' ')}]\n${input.prompt}\nUse ${tags} only for the labeled identity purpose. Do not use them as literal first frames.`
 		: input.prompt;
 	const interaction = await ai.interactions.create({
 		model: 'gemini-omni-flash-preview',
