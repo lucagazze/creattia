@@ -1876,16 +1876,16 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onSeen }: 
 		}, 240);
 	}
 
-	function like(item: any) {
+	function like(item: any, flyDirection: 'left' | 'right' = 'right') {
 		if (!likedPaths.has(item.imagePath)) onLike(item.imagePath);
 		if (onSeen) onSeen(item.imagePath);
 		try { sfx.playSuccess(); } catch { /* audio bloqueado */ }
-		replaceCard(item.imagePath, 'right');
+		replaceCard(item.imagePath, flyDirection);
 	}
-	function pass(item: any) {
+	function pass(item: any, flyDirection: 'left' | 'right' = 'left') {
 		if (onSeen) onSeen(item.imagePath);
 		try { sfx.playWhoosh(); } catch { /* audio bloqueado */ }
-		replaceCard(item.imagePath, 'left');
+		replaceCard(item.imagePath, flyDirection);
 	}
 
 	if (!dealt.cards.length) return null;
@@ -1933,8 +1933,9 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onSeen }: 
 									const deltaX = drag ?? 0;
 									dragStartRef.current = null;
 									setDragX(null);
-									if (deltaX > 90) { like(item); return; }
-									if (deltaX < -90) { pass(item); return; }
+									// Gesto: derecha descarta, izquierda guarda.
+									if (deltaX > 90) { pass(item, 'right'); return; }
+									if (deltaX < -90) { like(item, 'left'); return; }
 									if (start && !start.moved) {
 										try { sfx.playDock(); } catch { /* audio */ }
 										onUse(item.imagePath);
@@ -1948,8 +1949,8 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onSeen }: 
 								}}
 							>
 								<img src={resolveUrl(item)} alt={item.name || ''} loading="lazy" draggable={false} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
-								<span style={{ position: 'absolute', top: '16px', left: '14px', zIndex: 4, padding: '6px 12px', borderRadius: '9px', border: '3px solid #16a34a', color: '#16a34a', fontWeight: 900, fontSize: '15px', letterSpacing: '.05em', transform: 'rotate(-12deg)', background: 'rgba(255,255,255,0.88)', opacity: drag !== null ? Math.min(1, Math.max(0, drag / 90)) : 0, pointerEvents: 'none' }}>ME GUSTA</span>
-								<span style={{ position: 'absolute', top: '16px', right: '14px', zIndex: 4, padding: '6px 12px', borderRadius: '9px', border: '3px solid #dc2626', color: '#dc2626', fontWeight: 900, fontSize: '15px', letterSpacing: '.05em', transform: 'rotate(12deg)', background: 'rgba(255,255,255,0.88)', opacity: drag !== null ? Math.min(1, Math.max(0, -drag / 90)) : 0, pointerEvents: 'none' }}>PASO</span>
+								<span style={{ position: 'absolute', top: '16px', left: '14px', zIndex: 4, padding: '6px 12px', borderRadius: '9px', border: '3px solid #16a34a', color: '#16a34a', fontWeight: 900, fontSize: '15px', letterSpacing: '.05em', transform: 'rotate(-12deg)', background: 'rgba(255,255,255,0.88)', opacity: drag !== null ? Math.min(1, Math.max(0, -drag / 90)) : 0, pointerEvents: 'none' }}>ME GUSTA</span>
+								<span style={{ position: 'absolute', top: '16px', right: '14px', zIndex: 4, padding: '6px 12px', borderRadius: '9px', border: '3px solid #dc2626', color: '#dc2626', fontWeight: 900, fontSize: '15px', letterSpacing: '.05em', transform: 'rotate(12deg)', background: 'rgba(255,255,255,0.88)', opacity: drag !== null ? Math.min(1, Math.max(0, drag / 90)) : 0, pointerEvents: 'none' }}>PASO</span>
 								{item.name && (
 									<span style={{ position: 'absolute', left: '10px', bottom: '10px', padding: '5px 11px', borderRadius: '8px', background: 'rgba(12,10,16,0.72)', color: '#fff', fontSize: '12px', fontWeight: 700, backdropFilter: 'blur(6px)', zIndex: 2 }}>{item.name}</span>
 								)}
