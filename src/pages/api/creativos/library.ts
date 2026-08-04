@@ -109,6 +109,7 @@ export const GET: APIRoute = async ({ request }) => {
 
 	const isAdmin = isAdminEmail(auth.user.email || '');
 	const isPaid = isAdmin || (PAID_PLAN_CODES.has(String(profile?.plan_code || '')) && profile?.subscription_status === 'authorized');
+	const isDiscoverPreview = new URL(request.url).searchParams.get('discover') === '1';
 	const { data: manifestFile, error: manifestError } = await admin.storage.from(BUCKET).download(MANIFEST_PATH);
 	if (manifestError || !manifestFile) return json({ error: 'No se pudo cargar la biblioteca de ganadores.' }, 502);
 
@@ -117,6 +118,27 @@ export const GET: APIRoute = async ({ request }) => {
 		const mediaType = item.metadata?.mediaType || 'static_image';
 		return item.imagePath && STATIC_MEDIA_TYPES.has(mediaType);
 	});
+
+	if (isDiscoverPreview) {
+		const discoverAngles = ['producto', 'competencia', 'resenas', 'precio'];
+		const candidates = (isPaid ? allItems : allItems.filter((item: any) => freePreviewAngleFor(item)))
+			.map((item: any) => ({ ...item, category: isPaid ? angleFor(item) : (freePreviewAngleFor(item) || angleFor(item)) }));
+		const discoverItems = discoverAngles
+			.map((angle) => candidates.filter((item: any) => item.category === angle).sort(sortForPreview)[0])
+			.filter(Boolean);
+		const accessibleItems = await addAccessUrls(admin, discoverItems);
+		return json({
+			items: accessibleItems,
+			access: {
+				isPaid,
+				planCode: isAdmin ? 'admin' : (profile?.plan_code || 'trial'),
+				previewPerAngle: PREVIEW_PER_ANGLE,
+				totalCount: allItems.length,
+				accessibleCount: accessibleItems.length,
+				lockedCount: isPaid ? 0 : Math.max(0, allItems.length - accessibleItems.length),
+			},
+		});
+	}
 
 	const groups = new Map<string, any[]>();
 	for (const item of allItems) {

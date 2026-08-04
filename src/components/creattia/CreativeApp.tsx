@@ -708,7 +708,7 @@ export default function CreativeApp() {
 		async function loadRandomWinners() {
 			try {
 				const headers = getSessionToken(session) ? { authorization: `Bearer ${getSessionToken(session)}` } : undefined;
-				const res = isSupabaseConfigured ? await fetch('/api/creativos/library', { headers }) : await fetch('/scraped_ads/manifest.json');
+				const res = isSupabaseConfigured ? await fetch('/api/creativos/library?discover=1', { headers }) : await fetch('/scraped_ads/manifest.json');
 				if (!res.ok) return;
 				const data = await res.json();
 				const items: any[] = data.items || [];
