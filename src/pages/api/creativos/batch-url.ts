@@ -300,7 +300,6 @@ export const POST: APIRoute = async ({ request }) => {
 			name: winner.name,
 			notes: winner.promptNotes || '',
 			leaf: winner.categoryLeaf || '',
-			niches: winner.metadata?.foreplayNiches || [],
 			templateId: winner.templateId || null,
 			domain: winner.metadata?.domain || '',
 		});

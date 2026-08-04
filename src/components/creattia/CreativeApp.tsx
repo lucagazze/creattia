@@ -5,6 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 import { catalogTaxonomy, creativeCatalog, creativeNumber, mapTemplateRecord, referenceImagePath, referencePresets, ringMeta, templatePath } from '../../lib/creattia/catalog';
 import { isSupabaseConfigured, supabase } from '../../lib/creattia/supabase-browser';
 import { isAdminEmail } from '../../lib/creattia/admin';
+import { canAccessVideoFeature } from '../../lib/creattia/video-access';
 import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
 import WinnersLibrary from './WinnersLibrary';
@@ -469,6 +470,7 @@ export default function CreativeApp() {
 	const [accountError, setAccountError] = useState('');
 	const [session, setSession] = useState<AppSession | null>(null);
 	const [profile, setProfile] = useState<AppProfile>(defaultProfile);
+	const canUseVideos = canAccessVideoFeature(getSessionEmail(session));
 	const [view, setView] = useState<View>(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('plan') ? 'plans' : 'home');
 	const [viewHistory, setViewHistory] = useState<View[]>([]);
 	const [openedFromView, setOpenedFromView] = useState<View | null>(null);
@@ -1686,7 +1688,7 @@ export default function CreativeApp() {
 					{view === 'brand' && (
 						<div className="brand-workspace-stack">
 							<BrandsManager session={session} planCode={profile.planCode} onPlans={() => navigateTo('plans')} />
-							<AvatarManager session={session} />
+							{canUseVideos && <AvatarManager session={session} />}
 						</div>
 					)}
 				</div>

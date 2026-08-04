@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { canAccessVideoFeature } from '../../../lib/creattia/video-access';
 
 export const prerender = false;
 
@@ -43,6 +44,7 @@ async function listAvatars(userId: string) {
 export const GET: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error || 'Sesión requerida.' }, 401);
+	if (!canAccessVideoFeature(auth.user.email)) return json({ error: 'Los avatares para video todavía no están disponibles.' }, 403);
 	try {
 		return json({ avatars: await listAvatars(auth.user.id), minImages: MIN_IMAGES, maxImages: MAX_IMAGES });
 	} catch (error) {
@@ -53,6 +55,7 @@ export const GET: APIRoute = async ({ request }) => {
 export const POST: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error || 'Sesión requerida.' }, 401);
+	if (!canAccessVideoFeature(auth.user.email)) return json({ error: 'Los avatares para video todavía no están disponibles.' }, 403);
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 	let avatarId = '';
@@ -106,6 +109,7 @@ export const POST: APIRoute = async ({ request }) => {
 export const DELETE: APIRoute = async ({ request, url }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error || 'Sesión requerida.' }, 401);
+	if (!canAccessVideoFeature(auth.user.email)) return json({ error: 'Los avatares para video todavía no están disponibles.' }, 403);
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 	const id = url.searchParams.get('id')?.trim() || '';

@@ -17,6 +17,9 @@
     "test:video-refund": "node --env-file=.env.local scripts/test-video-refund.mjs",
     "production:verify": "node --env-file-if-exists=.env scripts/verify-creattia-production.mjs",
     "references:import": "node --env-file-if-exists=.env scripts/import-reference-library.mjs",
+    "references:import-angles": "node --env-file=.env.local scripts/import-user-angle-library.mjs",
+    "references:curate": "node --env-file=.env.local scripts/curate-winner-library.mjs",
+    "references:verify": "node --env-file=.env.local scripts/verify-curated-library.mjs",
     "references:manifest": "node scripts/build-reference-starter-manifest.mjs"
   },
   "dependencies": {

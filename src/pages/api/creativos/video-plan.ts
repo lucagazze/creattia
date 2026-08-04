@@ -6,6 +6,7 @@ import { resolveAvatarReferences, type AvatarMode } from '../../../lib/creattia/
 import { analyzeFullVideoReference } from '../../../lib/creattia/video-reference';
 import { normalizeVideoProductName } from '../../../lib/creattia/video-copy';
 import { normalizeDisplayWebsite } from '../../../lib/creattia/ad-copy';
+import { canAccessVideoFeature } from '../../../lib/creattia/video-access';
 
 export const prerender = false;
 
@@ -49,6 +50,7 @@ function readSuppliedAnalysis(value: FormDataEntryValue | null): VideoReferenceA
 export const POST: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error || 'Sesión requerida.' }, 401);
+	if (!canAccessVideoFeature(auth.user.email)) return json({ error: 'La creación de videos todavía no está disponible.' }, 403);
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 	const apiKey = process.env.OPENAI_API_KEY || import.meta.env.OPENAI_API_KEY || '';

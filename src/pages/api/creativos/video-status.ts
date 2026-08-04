@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { downloadGeminiOmniVideo, downloadRunwayVideo, downloadSoraVideo, retrieveGeminiOmniVideo, retrieveRunwayVideo, retrieveSoraVideo, type VideoJobStatus } from '../../../lib/creattia/video-engines';
 import { concatenateVideoBuffers, verifyVideoBuffer } from '../../../lib/creattia/video-media';
+import { canAccessVideoFeature } from '../../../lib/creattia/video-access';
 
 export const prerender = false;
 
@@ -41,6 +42,7 @@ async function completeVideo(admin: NonNullable<ReturnType<typeof getAdminClient
 export const GET: APIRoute = async ({ request, url }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error || 'Sesión requerida.' }, 401);
+	if (!canAccessVideoFeature(auth.user.email)) return json({ error: 'La creación de videos todavía no está disponible.' }, 403);
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 

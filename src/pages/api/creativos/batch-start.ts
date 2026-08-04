@@ -134,7 +134,6 @@ export const POST: APIRoute = async ({ request }) => {
 				referenceName: winner.name,
 				referenceNotes: winner.promptNotes || '',
 				referenceLeaf: winner.categoryLeaf || '',
-				referenceNiches: winner.metadata?.foreplayNiches || [],
 				templateId: winner.templateId || null,
 				productId: productId || null,
 				productName: product.name,

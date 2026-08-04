@@ -14,45 +14,10 @@ export type Winner = {
 	categoryBranch?: string;
 	categoryLeaf?: string;
 	tags?: string[];
-	metadata?: { foreplayNiches?: string[]; domain?: string; cta?: string; mediaType?: string; carouselImages?: string[] };
+	metadata?: { domain?: string; cta?: string; mediaType?: string; carouselImages?: string[] };
 };
 
 export type ProductSignals = { wearable: boolean };
-
-/**
- * Rubros donde el anuncio casi siempre muestra el producto puesto sobre una
- * persona (modelo de cuerpo entero, pies con zapatos, torso con la prenda).
- *
- * Esas plantillas son imposibles de clonar honestamente para un producto que no
- * se viste: el modelo o deja la prenda original en la imagen, o le inventa una
- * prenda que el cliente no vende. Las dos cosas son inservibles. Verificado con
- * un cuero mayorista: la plantilla de SPANX (dos piernas) se resolvió bien
- * cambiando las piernas por dos cueros, pero la de un lookbook de cuerpo entero
- * vistió a la modelo con una campera de cuero inexistente.
- */
-const WORN_NICHES = new Set(['Fashion', 'Jewelry/Watches']);
-
-// Nichos tal como vienen etiquetados en el manifest de Foreplay.
-const NICHES = [
-	'Beauty', 'Health/Wellness', 'Fashion', 'App/Software', 'Food/Drink', 'Pets',
-	'Accessories', 'Real Estate', 'Education', 'Tech', 'Home/Garden', 'Medical',
-	'Business/Professional', 'Jewelry/Watches', 'Kids/Baby', 'Service Business',
-	'Finance', 'Sports/Outdoors', 'Travel', 'Automotive', 'Entertainment',
-];
-
-// Reparto del lote por tipo de anuncio para cubrir el embudo completo en vez de
-// devolver 40 veces el mismo formato hero. Los pesos suman 1.
-const FUNNEL_MIX: Array<{ leaf: string; weight: number }> = [
-	{ leaf: 'hero', weight: 0.26 },
-	{ leaf: 'resenas', weight: 0.20 },
-	{ leaf: 'precio', weight: 0.14 },
-	{ leaf: 'competencia', weight: 0.12 },
-	{ leaf: 'caracteristicas', weight: 0.12 },
-	{ leaf: 'urgencia', weight: 0.06 },
-	{ leaf: 'garantia', weight: 0.05 },
-	{ leaf: 'mitos', weight: 0.03 },
-	{ leaf: 'envio', weight: 0.02 },
-];
 
 let cachedWinners: Winner[] | null = null;
 
@@ -200,13 +165,7 @@ export async function pickWinnersForProduct(input: {
 	// Si el producto no se usa puesto, se saltean los rubros donde el anuncio
 	// muestra la prenda sobre una persona. El screening por imagen igual vuelve a
 	// chequearlo, pero descartarlas acá ahorra llamadas de visión.
-	const eligible = signals.wearable
-		? input.winners
-		: input.winners.filter((winner) => {
-			const niches = winner.metadata?.foreplayNiches || [];
-			return !niches.some((niche) => WORN_NICHES.has(niche));
-		});
-	const pool = eligible.length >= input.count ? eligible : input.winners;
+	const pool = input.winners;
 
 	const picked: Winner[] = [];
 	const spares: Winner[] = [];

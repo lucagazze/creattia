@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/creattia/supabase-browser';
 import { creativeCatalog } from '../../lib/creattia/catalog';
 import { isAdminEmail } from '../../lib/creattia/admin';
+import { canAccessVideoFeature } from '../../lib/creattia/video-access';
 import CreationFlow from './CreationFlow';
 import VideoCreationFlow from './VideoCreationFlow';
 
@@ -28,76 +29,17 @@ function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number;
 	return <svg {...common}><circle cx="12" cy="12" r="9"/></svg>;
 }
 
-// Nichos (vienen en inglés del manifiesto de Foreplay) → etiquetas en español
-
-// Icono por nicho. Emoji del sistema en vez de un pack de iconos externo: no
-// suma peso al bundle, no depende de una CDN y se ve consistente en todas las
-// plataformas. Todos son objetos/símbolos, no banderas (Windows no las dibuja).
-const nicheIcons: Record<string, string> = {
-	'Accessories': '👜',
-	'Beauty': '💄',
-	'Business/Professional': '💼',
-	'Entertainment': '🎬',
-	'Fashion': '👗',
-	'Food/Drink': '🍽️',
-	'Health/Wellness': '🌿',
-	'Medical': '🩺',
-	'Service Business': '🛠️',
-	'Tech': '💻',
-	'Technology': '💻',
-	'App/Software': '📱',
-	'Home/Garden': '🪴',
-	'Sports/Outdoors': '⛰️',
-	'Sports/Fitness': '🏋️',
-	'Travel': '✈️',
-	'Pets': '🐾',
-	'Education': '🎓',
-	'Finance': '📈',
-	'Automotive': '🚗',
-	'Kids/Baby': '🧸',
-	'Jewelry/Watches': '💎',
-	'Jewelry': '💎',
-	'Real Estate': '🏠',
-};
-
-const nicheLabels: Record<string, string> = {
-	'Accessories': 'Accesorios',
-	'Beauty': 'Belleza',
-	'Business/Professional': 'Negocios',
-	'Entertainment': 'Entretenimiento',
-	'Fashion': 'Moda',
-	'Food/Drink': 'Comida y Bebida',
-	'Health/Wellness': 'Salud y Bienestar',
-	'Medical': 'Médico',
-	'Service Business': 'Servicios',
-	'Tech': 'Tecnología',
-	'Technology': 'Tecnología',
-	'App/Software': 'Apps y Software',
-	'Home/Garden': 'Hogar y Jardín',
-	'Sports/Outdoors': 'Deporte y Aire Libre',
-	'Sports/Fitness': 'Deporte y Fitness',
-	'Travel': 'Viajes',
-	'Pets': 'Mascotas',
-	'Education': 'Educación',
-	'Finance': 'Finanzas',
-	'Automotive': 'Automotor',
-	'Kids/Baby': 'Niños y Bebés',
-	'Jewelry/Watches': 'Joyería y Relojes',
-	'Jewelry': 'Joyería',
-	'Real Estate': 'Inmobiliaria',
-};
-
 // Ángulo del anuncio — IDs coinciden con categoryLeaf en el manifiesto.
 const winnersCategories = [
-	{ id: 'hero', label: 'Producto héroe', icon: '🎯' },
-	{ id: 'caracteristicas', label: 'Características', icon: '📋' },
-	{ id: 'precio', label: 'Precio / Oferta', icon: '💸' },
-	{ id: 'resenas', label: 'Reseñas', icon: '⭐' },
-	{ id: 'mitos', label: 'Cazador de mitos', icon: '💭' },
-	{ id: 'urgencia', label: 'Urgencia', icon: '⏰' },
-	{ id: 'envio', label: 'Envío gratis', icon: '📦' },
 	{ id: 'competencia', label: 'Nosotros vs Ellos', icon: '⚔️' },
-	{ id: 'garantia', label: 'Garantía', icon: '🛡️' },
+	{ id: 'resenas', label: 'Testimonios', icon: '⭐' },
+	{ id: 'precio', label: 'Promociones y descuentos', icon: '💸' },
+	{ id: 'razones-porque', label: 'Razones por qué', icon: '💡' },
+	{ id: 'caracteristicas', label: 'Características y beneficios', icon: '📋' },
+	{ id: 'antes-despues', label: 'Antes y después', icon: '↔️' },
+	{ id: 'noticias', label: 'Noticias', icon: '📰' },
+	{ id: 'estadisticas', label: 'Datos y estadísticas', icon: '📊' },
+	{ id: 'estacional', label: 'Vacaciones / Estacional', icon: '☀️' },
 ];
 
 const formatOptions: Array<{ id: 'static_image' | 'carousel' | 'video'; label: string; icon: string }> = [
@@ -121,7 +63,16 @@ const categoryLabels: Record<string, string> = Object.fromEntries(winnersCategor
 function classifyItem(item: any): string {
 	// Primary: use categoryLeaf from the manifest scraper
 	const leaf = (item.categoryLeaf || '').toLowerCase().trim();
-	if (leaf) return leaf;
+	if (leaf) {
+		const legacyAngles: Record<string, string> = {
+			hero: 'caracteristicas',
+			mitos: 'razones-porque',
+			urgencia: 'precio',
+			envio: 'precio',
+			garantia: 'razones-porque',
+		};
+		return legacyAngles[leaf] || (categoryLabels[leaf] ? leaf : 'caracteristicas');
+	}
 
 	// Fallback: text-based heuristics when categoryLeaf is missing
 	const notes = (item.promptNotes || '').toLowerCase();
@@ -134,24 +85,24 @@ function classifyItem(item: any): string {
 		return 'resenas';
 	}
 	if (notes.includes('myth') || notes.includes('truth') || notes.includes('fact')) {
-		return 'mitos';
+		return 'razones-porque';
 	}
 	if (tid === 15 || notes.includes('limited') || notes.includes('hurry') || notes.includes('expires')) {
-		return 'urgencia';
+		return 'precio';
 	}
 	if (tid === 18 || notes.includes('free shipping') || notes.includes('envio')) {
-		return 'envio';
+		return 'precio';
 	}
 	if (notes.includes('%') || notes.includes('off') || notes.includes('sale') || notes.includes('discount') || notes.includes('price')) {
 		return 'precio';
 	}
 	if (notes.includes('guarantee') || notes.includes('warranty')) {
-		return 'garantia';
+		return 'razones-porque';
 	}
 	if (notes.includes('feature') || notes.includes('benefit') || notes.includes('works')) {
 		return 'caracteristicas';
 	}
-	return 'hero';
+	return 'caracteristicas';
 }
 
 function getTags(item: any, category: string): string[] {
@@ -160,15 +111,17 @@ function getTags(item: any, category: string): string[] {
 	const ind = ((item.metadata && item.metadata.industry) || '').toLowerCase();
 	const tags = new Set<string>();
 
-	if (category === 'vs') tags.add('Comparación').add('VS');
-	if (category === 'testimonios') tags.add('Testimonial').add('Opinión').add('Social Proof');
-	if (category === 'mas-vendidos') tags.add('Oferta').add('Descuento').add('Promo');
-	if (category === 'mitos') tags.add('Mitos').add('Educativo');
+	if (category === 'competencia') tags.add('Comparación').add('VS');
+	if (category === 'resenas') tags.add('Testimonial').add('Opinión').add('Social Proof');
+	if (category === 'precio') tags.add('Oferta').add('Descuento').add('Promo');
 	if (category === 'caracteristicas') tags.add('Producto').add('Llamativo');
 	if (category === 'notas') tags.add('Tweet').add('Texto');
 	if (category === 'preguntas') tags.add('Preguntas').add('FAQ');
 	if (category === 'estadisticas') tags.add('Métricas').add('Números');
 	if (category === 'antes-despues') tags.add('Antes/Después').add('Resultados');
+	if (category === 'razones-porque') tags.add('Razones').add('Beneficios').add('Educativo');
+	if (category === 'noticias') tags.add('Noticias').add('Novedad').add('Actualidad');
+	if (category === 'estacional') tags.add('Temporada').add('Vacaciones').add('Estacional');
 	if (category === 'problema-solucion') tags.add('Solución').add('Beneficios');
 
 	if (item.templateId === 40) tags.add('Minimalista').add('Clean');
@@ -221,7 +174,6 @@ type WinnerItem = {
 		logoUrl?: string;
 		mediaType?: string;
 		carouselImages?: string[];
-		foreplayNiches?: string[];
 		// Stats que vienen del scrape de Foreplay / Meta Ads Library.
 		domain?: string;
 		cta?: string;
@@ -233,7 +185,7 @@ type WinnerItem = {
 };
 
 const VIDEOS_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-videos';
-let winnersLibraryCache: WinnerItem[] | null = null;
+const winnersLibraryCache: Record<'public' | 'admin', WinnerItem[] | null> = { public: null, admin: null };
 
 export default function WinnersLibrary({
 	session,
@@ -280,9 +232,7 @@ export default function WinnersLibrary({
 	const [error, setError] = useState('');
 	const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
-	const [selectedNiches, setSelectedNiches] = useState<string[]>(['todos']);
 	const [savedOnly, setSavedOnly] = useState(false);
-	const [showNicheMenu, setShowNicheMenu] = useState(false);
 	const [selectedFormat, setSelectedFormat] = useState<'todos' | 'static_image' | 'carousel' | 'video'>('todos');
 	const [selectedCategories, setSelectedCategories] = useState<string[]>(['todos']);
 	const [showCategoryMenu, setShowCategoryMenu] = useState(false);
@@ -325,13 +275,6 @@ export default function WinnersLibrary({
 		window.addEventListener('scroll', close, true);
 		return () => { window.removeEventListener('click', close); window.removeEventListener('scroll', close, true); };
 	}, [cardContextMenu]);
-
-	useEffect(() => {
-		if (!showNicheMenu) return;
-		const close = () => setShowNicheMenu(false);
-		window.addEventListener('click', close);
-		return () => window.removeEventListener('click', close);
-	}, [showNicheMenu]);
 
 	const getFallbackImage = (templateId: number) => {
 		const numStr = String(templateId).padStart(2, '0');
@@ -441,6 +384,9 @@ export default function WinnersLibrary({
 
 	const userEmail = session?.user?.email || '';
 	const isAdmin = isAdminEmail(userEmail);
+	const canUseVideos = canAccessVideoFeature(userEmail);
+	const libraryCacheKey = canUseVideos ? 'admin' : 'public';
+	const availableFormatOptions = canUseVideos ? formatOptions : formatOptions.filter((option) => option.id !== 'video');
 
 	const getSessionToken = (sess: any) => sess?.access_token || '';
 
@@ -494,6 +440,7 @@ export default function WinnersLibrary({
 	};
 
 	const handleCreateVideo = (item: WinnerItem) => {
+		if (!canUseVideos) return;
 		savedScrollY.current = window.scrollY;
 		void loadSavedProducts();
 		setCardContextMenu(null);
@@ -730,9 +677,9 @@ export default function WinnersLibrary({
 	};
 
 	const loadWinners = async (force = false) => {
-		if (!force && winnersLibraryCache) {
+		if (!force && winnersLibraryCache[libraryCacheKey]) {
 			setError('');
-			setItems(winnersLibraryCache);
+			setItems(winnersLibraryCache[libraryCacheKey] || []);
 			setLoading(false);
 			return;
 		}
@@ -741,9 +688,11 @@ export default function WinnersLibrary({
 			let rawItems: any[] = [];
 			// El manifiesto de videos es independiente: arrancarlo ya evita una
 			// espera secuencial después de descargar el catálogo de imágenes.
-			const videoManifestPromise = fetch(`${VIDEOS_BASE}/manifests/video-library.json`)
-				.then(async (res) => res.ok ? res.json() : null)
-				.catch(() => null);
+			const videoManifestPromise = canUseVideos
+				? fetch(`${VIDEOS_BASE}/manifests/video-library.json`)
+					.then(async (res) => res.ok ? res.json() : null)
+					.catch(() => null)
+				: Promise.resolve(null);
 			if (supabase) {
 				const { data: manifestUrl } = supabase.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
 				let res = await fetch(manifestUrl.publicUrl);
@@ -776,7 +725,6 @@ export default function WinnersLibrary({
 						categoryLeaf: v.category || null,
 						metadata: {
 							mediaType: 'video',
-							foreplayNiches: v.metadata?.foreplayNiches || [],
 							domain: v.metadata?.domain || '',
 							videoPath: `${VIDEOS_BASE}/${v.videoPath}`,
 							durationSec: v.metadata?.durationSec || undefined,
@@ -786,7 +734,10 @@ export default function WinnersLibrary({
 				rawItems = [...rawItems, ...videoItems];
 			}
 
-			const classified = rawItems.map(item => {
+			const publicItems = canUseVideos
+				? rawItems
+				: rawItems.filter((item) => item.metadata?.mediaType !== 'video');
+			const classified = publicItems.map(item => {
 				const category = classifyItem(item);
 				const tags = getTags(item, category);
 				return { ...item, category, tags };
@@ -806,8 +757,8 @@ export default function WinnersLibrary({
 				const j = Math.floor(Math.random() * (i + 1));
 				[deduped[i], deduped[j]] = [deduped[j], deduped[i]];
 			}
-			winnersLibraryCache = deduped as WinnerItem[];
-			setItems(winnersLibraryCache);
+			winnersLibraryCache[libraryCacheKey] = deduped as WinnerItem[];
+			setItems(winnersLibraryCache[libraryCacheKey] || []);
 		} catch (err: any) {
 			setError(err.message || 'Error cargando ganadores.');
 		} finally {
@@ -816,8 +767,10 @@ export default function WinnersLibrary({
 	};
 
 	useEffect(() => {
+		if (!canUseVideos && selectedFormat === 'video') setSelectedFormat('todos');
 		void loadWinners();
-	}, []);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [canUseVideos]);
 
 	useEffect(() => {
 		if (preselectedTemplateId && items.length > 0) {
@@ -857,45 +810,21 @@ export default function WinnersLibrary({
 		return seconds > 60;
 	};
 	const matchesCategory = (item: WinnerItem) =>
-		selectedCategories.includes('todos') || selectedCategories.length === 0 || selectedCategories.includes((item as any).category || 'hero');
-	const matchesNiche = (item: WinnerItem) => {
-		if (selectedNiches.includes('todos') || selectedNiches.length === 0) return true;
-		const niches = item.metadata?.foreplayNiches;
-		return Array.isArray(niches) && niches.some((n) => selectedNiches.includes(n));
-	};
+		selectedCategories.includes('todos') || selectedCategories.length === 0 || selectedCategories.includes((item as any).category || 'caracteristicas');
 	const searchTerm = query.toLowerCase().trim();
 	const matchesSearch = (item: WinnerItem) => !searchTerm ||
 		item.name.toLowerCase().includes(searchTerm) ||
 		(item.promptNotes || '').toLowerCase().includes(searchTerm) ||
 		((item as any).tags || []).some((t: string) => t.toLowerCase().includes(searchTerm));
 
-	// Nichos disponibles + cuántos ganadores hay en cada uno, ya filtrados por
-	// guardados/formato/ángulo/búsqueda (todo menos el nicho en sí).
-	const nicheCounts = useMemo(() => {
-		const m: Record<string, number> = {};
-		items.forEach((item) => {
-			if (!matchesSaved(item) || !matchesFormat(item) || !matchesDuration(item) || !matchesCategory(item) || !matchesSearch(item)) return;
-			const ns = item.metadata?.foreplayNiches;
-			if (Array.isArray(ns)) ns.forEach((n: string) => { const k = (n || '').trim(); if (k) m[k] = (m[k] || 0) + 1; });
-		});
-		return m;
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedFormat, selectedDuration, selectedCategories, query, likedScrapedPaths, favorites]);
-	const availableNiches = useMemo(() => Object.keys(nicheCounts).sort((a, b) => nicheCounts[b] - nicheCounts[a]), [nicheCounts]);
-	// "Todos los nichos" no puede sumar los buckets (un anuncio puede tener
-	// varios nichos y se contaría dos veces): se cuenta directo.
-	const nicheAllCount = useMemo(() => items.filter((item) => matchesSaved(item) && matchesFormat(item) && matchesDuration(item) && matchesCategory(item) && matchesSearch(item)).length,
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[items, savedOnly, selectedFormat, selectedDuration, selectedCategories, query, likedScrapedPaths, favorites]);
-
-	// Cuántos ganadores hay de cada formato, ya filtrados por guardados/nicho/
+	// Cuántos ganadores hay de cada formato, ya filtrados por guardados/
 	// ángulo/búsqueda (todo menos el formato en sí).
 	const formatCounts = useMemo(() => {
 		let staticCount = 0;
 		let carouselCount = 0;
 		let videoCount = 0;
 		items.forEach((item) => {
-			if (!matchesSaved(item) || !matchesDuration(item) || !matchesCategory(item) || !matchesNiche(item) || !matchesSearch(item)) return;
+			if (!matchesSaved(item) || !matchesDuration(item) || !matchesCategory(item) || !matchesSearch(item)) return;
 			const f = itemFormat(item);
 			if (f === 'carousel') carouselCount += 1;
 			else if (f === 'video') videoCount += 1;
@@ -903,21 +832,21 @@ export default function WinnersLibrary({
 		});
 		return { static_image: staticCount, carousel: carouselCount, video: videoCount };
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedDuration, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedDuration, selectedCategories, query, likedScrapedPaths, favorites]);
 	const formatAllCount = formatCounts.static_image + formatCounts.carousel + formatCounts.video;
 
-	// Cuántos ganadores hay de cada ángulo (hero, precio, reseñas, etc.), ya
-	// filtrados por guardados/formato/nicho/búsqueda (todo menos el ángulo).
+	// Cuántos ganadores hay de cada ángulo (precio, testimonios, etc.), ya
+	// filtrados por guardados/formato/búsqueda (todo menos el ángulo).
 	const categoryCounts = useMemo(() => {
 		const m: Record<string, number> = {};
 		items.forEach((item) => {
-			if (!matchesSaved(item) || !matchesFormat(item) || !matchesDuration(item) || !matchesNiche(item) || !matchesSearch(item)) return;
-			const c = (item as any).category || 'hero';
+			if (!matchesSaved(item) || !matchesFormat(item) || !matchesDuration(item) || !matchesSearch(item)) return;
+			const c = (item as any).category || 'caracteristicas';
 			m[c] = (m[c] || 0) + 1;
 		});
 		return m;
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedFormat, selectedDuration, selectedNiches, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedFormat, selectedDuration, query, likedScrapedPaths, favorites]);
 	// El ángulo es un solo valor por anuncio: sumar los buckets da el total real.
 	const categoryAllCount = useMemo(() => Object.values(categoryCounts).reduce((a, b) => a + b, 0), [categoryCounts]);
 
@@ -925,7 +854,7 @@ export default function WinnersLibrary({
 	const durationCounts = useMemo(() => {
 		const counts: Record<Exclude<DurationFilter, 'todos'>, number> = { 'hasta-15': 0, '16-30': 0, '31-60': 0, 'mas-60': 0 };
 		items.forEach((item) => {
-			if (itemFormat(item) !== 'video' || !matchesSaved(item) || !matchesFormat(item) || !matchesCategory(item) || !matchesNiche(item) || !matchesSearch(item)) return;
+			if (itemFormat(item) !== 'video' || !matchesSaved(item) || !matchesFormat(item) || !matchesCategory(item) || !matchesSearch(item)) return;
 			const seconds = Number(item.metadata?.durationSec) || 0;
 			if (seconds <= 0) return;
 			if (seconds <= 15) counts['hasta-15'] += 1;
@@ -935,16 +864,16 @@ export default function WinnersLibrary({
 		});
 		return counts;
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedFormat, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedFormat, selectedCategories, query, likedScrapedPaths, favorites]);
 	const durationAllCount = useMemo(() => Object.values(durationCounts).reduce((sum, count) => sum + count, 0), [durationCounts]);
 
-	// Filter items: los 5 filtros combinados, para lo que realmente se ve en la grilla.
+	// Filtros combinados para lo que realmente se ve en la grilla.
 	const filteredItems = useMemo(() => {
 		return items.filter((item) =>
-			matchesSaved(item) && matchesFormat(item) && matchesDuration(item) && matchesCategory(item) && matchesNiche(item) && matchesSearch(item)
+			matchesSaved(item) && matchesFormat(item) && matchesDuration(item) && matchesCategory(item) && matchesSearch(item)
 		);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedFormat, selectedDuration, selectedCategories, selectedNiches, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedFormat, selectedDuration, selectedCategories, query, likedScrapedPaths, favorites]);
 
 	// Lazy load: primeras 20 tarjetas y +20 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(20);
@@ -1047,7 +976,8 @@ export default function WinnersLibrary({
 			if (!res.ok) throw new Error(payload.error || 'Error al eliminar.');
 			
 			// Update local state
-			winnersLibraryCache = null;
+			winnersLibraryCache.public = null;
+			winnersLibraryCache.admin = null;
 			setItems(prev => prev.filter(item => item.imagePath !== imagePath));
 			setSelectedImagePaths(prev => prev.filter(p => p !== imagePath));
 		} catch (err: any) {
@@ -1073,7 +1003,8 @@ export default function WinnersLibrary({
 			if (!res.ok) throw new Error(payload.error || 'Error al eliminar selección.');
 
 			const removeSet = new Set(selectedImagePaths);
-			winnersLibraryCache = null;
+			winnersLibraryCache.public = null;
+			winnersLibraryCache.admin = null;
 			setItems(prev => prev.filter(item => !removeSet.has(item.imagePath)));
 			setSelectedImagePaths([]);
 			if (onToast) onToast(`¡${payload.deletedCount || selectedImagePaths.length} anuncios eliminados con éxito!`);
@@ -1114,7 +1045,7 @@ export default function WinnersLibrary({
 			if (temp) {
 				formData.append('categoryGroup', temp.categoryGroup || 'producto');
 				formData.append('categoryBranch', temp.categoryBranch || 'presentar');
-				formData.append('categoryLeaf', temp.categoryLeaf || 'hero');
+				formData.append('categoryLeaf', temp.categoryLeaf || 'caracteristicas');
 			}
 
 			const res = await fetch('/api/creativos/references', {
@@ -1145,7 +1076,7 @@ export default function WinnersLibrary({
 
 	// Página completa de creación (sin modal): elegir producto, formato, idioma,
 	// estilo, revisar/editar los textos propuestos y recién ahí generar.
-	if (videoCreationRef) {
+	if (canUseVideos && videoCreationRef) {
 		return (
 			<VideoCreationFlow
 				reference={videoCreationRef}
@@ -1294,44 +1225,13 @@ export default function WinnersLibrary({
 				</label>
 			</div>
 
-			{/* Nicho, Ángulo, Formato, Duración y Guardados: un solo contenedor.
+			{/* Ángulo, Formato, Duración y Guardados: un solo contenedor.
 			    En computadora se acomodan en una fila; en mobile, al no entrar,
 			    el propio wrap los acomoda de a 2 (gracias al ancho fijo/50% de
 			    cada .niche-dd) sin necesidad de filas separadas a mano. */}
 			<div className="library-filters-row library-filter-controls" onPointerDown={rememberFilterPosition} style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
 				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
-					<button type="button" className="niche-dd-trigger" onClick={() => { setShowNicheMenu((v) => !v); setShowCategoryMenu(false); setShowFormatMenu(false); setShowDurationMenu(false); }}>
-						<span className="niche-dd-label">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? 'Nicho' : a.length === 1 ? (nicheLabels[a[0]] || a[0]) : `${a.length} nichos`; })()}</span>
-						<span className="niche-dd-badge">{(() => { const a = selectedNiches.filter((x) => x !== 'todos'); return a.length === 0 ? nicheAllCount : a.reduce((s, x) => s + (nicheCounts[x] || 0), 0); })()}</span>
-						<span className={`niche-dd-caret${showNicheMenu ? ' is-open' : ''}`}>▾</span>
-					</button>
-					{showNicheMenu && (
-						<div className="niche-dd-menu">
-							<button type="button" className={`niche-dd-item${selectedNiches.includes('todos') || !selectedNiches.length ? ' is-active' : ''}`} onClick={() => setSelectedNiches(['todos'])}>
-								<span className="niche-dd-icon" aria-hidden>✨</span>
-								<span className="niche-dd-name">Todos los nichos</span><span className="niche-dd-count">{nicheAllCount}</span>
-								<span className="niche-dd-check">{selectedNiches.includes('todos') || !selectedNiches.length ? '✓' : ''}</span>
-							</button>
-							{availableNiches.map((niche) => {
-								const active = selectedNiches.includes(niche);
-								return (
-									<button type="button" key={niche} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => {
-										let next = selectedNiches.filter((x) => x !== 'todos');
-										if (next.includes(niche)) next = next.filter((x) => x !== niche); else next.push(niche);
-										setSelectedNiches(next.length ? next : ['todos']);
-									}}>
-										<span className="niche-dd-icon" aria-hidden>{nicheIcons[niche] || '🏷️'}</span>
-										<span className="niche-dd-name">{nicheLabels[niche] || niche}</span><span className="niche-dd-count">{nicheCounts[niche]}</span>
-										<span className="niche-dd-check">{active ? '✓' : ''}</span>
-									</button>
-								);
-							})}
-						</div>
-					)}
-				</div>
-
-				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
-					<button type="button" className="niche-dd-trigger" onClick={() => { setShowCategoryMenu((v) => !v); setShowNicheMenu(false); setShowFormatMenu(false); setShowDurationMenu(false); }}>
+					<button type="button" className="niche-dd-trigger" onClick={() => { setShowCategoryMenu((v) => !v); setShowFormatMenu(false); setShowDurationMenu(false); }}>
 						<span className="niche-dd-label">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? 'Ángulo' : a.length === 1 ? (categoryLabels[a[0]] || a[0]) : `${a.length} ángulos`; })()}</span>
 						<span className="niche-dd-badge">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? categoryAllCount : a.reduce((s, x) => s + (categoryCounts[x] || 0), 0); })()}</span>
 						<span className={`niche-dd-caret${showCategoryMenu ? ' is-open' : ''}`}>▾</span>
@@ -1362,7 +1262,7 @@ export default function WinnersLibrary({
 				</div>
 
 				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
-					<button type="button" className="niche-dd-trigger" onClick={() => { setShowFormatMenu((v) => !v); setShowNicheMenu(false); setShowCategoryMenu(false); setShowDurationMenu(false); }}>
+					<button type="button" className="niche-dd-trigger" onClick={() => { setShowFormatMenu((v) => !v); setShowCategoryMenu(false); setShowDurationMenu(false); }}>
 						<span className="niche-dd-label">{selectedFormat === 'todos' ? 'Formato' : formatLabels[selectedFormat]}</span>
 						<span className="niche-dd-badge">{selectedFormat === 'todos' ? formatAllCount : formatCounts[selectedFormat]}</span>
 						<span className={`niche-dd-caret${showFormatMenu ? ' is-open' : ''}`}>▾</span>
@@ -1374,7 +1274,7 @@ export default function WinnersLibrary({
 								<span className="niche-dd-name">Todos los formatos</span><span className="niche-dd-count">{formatAllCount}</span>
 								<span className="niche-dd-check">{selectedFormat === 'todos' ? '✓' : ''}</span>
 							</button>
-							{formatOptions.map((opt) => {
+							{availableFormatOptions.map((opt) => {
 								const active = selectedFormat === opt.id;
 								return (
 									<button type="button" key={opt.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => { setSelectedFormat(opt.id); if (opt.id !== 'video') setSelectedDuration('todos'); setShowFormatMenu(false); }}>
@@ -1388,8 +1288,8 @@ export default function WinnersLibrary({
 					)}
 				</div>
 
-				<div className="niche-dd duration-filter" onClick={(e) => e.stopPropagation()}>
-					<button type="button" className="niche-dd-trigger" onClick={() => { setShowDurationMenu((value) => !value); setShowNicheMenu(false); setShowCategoryMenu(false); setShowFormatMenu(false); }}>
+				{canUseVideos && <div className="niche-dd duration-filter" onClick={(e) => e.stopPropagation()}>
+					<button type="button" className="niche-dd-trigger" onClick={() => { setShowDurationMenu((value) => !value); setShowCategoryMenu(false); setShowFormatMenu(false); }}>
 						<span className="niche-dd-label">{selectedDuration === 'todos' ? 'Duración' : durationLabels[selectedDuration]}</span>
 						<span className="niche-dd-badge">{selectedDuration === 'todos' ? durationAllCount : durationCounts[selectedDuration]}</span>
 						<span className={`niche-dd-caret${showDurationMenu ? ' is-open' : ''}`}>▾</span>
@@ -1413,7 +1313,7 @@ export default function WinnersLibrary({
 							})}
 						</div>
 					)}
-				</div>
+				</div>}
 
 				<div className="niche-dd">
 					<button onClick={() => setSavedOnly((v) => !v)} className="niche-dd-trigger" style={{ borderColor: savedOnly ? '#f0b3c6' : undefined, background: savedOnly ? '#fdeef5' : undefined, color: savedOnly ? '#c2276f' : undefined }}><span style={{ color: '#e5313f', fontSize: '14px' }}>♥</span> Guardados</button>
@@ -1423,16 +1323,12 @@ export default function WinnersLibrary({
 			{/* Filtros activos: se ven abajo como chips para saber de un vistazo qué está aplicado, y sacar uno sin abrir la lista de nuevo. */}
 			{(() => {
 				const chips: Array<{ key: string; label: string; onRemove: () => void }> = [];
-				selectedNiches.filter((x) => x !== 'todos').forEach((n) => chips.push({
-					key: `n-${n}`, label: `${nicheIcons[n] || '🏷️'} ${nicheLabels[n] || n}`,
-					onRemove: () => setSelectedNiches((prev) => { const next = prev.filter((x) => x !== n); return next.length ? next : ['todos']; }),
-				}));
 				selectedCategories.filter((x) => x !== 'todos').forEach((c) => chips.push({
 					key: `c-${c}`, label: `${categoryIcons[c] || '🏷️'} ${categoryLabels[c] || c}`,
 					onRemove: () => setSelectedCategories((prev) => { const next = prev.filter((x) => x !== c); return next.length ? next : ['todos']; }),
 				}));
 				if (selectedFormat !== 'todos') chips.push({
-					key: 'format', label: `${formatOptions.find((f) => f.id === selectedFormat)?.icon || ''} ${formatLabels[selectedFormat]}`,
+					key: 'format', label: `${availableFormatOptions.find((f) => f.id === selectedFormat)?.icon || ''} ${formatLabels[selectedFormat]}`,
 					onRemove: () => setSelectedFormat('todos'),
 				});
 				if (selectedDuration !== 'todos') chips.push({
@@ -1456,7 +1352,7 @@ export default function WinnersLibrary({
 						))}
 						<button
 							type="button"
-							onClick={() => { setSelectedNiches(['todos']); setSelectedCategories(['todos']); setSelectedFormat('todos'); setSelectedDuration('todos'); setSavedOnly(false); }}
+							onClick={() => { setSelectedCategories(['todos']); setSelectedFormat('todos'); setSelectedDuration('todos'); setSavedOnly(false); }}
 							style={{ border: 0, background: 'transparent', color: '#8b8490', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
 						>
 							Limpiar todo
@@ -1485,8 +1381,8 @@ export default function WinnersLibrary({
 				<div className="studio-empty large">
 					<Icon name="search" size={40} />
 					<h3>No encontramos anuncios</h3>
-					<p>Probá cambiando el nicho o la palabra clave de búsqueda.</p>
-					<button onPointerDown={rememberFilterPosition} onClick={() => { setSelectedNiches(['todos']); setSelectedCategories(['todos']); setSelectedFormat('todos'); setSelectedDuration('todos'); setSavedOnly(false); setQuery(''); }}>Limpiar filtros</button>
+					<p>Probá cambiando el ángulo, el formato o la palabra clave.</p>
+					<button onPointerDown={rememberFilterPosition} onClick={() => { setSelectedCategories(['todos']); setSelectedFormat('todos'); setSelectedDuration('todos'); setSavedOnly(false); setQuery(''); }}>Limpiar filtros</button>
 				</div>
 			) : (<>
 				<div ref={gridRef} className="library-masonry-columns" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
