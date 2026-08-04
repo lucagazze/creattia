@@ -8,6 +8,7 @@ const BUCKET = 'creative-references';
 const MANIFEST_PATH = 'manifests/starter-static-50.json';
 
 const ANGLES = new Map([
+	['producto presentacion', { leaf: 'producto', label: 'Producto / presentación', templateId: 40 }],
 	['nosotros vs ellos', { leaf: 'competencia', label: 'Nosotros vs Ellos', templateId: 23 }],
 	['testimonios', { leaf: 'resenas', label: 'Testimonios', templateId: 7 }],
 	['promociones y descuentos', { leaf: 'precio', label: 'Promociones y descuentos', templateId: 13 }],

@@ -10,6 +10,7 @@ const BATCH = 'visual-curation-2026-08-03';
 const MODEL = process.env.GEMINI_CURATION_MODEL || 'gemini-2.5-flash';
 const QUALITY_THRESHOLD = 6;
 const APPLY = process.argv.includes('--apply') || process.env.npm_config_apply === 'true';
+const RECLASSIFY = process.argv.includes('--reclassify');
 const listArg = process.argv.find((arg, index) => index > 1 && !arg.startsWith('--'));
 if (!listArg) throw new Error('Uso: npm run references:curate -- <lista.txt> [--apply]');
 
@@ -28,6 +29,7 @@ const reportPath = join(cacheDir, 'report.json');
 await mkdir(thumbsDir, { recursive: true });
 
 const ANGLES = {
+	producto: { label: 'Producto / presentación', templateId: 40 },
 	competencia: { label: 'Nosotros vs Ellos', templateId: 23 },
 	resenas: { label: 'Testimonios', templateId: 7 },
 	precio: { label: 'Promociones y descuentos', templateId: 13 },
@@ -174,7 +176,7 @@ const classificationPrompt = `Actuás como director creativo senior. Clasificá 
 Respondé SOLO un array JSON, un objeto por ID: {"id":"...","angle":"...","quality":1-10,"brand":"...","headline":"...","concept":"...","issues":"..."}.
 
 Los únicos angle válidos son: ${Object.keys(ANGLES).join(', ')}.
-Definiciones y prioridad cuando haya mezcla:
+Definiciones y prioridad cuando haya mezcla. No fuerces un ángulo: si no hay un gancho dominante, usá producto.
 1. estacional: Navidad, vacaciones, Black Friday, estaciones o fecha cultural explícita.
 2. antes-despues: transformación visual explícita antes/después.
 3. competencia: comparación, versus, alternativa, con/sin o tabla comparativa; no confundir con transformación.
@@ -183,7 +185,8 @@ Definiciones y prioridad cuando haya mezcla:
 6. noticias: estética editorial/noticia/prensa, anuncio de lanzamiento o novedad.
 7. precio: precio, descuento, cupón, promo, bundle, regalo o envío como oferta dominante.
 8. razones-porque: lista de razones, explicación, problema-solución, mito, pregunta educativa o por qué elegirlo.
-9. caracteristicas: producto, ingredientes, funciones, beneficios, demostración o hero sin otro ángulo dominante.
+9. caracteristicas: lista o explicación dominante de funciones, ingredientes o beneficios concretos.
+10. producto: presentación clara del producto/servicio, hero o lifestyle sin oferta, comparación, testimonio, transformación, dato, noticia, temporada ni lista de beneficios dominante. Es el ángulo neutral para piezas simples de producto.
 
 Quality: 1-3 rota/ilegible/amateur; 4-5 mediocre o mal recortada; 6-7 profesional y usable; 8-10 excelente. Penalizá texto cortado, baja resolución, marcas de agua, capturas incompletas y composición pobre. brand, headline y concept deben ser breves y servir para detectar si otra imagen es la misma pieza en otro formato.`;
 
@@ -218,7 +221,7 @@ async function classifyBatch(batch) {
 			return [...await classifyBatch(batch.slice(0, middle)), ...await classifyBatch(batch.slice(middle))];
 		}
 		const entry = batch[0];
-		const previousAngle = entry.source.kind === 'remote' && ANGLES[entry.source.item.categoryLeaf] ? entry.source.item.categoryLeaf : 'caracteristicas';
+		const previousAngle = entry.source.kind === 'remote' && ANGLES[entry.source.item.categoryLeaf] ? entry.source.item.categoryLeaf : 'producto';
 		return [{
 			id: entry.asset.contentHash.slice(0, 16),
 			angle: previousAngle,
@@ -281,27 +284,30 @@ console.log(`Rotas o vacías: ${brokenEntries.length} · Exactas: ${validEntries
 
 const analysisCache = await loadJson(analysisCachePath);
 // El manifiesto actual ya contiene una curación visual aprobada. Reutilizamos
-// esos metadatos para no volver a cobrar/ejecutar el análisis de las referencias
-// existentes; las imágenes nuevas sí pasan por Gemini desde cero.
-for (const entry of uniqueEntries) {
-	if (entry.source.kind !== 'remote') continue;
-	const item = entry.source.item;
-	const metadata = item.metadata || {};
-	if (!ANGLES[item.categoryLeaf] || Number(metadata.qualityScore) < QUALITY_THRESHOLD) continue;
-	if (analysisCache[entry.asset.contentHash]) continue;
-	analysisCache[entry.asset.contentHash] = {
-		angle: item.categoryLeaf,
-		quality: Math.max(QUALITY_THRESHOLD, Math.min(10, Number(metadata.qualityScore) || QUALITY_THRESHOLD)),
-		brand: String(metadata.visualBrand || item.name || '').slice(0, 120),
-		headline: String(metadata.visualHeadline || item.promptNotes || '').slice(0, 240),
-		concept: String(metadata.visualConcept || item.promptNotes || '').slice(0, 240),
-		issues: '',
-		model: metadata.curationModel || 'existing-curation',
-		analyzedAt: metadata.curatedAt || new Date().toISOString(),
-	};
+// esos metadatos en el flujo normal para no volver a ejecutar el análisis.
+// `--reclassify` saltea este cacheo y fuerza una nueva lectura visual de toda
+// la biblioteca cuando cambia la taxonomía.
+if (!RECLASSIFY) {
+	for (const entry of uniqueEntries) {
+		if (entry.source.kind !== 'remote') continue;
+		const item = entry.source.item;
+		const metadata = item.metadata || {};
+		if (!ANGLES[item.categoryLeaf] || Number(metadata.qualityScore) < QUALITY_THRESHOLD) continue;
+		if (analysisCache[entry.asset.contentHash]) continue;
+		analysisCache[entry.asset.contentHash] = {
+			angle: item.categoryLeaf,
+			quality: Math.max(QUALITY_THRESHOLD, Math.min(10, Number(metadata.qualityScore) || QUALITY_THRESHOLD)),
+			brand: String(metadata.visualBrand || item.name || '').slice(0, 120),
+			headline: String(metadata.visualHeadline || item.promptNotes || '').slice(0, 240),
+			concept: String(metadata.visualConcept || item.promptNotes || '').slice(0, 240),
+			issues: '',
+			model: metadata.curationModel || 'existing-curation',
+			analyzedAt: metadata.curatedAt || new Date().toISOString(),
+		};
+	}
 }
 await writeFile(analysisCachePath, JSON.stringify(analysisCache));
-const pending = uniqueEntries.filter((entry) => !analysisCache[entry.asset.contentHash]);
+const pending = RECLASSIFY ? uniqueEntries : uniqueEntries.filter((entry) => !analysisCache[entry.asset.contentHash]);
 const batches = [];
 for (let index = 0; index < pending.length; index += 6) batches.push(pending.slice(index, index + 6));
 let analyzed = 0;
@@ -327,7 +333,7 @@ await mapConcurrent(batches, 10, async (batch) => {
 	}
 	for (const entry of batch) {
 		if (!analysisCache[entry.asset.contentHash]) analysisCache[entry.asset.contentHash] = {
-			angle: entry.source.kind === 'remote' && ANGLES[entry.source.item.categoryLeaf] ? entry.source.item.categoryLeaf : 'caracteristicas',
+			angle: entry.source.kind === 'remote' && ANGLES[entry.source.item.categoryLeaf] ? entry.source.item.categoryLeaf : 'producto',
 			quality: 1,
 			brand: '', headline: '', concept: '',
 			issues: 'El analizador visual no devolvió una clasificación válida; se retira por control de calidad.',

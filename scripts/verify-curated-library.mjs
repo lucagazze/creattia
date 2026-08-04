@@ -7,7 +7,7 @@ if (!supabaseUrl || !serviceRoleKey) throw new Error('Faltan las variables de Su
 const bucket = 'creative-references';
 const manifestPath = 'manifests/starter-static-50.json';
 const allowedAngles = new Set([
-	'competencia', 'resenas', 'precio', 'razones-porque', 'caracteristicas',
+	'producto', 'competencia', 'resenas', 'precio', 'razones-porque', 'caracteristicas',
 	'antes-despues', 'noticias', 'estadisticas', 'estacional',
 ]);
 const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });

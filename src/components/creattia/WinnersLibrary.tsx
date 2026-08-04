@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, BadgePercent, BarChart3, Clock3, Image as ImageIcon, Layers3, Lightbulb, ListChecks, Newspaper, Play, Sparkles, Star, SunMedium, Swords, Timer, Zap } from 'lucide-react';
 import { supabase } from '../../lib/creattia/supabase-browser';
 import { creativeCatalog } from '../../lib/creattia/catalog';
 import { isAdminEmail } from '../../lib/creattia/admin';
@@ -31,33 +33,38 @@ function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number;
 
 // Ángulo del anuncio — IDs coinciden con categoryLeaf en el manifiesto.
 const winnersCategories = [
-	{ id: 'competencia', label: 'Nosotros vs Ellos', icon: '⚔️' },
-	{ id: 'resenas', label: 'Testimonios', icon: '⭐' },
-	{ id: 'precio', label: 'Promociones y descuentos', icon: '💸' },
-	{ id: 'razones-porque', label: 'Razones por qué', icon: '💡' },
-	{ id: 'caracteristicas', label: 'Características y beneficios', icon: '📋' },
-	{ id: 'antes-despues', label: 'Antes y después', icon: '↔️' },
-	{ id: 'noticias', label: 'Noticias', icon: '📰' },
-	{ id: 'estadisticas', label: 'Datos y estadísticas', icon: '📊' },
-	{ id: 'estacional', label: 'Vacaciones / Estacional', icon: '☀️' },
+	{ id: 'producto', label: 'Producto / presentación', icon: ImageIcon },
+	{ id: 'competencia', label: 'Nosotros vs Ellos', icon: Swords },
+	{ id: 'resenas', label: 'Testimonios', icon: Star },
+	{ id: 'precio', label: 'Promociones y descuentos', icon: BadgePercent },
+	{ id: 'razones-porque', label: 'Razones por qué', icon: Lightbulb },
+	{ id: 'caracteristicas', label: 'Características y beneficios', icon: ListChecks },
+	{ id: 'antes-despues', label: 'Antes y después', icon: ArrowLeftRight },
+	{ id: 'noticias', label: 'Noticias', icon: Newspaper },
+	{ id: 'estadisticas', label: 'Datos y estadísticas', icon: BarChart3 },
+	{ id: 'estacional', label: 'Vacaciones / Estacional', icon: SunMedium },
 ];
 
-const formatOptions: Array<{ id: 'static_image' | 'carousel' | 'video'; label: string; icon: string }> = [
-	{ id: 'static_image', label: 'Estático', icon: '🖼️' },
-	{ id: 'carousel', label: 'Carrusel', icon: '🗂️' },
-	{ id: 'video', label: 'Video', icon: '🎬' },
+const formatOptions: Array<{ id: 'static_image' | 'carousel' | 'video'; label: string; icon: LucideIcon }> = [
+	{ id: 'static_image', label: 'Estático', icon: ImageIcon },
+	{ id: 'carousel', label: 'Carrusel', icon: Layers3 },
+	{ id: 'video', label: 'Video', icon: Play },
 ];
 const formatLabels: Record<string, string> = Object.fromEntries(formatOptions.map((f) => [f.id, f.label]));
 type DurationFilter = 'todos' | 'hasta-15' | '16-30' | '31-60' | 'mas-60';
-const durationOptions: Array<{ id: Exclude<DurationFilter, 'todos'>; label: string; icon: string }> = [
-	{ id: 'hasta-15', label: 'Hasta 15 s', icon: '⚡' },
-	{ id: '16-30', label: '16 a 30 s', icon: '⏱️' },
-	{ id: '31-60', label: '31 a 60 s', icon: '🎬' },
-	{ id: 'mas-60', label: 'Más de 60 s', icon: '🕒' },
+const durationOptions: Array<{ id: Exclude<DurationFilter, 'todos'>; label: string; icon: LucideIcon }> = [
+	{ id: 'hasta-15', label: 'Hasta 15 s', icon: Zap },
+	{ id: '16-30', label: '16 a 30 s', icon: Timer },
+	{ id: '31-60', label: '31 a 60 s', icon: Clock3 },
+	{ id: 'mas-60', label: 'Más de 60 s', icon: Clock3 },
 ];
 const durationLabels: Record<string, string> = Object.fromEntries(durationOptions.map((option) => [option.id, option.label]));
-const categoryIcons: Record<string, string> = Object.fromEntries(winnersCategories.map((c) => [c.id, c.icon]));
+const categoryIcons: Record<string, LucideIcon> = Object.fromEntries(winnersCategories.map((c) => [c.id, c.icon]));
 const categoryLabels: Record<string, string> = Object.fromEntries(winnersCategories.map((c) => [c.id, c.label]));
+
+function FilterIcon({ icon: IconComponent, size = 15 }: { icon: LucideIcon; size?: number }) {
+	return <IconComponent size={size} strokeWidth={2.1} aria-hidden="true" />;
+}
 
 // Use categoryLeaf from manifest (set by Foreplay's own classification) as primary source
 function classifyItem(item: any): string {
@@ -65,13 +72,13 @@ function classifyItem(item: any): string {
 	const leaf = (item.categoryLeaf || '').toLowerCase().trim();
 	if (leaf) {
 		const legacyAngles: Record<string, string> = {
-			hero: 'caracteristicas',
+			hero: 'producto',
 			mitos: 'razones-porque',
 			urgencia: 'precio',
 			envio: 'precio',
 			garantia: 'razones-porque',
 		};
-		return legacyAngles[leaf] || (categoryLabels[leaf] ? leaf : 'caracteristicas');
+		return legacyAngles[leaf] || (categoryLabels[leaf] ? leaf : 'producto');
 	}
 
 	// Fallback: text-based heuristics when categoryLeaf is missing
@@ -102,7 +109,7 @@ function classifyItem(item: any): string {
 	if (notes.includes('feature') || notes.includes('benefit') || notes.includes('works')) {
 		return 'caracteristicas';
 	}
-	return 'caracteristicas';
+	return 'producto';
 }
 
 function getTags(item: any, category: string): string[] {
@@ -114,7 +121,8 @@ function getTags(item: any, category: string): string[] {
 	if (category === 'competencia') tags.add('Comparación').add('VS');
 	if (category === 'resenas') tags.add('Testimonial').add('Opinión').add('Social Proof');
 	if (category === 'precio') tags.add('Oferta').add('Descuento').add('Promo');
-	if (category === 'caracteristicas') tags.add('Producto').add('Llamativo');
+	if (category === 'producto') tags.add('Producto').add('Presentación');
+	if (category === 'caracteristicas') tags.add('Producto').add('Beneficios');
 	if (category === 'notas') tags.add('Tweet').add('Texto');
 	if (category === 'preguntas') tags.add('Preguntas').add('FAQ');
 	if (category === 'estadisticas') tags.add('Métricas').add('Números');
@@ -810,7 +818,7 @@ export default function WinnersLibrary({
 		return seconds > 60;
 	};
 	const matchesCategory = (item: WinnerItem) =>
-		selectedCategories.includes('todos') || selectedCategories.length === 0 || selectedCategories.includes((item as any).category || 'caracteristicas');
+		selectedCategories.includes('todos') || selectedCategories.length === 0 || selectedCategories.includes((item as any).category || 'producto');
 	const searchTerm = query.toLowerCase().trim();
 	const matchesSearch = (item: WinnerItem) => !searchTerm ||
 		item.name.toLowerCase().includes(searchTerm) ||
@@ -841,7 +849,7 @@ export default function WinnersLibrary({
 		const m: Record<string, number> = {};
 		items.forEach((item) => {
 			if (!matchesSaved(item) || !matchesFormat(item) || !matchesDuration(item) || !matchesSearch(item)) return;
-			const c = (item as any).category || 'caracteristicas';
+			const c = (item as any).category || 'producto';
 			m[c] = (m[c] || 0) + 1;
 		});
 		return m;
@@ -1045,7 +1053,7 @@ export default function WinnersLibrary({
 			if (temp) {
 				formData.append('categoryGroup', temp.categoryGroup || 'producto');
 				formData.append('categoryBranch', temp.categoryBranch || 'presentar');
-				formData.append('categoryLeaf', temp.categoryLeaf || 'caracteristicas');
+				formData.append('categoryLeaf', temp.categoryLeaf || 'producto');
 			}
 
 			const res = await fetch('/api/creativos/references', {
@@ -1239,7 +1247,7 @@ export default function WinnersLibrary({
 					{showCategoryMenu && (
 						<div className="niche-dd-menu">
 							<button type="button" className={`niche-dd-item${selectedCategories.includes('todos') || !selectedCategories.length ? ' is-active' : ''}`} onClick={() => setSelectedCategories(['todos'])}>
-								<span className="niche-dd-icon" aria-hidden>✨</span>
+									<span className="niche-dd-icon"><FilterIcon icon={Sparkles} /></span>
 								<span className="niche-dd-name">Todos los ángulos</span><span className="niche-dd-count">{categoryAllCount}</span>
 								<span className="niche-dd-check">{selectedCategories.includes('todos') || !selectedCategories.length ? '✓' : ''}</span>
 							</button>
@@ -1251,7 +1259,7 @@ export default function WinnersLibrary({
 										if (next.includes(cat.id)) next = next.filter((x) => x !== cat.id); else next.push(cat.id);
 										setSelectedCategories(next.length ? next : ['todos']);
 									}}>
-										<span className="niche-dd-icon" aria-hidden>{categoryIcons[cat.id] || '🏷️'}</span>
+										<span className="niche-dd-icon"><FilterIcon icon={cat.icon} /></span>
 										<span className="niche-dd-name">{cat.label}</span><span className="niche-dd-count">{categoryCounts[cat.id] || 0}</span>
 										<span className="niche-dd-check">{active ? '✓' : ''}</span>
 									</button>
@@ -1270,7 +1278,7 @@ export default function WinnersLibrary({
 					{showFormatMenu && (
 						<div className="niche-dd-menu">
 							<button type="button" className={`niche-dd-item${selectedFormat === 'todos' ? ' is-active' : ''}`} onClick={() => { setSelectedFormat('todos'); setShowFormatMenu(false); }}>
-								<span className="niche-dd-icon" aria-hidden>✨</span>
+									<span className="niche-dd-icon"><FilterIcon icon={Layers3} /></span>
 								<span className="niche-dd-name">Todos los formatos</span><span className="niche-dd-count">{formatAllCount}</span>
 								<span className="niche-dd-check">{selectedFormat === 'todos' ? '✓' : ''}</span>
 							</button>
@@ -1278,7 +1286,7 @@ export default function WinnersLibrary({
 								const active = selectedFormat === opt.id;
 								return (
 									<button type="button" key={opt.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => { setSelectedFormat(opt.id); if (opt.id !== 'video') setSelectedDuration('todos'); setShowFormatMenu(false); }}>
-										<span className="niche-dd-icon" aria-hidden>{opt.icon}</span>
+										<span className="niche-dd-icon"><FilterIcon icon={opt.icon} /></span>
 										<span className="niche-dd-name">{opt.label}</span><span className="niche-dd-count">{formatCounts[opt.id] || 0}</span>
 										<span className="niche-dd-check">{active ? '✓' : ''}</span>
 									</button>
@@ -1297,7 +1305,7 @@ export default function WinnersLibrary({
 					{showDurationMenu && (
 						<div className="niche-dd-menu">
 							<button type="button" className={`niche-dd-item${selectedDuration === 'todos' ? ' is-active' : ''}`} onClick={() => { setSelectedDuration('todos'); setShowDurationMenu(false); }}>
-								<span className="niche-dd-icon" aria-hidden>✨</span>
+												<span className="niche-dd-icon"><FilterIcon icon={Timer} /></span>
 								<span className="niche-dd-name">Cualquier duración</span><span className="niche-dd-count">{durationAllCount}</span>
 								<span className="niche-dd-check">{selectedDuration === 'todos' ? '✓' : ''}</span>
 							</button>
@@ -1305,7 +1313,7 @@ export default function WinnersLibrary({
 								const active = selectedDuration === option.id;
 								return (
 									<button type="button" key={option.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => { setSelectedDuration(option.id); setSelectedFormat('video'); setShowDurationMenu(false); }}>
-										<span className="niche-dd-icon" aria-hidden>{option.icon}</span>
+										<span className="niche-dd-icon"><FilterIcon icon={option.icon} /></span>
 										<span className="niche-dd-name">{option.label}</span><span className="niche-dd-count">{durationCounts[option.id]}</span>
 										<span className="niche-dd-check">{active ? '✓' : ''}</span>
 									</button>
@@ -1324,15 +1332,15 @@ export default function WinnersLibrary({
 			{(() => {
 				const chips: Array<{ key: string; label: string; onRemove: () => void }> = [];
 				selectedCategories.filter((x) => x !== 'todos').forEach((c) => chips.push({
-					key: `c-${c}`, label: `${categoryIcons[c] || '🏷️'} ${categoryLabels[c] || c}`,
+									key: `c-${c}`, label: categoryLabels[c] || c,
 					onRemove: () => setSelectedCategories((prev) => { const next = prev.filter((x) => x !== c); return next.length ? next : ['todos']; }),
 				}));
 				if (selectedFormat !== 'todos') chips.push({
-					key: 'format', label: `${availableFormatOptions.find((f) => f.id === selectedFormat)?.icon || ''} ${formatLabels[selectedFormat]}`,
+					key: 'format', label: formatLabels[selectedFormat],
 					onRemove: () => setSelectedFormat('todos'),
 				});
 				if (selectedDuration !== 'todos') chips.push({
-					key: 'duration', label: `⏱️ ${durationLabels[selectedDuration]}`,
+					key: 'duration', label: durationLabels[selectedDuration],
 					onRemove: () => setSelectedDuration('todos'),
 				});
 				if (savedOnly) chips.push({ key: 'saved', label: '❤️ Guardados', onRemove: () => setSavedOnly(false) });
@@ -1346,7 +1354,10 @@ export default function WinnersLibrary({
 								onClick={chip.onRemove}
 								style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '30px', padding: '0 8px 0 12px', borderRadius: '15px', border: '1px solid #e7dffa', background: '#f8f5fe', color: '#5b2fc9', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
 							>
-								{chip.label}
+													{chip.key.startsWith('c-') && categoryIcons[chip.key.slice(2)] ? <FilterIcon icon={categoryIcons[chip.key.slice(2)]} size={13} /> : null}
+													{chip.key === 'format' && availableFormatOptions.find((option) => option.id === selectedFormat)?.icon ? <FilterIcon icon={availableFormatOptions.find((option) => option.id === selectedFormat)!.icon} size={13} /> : null}
+													{chip.key === 'duration' && durationOptions.find((option) => option.id === selectedDuration)?.icon ? <FilterIcon icon={durationOptions.find((option) => option.id === selectedDuration)!.icon} size={13} /> : null}
+													{chip.label}
 								<span style={{ display: 'grid', placeItems: 'center', width: '16px', height: '16px', borderRadius: '50%', background: '#e7dffa', fontSize: '10px', fontWeight: 900 }}>✕</span>
 							</button>
 						))}
