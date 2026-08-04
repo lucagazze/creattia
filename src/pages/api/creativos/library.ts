@@ -10,7 +10,7 @@ const PREVIEW_PER_ANGLE = 5;
 const PAID_PLAN_CODES = new Set(['creator', 'pro', 'scale', 'agency']);
 const FREE_PREVIEW_FILES: Record<string, string[]> = {
 	'antes-despues': ['antes y despues (1).png', 'antes y despues (11).jpg', 'antes y despues (12).jpg', 'antes y despues (2).png', 'antes y despues (25).jpg'],
-	estadisticas: ['Factos y Estadisticas (3).jpg', 'Factos y Estadisticas (15).jpg', 'Factos y Estadisticas (19).jpg', 'Factos y Estadisticas (30).jpg', 'Factos y Estadisticas (34).jpg'],
+	estadisticas: ['Factos y Estadisticas (3).jpg', 'Factos y Estadisticas (15).jpg', 'Factos y Estadisticas (19).jpg', 'Factos y Estadisticas (30).jpg', 'Factos y Estadisticas (26).jpg'],
 	caracteristicas: ['caracteristicas y beneficios (10).jpg', 'caracteristicas y beneficios (13).jpg', 'caracteristicas y beneficios (19).jpg', 'caracteristicas y beneficios (22).jpg', 'caracteristicas y beneficios (48).jpg'],
 	estacional: ['Vacaciones - Estacional (3).jpg', 'Vacaciones - Estacional (5).jpg', 'Vacaciones - Estacional (8).jpg', 'Vacaciones - Estacional (18).jpg', 'Vacaciones - Estacional (21).jpg'],
 	noticias: ['Noticias (4).png', 'Noticias (19).jpg', 'Noticias (22).jpg', 'Noticias (26).jpg', 'Noticias (27).jpg'],
