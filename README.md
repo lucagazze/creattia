@@ -64,7 +64,7 @@ Para conocer el criterio de investigación, los derechos y cómo cargar nuevas p
 - Definir `PUBLIC_SITE_URL=https://creattia.app`.
 - Configurar `OPENAI_API_KEY`; la generación usa `gpt-image-2` y el análisis de catálogo usa `gpt-5.6-luna` por defecto.
 - Crear los tres planes recurrentes de Mercado Pago y completar sus IDs, el access token y el secreto del webhook.
-- Configurar el webhook de Mercado Pago en:
+- Configurar los webhooks de Mercado Pago (`subscription_preapproval`, `subscription_authorized_payment` y `payment`) en:
   `https://creattia.app/api/creativos/webhook/mercadopago`
 - Conectar `creattia.app` como dominio del nuevo proyecto.
 

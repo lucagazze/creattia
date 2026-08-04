@@ -6,7 +6,7 @@ import { resolveAvatarReferences, type AvatarMode } from '../../../lib/creattia/
 import { splitVideoBuffer } from '../../../lib/creattia/video-media';
 import { dialogueForSegment, isVideoOutputDuration, referenceSegmentForOutput, scenesForSegment, videoCreditCost, videoCreditCostForAccount, videoSegmentsForDuration } from '../../../lib/creattia/video-pipeline';
 import { naturalFallbackDialogue, normalizeVideoProductName, sanitizeDialogueLine, stripVideoUrls } from '../../../lib/creattia/video-copy';
-import { isAdminEmail } from '../../../lib/creattia/admin';
+import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { canAccessVideoFeature } from '../../../lib/creattia/video-access';
 import { normalizeDisplayWebsite, stripWebReferences } from '../../../lib/creattia/ad-copy';
 
@@ -53,7 +53,8 @@ export const POST: APIRoute = async ({ request }) => {
 
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
-	const isAdmin = isAdminEmail(auth.user.email);
+	const access = await getEffectiveAccess(admin, auth.user.id, auth.user.email);
+	const isUnlimited = access.isUnlimited;
 
 	const openAIKey = process.env.OPENAI_API_KEY || import.meta.env.OPENAI_API_KEY || '';
 	if (!openAIKey) return json({ error: 'Falta configurar OPENAI_API_KEY para generar videos.', requiresConfiguration: true }, 503);
@@ -236,8 +237,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const referenceSegments = outputSegments.map((segment) => referenceSegmentForOutput(segment, referenceDuration));
 		const referenceBuffers = await splitVideoBuffer(referenceVideo.buffer, referenceSegments, size as '720x1280' | '1280x720');
 		const nominalCreditCost = videoCreditCost(duration);
-		const chargedCredits = videoCreditCostForAccount(duration, isAdmin);
-		let remaining = isAdmin ? 99999 : 0;
+		const chargedCredits = videoCreditCostForAccount(duration, isUnlimited);
+		let remaining = isUnlimited ? 99999 : 0;
 		if (chargedCredits > 0) {
 			const { data, error: reserveError } = await admin.rpc('reserve_creative_credits', {
 				p_user_id: auth.user.id,
@@ -305,14 +306,14 @@ export const POST: APIRoute = async ({ request }) => {
 			model,
 			duration_seconds: Number(duration),
 			size,
-			settings_snapshot: { brandName, includeLogo, includeWebsite, displayWebsite, brief, objective, audience, audienceReason, audienceAlternatives, objections, hookIdea, benefit, proof, offer, tone, language, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, audioDirection, voiceover, captions, peopleDirection, performanceDirection, realismDirection, speechMode, dialogueInstructions, avatarMode, avatarId: avatarId || null, avatarName: avatar.name || null, avatarSourceImageCount: avatar.sourceImageCount, referenceCount: visualReferences.length, referenceDuration, creditCost: chargedCredits, nominalCreditCost, adminBypass: isAdmin, adCopy: approvedPlan.adCopy, analysis, creativePlan: approvedPlan, segmentJobs: providerJobs },
+			settings_snapshot: { brandName, includeLogo, includeWebsite, displayWebsite, brief, objective, audience, audienceReason, audienceAlternatives, objections, hookIdea, benefit, proof, offer, tone, language, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, audioDirection, voiceover, captions, peopleDirection, performanceDirection, realismDirection, speechMode, dialogueInstructions, avatarMode, avatarId: avatarId || null, avatarName: avatar.name || null, avatarSourceImageCount: avatar.sourceImageCount, referenceCount: visualReferences.length, referenceDuration, creditCost: chargedCredits, nominalCreditCost, adminBypass: isUnlimited, adCopy: approvedPlan.adCopy, analysis, creativePlan: approvedPlan, segmentJobs: providerJobs },
 		}).select('id,status,progress,title').single();
 		if (insertError || !job) {
 			if (chargedCredits > 0) await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: chargedCredits });
 			throw insertError || new Error('No se pudo guardar el trabajo de video.');
 		}
 
-		return json({ ok: true, job, creditsRemaining: remaining, creditCost: nominalCreditCost, chargedCredits, adminBypass: isAdmin });
+		return json({ ok: true, job, creditsRemaining: remaining, creditCost: nominalCreditCost, chargedCredits, adminBypass: isUnlimited });
 	} catch (error) {
 		console.error('[video-start]', error);
 		return json({ error: error instanceof Error ? error.message : 'No se pudo iniciar el video.' }, 500);

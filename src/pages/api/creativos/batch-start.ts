@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { LANGUAGE_NAMES } from '../../../lib/creattia/ad-analysis';
 import { loadWinners } from '../../../lib/creattia/winner-picker';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
-import { isAdminEmail } from '../../../lib/creattia/admin';
+import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -22,7 +22,8 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 
 	const userId = auth.user.id;
-	const isAdmin = isAdminEmail(auth.user.email);
+	const access = await getEffectiveAccess(admin, userId, auth.user.email);
+	const isUnlimited = access.isUnlimited;
 
 	let reserved = 0;
 	try {
@@ -91,7 +92,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const count = approved.length;
 
 		// Créditos: 1 por anuncio, reservados recién ahora que el usuario confirmó.
-		if (!isAdmin) {
+		if (!isUnlimited) {
 			const { data: reserveRes, error: creditError } = await admin.rpc('reserve_creative_credits', {
 				p_user_id: userId,
 				p_amount: count,

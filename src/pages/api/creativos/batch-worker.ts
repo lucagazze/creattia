@@ -8,7 +8,7 @@ import {
 import { generateAdImage, type EngineImage } from '../../../lib/creattia/image-engines';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
-import { isAdminEmail } from '../../../lib/creattia/admin';
+import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { fallbackAdCopy, normalizeDisplayWebsite, stripWebReferences } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
@@ -50,7 +50,8 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!googleKey && !openAIKey) return json({ error: 'Falta configurar GOOGLE_AI_API_KEY u OPENAI_API_KEY.' }, 503);
 
 	const userId = auth.user.id;
-	const isAdmin = isAdminEmail(auth.user.email);
+	const access = await getEffectiveAccess(admin, userId, auth.user.email);
+	const isUnlimited = access.isUnlimited;
 
 	let generationId = '';
 	try {
@@ -309,7 +310,7 @@ export const POST: APIRoute = async ({ request }) => {
 				completed_at: new Date().toISOString(),
 			}).eq('id', generationId).eq('user_id', userId);
 			// El crédito de una imagen que no salió se devuelve siempre.
-			if (!isAdmin) {
+			if (!isUnlimited) {
 				const { error: refundError } = await admin.rpc('refund_creative_credits', { p_user_id: userId, p_amount: 1 });
 				if (refundError) console.error('Refund falló:', refundError);
 			}

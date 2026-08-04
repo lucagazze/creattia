@@ -12,13 +12,20 @@ function resolvePlan(subscription: any) {
 	const yearly = requestedCycle === 'yearly';
 	if (planCredits[requestedPlan]) return { userId, planCode: requestedPlan, yearly };
 	const providerPlan = String(subscription.preapproval_plan_id || '');
-	const configured: Record<string, string> = {
-		[String(import.meta.env.MERCADO_PAGO_PLAN_CREATOR_ID || import.meta.env.MERCADO_PAGO_PLAN_ID || '')]: 'creator',
-		[String(import.meta.env.MERCADO_PAGO_PLAN_PRO_ID || '')]: 'pro',
-		[String(import.meta.env.MERCADO_PAGO_PLAN_SCALE_ID || '')]: 'scale',
-		[String(import.meta.env.MERCADO_PAGO_PLAN_AGENCY_ID || '')]: 'agency',
+	const configured: Record<string, { planCode: string; yearly: boolean }> = {};
+	const addConfiguredPlan = (id: string | undefined, planCode: string, isYearly: boolean) => {
+		if (id) configured[id] = { planCode, yearly: isYearly };
 	};
-	return { userId: external.split(':')[0] || external, planCode: configured[providerPlan] || 'creator', yearly: false };
+	addConfiguredPlan(import.meta.env.MERCADO_PAGO_PLAN_CREATOR_ID || import.meta.env.MERCADO_PAGO_PLAN_ID, 'creator', false);
+	addConfiguredPlan(import.meta.env.MERCADO_PAGO_PLAN_PRO_ID, 'pro', false);
+	addConfiguredPlan(import.meta.env.MERCADO_PAGO_PLAN_SCALE_ID, 'scale', false);
+	addConfiguredPlan(import.meta.env.MERCADO_PAGO_PLAN_AGENCY_ID, 'agency', false);
+	addConfiguredPlan(import.meta.env.MERCADO_PAGO_PLAN_CREATOR_YEARLY_ID || import.meta.env.MERCADO_PAGO_PLAN_YEARLY_ID, 'creator', true);
+	addConfiguredPlan(import.meta.env.MERCADO_PAGO_PLAN_PRO_YEARLY_ID, 'pro', true);
+	addConfiguredPlan(import.meta.env.MERCADO_PAGO_PLAN_SCALE_YEARLY_ID, 'scale', true);
+	addConfiguredPlan(import.meta.env.MERCADO_PAGO_PLAN_AGENCY_YEARLY_ID, 'agency', true);
+	const resolved = configured[providerPlan];
+	return { userId: external.split(':')[0] || external, planCode: resolved?.planCode || 'creator', yearly: resolved?.yearly || false };
 }
 
 function verifySignature(request: Request, dataId: string, secret: string) {
@@ -81,6 +88,86 @@ export const POST: APIRoute = async ({ request, url }) => {
 		const { error: creditError } = await admin.rpc('add_purchased_credits', { p_user_id: userId, p_amount: credits });
 		if (creditError) return json({ error: creditError.message }, 500);
 		return json({ received: true, credited: credits });
+	}
+
+	// ── Renovación recurrente de una suscripción ────────────────────────────
+	// Mercado Pago notifica cada factura por separado. Verificamos la factura y
+	// la suscripción en la API antes de renovar los créditos; así un webhook
+	// repetido o una factura rechazada nunca entrega créditos de más.
+	if (topic === 'subscription_authorized_payment' && dataId) {
+		const invoiceResponse = await fetch(`https://api.mercadopago.com/authorized_payments/${encodeURIComponent(dataId)}`, {
+			headers: { authorization: `Bearer ${accessToken}` },
+		});
+		if (!invoiceResponse.ok) return json({ error: 'No se pudo verificar la factura recurrente.' }, 502);
+		const invoice = await invoiceResponse.json();
+		if (invoice?.payment?.status !== 'approved') return json({ received: true });
+
+		const preapprovalId = String(invoice.preapproval_id || '');
+		if (!preapprovalId) return json({ received: true });
+		const subscriptionResponse = await fetch(`https://api.mercadopago.com/preapproval/${encodeURIComponent(preapprovalId)}`, {
+			headers: { authorization: `Bearer ${accessToken}` },
+		});
+		if (!subscriptionResponse.ok) return json({ error: 'No se pudo verificar la suscripción renovada.' }, 502);
+		const subscription = await subscriptionResponse.json();
+		const { userId, planCode, yearly } = resolvePlan(subscription);
+		if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
+			return json({ received: true });
+		}
+
+		const admin = getAdminClient();
+		if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
+		const { data: currentProfile, error: profileReadError } = await admin.from('creative_profiles')
+			.select('subscription_status,subscription_period_end')
+			.eq('user_id', userId).maybeSingle();
+		if (profileReadError || !currentProfile) return json({ error: profileReadError?.message || 'Perfil no encontrado.' }, 500);
+
+		const nextPeriod = subscription.next_payment_date || null;
+		const periodChanged = Boolean(nextPeriod && nextPeriod !== currentProfile.subscription_period_end);
+		const shouldRefill = currentProfile.subscription_status !== 'authorized' || periodChanged;
+		const monthlyCredits = (planCredits[planCode] || planCredits.creator) * (yearly ? 12 : 1);
+		const now = new Date().toISOString();
+		const { error: subscriptionError } = await admin.from('creative_subscriptions').upsert({
+			user_id: userId,
+			provider: 'mercado_pago',
+			provider_subscription_id: subscription.id,
+			plan_code: planCode,
+			status: 'authorized',
+			monthly_credits: monthlyCredits,
+			current_period_end: nextPeriod,
+			last_event_id: String(dataId),
+			updated_at: now,
+		}, { onConflict: 'user_id,provider' });
+		if (subscriptionError) return json({ error: subscriptionError.message }, 500);
+		const payment = invoice.payment || {};
+		const { error: paymentLogError } = await admin.from('creative_subscription_payments').upsert({
+			payment_id: String(dataId),
+			user_id: userId,
+			provider_subscription_id: String(subscription.id || preapprovalId),
+			plan_code: planCode,
+			status: 'approved',
+			amount: payment.transaction_amount ?? null,
+			currency: payment.currency_id ?? null,
+			paid_at: payment.date_approved || payment.date_created || now,
+			metadata: { paymentType: invoice.payment_type_id || null, statusDetail: payment.status_detail || null },
+		});
+		if (paymentLogError && paymentLogError.code !== '42P01') return json({ error: paymentLogError.message }, 500);
+
+		const profileUpdate: Record<string, string | number | null> = {
+			subscription_status: 'authorized',
+			plan_code: planCode,
+			credits_monthly: monthlyCredits,
+			subscription_period_end: nextPeriod,
+			mercado_pago_subscription_id: subscription.id,
+			updated_at: now,
+		};
+		if (shouldRefill) {
+			profileUpdate.credits_remaining = monthlyCredits;
+			profileUpdate.last_credit_refill_at = now;
+		}
+		const { data: updatedProfile, error: profileUpdateError } = await admin.from('creative_profiles')
+			.update(profileUpdate).eq('user_id', userId).select('user_id').maybeSingle();
+		if (profileUpdateError || !updatedProfile) return json({ error: profileUpdateError?.message || 'Perfil no encontrado.' }, 500);
+		return json({ received: true, refilled: shouldRefill ? monthlyCredits : 0 });
 	}
 
 	if (topic !== 'subscription_preapproval' || !dataId) return json({ received: true });

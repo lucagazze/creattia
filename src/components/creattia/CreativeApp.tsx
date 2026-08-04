@@ -14,8 +14,9 @@ import { UrlBatchSection, driveBatchWorkers } from './UrlBatchSection';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
 import { normalizeAdCopy, type AdaptedAdCopy } from '../../lib/creattia/ad-copy';
 import AdCopyPanel from './AdCopyPanel';
+import AdminDashboard from './AdminDashboard';
 
-type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved' | 'discover';
+type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved' | 'discover' | 'admin';
 
 // Lote de generación en curso: la API responde al instante y el trabajo pesado
 // sigue en el servidor; el front lo sigue por batch_id en creative_generations.
@@ -803,9 +804,10 @@ export default function CreativeApp() {
 					const client = supabase;
 					let loadedCatalog = creativeCatalog;
 					// Catálogo y perfil en paralelo: son lo único que bloquea la UI.
-					const [templatesResult, profileResult] = await Promise.all([
+					const [templatesResult, profileResult, overrideResult] = await Promise.all([
 						client.from('creative_templates').select('*').eq('is_active', true).order('sort_order', { ascending: true }),
 						client.from('creative_profiles').select('*').eq('user_id', profileId).maybeSingle(),
+						client.from('creative_admin_access_overrides').select('access_mode,plan_code,credits_override').eq('user_id', profileId).maybeSingle(),
 					]);
 					const { data: templateRecords, error: templateError } = templatesResult;
 					if (templateError) throw templateError;
@@ -825,6 +827,10 @@ export default function CreativeApp() {
 				}
 				if (data) {
 					const isUserAdmin = isAdminEmail(activeSession?.user?.email);
+					const accessOverride = overrideResult.error ? null : overrideResult.data;
+					const isUnlimited = isUserAdmin || accessOverride?.access_mode === 'unlimited';
+					const effectiveCredits = isUnlimited ? 99999 : (accessOverride?.credits_override ?? data.credits_remaining ?? 0);
+					const effectiveMonthlyCredits = isUnlimited ? 99999 : (accessOverride?.credits_override ?? data.credits_monthly ?? 0);
 					setProfile({
 						fullName: data.full_name || '',
 						brandName: data.brand_name || '',
@@ -832,10 +838,10 @@ export default function CreativeApp() {
 						instagram: data.instagram_handle || '',
 						primaryColor: data.brand_colors?.[0] || '#18181b',
 						secondaryColor: data.brand_colors?.[1] || '#f4f0ff',
-						credits: isUserAdmin ? 99999 : (data.credits_remaining ?? 0),
-						monthlyCredits: data.credits_monthly ?? 0,
-						subscriptionStatus: isUserAdmin ? 'authorized' : (data.subscription_status || 'trial'),
-						planCode: isUserAdmin ? 'admin' : (data.plan_code || 'trial'),
+						credits: effectiveCredits,
+						monthlyCredits: effectiveMonthlyCredits,
+						subscriptionStatus: isUnlimited || accessOverride?.access_mode === 'plan' ? 'authorized' : (data.subscription_status || 'trial'),
+						planCode: isUserAdmin ? 'admin' : (accessOverride?.plan_code || data.plan_code || 'trial'),
 						subscriptionPeriodEnd: data.subscription_period_end || '',
 						onboardingCompleted: Boolean(data.onboarding_completed),
 						brandSummary: data.brand_summary || '',
@@ -1370,6 +1376,7 @@ export default function CreativeApp() {
 			{ id: 'winners', label: 'Biblioteca de ganadores', icon: 'spark' },
 			{ id: 'saved', label: 'Anuncios guardados', icon: 'heart' },
 			{ id: 'history', label: 'Mis imágenes', icon: 'history' },
+			...(isAdminEmail(getSessionEmail(session)) ? [{ id: 'admin' as View, label: 'Centro admin', icon: 'settings' }] : []),
 		];
 
 	return (
@@ -1710,6 +1717,7 @@ export default function CreativeApp() {
 							{canUseVideos && <AvatarManager session={session} />}
 						</div>
 					)}
+					{view === 'admin' && isAdminEmail(getSessionEmail(session)) && <AdminDashboard session={session} />}
 				</div>
 			</main>
 		</div>

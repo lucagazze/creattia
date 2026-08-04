@@ -4,7 +4,7 @@ import OpenAI, { toFile } from 'openai';
 import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput, renderStudioProductShot, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import { generateAdImage } from '../../../lib/creattia/image-engines';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
-import { isAdminEmail } from '../../../lib/creattia/admin';
+import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { fallbackAdCopy, normalizeDisplayWebsite, stripWebReferences } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
@@ -358,11 +358,12 @@ export const POST: APIRoute = async ({ request }) => {
 			storedReference = data;
 		}
 
-		const isAdmin = isAdminEmail(auth.user.email);
+		const access = await getEffectiveAccess(admin, auth.user.id, auth.user.email);
+		const isUnlimited = access.isUnlimited;
 		let remaining = 99999;
 
 		const creditsNeeded = count * creditsPerImage;
-		if (!isAdmin) {
+		if (!isUnlimited) {
 			const { data: reserveRes, error: creditError } = await admin.rpc('reserve_creative_credits', {
 				p_user_id: auth.user.id,
 				p_amount: creditsNeeded,
@@ -828,7 +829,7 @@ The result must look like the same image with only that one adjustment applied.`
 			async: true,
 			batchId,
 			generations: orderedGenerations.map((item) => ({ id: item.id, outputIndex: item.output_index, batchId })),
-			creditsRemaining: isAdmin ? 99999 : remaining,
+			creditsRemaining: isUnlimited ? 99999 : remaining,
 		}, 202);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'No se pudo generar el creativo.';

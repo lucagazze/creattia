@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { isAdminEmail } from '../../../lib/creattia/admin';
+import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
@@ -101,14 +101,8 @@ export const GET: APIRoute = async ({ request }) => {
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 
-	const { data: profile, error: profileError } = await admin.from('creative_profiles')
-		.select('plan_code,subscription_status')
-		.eq('user_id', auth.user.id)
-		.maybeSingle();
-	if (profileError) return json({ error: profileError.message }, 500);
-
-	const isAdmin = isAdminEmail(auth.user.email || '');
-	const isPaid = isAdmin || (PAID_PLAN_CODES.has(String(profile?.plan_code || '')) && profile?.subscription_status === 'authorized');
+	const access = await getEffectiveAccess(admin, auth.user.id, auth.user.email);
+	const isPaid = access.isPaidLibrary || (PAID_PLAN_CODES.has(access.planCode) && access.subscriptionStatus === 'authorized');
 	const isDiscoverPreview = new URL(request.url).searchParams.get('discover') === '1';
 	const { data: manifestFile, error: manifestError } = await admin.storage.from(BUCKET).download(MANIFEST_PATH);
 	if (manifestError || !manifestFile) return json({ error: 'No se pudo cargar la biblioteca de ganadores.' }, 502);
@@ -131,7 +125,7 @@ export const GET: APIRoute = async ({ request }) => {
 			items: accessibleItems,
 			access: {
 				isPaid,
-				planCode: isAdmin ? 'admin' : (profile?.plan_code || 'trial'),
+				planCode: access.planCode,
 				previewPerAngle: PREVIEW_PER_ANGLE,
 				totalCount: allItems.length,
 				accessibleCount: accessibleItems.length,
@@ -169,7 +163,7 @@ export const GET: APIRoute = async ({ request }) => {
 		items: accessibleItems,
 		access: {
 			isPaid,
-			planCode: isAdmin ? 'admin' : (profile?.plan_code || 'trial'),
+			planCode: access.planCode,
 			previewPerAngle: PREVIEW_PER_ANGLE,
 			totalCount: allItems.length,
 			accessibleCount: isPaid ? allItems.length : previewPaths.size,
