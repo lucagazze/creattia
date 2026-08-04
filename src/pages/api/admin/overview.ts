@@ -4,7 +4,7 @@ import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia
 
 export const prerender = false;
 
-const PLAN_PRICES: Record<string, number> = { creator: 9.99, pro: 26.90, scale: 49.90, agency: 99.90 };
+const PLAN_PRICES: Record<string, number> = { creator: 9.99, pro: 24.99, scale: 49.99, agency: 97.70 };
 const DAY = 24 * 60 * 60 * 1000;
 
 function withinDays(value: string | null | undefined, days: number) {
@@ -72,6 +72,8 @@ export const GET: APIRoute = async ({ request }) => {
 			const userSubscriptionPayments = subscriptionPaymentByUser.get(user.id) || [];
 			const userGenerations = generationByUser.get(user.id) || [];
 			const userVideos = videoByUser.get(user.id) || [];
+			const userPayments = [...userPurchases.map((row) => ({ ...row, paidAt: row.created_at, paymentType: 'credits' })), ...userSubscriptionPayments.map((row) => ({ ...row, paidAt: row.paid_at || row.created_at, paymentType: 'subscription' }))].sort((left, right) => new Date(right.paidAt).getTime() - new Date(left.paidAt).getTime());
+			const lastPayment = userPayments[0] || null;
 			const isOwner = isAdminEmail(user.email);
 			const effectivePlan = isOwner ? 'admin' : (override?.plan_code || profile.plan_code || 'trial');
 			const effectiveStatus = isOwner || override?.access_mode === 'unlimited' || override?.access_mode === 'plan' ? 'authorized' : (profile.subscription_status || 'trial');
@@ -83,9 +85,11 @@ export const GET: APIRoute = async ({ request }) => {
 				createdAt: user.created_at,
 				lastSignInAt: user.last_sign_in_at,
 				confirmedAt: user.email_confirmed_at,
+				emailConfirmed: Boolean(user.email_confirmed_at),
 				planCode: effectivePlan,
 				planLabel: ADMIN_PLAN_LABELS[effectivePlan] || effectivePlan,
 				subscriptionStatus: effectiveStatus,
+				statusLabel: effectiveStatus === 'authorized' ? 'Activo' : effectiveStatus === 'cancelled' ? 'Cancelado' : effectiveStatus === 'paused' ? 'Pausado' : 'Prueba',
 				credits: isOwner || override?.access_mode === 'unlimited' ? 99999 : Number(override?.credits_override ?? profile.credits_remaining ?? 0),
 				monthlyCredits: isOwner || override?.access_mode === 'unlimited' ? 99999 : Number(override?.credits_override ?? profile.credits_monthly ?? 0),
 				subscriptionPeriodEnd: subscription?.current_period_end || profile.subscription_period_end,
@@ -93,6 +97,10 @@ export const GET: APIRoute = async ({ request }) => {
 				purchaseCount: userPurchases.length + userSubscriptionPayments.length,
 				purchasedCredits: userPurchases.reduce((sum, row) => sum + Number(row.credits || 0), 0),
 				paidAmount: [...userPurchases, ...userSubscriptionPayments].reduce((sum, row) => sum + Number(row.amount || 0), 0),
+				lastPaymentAt: lastPayment?.paidAt || null,
+				lastPaymentAmount: lastPayment?.amount || null,
+				lastPaymentCurrency: lastPayment?.currency || 'USD',
+				lastPaymentType: lastPayment?.paymentType || null,
 				generationCount: userGenerations.length,
 				completedGenerations: userGenerations.filter((row) => row.status === 'completed').length,
 				videoCount: userVideos.length,

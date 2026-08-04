@@ -63,7 +63,7 @@ Para conocer el criterio de investigación, los derechos y cómo cargar nuevas p
 - Configurar las variables de `.env.example` en Vercel.
 - Definir `PUBLIC_SITE_URL=https://creattia.app`.
 - Configurar `OPENAI_API_KEY`; la generación usa `gpt-image-2` y el análisis de catálogo usa `gpt-5.6-luna` por defecto.
-- Crear los tres planes recurrentes de Mercado Pago y completar sus IDs, el access token y el secreto del webhook.
+- Crear los cuatro planes recurrentes mensuales de Mercado Pago —Básico USD 9.99, Pro USD 24.99, Scale USD 49.99 y Agency USD 97.70— y completar sus IDs, el access token y el secreto del webhook.
 - Configurar los webhooks de Mercado Pago (`subscription_preapproval`, `subscription_authorized_payment` y `payment`) en:
   `https://creattia.app/api/creativos/webhook/mercadopago`
 - Conectar `creattia.app` como dominio del nuevo proyecto.

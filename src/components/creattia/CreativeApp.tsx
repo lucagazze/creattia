@@ -170,7 +170,7 @@ const subscriptionPlans = [
 		code: 'free',
 		name: 'Gratis',
 		price: 0,
-		description: 'Conocé Creattia antes de suscribirte.',
+		description: 'Probá Creattia con 1 token y una muestra de cada ángulo.',
 		featured: false,
 		features: [
 			{ name: '1 token de regalo', active: true },
@@ -186,7 +186,7 @@ const subscriptionPlans = [
 		name: 'Básico',
 		price: 9.99,
 		credits: 5,
-		description: 'La biblioteca completa y 5 tokens para empezar a crear.',
+		description: 'Biblioteca completa y 5 tokens mensuales para empezar a crear.',
 		featured: true,
 		features: [
 			{ name: 'Biblioteca completa de ganadores', active: true },
@@ -200,13 +200,13 @@ const subscriptionPlans = [
 	{ 
 		code: 'pro',
 		name: 'Pro',
-		price: 26.90,
+		price: 24.99,
 		credits: 60,
-		description: 'Para marcas en crecimiento y e-commerce activos.', 
+		description: 'Hasta 60 tokens mensuales para marcas en crecimiento.',
 		featured: false,
 		features: [
 			{ name: '60 tokens al mes', active: true },
-			{ name: '≈ $0.45 por token — el mejor equilibrio', active: true },
+			{ name: '≈ $0.42 por token — el mejor equilibrio', active: true },
 			{ name: 'Hasta 4 generaciones simultáneas', active: true },
 			{ name: 'Hasta 2 marcas activas', active: true },
 			{ name: 'Soporte prioritario por email', active: true },
@@ -215,9 +215,9 @@ const subscriptionPlans = [
 	{ 
 		code: 'scale',
 		name: 'Scale',
-		price: 49.90,
+		price: 49.99,
 		credits: 120,
-		description: 'Para agencias y equipos que escalan contenido.', 
+		description: 'Hasta 120 tokens mensuales para producir a mayor volumen.',
 		featured: false,
 		features: [
 			{ name: '120 tokens al mes', active: true },
@@ -230,9 +230,9 @@ const subscriptionPlans = [
 	{
 		code: 'agency',
 		name: 'Agency',
-		price: 99.90,
+		price: 97.70,
 		credits: 300,
-		description: 'Para agencias y equipos que producen contenido a escala.',
+		description: 'Hasta 300 tokens mensuales para agencias y equipos grandes.',
 		featured: false,
 		features: [
 			{ name: '300 tokens al mes', active: true },
@@ -492,7 +492,11 @@ export default function CreativeApp() {
 	const [session, setSession] = useState<AppSession | null>(null);
 	const [profile, setProfile] = useState<AppProfile>(defaultProfile);
 	const canUseVideos = canAccessVideoFeature(getSessionEmail(session));
-	const [view, setView] = useState<View>(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('plan') ? 'plans' : 'home');
+	const [view, setView] = useState<View>(() => {
+		if (typeof window === 'undefined') return 'home';
+		const params = new URLSearchParams(window.location.search);
+		return params.has('plan') || params.get('subscription') === 'return' ? 'plans' : 'home';
+	});
 	const [viewHistory, setViewHistory] = useState<View[]>([]);
 	const [openedFromView, setOpenedFromView] = useState<View | null>(null);
 
@@ -4144,6 +4148,13 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
 	const billingCycle = 'monthly';
+	const returnedFromCheckout = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('subscription') === 'return';
+
+	useEffect(() => {
+		if (!returnedFromCheckout) return;
+		setNotice('Volviste de Mercado Pago. Tu plan se activará automáticamente cuando se confirme el pago.');
+		window.history.replaceState({}, '', `${window.location.pathname}?plan=1`);
+	}, [returnedFromCheckout]);
 
 	async function subscribe(planCode: string) {
 		if (!isSupabaseConfigured || !supabase) { setError('Para activar pagos faltan las credenciales de Supabase y Mercado Pago.'); return; }
@@ -4160,7 +4171,8 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 			});
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.error || 'No se pudo iniciar la suscripción.');
-			window.location.href = payload.checkoutUrl;
+			if (typeof payload.checkoutUrl !== 'string' || !payload.checkoutUrl) throw new Error('Mercado Pago no devolvió un enlace de checkout válido.');
+			window.location.assign(payload.checkoutUrl);
 		} catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo abrir el pago.'); setBilling(''); }
 	}
 
@@ -4182,7 +4194,7 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 		}
 	}
 
-	return <><div className="studio-page-heading"><div><p>PLANES Y ACCESO</p><h1>Desbloqueá la biblioteca que te inspira.</h1><span>Explorá gratis. Cuando encuentres tu próximo ángulo ganador, pasá a Básico por USD 9,99 al mes.</span></div></div>
+	return <><div className="studio-page-heading"><div><p>PLANES Y ACCESO</p><h1>Desbloqueá la biblioteca que te inspira.</h1><span>Elegí el volumen de tokens que necesitás. Todos los planes pagos incluyen la biblioteca completa, estáticos y carruseles.</span></div></div>
 		
 		{error && <p className="studio-form-error">{error}</p>}
 		{notice && <p className="studio-form-notice">{notice}</p>}
@@ -4207,7 +4219,7 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 
 			return <article key={plan.code} className={plan.featured ? 'featured' : ''}>{plan.featured && <span className="most-popular-badge">MÁS ELEGIDO</span>}<h3>{plan.name}</h3><small className="plan-description">{plan.description}</small><div className="plan-price-row">{showOldPrice && <span className="plan-old-price">${plan.price}</span>}<span className="plan-price-val"><b>$</b>{price}</span><span className="plan-price-freq">{frequencyText}</span>{savingLabel && <span className="plan-save-badge">{savingLabel}</span>}</div><button className="plan-subscribe-btn" style={{ background: plan.featured ? 'linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%)' : '#744bde' }} onClick={handleButtonClick} disabled={Boolean(billing) || currentPlan}>{currentPlan ? (isFreePlan ? 'Plan actual' : (profile.subscriptionStatus === 'authorized' ? 'Plan actual' : planLabel(profile))) : (isFreePlan ? 'Explorar gratis' : (billing === plan.code ? 'Abriendo pago…' : `Elegir ${plan.name}`))}</button><ul>{plan.features.map((f, i) => <li key={i} className={f.active ? 'active-feature' : 'inactive-feature'}>{f.active ? <Icon name="check" size={14}/> : <Icon name="close" size={14}/>}{f.name}</li>)}</ul></article>;
 		})}</div>
-		<p className="studio-plan-note">Pago seguro con Mercado Pago. Los 5 tokens se renuevan cada mes y podés cancelar cuando quieras.</p>
+		<p className="studio-plan-note">Pago seguro con Mercado Pago. Los tokens de tu plan se renuevan cada mes y podés cancelar cuando quieras.</p>
 		{['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && <button className="studio-cancel-subscription" onClick={() => void cancelSubscription()} disabled={cancelling}>{cancelling ? <><span className="studio-spinner small" aria-hidden="true" /> Cancelando…</> : 'Cancelar renovación'}</button>}
 		
 		<BuyCreditsSection session={session} />

@@ -19,9 +19,9 @@ export const prerender = false;
  * chica de las etiquetas, y no vale arriesgar un anuncio por unos centavos.
  *
  *   Básico    USD 9.99/mes  ->   5 créditos  -> precio de entrada del lanzamiento
- *   Pro       USD 26.90/mes -> 60 créditos  -> costo 5.16  -> margen 80.8%
- *   Scale     USD 49.90/mes -> 120 créditos -> costo 10.32 -> margen 79.3%
- *   Agency    USD 99.90/mes -> 300 créditos -> costo 25.80 -> margen 74.2%
+ *   Pro       USD 24.99/mes -> 60 créditos  -> costo 5.16  -> margen 79.4%
+ *   Scale     USD 49.99/mes -> 120 créditos -> costo 10.32 -> margen 79.4%
+ *   Agency    USD 97.70/mes -> 300 créditos -> costo 25.80 -> margen 73.6%
  *
  * Esos márgenes son con el usuario consumiendo el 100% de sus créditos; con el
  * consumo real típico (55%) los tres superan el 70%.
@@ -56,7 +56,7 @@ const plans = {
 		monthly: { env: 'MERCADO_PAGO_PLAN_AGENCY_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_AGENCY_YEARLY_ID' },
 		credits: 300,
-		reason: 'Creattia â€” Agency'
+		reason: 'Creattia — Agency'
 	},
 } as const;
 
@@ -116,7 +116,8 @@ export const POST: APIRoute = async ({ request, url }) => {
 	});
 
 	const payload = await response.json().catch(() => ({}));
-	if (!response.ok || !payload.init_point) {
+	const checkoutUrl = payload.init_point || payload.sandbox_init_point;
+	if (!response.ok || !checkoutUrl) {
 		return json({ error: payload.message || 'Mercado Pago no pudo iniciar la suscripción.' }, 502);
 	}
 
@@ -147,7 +148,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 		return json({ error: 'No pudimos preparar el pago de forma segura. No se creó ninguna suscripción.', detail: profileError?.message || 'Perfil no encontrado.' }, 500);
 	}
 
-	return json({ checkoutUrl: payload.init_point });
+	return json({ checkoutUrl });
 };
 
 export const DELETE: APIRoute = async ({ request }) => {
