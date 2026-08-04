@@ -4,7 +4,7 @@ import { getAdminClient, json } from '../../../../lib/creattia/server';
 
 export const prerender = false;
 
-const planCredits: Record<string, number> = { creator: 5, pro: 120, scale: 300, agency: 1000 };
+const planCredits: Record<string, number> = { creator: 5, pro: 60, scale: 120, agency: 300 };
 
 function resolvePlan(subscription: any) {
 	const external = String(subscription.external_reference || '');

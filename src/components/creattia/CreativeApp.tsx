@@ -199,45 +199,45 @@ const subscriptionPlans = [
 	{ 
 		code: 'pro',
 		name: 'Pro',
-		price: 59,
-		credits: 120,
+		price: 26.90,
+		credits: 60,
 		description: 'Para marcas en crecimiento y e-commerce activos.', 
 		featured: false,
 		features: [
-			{ name: '120 imágenes al mes', active: true },
-			{ name: '≈ $0.49 por imagen — el más elegido', active: true },
-			{ name: 'Hasta 6 generaciones simultáneas', active: true },
-			{ name: 'Hasta 3 marcas activas', active: true },
+			{ name: '60 tokens al mes', active: true },
+			{ name: '≈ $0.45 por token — el mejor equilibrio', active: true },
+			{ name: 'Hasta 4 generaciones simultáneas', active: true },
+			{ name: 'Hasta 2 marcas activas', active: true },
 			{ name: 'Soporte prioritario por email', active: true },
 		]
 	},
 	{ 
 		code: 'scale',
 		name: 'Scale',
-		price: 99,
-		credits: 300,
+		price: 49.90,
+		credits: 120,
 		description: 'Para agencias y equipos que escalan contenido.', 
 		featured: false,
 		features: [
-			{ name: '300 imágenes al mes', active: true },
-			{ name: '≈ $0.33 por imagen — menor costo', active: true },
-			{ name: 'Generaciones simultáneas ilimitadas', active: true },
-			{ name: 'Hasta 5 marcas activas', active: true },
+			{ name: '120 tokens al mes', active: true },
+			{ name: '≈ $0.42 por token — menor costo', active: true },
+			{ name: 'Hasta 6 generaciones simultáneas', active: true },
+			{ name: 'Hasta 4 marcas activas', active: true },
 			{ name: 'Soporte prioritario y acceso anticipado', active: true },
 		]
 	},
 	{
 		code: 'agency',
 		name: 'Agency',
-		price: 199,
-		credits: 1000,
+		price: 99.90,
+		credits: 300,
 		description: 'Para agencias y equipos que producen contenido a escala.',
 		featured: false,
 		features: [
-			{ name: '1.000 tokens al mes', active: true },
-			{ name: '≈ $0.20 por imagen — mejor costo', active: true },
+			{ name: '300 tokens al mes', active: true },
+			{ name: '≈ $0.33 por token — mejor costo', active: true },
 			{ name: 'Generaciones simultáneas ilimitadas', active: true },
-			{ name: 'Hasta 10 marcas activas', active: true },
+			{ name: 'Hasta 6 marcas activas', active: true },
 			{ name: 'Soporte prioritario y acceso anticipado', active: true },
 		]
 	}
@@ -4182,7 +4182,7 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 			const currentPlan = isFreePlan 
 				? (!profile.planCode || profile.planCode === 'trial' || profile.planCode === 'free') && !['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus)
 				: ['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && profile.planCode === plan.code; 
-			const price = isFreePlan ? 0 : plan.price;
+			const price = isFreePlan ? '0.00' : plan.price.toFixed(2);
 			const frequencyText = isFreePlan ? '' : '/mes';
 			const showOldPrice = false;
 			const savingLabel = '';
