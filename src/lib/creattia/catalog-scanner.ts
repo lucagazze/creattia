@@ -545,7 +545,8 @@ Respondé SOLO con JSON válido con esta estructura exacta:
   "brand": "marca o nombre de la empresa vendedora",
   "category": "categoría del producto (ej: skincare, calzado, suplementos, etc.)",
   "keyBenefits": ["beneficio 1", "beneficio 2", "beneficio 3"],
-  "targetAudience": "descripción del público objetivo del producto"
+  "targetAudience": "descripción del público objetivo del producto",
+  "orientationDetails": "si tiene frente, dorso o laterales: qué estampas, bordados, etiquetas o detalles pertenecen a cada lado; usá la ficha técnica y las fotos, o null si no está verificado"
 }`,
 					}
 				],
@@ -581,7 +582,8 @@ Respondé SOLO con JSON válido con esta estructura exacta:
   "brand": "marca o nombre de la empresa vendedora",
   "category": "categoría del producto (ej: skincare, calzado, suplementos, etc.)",
   "keyBenefits": ["beneficio 1", "beneficio 2", "beneficio 3"],
-  "targetAudience": "descripción del público objetivo del producto"
+  "targetAudience": "descripción del público objetivo del producto",
+  "orientationDetails": "si tiene frente, dorso o laterales: qué estampas, bordados, etiquetas o detalles pertenecen a cada lado; usá la ficha técnica y las fotos, o null si no está verificado"
 }`,
 						},
 						// Attach main image for visual context if available
@@ -614,6 +616,7 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 			extracted.description,
 			extracted.keyBenefits?.length ? `Beneficios: ${extracted.keyBenefits.join(' · ')}` : '',
 			extracted.targetAudience ? `Para: ${extracted.targetAudience}` : '',
+			extracted.orientationDetails ? `Orientación del producto: ${extracted.orientationDetails}` : '',
 		].filter(Boolean).join('\n\n'),
 		1600,
 	);
@@ -635,4 +638,3 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 		},
 	};
 }
-

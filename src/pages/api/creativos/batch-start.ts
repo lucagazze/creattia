@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { LANGUAGE_NAMES } from '../../../lib/creattia/ad-analysis';
 import { loadWinners } from '../../../lib/creattia/winner-picker';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
@@ -36,8 +35,6 @@ export const POST: APIRoute = async ({ request }) => {
 		const requestedFormat = String(body?.format || 'original');
 		const allowedFormats = new Set(['original', 'square', 'portrait', 'story', 'landscape', '1:1', '3:4', '9:16', '4:3', '16:9']);
 		const format = allowedFormats.has(requestedFormat) ? requestedFormat : 'original';
-		const requestedLanguage = String(body?.language || 'es');
-		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : 'es';
 		// De qué marca habla el anuncio: la del sitio del producto, la que el
 		// usuario tiene guardada, o ninguna. Sin esto, un producto de eBay salía
 		// firmado por la marca guardada en el perfil.
@@ -56,7 +53,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const allowNoProductImage = body?.mode === 'manual';
 		const textName = String(body?.productName || '').trim().slice(0, 140);
 		const textDescription = String(body?.productDescription || '').trim().slice(0, 1200);
-		if (!productId && !textName) return json({ error: 'Falta el producto o el texto a promocionar.' }, 400);
+		if (!productId && !textName) return json({ error: 'Falta el producto.' }, 400);
 		const paths = [...new Set(requestedPaths)];
 		if (!paths.length) return json({ error: 'Elegí al menos una referencia ganadora.' }, 400);
 		if (paths.length > 40) return json({ error: 'El máximo por lote es 40 anuncios.' }, 400);
@@ -108,9 +105,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const generationRows = approved.map((winner, index) => ({
 			user_id: userId,
 			template_id: winner.templateId || 1,
-			// Solo el producto: promptNotes puede ser el copy completo del anuncio y
-			// llenaba de texto la tarjeta en "Mis imágenes". El ganador queda en el
-			// settings_snapshot para quien lo necesite.
+			// El ganador queda en el settings_snapshot para conservar la referencia
+			// visual elegida por el usuario.
 			title: product.name,
 			format,
 			image_type: 'product',
@@ -123,7 +119,6 @@ export const POST: APIRoute = async ({ request }) => {
 			requested_outputs: count,
 			settings_snapshot: {
 				format,
-				language,
 				colorMode,
 				typoMode,
 				brandSource,
@@ -133,7 +128,6 @@ export const POST: APIRoute = async ({ request }) => {
 				allowNoProductImage,
 				referencePath: winner.imagePath,
 				referenceName: winner.name,
-				referenceNotes: winner.promptNotes || '',
 				referenceLeaf: winner.categoryLeaf || '',
 				templateId: winner.templateId || null,
 				productId: productId || null,

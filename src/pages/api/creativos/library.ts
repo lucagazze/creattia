@@ -18,14 +18,20 @@ const FREE_PREVIEW_FILES: Record<string, string[]> = {
 	'razones-porque': ['Razones porque (44).jpg', 'Razones porque (49).jpg', 'Razones porque (51).jpg', 'Razones porque (54).jpg', 'Razones porque (1).png'],
 	resenas: ['Testimonios (66).jpg', 'Testimonios (18).png', 'Testimonios (71).jpg', 'Testimonios (85).jpg', 'Testimonios (87).jpg'],
 	competencia: ['Nosotros vs Ellos (77).jpg', 'Nosotros vs Ellos (94).jpg', 'Nosotros vs Ellos (97).jpg', 'Nosotros vs Ellos (103).jpg', 'Nosotros vs Ellos (1).jpg'],
-	producto: [],
+	producto: [
+		'producto-presentacion-gratis-01.png',
+		'producto-presentacion-gratis-02.png',
+		'producto-presentacion-gratis-03.png',
+		'producto-presentacion-gratis-04.png',
+		'producto-presentacion-gratis-05.png',
+	],
 };
 const FREE_PREVIEW_PRODUCT_PATHS = [
-	'40/4d6d5660fe89d4f3.jpg',
-	'40/ce0269cb8ff87f27.webp',
-	'40/2243b89949e5b992.jpg',
-	'40/2755146251e14012.jpg',
-	'40/96a1f1fd34c3f0b6.jpg',
+	'40/2fb666571bf2802e.png',
+	'40/55596501e64f813b.png',
+	'40/174faa5c6ab2a671.png',
+	'40/8640d4617f2e692d.png',
+	'40/b3aaaa6a8d580a1a.png',
 ];
 const FREE_PREVIEW_FILE_TO_ANGLE = new Map(
 	Object.entries(FREE_PREVIEW_FILES).flatMap(([angle, files]) => files.map((file) => [file.toLowerCase(), angle] as const))

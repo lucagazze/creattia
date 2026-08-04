@@ -9,12 +9,11 @@ export type Winner = {
 	templateId: number;
 	name: string;
 	imagePath: string;
-	promptNotes?: string;
 	categoryGroup?: string;
 	categoryBranch?: string;
 	categoryLeaf?: string;
 	tags?: string[];
-	metadata?: { domain?: string; cta?: string; mediaType?: string; carouselImages?: string[] };
+	metadata?: { domain?: string; mediaType?: string; carouselImages?: string[] };
 };
 
 export type ProductSignals = { wearable: boolean };

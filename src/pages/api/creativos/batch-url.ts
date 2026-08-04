@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { LANGUAGE_NAMES } from '../../../lib/creattia/ad-analysis';
 import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
 import { loadWinners, pickWinnersForProduct, type Winner } from '../../../lib/creattia/winner-picker';
 import { isCompatible, screenWinners } from '../../../lib/creattia/winner-screening';
@@ -46,8 +45,6 @@ export const POST: APIRoute = async ({ request }) => {
 		// ganar al anuncio) o de la marca del usuario.
 		const colorMode = clean(form.get('colorMode'), 8) === 'brand' ? 'brand' : 'winner';
 		const typoMode = clean(form.get('typoMode'), 8) === 'brand' ? 'brand' : 'winner';
-		const requestedLanguage = clean(form.get('language'), 5) || 'es';
-		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : 'es';
 		const extraImagesUploaded = form.getAll('extraImages').filter((item): item is File => item instanceof File && item.size > 0);
 
 		// Dos formas de arrancar:
@@ -298,7 +295,6 @@ export const POST: APIRoute = async ({ request }) => {
 		const toPayload = (winner: Winner) => ({
 			imagePath: winner.imagePath,
 			name: winner.name,
-			notes: winner.promptNotes || '',
 			leaf: winner.categoryLeaf || '',
 			templateId: winner.templateId || null,
 			domain: winner.metadata?.domain || '',
@@ -320,7 +316,6 @@ export const POST: APIRoute = async ({ request }) => {
 			hasImage: productHasImage,
 			count,
 			format,
-			language,
 			colorMode,
 			typoMode,
 			brief,

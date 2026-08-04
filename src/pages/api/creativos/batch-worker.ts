@@ -9,7 +9,7 @@ import { generateAdImage, type EngineImage } from '../../../lib/creattia/image-e
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
-import { fallbackAdCopy, normalizeDisplayWebsite, stripWebReferences } from '../../../lib/creattia/ad-copy';
+import { stripWebReferences } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -73,8 +73,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 		const snapshot: any = row.settings_snapshot || {};
 		const requestedFormat = String(row.format || snapshot.format || 'original');
-		const language = String(snapshot.language || 'es');
-		const brief = snapshot.includeWebsite === true ? String(row.user_brief || '') : stripWebReferences(row.user_brief);
+		const brief = stripWebReferences(row.user_brief);
 
 		// ── 1. El anuncio ganador que hay que clonar ──────────────────────────
 		const referencePath = String(snapshot.referencePath || '');
@@ -108,7 +107,7 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 		// En modo texto no hay fotos y está bien: se clonan ganadores que no
-		// muestran producto y todo se cuenta con el copy.
+		// muestran producto y la composición visual se clona tal como está.
 		const textMode = snapshot.textMode === true || !productId;
 		const allowNoProductImage = snapshot.allowNoProductImage === true;
 		if (!productImages.length && !textMode && !allowNoProductImage) {
@@ -116,8 +115,8 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const productName = productRecord?.name || snapshot.productName || row.title || 'el producto';
-		// Datos verificados del producto: lo único con lo que el modelo puede
-		// escribir textos. Nunca se completa con supuestos.
+		// Datos verificados del producto para reconstruirlo visualmente. Nunca se
+		// completa con supuestos.
 		const productFacts = [
 			productRecord?.description || snapshot.productDescription,
 			(productRecord?.price_text || snapshot.productPriceText)
@@ -136,7 +135,6 @@ export const POST: APIRoute = async ({ request }) => {
 		let brandName = '';
 		let brandColors: string[] = [];
 		let brandTypography: any = undefined;
-		let sourceWebsite = '';
 		let logoImage: EngineImage | null = null;
 		// El usuario elige explícitamente si quiere el logo en este anuncio: antes
 		// se agregaba solo porque había uno disponible, sin preguntar nunca. Las
@@ -146,7 +144,6 @@ export const POST: APIRoute = async ({ request }) => {
 
 		if (brandSource === 'mine') {
 			brandName = profile?.brand_name || '';
-			sourceWebsite = profile?.website_url || '';
 			brandColors = Array.isArray(profile?.brand_colors) ? profile.brand_colors : [];
 			brandTypography = (profile?.brand_style as any)?.typography;
 			if (includeLogo && profile?.logo_path) {
@@ -157,7 +154,6 @@ export const POST: APIRoute = async ({ request }) => {
 		} else if (brandSource === 'url') {
 			const fromUrl = (productRecord?.metadata as any)?.brandFromUrl;
 			brandName = fromUrl?.name || '';
-			sourceWebsite = fromUrl?.website || '';
 			brandColors = Array.isArray(fromUrl?.colors) ? fromUrl.colors : [];
 			brandTypography = fromUrl?.typography || undefined;
 			// El logo del sitio viene como URL: se baja y se normaliza. Si sale
@@ -178,11 +174,7 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 		const hasLogo = Boolean(logoImage);
-		const includeWebsite = snapshot.includeWebsite === true;
-		const displayWebsite = includeWebsite ? normalizeDisplayWebsite(sourceWebsite) : '';
-
-		// ── 4. Análisis con visión del ganador: qué dice cada zona de texto y
-		// cómo se reemplaza para este producto, en el idioma elegido ──────────
+		// ── 4. Análisis visual del ganador y de las áreas de imagen ──────────────
 		let analysis: LayoutAnalysis | null = null;
 		try {
 			analysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
@@ -193,27 +185,20 @@ export const POST: APIRoute = async ({ request }) => {
 				productName,
 				productFacts,
 				brandName,
-				language,
-				includeWebsite,
-				displayWebsite,
 			});
 		} catch (analysisError) {
 			console.error(`[batch-worker ${generationId}] análisis de layout falló:`, analysisError);
 		}
-
 		const prompt = buildReferenceClonePrompt({
 			productNames: [productName],
 			brandName,
 			hasLogo,
 			brief,
 			analysis,
-			languageCode: language,
 			colorMode: snapshot.colorMode === 'brand' ? 'brand' : 'winner',
 			typoMode: snapshot.typoMode === 'brand' ? 'brand' : 'winner',
 			brandColors,
 			brandTypography,
-			includeWebsite,
-			displayWebsite,
 		});
 
 		// ── 5. Formato: 'original' toma la proporción real del ganador ────────
@@ -277,7 +262,6 @@ export const POST: APIRoute = async ({ request }) => {
 			prompt,
 			settings_snapshot: {
 				...snapshot,
-				adCopy: analysis?.adCopy || snapshot.adCopy || fallbackAdCopy({ productName, productFacts, brandName }),
 				qualityTier: decision.tier,
 				qualityReason: decision.reason,
 				engine,
@@ -297,7 +281,7 @@ export const POST: APIRoute = async ({ request }) => {
 			ok: true,
 			id: row.id,
 			engine,
-			analyzed: Boolean(analysis?.textZones?.length),
+			analyzed: Boolean(analysis),
 			imageUrl: signed?.signedUrl || '',
 		});
 	} catch (error) {

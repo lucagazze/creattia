@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { ArrowLeftRight, BadgePercent, BarChart3, Image as ImageIcon, Layers3, Lightbulb, ListChecks, Newspaper, Play, Sparkles, Star, SunMedium, Swords } from 'lucide-react';
 import { supabase } from '../../lib/creattia/supabase-browser';
@@ -7,8 +7,6 @@ import { isAdminEmail } from '../../lib/creattia/admin';
 import { canAccessVideoFeature } from '../../lib/creattia/video-access';
 import CreationFlow from './CreationFlow';
 import VideoCreationFlow from './VideoCreationFlow';
-
-const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number; fill?: string }) {
 	const common = { width: size, height: size, viewBox: '0 0 24 24', fill, stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
@@ -76,39 +74,28 @@ function classifyItem(item: any): string {
 	}
 
 	// Fallback: text-based heuristics when categoryLeaf is missing
-	const notes = (item.promptNotes || '').toLowerCase();
 	const tid = item.templateId;
 
-	if (tid === 23 || notes.includes(' vs ') || notes.includes('versus') || notes.includes('better than')) {
+	if (tid === 23) {
 		return 'competencia';
 	}
-	if (notes.includes('review') || notes.includes('testimonial') || notes.includes('customer') || notes.includes('says')) {
+	if (tid === 22) {
 		return 'resenas';
 	}
-	if (notes.includes('myth') || notes.includes('truth') || notes.includes('fact')) {
+	if (tid === 17) {
 		return 'razones-porque';
 	}
-	if (tid === 15 || notes.includes('limited') || notes.includes('hurry') || notes.includes('expires')) {
+	if (tid === 15) {
 		return 'precio';
 	}
-	if (tid === 18 || notes.includes('free shipping') || notes.includes('envio')) {
+	if (tid === 18) {
 		return 'precio';
-	}
-	if (notes.includes('%') || notes.includes('off') || notes.includes('sale') || notes.includes('discount') || notes.includes('price')) {
-		return 'precio';
-	}
-	if (notes.includes('guarantee') || notes.includes('warranty')) {
-		return 'razones-porque';
-	}
-	if (notes.includes('feature') || notes.includes('benefit') || notes.includes('works')) {
-		return 'caracteristicas';
 	}
 	return 'producto';
 }
 
 function getTags(item: any, category: string): string[] {
 	const name = (item.name || '').toLowerCase();
-	const notes = (item.promptNotes || '').toLowerCase();
 	const ind = ((item.metadata && item.metadata.industry) || '').toLowerCase();
 	const tags = new Set<string>();
 
@@ -143,10 +130,10 @@ function getTags(item: any, category: string): string[] {
 		tags.add('Comida').add('Snacks');
 	}
 
-	if (notes.includes('bold') || name.includes('bold')) tags.add('Llamativo').add('Bold');
-	if (notes.includes('simple') || notes.includes('minimal')) tags.add('Minimalista');
-	if (notes.includes('premium') || notes.includes('luxury')) tags.add('Premium');
-	if (notes.includes('modern') || notes.includes('next-gen')) tags.add('Moderno');
+	if (name.includes('bold')) tags.add('Llamativo').add('Bold');
+	if (name.includes('simple') || name.includes('minimal')) tags.add('Minimalista');
+	if (name.includes('premium') || name.includes('luxury')) tags.add('Premium');
+	if (name.includes('modern') || name.includes('next-gen')) tags.add('Moderno');
 
 	return Array.from(tags);
 }
@@ -166,7 +153,6 @@ type WinnerItem = {
 	imageUrl?: string;
 	isLocked?: boolean;
 	lockedCount?: number;
-	promptNotes: string | null;
 	categoryGroup: string | null;
 	categoryBranch: string | null;
 	categoryLeaf: string | null;
@@ -180,8 +166,6 @@ type WinnerItem = {
 		mediaType?: string;
 		carouselImages?: string[];
 		// Stats que vienen del scrape de Foreplay / Meta Ads Library.
-		domain?: string;
-		cta?: string;
 		// Solo para mediaType === 'video': imagePath queda como el poster.
 		videoPath?: string;
 		durationSec?: number;
@@ -347,7 +331,6 @@ export default function WinnersLibrary({
 	// Admin form states
 	const [showAddModal, setShowAddModal] = useState(false);
 	const [newAdName, setNewAdName] = useState('');
-	const [newAdCopy, setNewAdCopy] = useState('');
 	const [newAdTemplateId, setNewAdTemplateId] = useState('40'); // default hero
 	const [newAdFile, setNewAdFile] = useState<File | null>(null);
 	const [newAdMediaType, setNewAdMediaType] = useState<'static_image' | 'carousel'>('static_image');
@@ -431,8 +414,10 @@ export default function WinnersLibrary({
 	// tocar "Volver a la biblioteca" — sin esto, la vuelta atrás recargaba
 	// todo arriba de todo en vez de quedarte donde estabas mirando.
 	const savedScrollY = useRef(0);
+	const restoreScrollPending = useRef(false);
 	const handleUseIdea = (item: WinnerItem) => {
 		savedScrollY.current = window.scrollY;
+		restoreScrollPending.current = true;
 		setActiveAd(item);
 		setCurrentSlide(0);
 		setUrlList(['']); // reset to single empty URL field
@@ -453,15 +438,11 @@ export default function WinnersLibrary({
 	const handleCreateVideo = (item: WinnerItem) => {
 		if (!canUseVideos) return;
 		savedScrollY.current = window.scrollY;
+		restoreScrollPending.current = true;
 		void loadSavedProducts();
 		setCardContextMenu(null);
 		setPlayingVideoPath(null);
 		setVideoCreationRef(item);
-	};
-
-	const copyScript = (item: WinnerItem) => {
-		if (!item.promptNotes) return;
-		void navigator.clipboard.writeText(item.promptNotes).catch(() => {});
 	};
 
 	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -589,7 +570,6 @@ export default function WinnersLibrary({
 			form.set('format', adFormat);
 			form.set('imageType', 'promotion'); // always 'promotion' so no product is required
 			form.set('referencePath', activeAd.imagePath);
-			form.set('templateNotes', activeAd.promptNotes || '');
 			
 			const brandName = onboardingBrandName || (profile ? profile.brandName : '');
 			const website = onboardingWebsite || (profile ? profile.website : '');
@@ -726,11 +706,9 @@ export default function WinnersLibrary({
 						templateId: -1,
 						name: v.name || 'Video ganador',
 						imagePath: `${VIDEOS_BASE}/${v.thumbnailPath}`,
-						promptNotes: v.promptNotes || null,
 						categoryLeaf: v.category || null,
 						metadata: {
 							mediaType: 'video',
-							domain: v.metadata?.domain || '',
 							videoPath: `${VIDEOS_BASE}/${v.videoPath}`,
 							durationSec: v.metadata?.durationSec || undefined,
 							likes: v.metadata?.likes || 0,
@@ -810,7 +788,6 @@ export default function WinnersLibrary({
 	const searchTerm = query.toLowerCase().trim();
 	const matchesSearch = (item: WinnerItem) => !searchTerm ||
 		item.name.toLowerCase().includes(searchTerm) ||
-		(item.promptNotes || '').toLowerCase().includes(searchTerm) ||
 		((item as any).tags || []).some((t: string) => t.toLowerCase().includes(searchTerm));
 
 	// Cuántos ganadores hay de cada formato, ya filtrados por guardados/
@@ -857,17 +834,12 @@ export default function WinnersLibrary({
 	// Lazy load: primeras 20 tarjetas y +20 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(20);
 	const [lockedVisibleCount, setLockedVisibleCount] = useState(8);
-	const pendingLoadScrollY = useRef<number | null>(null);
+	const loadMoreLock = useRef(false);
 	useEffect(() => {
+		loadMoreLock.current = false;
 		setVisibleCount(20);
 		setLockedVisibleCount(8);
 	}, [selectedCategories, selectedFormat, savedOnly, query]);
-	useIsomorphicLayoutEffect(() => {
-		const scrollY = pendingLoadScrollY.current;
-		if (scrollY === null) return;
-		pendingLoadScrollY.current = null;
-		window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
-	}, [visibleCount, lockedVisibleCount]);
 
 	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
 	// imagen al instante en vez de esperar a que baje cada foto de a una.
@@ -909,13 +881,14 @@ export default function WinnersLibrary({
 	);
 	const hasMoreItems = visibleCount < filteredItems.length || lockedVisibleCount < lockedTotalForSelection;
 	const loadMore = useCallback(() => {
+		if (loadMoreLock.current) return;
 		if (visibleCount < filteredItems.length) {
-			if (pendingLoadScrollY.current === null) pendingLoadScrollY.current = window.scrollY;
+			loadMoreLock.current = true;
 			setVisibleCount((current) => Math.min(current + 20, filteredItems.length));
 			return;
 		}
 		if (lockedVisibleCount < lockedTotalForSelection) {
-			if (pendingLoadScrollY.current === null) pendingLoadScrollY.current = window.scrollY;
+			loadMoreLock.current = true;
 			setLockedVisibleCount((current) => Math.min(current + 20, lockedTotalForSelection));
 		}
 	}, [filteredItems.length, lockedTotalForSelection, lockedVisibleCount, visibleCount]);
@@ -932,7 +905,6 @@ export default function WinnersLibrary({
 				templateId: -1000 - result.length,
 				name: categoryLabels[angle] || 'Ángulo premium',
 				imagePath: `locked-${angle}-${result.length}`,
-				promptNotes: 'Desbloqueá la biblioteca completa para ver esta referencia.',
 				categoryGroup: null,
 				categoryBranch: null,
 				categoryLeaf: angle,
@@ -951,8 +923,9 @@ export default function WinnersLibrary({
 	// Al volver de "Crear con este diseño" a la grilla, restaura el scroll
 	// guardado en handleUseIdea en vez de dejar la página arriba de todo.
 	useEffect(() => {
-		if (activeAd) return;
+		if (activeAd || videoCreationRef || !restoreScrollPending.current) return;
 		const y = savedScrollY.current;
+		restoreScrollPending.current = false;
 		if (!y) return;
 		requestAnimationFrame(() => requestAnimationFrame(() => {
 			window.scrollTo(0, y);
@@ -961,7 +934,7 @@ export default function WinnersLibrary({
 				if (sentinel && sentinel.getBoundingClientRect().top <= window.innerHeight + 900) loadMore();
 			});
 		}));
-	}, [activeAd, loadMore]);
+	}, [activeAd, loadMore, videoCreationRef]);
 	useEffect(() => {
 		const sentinel = loadMoreRef.current;
 		if (!sentinel || !hasMoreItems) return;
@@ -972,12 +945,10 @@ export default function WinnersLibrary({
 			if (entries[0]?.isIntersecting) loadMore();
 		}, { rootMargin: '600px' });
 		observer.observe(sentinel);
-		window.addEventListener('scroll', maybeLoadMore, { passive: true });
 		window.addEventListener('resize', maybeLoadMore);
 		const frame = requestAnimationFrame(maybeLoadMore);
 		return () => {
 			observer.disconnect();
-			window.removeEventListener('scroll', maybeLoadMore);
 			window.removeEventListener('resize', maybeLoadMore);
 			cancelAnimationFrame(frame);
 		};
@@ -1110,7 +1081,6 @@ export default function WinnersLibrary({
 			setSubmitting(true);
 			const formData = new FormData();
 			formData.append('name', newAdName);
-			formData.append('promptNotes', newAdCopy);
 			formData.append('templateId', newAdTemplateId);
 			formData.append('image', newAdFile);
 			formData.append('mediaType', newAdMediaType);
@@ -1140,7 +1110,6 @@ export default function WinnersLibrary({
 			alert('¡Anuncio ganador agregado con éxito!');
 			setShowAddModal(false);
 			setNewAdName('');
-			setNewAdCopy('');
 			setNewAdFile(null);
 			setNewAdMediaType('static_image');
 			setNewAdCarouselFiles([]);
@@ -1175,7 +1144,6 @@ export default function WinnersLibrary({
 			<CreationFlow
 				ad={activeAd}
 				session={session}
-				savedProducts={savedProducts}
 				onToast={onToast}
 				onGenerationStarted={onGenerationStarted}
 				onBack={() => {
@@ -1752,24 +1720,8 @@ export default function WinnersLibrary({
 									)}
 								</div>
 
-								{/* Metadata badges */}
+								{/* Acciones de la tarjeta; el dominio de la fuente no se muestra. */}
 								<div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-									<div>
-										{/* Metadata de la fuente */}
-										<div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', margin: '0 0 10px 0' }}>
-											{item.metadata?.domain && (
-												<span style={{ fontSize: '9px', fontWeight: 700, color: '#3730a3', background: '#e0e7ff', padding: '2px 6px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-													<span>🌐</span> <span>{item.metadata.domain}</span>
-												</span>
-											)}
-											{item.metadata?.cta && (
-												<span style={{ fontSize: '9px', fontWeight: 700, color: '#9a3412', background: '#ffedd5', padding: '2px 6px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-													<span>🛒</span> <span>{item.metadata.cta}</span>
-												</span>
-											)}
-										</div>
-									</div>
-
 									<button
 										onClick={(e) => {
 											e.stopPropagation();
@@ -1870,15 +1822,6 @@ export default function WinnersLibrary({
 							>
 								⬇️ Descargar
 							</a>
-							{cardContextMenu.item.promptNotes && (
-								<button
-									type="button"
-									onClick={() => { copyScript(cardContextMenu.item); setCardContextMenu(null); }}
-									style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'transparent', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#19171d', fontWeight: 600, textAlign: 'left', width: '100%', fontFamily: 'inherit' }}
-								>
-									📋 Copiar guion
-								</button>
-							)}
 							<button
 								type="button"
 								onClick={() => handleCreateVideo(cardContextMenu.item)}
@@ -1966,16 +1909,6 @@ export default function WinnersLibrary({
 									placeholder="ej. Slack, Coca Cola, True Classic"
 									style={{ height: '38px', padding: '0 12px', border: '1px solid #ded7e2', borderRadius: '8px' }}
 									required
-								/>
-							</label>
-
-							<label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', fontWeight: 'bold' }}>
-								Copy / Texto principal
-								<textarea 
-									value={newAdCopy}
-									onChange={(e) => setNewAdCopy(e.target.value)}
-									placeholder="ej. ¿Cansado de reuniones eternas? Pasate a Slack hoy."
-									style={{ minHeight: '60px', padding: '10px 12px', border: '1px solid #ded7e2', borderRadius: '8px', resize: 'none' }}
 								/>
 							</label>
 

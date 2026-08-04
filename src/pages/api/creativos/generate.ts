@@ -1,11 +1,11 @@
 import type { APIRoute } from 'astro';
 import { waitUntil } from '@vercel/functions';
-import OpenAI, { toFile } from 'openai';
-import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput, renderStudioProductShot, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
+import { toFile } from 'openai';
+import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput, renderStudioProductShot, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import { generateAdImage } from '../../../lib/creattia/image-engines';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
-import { fallbackAdCopy, normalizeDisplayWebsite, stripWebReferences } from '../../../lib/creattia/ad-copy';
+import { stripWebReferences } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -64,9 +64,6 @@ function buildPrompt(input: {
 	usageHint: string;
 	preset: string;
 	brandName: string;
-	website: string;
-	showWebsite: boolean;
-	instagram: string;
 	colors: string;
 	brandSummary: string;
 	brandVoice: string;
@@ -85,14 +82,6 @@ function buildPrompt(input: {
 	variationStrength: string;
 	replaceProduct: boolean;
 	inputImageMap: string[];
-	adCopy?: {
-		headline: string;
-		subheadline: string;
-		reviewText?: string;
-		cta?: string;
-		buttons?: string[];
-		language?: string;
-	};
 }) {
 	const revisionRules: Record<string, string> = {
 		exact: 'Use the first input image as the master reference. Preserve its framing, layout, hierarchy, palette, lighting, typography zones and every untouched detail as closely as possible. Apply only the requested change.',
@@ -102,23 +91,11 @@ function buildPrompt(input: {
 	const compositionRule = input.hasSourceGeneration
 		? revisionRules[input.variationStrength] || revisionRules.exact
 		: input.hasReference
-			? 'Use the first input image only as the advertising composition reference. Preserve its information hierarchy, visual rhythm and conversion logic, but do not copy trademarks, people, product identity or exact wording.'
-			: 'Create a polished direct-response static ad with a clear information hierarchy and one dominant message.';
+			? 'Use the first input image only as the advertising composition reference. Preserve its visual hierarchy, rhythm and conversion-oriented composition, but do not copy trademarks, people, product identity or exact wording.'
+			: 'Create a polished static image with a clear visual hierarchy and one dominant focal point.';
 	const productFacts = input.products.length
 		? input.products.map((product, index) => `${index + 1}. ${product.name}: ${product.description || 'No additional verified facts.'}`).join('\n')
 		: 'No specific product selected.';
-
-	let adCopyBlock = '';
-	if (input.adCopy) {
-		adCopyBlock = `
-TEXT COPY TO WRITE EXACTLY ON THE IMAGE (WRITE THIS TEXT IN NATURAL SPANISH, DO NOT DISTORT OR MAKE UP GIBBERISH WORDS):
-- Main Headline (Bold, high-contrast, render prominently): "${input.adCopy.headline}"
-- Subheadline / Support text: "${input.adCopy.subheadline}"
-${input.adCopy.reviewText ? `- Customer Review / Testimonial text: "${input.adCopy.reviewText}"` : ''}
-${input.adCopy.cta ? `- Primary Call-to-Action text: "${input.adCopy.cta}"` : ''}
-${input.adCopy.buttons && input.adCopy.buttons.length ? `- Secondary button labels: ${input.adCopy.buttons.join(', ')}` : ''}
-`;
-	}
 
 	return `Create a production-ready static advertising image for a real ecommerce brand.
 
@@ -132,8 +109,6 @@ OBJECTIVE
 
 VERIFIED BRAND CONTEXT
 - Brand name: ${input.brandName || 'Use a discreet generic brand lockup'}
-- Website available for display: ${input.showWebsite && input.website ? input.website : 'Not authorized for display'}
-- Instagram: ${input.instagram || 'Not provided'}
 - Brand colors: ${input.colors || '#18181b and #ffffff'}
 - Brand summary: ${input.brandSummary || 'Use only the supplied facts.'}
 - Brand voice: ${input.brandVoice || 'Clear and direct.'}
@@ -148,29 +123,27 @@ ${input.inputImageMap.length ? input.inputImageMap.map((label, index) => `- Imag
 SELECTED PRODUCTS
 ${productFacts}
 
-${adCopyBlock}
-
 ART DIRECTION
 ${compositionRule}
 ${input.hasSourceGeneration && input.replaceProduct ? '- Replace the product or products visible in the source generation with the selected product inputs. Do not blend old and new products.' : ''}
 ${input.hasReference && !input.hasSourceGeneration && (input.products.length > 0 || input.hasUploadedProduct) ? `- The first image is the WINNING AD TEMPLATE (reference layout). The second image is the REAL PRODUCT to feature. Create a new professional advertisement by using the EXACT COMPOSITION, color scheme, background aesthetic, alignment, speech bubbles, and layout of the first image (winning ad template), but replacing its original product with the real product shown in the second image. Do not draw the template's original product/packaging.` : ''}
 ${input.products.length > 1 ? `- This is a multi-product creative with ${input.products.length} distinct products. Show every supplied product clearly in one intentional group shot or collection composition. Preserve the real shape, packaging, logo and colors of each one.` : ''}
 ${input.products.length === 1 || (!input.products.length && input.hasUploadedProduct) ? '- The selected product is supplied as an input image. Preserve its real shape, packaging, logo and colors with high fidelity.' : ''}
-- PRODUCT INTEGRATION & REALISM (CRITICAL): Do NOT simply place the product image as a rigid, flat cutout with hard artificial edges. Seamlessly integrate the product into the scene with matching lighting, exposure, contrast, color temperature, and realistic shadows. If a hand is holding a product in the reference layout, the fingers must grip and wrap around the new product naturally, with realistic occlusion and contact shadows. Place the product on any surfaces with realistic contact shadows and oclusions.
+  - PRODUCT INTEGRATION & REALISM (CRITICAL): Do NOT simply place the product image as a rigid, flat cutout with hard artificial edges. Seamlessly integrate the product into the scene with matching lighting, exposure, contrast, color temperature, and realistic shadows. If a hand is holding a product in the reference layout, the fingers must grip and wrap around the new product naturally, with realistic occlusion and contact shadows. Place the product on any surfaces with realistic contact shadows and oclusions.
+  - PRODUCT ORIENTATION (CRITICAL): if the product has a front, back or side, preserve the real orientation shown in all supplied photos and verified facts. Never mirror or turn a garment inside out, and never move a print, embroidery, patch or label from the back to the front. If a detail belongs to a hidden side, do not invent or relocate it.
 ${input.products.length === 0 && !input.hasUploadedProduct ? '- Build a brand-level promotion without inventing a specific packaged product.' : ''}
 ${input.imageType === 'lifestyle' ? '- Create a believable lifestyle scene. Every real product must remain commercially prominent.' : ''}
 ${input.imageType === 'catalog' ? '- Use a clean ecommerce catalog treatment: controlled lighting, precise product edges, minimal environment and premium spacing.' : ''}
 ${input.imageType === 'promotion' ? '- Prioritize the verified offer and brand message. Do not invent a product-specific claim.' : ''}
 ${input.hasLogo ? '- LOGO PERMISSION: the user selected INCLUDE LOGO. Use the image identified as the brand logo in the input map, preserve it accurately and place it once with comfortable clear space.' : '- LOGO PERMISSION: the user selected NO ADDED LOGO. Do not add any separate logo, wordmark, emblem, monogram, badge, seal, watermark or invented brand symbol to the layout. Preserve only branding physically printed on the real product packaging.'}
-${input.showWebsite && input.website ? `- WEBSITE PERMISSION: render exactly "${input.website}" at most once, discreetly. Never add a protocol, product path, query string, other domain, social handle or QR code.` : '- WEBSITE PERMISSION: the user selected NO WEBSITE. Do not render any URL, domain, web address, social handle or QR code anywhere, and do not infer one from the product data.'}
-- Write all visible copy in natural, high-converting ${input.adCopy?.language === 'en' ? 'American English' : 'Argentine Spanish'}.
-- Keep copy minimal, accurate and easy to read on a phone.
+- Do not add publication copy, headlines, CTA buttons, offers, prices, URLs, social handles or explanatory text. This product is an image-only workflow.
+- Preserve only text that is physically part of the supplied product packaging or the official logo; do not invent new text.
 - Do not invent prices, percentages, reviews, certifications, deadlines, product features or legal claims.
 - Do not include platform UI, watermarks, mock browser chrome or explanatory labels.
 - Make the result feel designed by a senior performance creative team, not like generic AI art.
 
 USER DIRECTION
-${input.brief || (input.hasSourceGeneration ? 'No specific edit was requested. Produce another version using the selected variation strength.' : 'No extra direction. Choose the strongest honest headline for the angle without fabricating facts.')}`;
+${input.brief || (input.hasSourceGeneration ? 'No specific edit was requested. Produce another version using the selected variation strength.' : 'No extra direction. Choose the strongest visual treatment for the selected angle.')}`;
 }
 
 
@@ -212,22 +185,17 @@ export const POST: APIRoute = async ({ request }) => {
 		const imageType = imageTypes.has(requestedImageType) ? requestedImageType : 'product';
 		const referenceId = clean(form.get('referenceId'), 60);
 		const referencePath = clean(form.get('referencePath'), 300);
-		const templateNotes = clean(form.get('templateNotes'), 500);
 		const sourceGenerationId = clean(form.get('sourceGenerationId'), 60);
 		const requestedFidelity = Number(clean(form.get('fidelity'), 2) || 1);
 		const fidelity = [1, 2, 3].includes(requestedFidelity) ? requestedFidelity : 1;
-		// Copy aprobado por el usuario (viene del paso de plan/edición de textos):
-		// si llega, se usa tal cual y se saltea el análisis.
 		let approvedPlan: LayoutAnalysis | null = null;
 		try {
 			const rawPlan = clean(form.get('plan'), 30000);
 			if (rawPlan) {
 				const parsed = JSON.parse(rawPlan);
-				if (parsed && Array.isArray(parsed.textZones) && parsed.textZones.length) approvedPlan = parsed;
+				if (parsed && (Array.isArray(parsed.people) || Array.isArray(parsed.comparisonItems))) approvedPlan = parsed;
 			}
 		} catch { /* plan inválido: se analiza normalmente */ }
-		const requestedLanguage = clean(form.get('language'), 5);
-		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : '';
 		const colorMode = clean(form.get('colorMode'), 10) === 'brand' ? 'brand' as const : 'winner' as const;
 		const typoMode = clean(form.get('typoMode'), 10) === 'brand' ? 'brand' as const : 'winner' as const;
 		// Por defecto NO se agrega logo ni marca si el caller no lo pide de
@@ -236,8 +204,7 @@ export const POST: APIRoute = async ({ request }) => {
 		// mandaban estos campos, así que terminaban agregando el logo guardado
 		// del usuario sin que nadie lo pidiera.
 		const includeLogo = clean(form.get('includeLogo'), 2) === '1';
-		const includeWebsite = clean(form.get('includeWebsite'), 2) === '1';
-		const effectiveBrief = includeWebsite ? brief : stripWebReferences(brief);
+		const effectiveBrief = stripWebReferences(brief);
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		// 'url'  → la marca del sitio de donde salió el producto
 		// 'mine' → la que el usuario tiene guardada en Mi marca
@@ -324,9 +291,6 @@ export const POST: APIRoute = async ({ request }) => {
 			? (Array.isArray(profile?.brand_colors) ? profile.brand_colors : [])
 			: brandSource === 'url' ? (Array.isArray(urlBrand?.colors) ? urlBrand.colors : []) : [];
 		const effectiveBrandTypography = brandSource === 'mine' ? brandStyle?.typography : brandSource === 'url' ? (urlBrand?.typography || undefined) : undefined;
-		const effectiveWebsite = brandSource === 'mine' ? (profile?.website_url || '') : brandSource === 'url' ? (urlBrand?.website || '') : '';
-		const displayWebsite = includeWebsite ? normalizeDisplayWebsite(effectiveWebsite || clean(form.get('website'), 300)) : '';
-		const effectiveInstagram = brandSource === 'mine' ? (profile?.instagram_handle || '') : '';
 		const effectiveBrandSummary = brandSource === 'mine' ? (profile?.brand_summary || '') : brandSource === 'url' ? (urlBrand?.styleSummary || '') : '';
 		const effectiveBrandVoice = brandSource === 'mine' ? (profile?.brand_voice || '') : '';
 		const effectiveStyleSummary = brandSource === 'mine' ? (brandStyle?.styleSummary || '') : brandSource === 'url' ? (urlBrand?.styleSummary || '') : '';
@@ -380,17 +344,9 @@ export const POST: APIRoute = async ({ request }) => {
 		const generationTitle = storedProducts.length
 			? storedProducts.map((item) => item.name).join(' + ')
 			: (requestedTemplateName || templateName);
-		const fallbackPublicationCopy = fallbackAdCopy({
-			productName: generationTitle,
-			productFacts: storedProducts.map((item) => item.description).filter(Boolean).join(' · ') || brief,
-			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
-		});
 		const generationSettingsSnapshot = {
 			format, imageType, preset, quality, productIds, productNames: storedProducts.map((item) => item.name),
-			adCopy: approvedPlan?.adCopy || fallbackPublicationCopy,
 			includeLogo,
-			includeWebsite,
-			displayWebsite,
 			// Las revisiones heredan el anuncio ganador de la imagen original.
 			referencePath: storedReference?.image_path || (sourceGeneration as any)?.settings_snapshot?.referencePath || null,
 			sourceGenerationId: sourceGeneration?.id || null,
@@ -488,7 +444,7 @@ export const POST: APIRoute = async ({ request }) => {
 				storedProduct.image_path,
 				...(productImagesById.get(storedProduct.id) || []).map((row) => row.storage_path),
 			].filter(Boolean) as string[])];
-			for (let index = 1; index < Math.min(paths.length, 3) && productInputPlan.length < 8; index += 1) {
+			for (let index = 1; index < Math.min(paths.length, 5) && productInputPlan.length < 8; index += 1) {
 				productInputPlan.push({ product: storedProduct, path: paths[index], photoIndex: index + 1 });
 			}
 		}
@@ -517,7 +473,7 @@ export const POST: APIRoute = async ({ request }) => {
 					primaryProductBuffer = normalized.buffer;
 					primaryProductMime = normalized.type;
 				}
-				await pushInput(normalized.buffer, normalized.type, `product-${item.product.id}-${item.photoIndex}.png`, `verified photo ${item.photoIndex} of the real product “${item.product.name}”; preserve packaging, label, shape and color`);
+				await pushInput(normalized.buffer, normalized.type, `product-${item.product.id}-${item.photoIndex}.png`, `verified photo ${item.photoIndex} of the SAME real product SKU “${item.product.name}”; preserve exact geometry, proportions, construction, packaging, label, material, texture, color and physical side orientation`);
 			}
 		}
 		if (!isExactRevision && !storedProducts.length && productsUploaded.length > 0) {
@@ -529,7 +485,7 @@ export const POST: APIRoute = async ({ request }) => {
 					primaryProductBuffer = normalized.buffer;
 					primaryProductMime = normalized.type;
 				}
-				await pushInput(normalized.buffer, normalized.type, `product-${idx}.png`, `verified photo ${idx + 1} of the real product supplied by the user; preserve its packaging, label, shape and color`);
+				await pushInput(normalized.buffer, normalized.type, `product-${idx}.png`, `verified photo ${idx + 1} of the SAME real product supplied by the user; preserve exact geometry, proportions, construction, packaging, label, material, texture, color and physical side orientation`);
 			}
 		}
 
@@ -595,11 +551,14 @@ export const POST: APIRoute = async ({ request }) => {
 		// con su reemplazo y cómo presentar el producto. Es la base del prompt clon.
 		// Si el usuario ya aprobó/editó los textos (plan), se usa eso directo.
 		let layoutAnalysis: LayoutAnalysis | null = approvedPlan;
+		const verifiedProductFacts = storedProducts.map((item) => [
+			item.description,
+			item.price_text && `${item.price_text} ${item.currency || ''}`,
+			item.analysis?.category,
+		].filter(Boolean).join(' · '));
 		if (!layoutAnalysis && useClonePrompt && referenceBuffer && primaryProductBuffer) {
 			try {
-				const productFacts = storedProducts.length
-					? [storedProducts[0].description, storedProducts[0].price_text && `${storedProducts[0].price_text} ${storedProducts[0].currency || ''}`, storedProducts[0].analysis?.category].filter(Boolean).join(' · ')
-					: brief;
+				const productFacts = verifiedProductFacts.join('\n') || brief;
 				layoutAnalysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
 					referenceB64: referenceBuffer.toString('base64'),
 					referenceMime,
@@ -608,60 +567,12 @@ export const POST: APIRoute = async ({ request }) => {
 					productName: storedProducts[0]?.name || 'the product in the supplied photo',
 					productFacts,
 					brandName: effectiveBrandName || clean(form.get('brandName'), 80),
-					language,
-					includeWebsite,
-					displayWebsite,
 				});
 			} catch (analysisErr) {
-				console.error('Layout analysis failed, falling back to flat ad copy:', analysisErr);
+				console.error('Layout analysis failed, continuing with visual generation:', analysisErr);
 			}
 		}
-		stamp(`análisis de layout ${approvedPlan ? 'aprobado por el usuario' : layoutAnalysis ? 'ok' : 'sin resultado'} (${layoutAnalysis?.textZones?.length || 0} zonas)`);
-
-		let adCopy: any = undefined;
-		const groqApiKey = process.env.GROQ_API_KEY || import.meta.env.GROQ_API_KEY || '';
-		if (!layoutAnalysis && groqApiKey && storedProducts.length > 0) {
-			try {
-				const groqClient = new OpenAI({
-					apiKey: groqApiKey,
-					baseURL: 'https://api.groq.com/openai/v1',
-				});
-				const response = await groqClient.chat.completions.create({
-					model: 'llama-3.3-70b-versatile',
-					messages: [
-						{
-							role: 'system',
-							content: 'Sos un redactor publicitario experto (copywriter) para anuncios de performance en e-commerce. Tu tarea es generar copys cortos y persuasivos. Debes detectar el idioma del producto: si está en inglés, generá todo en inglés; si está en español, generá todo en español de Argentina.'
-						},
-						{
-							role: 'user',
-							content: `Generá los textos publicitarios para el producto "${storedProducts[0].name}".
-                
-Descripción del producto: ${storedProducts[0].description || ''}
-
-Debes imitar el estilo del anuncio de referencia:
-- Nombre de referencia: ${templateName}
-- Notas del anuncio de referencia: ${templateNotes || 'Diseño limpio y moderno'}
-- Propósito del anuncio: ${templatePurpose}
-
-Respondé SOLO con un objeto JSON válido con esta estructura exacta:
-{
-  "headline": "título principal en el mismo idioma detectado (mayúsculas, máx 6 palabras)",
-  "subheadline": "subtítulo o beneficio corto en el mismo idioma",
-  "reviewText": "texto del testimonio de cliente en el mismo idioma (máx 15 palabras)",
-  "cta": "texto de acción corto en el mismo idioma",
-  "language": "código del idioma detectado ('en' o 'es')"
-}`
-						}
-					],
-					response_format: { type: 'json_object' },
-					max_tokens: 300,
-				});
-				adCopy = JSON.parse(response.choices[0]?.message?.content || '{}');
-			} catch (copyErr) {
-				console.error('Error generating ad copy via Groq:', copyErr);
-			}
-		}
+		stamp(`análisis visual ${approvedPlan ? 'aprobado por el usuario' : layoutAnalysis ? 'ok' : 'sin resultado'}`);
 
 		const revisionPrompt = `The input image is a FINISHED advertisement. Reproduce it EXACTLY — same layout, same texts, same colors, same product, same typography, same background, every single detail identical — applying ONLY this modification:
 
@@ -669,35 +580,26 @@ ${brief}
 
 Rules:
 - Change ONLY what the modification asks. Everything else must remain pixel-faithful to the input image.
-- Do not redesign, do not rewrite or move any other text, do not change the palette, the product or the composition.
-- Render all text sharp and correctly spelled.
+- Do not add publication copy, CTA buttons, offers, prices, URLs or social handles.
 The result must look like the same image with only that one adjustment applied.`;
 
 		const prompt = isExactRevision ? revisionPrompt : useClonePrompt ? buildReferenceClonePrompt({
 			productNames: storedProducts.map((item) => item.name),
+			productFacts: verifiedProductFacts,
 			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
 			hasLogo,
 			brief: effectiveBrief,
 			analysis: layoutAnalysis,
-			languageCode: language || undefined,
 			colorMode,
 			typoMode,
 			brandColors: effectiveBrandColors,
 			brandTypography: effectiveBrandTypography,
-			includeWebsite,
-			displayWebsite,
-			adCopy,
 		}) : buildPrompt({
 			templateName,
 			purpose: templatePurpose,
 			usageHint: templateUsageHint,
 			preset,
 			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
-			website: displayWebsite,
-			showWebsite: includeWebsite,
-			// Una red social también es un identificador web visible. No la
-			// exponemos al modelo si el usuario eligió no mostrar la URL.
-			instagram: includeWebsite ? (effectiveInstagram || clean(form.get('instagram'), 300)) : '',
 			colors: effectiveBrandColors.length ? effectiveBrandColors.join(', ') : clean(form.get('colors'), 80),
 			brandSummary: effectiveBrandSummary,
 			brandVoice: effectiveBrandVoice,
@@ -721,7 +623,6 @@ The result must look like the same image with only that one adjustment applied.`
 			variationStrength,
 			replaceProduct: Boolean(hasSourceGeneration && sourceGeneration?.product_id !== (storedProducts[0]?.id || null)),
 			inputImageMap,
-			adCopy,
 		});
 		const { error: promptUpdateError } = await admin.from('creative_generations').update({ prompt }).in('id', generationIds);
 		if (promptUpdateError) throw promptUpdateError;
@@ -773,7 +674,6 @@ The result must look like the same image with only that one adjustment applied.`
 				output_path: outputPath,
 				settings_snapshot: {
 					...generationSettingsSnapshot,
-					adCopy: layoutAnalysis?.adCopy || generationSettingsSnapshot.adCopy,
 					creative: layoutAnalysis?.creative || null,
 				},
 				completed_at: new Date().toISOString(),

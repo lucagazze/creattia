@@ -24,7 +24,6 @@ export const POST: APIRoute = async ({ request }) => {
 	try {
 		const form = await request.formData();
 		const name = String(form.get('name') || '').trim().slice(0, 180);
-		const promptNotes = String(form.get('promptNotes') || '').trim().slice(0, 2000);
 		const templateId = Number(form.get('templateId'));
 		const categoryGroup = String(form.get('categoryGroup') || '').trim().slice(0, 120);
 		const categoryBranch = String(form.get('categoryBranch') || '').trim().slice(0, 120);
@@ -91,7 +90,6 @@ export const POST: APIRoute = async ({ request }) => {
 			templateId,
 			name,
 			imagePath: storagePath,
-			promptNotes: promptNotes || null,
 			sortOrder: 10,
 			rightsStatus: 'public_domain',
 			categoryGroup: categoryGroup || null,
@@ -121,7 +119,6 @@ export const POST: APIRoute = async ({ request }) => {
 			template_id: templateId,
 			name,
 			image_path: storagePath,
-			prompt_notes: promptNotes || null,
 			sort_order: 10,
 			is_active: true,
 			source_url: 'https://www.creattia.app',

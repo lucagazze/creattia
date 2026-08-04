@@ -1,7 +1,6 @@
 import type { APIRoute } from 'astro';
-import { analyzeReferenceLayout, normalizeImageInput, LANGUAGE_NAMES } from '../../../lib/creattia/ad-analysis';
+import { analyzeReferenceLayout, normalizeImageInput } from '../../../lib/creattia/ad-analysis';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
-import { normalizeDisplayWebsite } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -11,8 +10,8 @@ function clean(value: FormDataEntryValue | null, max = 500) {
 }
 
 // Paso previo a generar: analiza el anuncio ganador + el producto y devuelve
-// la estrategia de mensaje y el copy propuesto POR ZONA para que el usuario
-// lo revise/edite antes de aprobar la generación.
+// la estructura visual y las áreas de imagen que se deben reconstruir antes
+// de aprobar la generación.
 export const POST: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error }, 401);
@@ -25,18 +24,14 @@ export const POST: APIRoute = async ({ request }) => {
 	// Analiza con visión aunque no gaste créditos (se cobran recién al generar):
 	// sin tope se puede pedir sin límite y generar costo real.
 	const withinLimit = await checkRateLimit(admin, auth.user.id, 'plan-analyze', 40, 3600);
-	if (!withinLimit) return json({ error: 'Generaste muchos textos en poco tiempo. Esperá un rato y volvé a intentar.' }, 429);
+	if (!withinLimit) return json({ error: 'Analizaste muchas referencias en poco tiempo. Esperá un rato y volvé a intentar.' }, 429);
 
 	try {
 		const form = await request.formData();
 		const referencePath = clean(form.get('referencePath'), 300);
 		const productId = clean(form.get('productId'), 60);
-		const requestedLanguage = clean(form.get('language'), 5);
-		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : '';
-		const product = form.get('product');
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		const brandSource = ['url', 'mine', 'none'].includes(brandSourceParam) ? brandSourceParam : 'mine';
-		const includeWebsite = clean(form.get('includeWebsite'), 5) === '1';
 
 		if (!referencePath || !/^[0-9]+\/[a-f0-9]{8,}\.(png|jpe?g|webp|avif)$/i.test(referencePath)) {
 			return json({ error: 'Elegí un anuncio ganador válido.' }, 400);
@@ -97,19 +92,15 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const { data: profile } = await admin.from('creative_profiles')
-			.select('brand_name,website_url').eq('user_id', auth.user.id).maybeSingle();
+			.select('brand_name').eq('user_id', auth.user.id).maybeSingle();
 
-		// Qué marca aparece en el mensaje: la del sitio del producto, la guardada
+		// Qué marca aparece en la imagen: la del sitio del producto, la guardada
 		// en "Mi marca", o ninguna. Mismo criterio que la generación por lote.
 		const effectiveBrandName = brandSource === 'mine'
 			? (profile?.brand_name || '')
 			: brandSource === 'url'
 				? (brandFromUrl?.name || '')
 				: '';
-		const displayWebsite = includeWebsite
-			? normalizeDisplayWebsite(brandSource === 'mine' ? profile?.website_url : brandSource === 'url' ? brandFromUrl?.website : '')
-			: '';
-
 		const analysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
 			referenceB64: normalizedReference.buffer.toString('base64'),
 			referenceMime: normalizedReference.type,
@@ -118,9 +109,6 @@ export const POST: APIRoute = async ({ request }) => {
 			productName: productName || 'no specific product yet',
 			productFacts,
 			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
-			language,
-			includeWebsite,
-			displayWebsite,
 		});
 		if (!analysis) return json({ error: 'No pudimos analizar el anuncio. Probá de nuevo.' }, 502);
 

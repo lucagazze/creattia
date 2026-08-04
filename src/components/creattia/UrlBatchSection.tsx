@@ -159,22 +159,10 @@ const FORMAT_CARDS = [
 	{ value: '16:9', title: '16:9', label: 'Panoramico', ratio: '16:9', shape: 'wide' },
 ];
 
-// Banderas como imagen, igual que en la generación individual. Los emoji de
-// bandera no sirven: Windows no trae los glifos y los dibuja como las dos letras
-// del código ("AR Español" en vez de la bandera).
-export const LANGUAGE_OPTIONS = [
-	{ value: 'es', label: 'Español', cc: 'ar' },
-	{ value: 'en', label: 'Inglés', cc: 'us' },
-	{ value: 'pt', label: 'Portugués', cc: 'br' },
-	{ value: 'it', label: 'Italiano', cc: 'it' },
-	{ value: 'fr', label: 'Francés', cc: 'fr' },
-	{ value: 'de', label: 'Alemán', cc: 'de' },
-];
-
 export const BRAND_OPTIONS = [
-	{ value: 'url', label: 'Marca de la URL', emoji: '🔗', hint: 'Nombre, logo, URL y redes del sitio del producto' },
-	{ value: 'mine', label: 'Mi marca', emoji: '🏷️', hint: 'Nombre, logo, web y redes guardados' },
-	{ value: 'none', label: 'Sin marca', emoji: '🚫', hint: 'Solo producto, sin logo ni redes' },
+	{ value: 'url', label: 'Marca del producto', icon: 'link', hint: 'Usa la identidad detectada en el sitio del producto' },
+	{ value: 'mine', label: 'Mi marca', icon: 'brand', hint: 'Usa la identidad guardada en Mi marca' },
+	{ value: 'none', label: 'Solo producto', icon: 'none', hint: 'Sin nombre, logo ni redes de marca' },
 ];
 
 export const STYLE_OPTIONS = [
@@ -183,10 +171,17 @@ export const STYLE_OPTIONS = [
 ];
 
 export const brandSourceDescription = (source: string) => {
-	if (source === 'mine') return 'Usa lo guardado en Mi marca: nombre, logo, colores, URL y redes sociales.';
-	if (source === 'none') return 'No agrega nombre, logo ni redes: el foco queda solo en el producto.';
-	return 'Toma de la URL el nombre, logo, colores, URL y redes sociales que encuentre en la pagina.';
+	if (source === 'mine') return 'Usa nombre, logo, colores y estilo guardados en Mi marca.';
+	if (source === 'none') return 'No agrega nombre, logo ni redes: el foco queda únicamente en el producto.';
+	return 'Toma del sitio el nombre, logo, colores y estilo que encuentre.';
 };
+
+export function BrandOptionIcon({ icon, size = 19 }: { icon: string; size?: number }) {
+	const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
+	if (icon === 'link') return <svg {...common}><path d="M10 13.5a4 4 0 0 0 5.7.2l2.1-2.1a4 4 0 0 0-5.7-5.7l-1.2 1.2"/><path d="M14 10.5a4 4 0 0 0-5.7-.2l-2.1 2.1a4 4 0 0 0 5.7 5.7l1.2-1.2"/></svg>;
+	if (icon === 'brand') return <svg {...common}><path d="M4 20h16"/><path d="M5.5 20V8.5L12 4l6.5 4.5V20"/><path d="M8.5 11h7M8.5 14h7M8.5 17h3"/></svg>;
+	return <svg {...common}><circle cx="12" cy="12" r="8.5"/><path d="m5.8 5.8 12.4 12.4"/></svg>;
+}
 
 
 const referenceUrlFor = (imagePath: string) => `${REFERENCES_PUBLIC_BASE}/${imagePath}`;
@@ -209,7 +204,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [manualPrice, setManualPrice] = useState('');
 	const [count, setCount] = useState(10);
 	const [format, setFormat] = useState('original');
-	const [language, setLanguage] = useState('es');
 	const [colorMode, setColorMode] = useState('winner');
 	const [typoMode, setTypoMode] = useState('winner');
 	const [brandSource, setBrandSource] = useState('url');
@@ -461,7 +455,6 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					productDescription: preview.product.description,
 					winnerPaths: selected.map((winner) => winner.imagePath),
 					format,
-					language,
 					colorMode,
 					typoMode,
 					brandSource,
@@ -851,14 +844,13 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 									))}
 								</div>
 							</div>
-							<BatchSelect label="Idioma de los textos" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
 							<div className="batch-brand-block">
 								<span className="picker-label">¿De quién es el anuncio?</span>
-								<p className="batch-detail-help">Define que identidad aparece: nombre, logo, URL y redes sociales.</p>
+								<p className="batch-detail-help">Elegí de dónde tomar el nombre y la identidad visual. La URL solo se reemplaza si el anuncio ganador original ya tenía una.</p>
 								<div className="batch-brand-options">
 									{BRAND_OPTIONS.map((option) => (
 										<button key={option.value} type="button" className={`batch-brand-option ${brandSource === option.value ? 'active' : ''}`} onClick={() => setBrandSource(option.value)} aria-pressed={brandSource === option.value}>
-											<span className="batch-brand-icon" aria-hidden="true">{option.emoji}</span>
+											<span className="batch-brand-icon" aria-hidden="true"><BrandOptionIcon icon={option.icon} /></span>
 											<span><strong>{option.label}</strong><small>{option.hint}</small></span>
 											{brandSource === option.value && <b aria-hidden="true">✓</b>}
 										</button>

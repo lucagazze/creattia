@@ -90,7 +90,6 @@ export const POST: APIRoute = async ({ request }) => {
 			winners: picked.map((winner) => ({
 				imagePath: winner.imagePath,
 				name: winner.name,
-				notes: winner.promptNotes || '',
 				leaf: winner.categoryLeaf || '',
 				templateId: winner.templateId || null,
 				fromSaved: savedSet.has(winner.imagePath),

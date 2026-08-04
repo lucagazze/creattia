@@ -1,12 +1,8 @@
 import OpenAI from 'openai';
-import { normalizeAdCopy, stripWebReferences, type AdaptedAdCopy } from './ad-copy';
 
 // ── Compartido entre /api/creativos/plan y /api/creativos/generate ──────────
 
 export type LayoutAnalysis = {
-	messageStrategy?: string;
-	adCopy?: AdaptedAdCopy;
-	textZones?: Array<{ where?: string; onProduct?: boolean; original?: string; messageRole?: string; replacement?: string }>;
 	productHasPackaging?: boolean;
 	referenceHasProduct?: boolean;
 	templateHasLogoSlot?: boolean;
@@ -24,6 +20,8 @@ export type LayoutAnalysis = {
 	templateProductScale?: string;
 	/** Tamaño real del producto del usuario, leído de su foto. */
 	targetProductScale?: string;
+	/** Orientación física y ubicación de gráficos/detalles (frente, dorso, laterales). */
+	productOrientation?: string;
 	/**
 	 * Cómo hay que sostener/apoyar el producto nuevo para que la escena sea
 	 * físicamente creíble conservando el mismo tipo de plano.
@@ -58,21 +56,11 @@ export type LayoutAnalysis = {
 		score?: number;
 		scoreReasons?: string[];
 	};
-	language?: string;
 	creativeOptions?: string[];
 	// Personas visibles en el anuncio (el usuario puede indicar cómo se reconstruyen).
 	people?: Array<{ where?: string; description?: string; role?: string; directive?: string }>;
 	// Elementos de comparación que NO son el producto héroe (ej: barritas de la competencia).
 	comparisonItems?: Array<{ where?: string; description?: string; role?: string; directive?: string }>;
-};
-
-export const LANGUAGE_NAMES: Record<string, string> = {
-	es: 'natural Argentine Spanish',
-	en: 'natural American English',
-	fr: 'natural French',
-	it: 'natural Italian',
-	pt: 'natural Brazilian Portuguese',
-	de: 'natural German',
 };
 
 // La API de imágenes de OpenAI solo decodifica PNG/JPEG de forma confiable
@@ -96,8 +84,8 @@ export async function normalizeImageInput(buffer: Buffer): Promise<{ buffer: Buf
 }
 
 // Analiza el anuncio ganador + la foto real del producto con un modelo de visión:
-// decodifica la estrategia de mensaje y enumera CADA zona de texto con su
-// reemplazo propuesto (que el usuario puede editar antes de generar).
+// decodifica la estructura visual y enumera las áreas de imagen que deben
+// reconstruirse para el producto del usuario.
 // Intenta Gemini primero (barato y rápido) y cae a OpenAI si falla.
 export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleKey?: string }, input: {
 	referenceB64: string;
@@ -107,32 +95,11 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	productName: string;
 	productFacts: string;
 	brandName: string;
-	language?: string;
-	includeWebsite?: boolean;
-	displayWebsite?: string;
 }): Promise<LayoutAnalysis | null> {
-	const languageRule = input.language && LANGUAGE_NAMES[input.language]
-		? `Write ALL replacements in ${LANGUAGE_NAMES[input.language]} (the user chose this language; set "language" to "${input.language}"). creativeOptions stay in Argentine Spanish regardless.`
-		: 'Write replacements in the SAME language as the product facts and set "language" accordingly. creativeOptions stay in Argentine Spanish regardless.';
-
 	const systemPrompt = `You are a senior performance ad designer. You receive: (1) a winning static ad TEMPLATE image${input.productB64 ? ', (2) a real product photo' : ''}, and verified product facts.
 
 Return STRICT JSON:
 {
-  "messageStrategy": "2-3 sentences decoding the template's persuasion: which emotion it triggers, which objection it kills, what promise it makes and through which mechanism (nostalgia, guilt-removal, social proof, price anchor, before/after, authority, scarcity...)",
-  "adCopy": {
-    "primaryText": "ready-to-publish Meta/Instagram primary text. Open with a strong first-line hook, then the verified benefit or proof, then a clear action. Natural language, short paragraphs, maximum 700 characters",
-    "headline": "benefit-led headline, maximum 60 characters",
-    "description": "supporting detail that does not repeat the headline, maximum 90 characters",
-    "cta": "short action label, maximum 30 characters"
-  },
-  "textZones": [
-    { "where": "short position description (e.g. 'main headline, top center, two lines')",
-      "onProduct": true|false,
-      "original": "exact original text in the template",
-      "messageRole": "the persuasive job this text does (e.g. 'emotional hook: nostalgia + guilt removal', 'social proof: enthusiastic customer quote', 'spec badge: reassurance with a concrete number', 'CTA: low-friction action')",
-      "replacement": "new text for the target product that performs the SAME persuasive job, similar length so it fits the same space, honest (no invented prices/claims beyond the provided facts)" }
-  ],
   "referenceHasProduct": true|false,
   "templateHasLogoSlot": true|false — does the template visibly display a brand logo or brand wordmark (a natural spot where the advertiser brand belongs)?,
   "logoDescription": "if templateHasLogoSlot is true, briefly describe the logo/wordmark and WHERE it sits (e.g. 'small wordmark bottom-right'); else null",
@@ -146,6 +113,7 @@ Return STRICT JSON:
   "productOnBody": true|false,
   "templateProductScale": "real-world size of the TEMPLATE's product and how it is handled in the shot (e.g. 'a pill, a couple of centimetres, pinched between two fingertips', 'a 500ml bottle held in one hand', 'a sofa filling the room')",
   "targetProductScale": "real-world size of the TARGET product judging by its photo and facts (e.g. 'a full cowhide shoulder, roughly 60x80cm, needs both hands or a surface')",
+  "productOrientation": "for garments or objects with distinct sides, state exactly which details belong to the front, back and sides; use verified product facts when available, otherwise describe only what is visible in the supplied photos",
   "stagingAdaptation": "if copying the template's handling would look physically impossible, describe how to re-stage the target product so the scene is believable, keeping the SAME shot type, crop, framing and composition. Be specific about hands: if the template holds a small object in one hand and the target product is large and floppy (a hide, a rug, a panel, a textile), a single hand cannot hold it — say so and propose the alternative, preferring to REMOVE the hand and show the product alone, resting on a surface, hanging, rolled or held with both hands. If the sizes are comparable, say 'same handling as the template'.",
   "imageSlots": [
     { "where": "position and shape of THIS image area (e.g. 'three tilted photo cards stacked on the right third', 'full-bleed background photo', 'small circular avatar top-left', 'left half of a 50/50 split')",
@@ -175,50 +143,29 @@ Return STRICT JSON:
     "score": 0-100 — qué tan fuerte es este anuncio como creativo de performance,
     "scoreReasons": ["3 a 5 razones cortas en español que expliquen el puntaje, cada una empezando con el aspecto: contraste, jerarquía, CTA, oferta, legibilidad, foco del producto"]
   },
-  "language": "es|en|fr|it|pt|de",
-  "creativeOptions": ["3 to 5 SHORT optional creative directions specific to THIS template and THIS product (e.g. highlight the price as anchor, emphasize the guarantee, show texture close-up) — ALWAYS written in Argentine Spanish (the app's UI language), even when the ad copy is in another language"],
+  "creativeOptions": ["3 to 5 SHORT optional visual directions specific to THIS template and THIS product"],
   "styleNotes": "background color(s), palette, typography feel, graphic devices worth preserving"
 }
 
 Rules:
-- "adCopy" is the publication copy that appears outside the image. Adapt the winning message strategy to the target product, front-load the hook, use only verified facts, avoid unsupported urgency or claims, and complement rather than repeat the words rendered inside the creative. Write it in the requested ad language.
-- WEBSITE PERMISSION: ${input.includeWebsite && input.displayWebsite ? `The user explicitly asked to show the website. Use exactly "${input.displayWebsite}" at most once, only in an existing footer, URL or CTA text slot; never show a long product path, protocol, query string or a different domain.` : 'The user did NOT authorize a website inside the creative. Do not write any URL, domain, web address, social handle or QR code anywhere. If the winning template has a URL slot, leave it clean or reuse the space without web text.'}
-- COPY THAT STOPS THE SCROLL: the winning ad earns attention with its wording, not only its layout. Every replacement has to hit as hard as the original — same punch, same rhythm, same length, same device (a paradox, a question, a number, a blunt claim, a quote). Never soften a bold line into a polite description. If the original testimonial says "Thanks Billie for this smooth shave!", the replacement must name the ADVERTISER, not the product's manufacturer${input.brandName ? ` — the advertiser is "${input.brandName}"` : ', and if no advertiser brand is given, rewrite it so it thanks nobody and speaks about the experience instead'}. A first line that reads like a spec sheet is a failure.
-- FIRST decode the template's message strategy. THEN write every replacement so it performs the SAME persuasive job for the target product: same emotional angle, same rhetorical device (paradox, contrast, question, quote, number), same energy and tone. An emotional hook must stay an emotional hook adapted to the new product — never flatten it into a generic benefit statement.
-- Enumerate EVERY visible text zone in the template (headline, subcopy, review, badges, pills, CTA, small print). None may be missed.
-- ONLY REAL ZONES: list a zone only if that text is ACTUALLY VISIBLE in the template image. Never invent a headline, a badge, a feature row, an icon list or a CTA that the ad does not have, and never add one because "an ad usually has it". If the template is a photograph with little or no type on it, return few zones — or an empty textZones array if it truly has none. Its restraint is part of why it works, and filling it with copy would destroy the reference.
-- "onProduct": true when the text is printed ON the product/packaging itself; false when it belongs to the ad layout (headline, cards, pills, buttons).
 - "referenceHasProduct": true only if the TEMPLATE visibly features a physical product shot (box, bottle, object). Lifestyle/person-only or pure-text ads → false.
 - "productInstances" (CRITICAL): list EVERY separate place where the TEMPLATE'S OWN product is visible — not just the hero shot. Count the product worn by a model, on someone's feet, held in a hand, repeated as colour variants, shown again small in a corner, or duplicated across a grid. If the same product appears 6 times in a circle, that is 6 instances (or one instance describing the whole arrangement, but say so explicitly). Missing one means it survives into the final ad and the ad ends up selling two different products at once.
 - "productOnBody": true if ANY instance is worn on / used on a human body (garment, underwear, shoes, jewellery, a patch on skin). This decides whether the layout can host a product that cannot be worn.
 - "creative": read the ad the way a senior art director would. This is not decoration: "designPattern" and "styleFamily" have to be precise enough that another designer could rebuild the ad from them, and "score" has to be honest — a weak ad gets a low number even if it is in the library.
-- PHYSICAL SCALE (CRITICAL): judge the REAL size of both products. A pill pinched between two fingertips and a full leather hide are not interchangeable: rendering the hide at pill size gives an absurd ad. Fill "templateProductScale", "targetProductScale" and "stagingAdaptation" so the new product appears at its true size. The rule is to keep the SHOT (same crop, same framing, same part of the body in frame, same area of the canvas occupied) and change only HOW the product is handled so it is physically possible.
+  - PHYSICAL SCALE (CRITICAL): judge the REAL size of both products. A pill pinched between two fingertips and a full leather hide are not interchangeable: rendering the hide at pill size gives an absurd ad. Fill "templateProductScale", "targetProductScale" and "stagingAdaptation" so the new product appears at its true size. The rule is to keep the SHOT (same crop, same framing, same part of the body in frame, same area of the canvas occupied) and change only HOW the product is handled so it is physically possible.
+  - ORIENTATION AND SURFACE DETAILS (CRITICAL): for garments and any product with a front, back, side or inside, inspect every supplied product photo and the verified page facts. Fill "productOrientation" with the exact placement of each print, embroidery, patch, label or other distinctive detail. Never mirror, flip, turn inside out or move a detail to another physical side. A graphic specified as BACK must never appear on the FRONT; when a front-facing view is requested, show only front details, and when a back-facing view is requested, show only back details. If a side is not visible and not verified, do not invent its artwork.
 - "imageSlots" (CRITICAL): a winning ad wins because of its STRUCTURE and its IDEA — the layout, the rhythm, the way attention is directed — not because of the specific photos it happens to contain. List EVERY visual area of the template: the hero shot, each photo in a collage or grid, the background image, avatars, before/after panels, lifestyle scenes, and decorative photo strips. For each one, propose what that area should depict for the TARGET product instead. Think like an art director briefing a photographer: if the template shows three photos of people hugging dogs and the target product is wholesale leather, the replacement is three photos of artisans cutting, stitching and finishing leather at a workbench — same tilt, same crop, same lighting mood, same energy. Never propose keeping the template's original subject, and never propose an empty or generic "product photo" when the slot is clearly a lifestyle or context shot. If the template has a single product shot and nothing else, one entry is enough.
 - "productHasPackaging": look ONLY at the REAL product photo — true ONLY if that photo clearly shows a printed box, wrapper or label belonging to the product. Raw materials (leather hides, fabrics, wood), unpackaged food, plants, garments or bare objects have NO packaging → false. The template's product is irrelevant for this field.
 - TESTIMONIALS: if the template shows a person's photo next to a quote, the replacement quote and attribution must plausibly belong to that SAME visible person (never mismatch apparent gender or age; a neutral attribution like 'Cliente verificada' is fine).
 - PEOPLE: list in "people" EVERY human clearly visible in the ad (models, testimonial faces, before/after subjects). Empty array if none. The user may later specify how they want each person to look.
 - COMPARISON: if the ad is a comparison/versus layout (e.g. three products side by side, "us vs them", before/after columns), the HERO is the advertiser's product; list every OTHER item being compared against it in "comparisonItems" so the user can decide what to place there (they may want generic unbranded stand-ins). Empty array if the ad is not a comparison. Never treat the hero product itself as a comparison item.
-- ${languageRule}
-- If a zone shows a spec/number (e.g. "10G PROTEIN"), replace it with a REAL fact of the target product formatted the same way.
-- UNVERIFIABLE PROMISES (CRITICAL): a zone stating a guarantee ("90-day money-back", "risk-free"), a shipping promise ("free shipping", "delivered in 24h"), a discount or price ("15% OFF", "$29"), a review count or rating ("4.8 from 12,000 reviews"), a certification, an award or a deadline is a COMMERCIAL COMMITMENT. Translating it is NOT allowed — it would put a promise the advertiser never made on a live ad. Unless that exact promise appears in the verified facts above, replace that zone with a REAL, verifiable benefit or product attribute that fills the same space and does the same reassurance job (e.g. a money-back badge becomes "Formulado para piel sensible", a "15% OFF" pill becomes "Hidratación 24 h"). NEVER keep the template's number, percentage, timeframe or guarantee wording. Same for the CTA: a generic action ("Shop Now", "Comprar") is fine, but never one that implies an offer that was not provided.
 - Never use the template's brand name in replacements.${input.brandName ? ` The advertiser brand is "${input.brandName}".` : ''}`;
 	const userText = `Target product: ${input.productName}. Verified facts: ${input.productFacts || 'Only the product photo is available.'}`;
 
 	const validate = (raw: string | null | undefined): LayoutAnalysis | null => {
 		try {
 			const parsed = JSON.parse(raw || 'null');
-			if (!parsed || !Array.isArray(parsed.textZones)) return null;
-			parsed.adCopy = normalizeAdCopy(parsed.adCopy, {
-				productName: input.productName,
-				productFacts: input.productFacts,
-				brandName: input.brandName,
-			});
-			if (!input.includeWebsite) {
-				parsed.textZones = parsed.textZones.map((zone: any) => ({
-					...zone,
-					replacement: stripWebReferences(zone?.replacement),
-				}));
-			}
+			if (!parsed || typeof parsed !== 'object') return null;
 			return parsed as LayoutAnalysis;
 		} catch { return null; }
 	};
@@ -287,55 +234,19 @@ Rules:
 // el modelo edita la referencia reemplazando SOLO producto, textos y marca.
 export function buildReferenceClonePrompt(input: {
 	productNames: string[];
+	productFacts?: string[];
 	brandName: string;
 	hasLogo: boolean;
 	brief: string;
 	analysis?: LayoutAnalysis | null;
-	languageCode?: string;
 	colorMode?: 'winner' | 'brand';
 	typoMode?: 'winner' | 'brand';
 	brandColors?: string[];
 	brandTypography?: { headings?: string; body?: string };
-	includeWebsite?: boolean;
-	displayWebsite?: string;
-	adCopy?: {
-		headline?: string;
-		subheadline?: string;
-		reviewText?: string;
-		cta?: string;
-		language?: string;
-	};
 }) {
-	const languageCode = input.languageCode || input.analysis?.language || input.adCopy?.language || 'es';
-	const language = LANGUAGE_NAMES[languageCode] || LANGUAGE_NAMES.es;
 	const productLabel = input.productNames.length ? input.productNames.join(' + ') : 'the real product supplied by the user';
+	const verifiedProductFacts = (input.productFacts || []).filter(Boolean);
 	const referenceHasProduct = input.analysis?.referenceHasProduct !== false;
-
-	// Zonas de texto: del análisis de visión (ideal) o del copy plano de fallback.
-	// Se descartan las zonas cuyo reemplazo vino vacío o con un literal basura: el
-	// análisis llegó a devolver la cadena "null" para el sello de marca de un
-	// ganador cuando el perfil no tenía nombre de marca, y el modelo escribió
-	// "null" dentro del sello en el anuncio final.
-	const isJunkReplacement = (value?: string) => {
-		const text = (value || '').trim();
-		if (!text) return true;
-		return /^(null|undefined|none|n\/a|nan|-|—)$/i.test(text);
-	};
-	const zones = (input.analysis?.textZones || [])
-		.filter((zone) => (input.analysis?.productHasPackaging ? true : !zone.onProduct))
-		.filter((zone) => !isJunkReplacement(zone.replacement));
-	const droppedOnProduct = (input.analysis?.textZones?.length || 0) - zones.length;
-	let textSwap = '';
-	if (zones.length) {
-		textSwap = zones.map((zone, index) => `${index + 1}. [${zone.where}${zone.messageRole ? ` — persuasive job: ${zone.messageRole}` : ''}] Replace "${zone.original}" with "${zone.replacement}"`).join('\n');
-	} else if (input.adCopy) {
-		textSwap = [
-			input.adCopy.headline ? `- Headline: "${input.adCopy.headline}"` : '',
-			input.adCopy.subheadline ? `- Subheadline: "${input.adCopy.subheadline}"` : '',
-			input.adCopy.reviewText ? `- Customer review: "${input.adCopy.reviewText}"` : '',
-			input.adCopy.cta ? `- Call-to-action button: "${input.adCopy.cta}"` : '',
-		].filter(Boolean).join('\n');
-	}
 
 	const placement = input.analysis?.productPlacement
 		? ` — same position, generous scale, dynamic angle and prominence described here: ${input.analysis.productPlacement}`
@@ -343,13 +254,14 @@ export function buildReferenceClonePrompt(input: {
 	// Regla incondicional: respetar la forma física real del producto aunque
 	// el análisis se equivoque con productHasPackaging.
 	const packagingRule = input.analysis && !input.analysis.productHasPackaging
-		? `\nCRITICAL: the real product has NO printed packaging. Its surface must stay completely clean — do NOT print any words, logos, badges, spec bubbles or graphics on the product itself.${droppedOnProduct > 0 ? " The template's on-package texts are intentionally omitted; do not recreate or relocate them." : ''} All copy lives only in the ad layout's text zones.`
+		? `\nCRITICAL: the real product has NO printed packaging. Its surface must stay completely clean — do NOT print any words, logos, badges, spec bubbles or graphics on the product itself.`
 		: `\nNEVER invent a box, wrapper or label that is not visible in the product photo.`;
 
 	// El texto impreso en el envase se copia carácter por carácter. Inventar una
 	// letra puede convertir el nombre real del producto en otra palabra
 	// (p. ej. "PDRN" leído como "PORN") y arruinar el anuncio.
 	const labelFidelityRule = `\nLABEL TEXT FIDELITY (CRITICAL) — Any text printed on the product's own packaging must be reproduced CHARACTER BY CHARACTER exactly as it appears in the product photo${input.productNames.length ? `; the product name is literally "${input.productNames.join(' + ')}" and must be spelled exactly that way on the label` : ''}. Never re-spell, auto-correct, translate or "improve" a word on the packaging, and never swap a letter for a similar-looking one — a single wrong character can turn the real product name into a different word. If part of the label is too small or blurry to read with certainty in the photo, render it as realistically soft/out-of-focus micro-text instead of guessing letters.`;
+	const orientationRule = `\nPRODUCT IDENTITY AND MULTI-VIEW CONSISTENCY (CRITICAL) — All supplied product photos are different views of ONE SAME SKU, not different variants to blend together. Use them jointly as the source of truth: preserve the exact silhouette, dimensions, proportions, construction, seams, materials, finish, colors, texture, packaging and distinctive details. Never average two views into a new hybrid product, change the product category, add a missing component or remove a real component.\nPRODUCT ORIENTATION AND GRAPHICS (CRITICAL) — Treat the supplied product photos as a multi-view reference, not as a texture to mirror. Preserve the product's real front/back/side orientation and keep every print, embroidery, patch, label and graphic on the exact physical side where it belongs. Never mirror the garment, turn it inside out, or move a back graphic onto the chest/front. If verified facts identify front and back details, they are authoritative: ${verifiedProductFacts.length ? verifiedProductFacts.join(' | ') : 'use only what is clearly visible in the supplied product photos'}.${input.analysis?.productOrientation ? ` Vision analysis also found: ${input.analysis.productOrientation}.` : ''} If the requested camera angle cannot show a detail from its correct side, hide it naturally rather than inventing or relocating it.`;
 
 	// Cada aparición del producto del template, enumerada. Reemplazar solo la
 	// principal dejaba el resto en el anuncio: el ganador vendía corpiños y el
@@ -427,7 +339,7 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 
 	const productSwap = referenceHasProduct
 		? `1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. The product must remain the SAME PHYSICAL OBJECT TYPE seen in its photo — if the photo shows a hide, render a hide; a bottle, a bottle; never morph it into the template's product form (e.g. never turn an unboxed product into a box). Render it as ONE single coherent object (never split it into disconnected pieces, and never show multiples unless the template does). RE-STAGE the product INTO the template's scene — do NOT paste it: re-photograph it as if it were shot in that exact environment, matching the scene's camera angle, perspective, lighting direction, color temperature, reflections and shadow behavior (e.g. if the template's product leans against a tiled wall in daylight, the new product must sit in that same tiled-wall daylight scene with the same grounding). Give it real volume and dimension, adapt its pose and orientation to fit the composition naturally, and ground it with the same shadow style the template uses. POSITION: place it at the SAME position and size ratio as the template's product — if the template's product occupies the right side, yours must occupy the right side; never center it unless the template does. Never leave hard cut-out edges or a floating pasted look: blend the product's edges with the scene lighting. LAYERING: match the template's stacking order exactly — any card, speech bubble or text panel that sits in front of the product in the template must stay fully in front, uncovered and readable; the product must never cut across, poke through or overlap a text card beyond what the template shows. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable. IDENTITY DETAILS (CRITICAL): whatever is printed, stitched, embossed, woven or engraved on the real product must survive — the brand mark on a garment's chest or sleeve, the tag, the logo on a shoe, the model name on a device, a pattern, a stripe, a stitching colour, a distinctive shape. Someone who owns this product has to recognise it as the same one. Do not clean it up, simplify it, remove a label or move a mark somewhere else.${packagingRule}${labelFidelityRule}${scaleRule}${instanceBlock}${onBodyRule}`
-		: `1. NO PRODUCT INSERTION — The template does NOT show a physical product, so the new ad must not show one either. This ad sells through its words and its design, not through a product shot: that is exactly why it works. Keep its imagery style as it is (the typographic treatment, the colour field, the graphic devices, the scene) and adapt it naturally to the new context. Do NOT insert, paste, collage or hint at a product photo anywhere, at any size, not even small in a corner — not even if a product photo was supplied as input. Everything about ${productLabel} must come through the copy.`;
+		: `1. NO PRODUCT INSERTION — The template does NOT show a physical product, so the new ad must not show one either. This ad works through its visual composition and design, not through a product shot: that is exactly why it works. Keep its imagery style as it is (the typographic treatment, the colour field, the graphic devices, the scene) and adapt it naturally to the new context. Do NOT insert, paste, collage or hint at a product photo anywhere, at any size, not even small in a corner — not even if a product photo was supplied as input.`;
 
 	const colorRule = input.colorMode === 'brand' && input.brandColors?.length
 		? `COLOR RESTYLE (REQUIRED) — This is a hard requirement: recolor the ad into the brand palette ${input.brandColors.join(', ')} (the FIRST color is the primary/dominant one, the next are secondary/accents). The dominant background, the main accents, the buttons/CTA and the badges MUST visibly use these exact brand colors instead of the template's original colors — the finished ad has to read as belonging to this brand at a glance. Keep the template's exact LAYOUT, contrast hierarchy and legibility (dark text on light areas and vice-versa); only the hues change. Do not keep the template's original brand colors.`
@@ -448,23 +360,16 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 		? `TYPOGRAPHY — Use the brand's typography: headings in ${input.brandTypography?.headings || 'the brand font'}, body text in ${input.brandTypography?.body || 'the brand font'}, keeping the same sizes, weights and hierarchy as the template.`
 		: `Match the template's typographic style, weight and case exactly (if the template headline is heavy condensed uppercase, keep it heavy condensed uppercase).`;
 
-	const strategyBlock = input.analysis?.messageStrategy
-		? `\nMESSAGE STRATEGY OF THE WINNING AD (the new copy must deliver the same persuasion, adapted to ${productLabel}): ${input.analysis.messageStrategy}\n`
-		: '';
+	return `The first input image is a WINNING AD TEMPLATE. It is a STRUCTURAL reference, not artwork to copy: what you must preserve is its skeleton — the layout, the composition, the proportions, the background treatment, the colour palette, the graphic devices (badges, stars, speech bubbles, banners, buttons, dividers), the position of every visual block and the visual hierarchy. What must change is everything it is ABOUT: the product, the scenes and the people all become ${productLabel}. Someone who saw both ads should recognise the same design system and never suspect they show the same subject.
+${creativeBlock}${imageSlotBlock}
+	${productSwap}${orientationRule}
 
-	return `The first input image is a WINNING AD TEMPLATE. It is a STRUCTURAL reference, not artwork to copy: what you must preserve is its skeleton — the layout, the composition, the proportions, the background treatment, the colour palette, the graphic devices (badges, stars, speech bubbles, banners, buttons, dividers), the position of every text block and the typographic hierarchy. What must change is everything it is ABOUT: the product, the scenes, the people and the words all become ${productLabel}. Someone who saw both ads should recognise the same design system and never suspect they show the same subject.
-${strategyBlock}${creativeBlock}${imageSlotBlock}
-${productSwap}
-
-2. TEXT SWAP — LANGUAGE IS ABSOLUTE: every single word visible in the final image must be in ${language} — headline, subcopy, badges, pills, buttons, small print, star labels, stamps and any word inside a graphic. Not one word may stay in the template's original language, and none may drift into another language. If a replacement below is written in a different language, translate it to ${language} before rendering it. Replace the template's wording with this exact copy, written in ${language}, placing each text in the same position, size and style as the template text it replaces. Every zone listed MUST contain its text — never leave a badge, pill or button empty:
-${textSwap || (input.analysis
-		? `- THIS AD HAS NO TEXT OVERLAY. The template sells with the image alone, and that restraint is exactly why it works. Do NOT add a headline, a subheadline, a badge, a pill, a price tag, a feature list, a comparison table, a CTA button or a logo lockup. Adding copy here would turn a clean, confident ad into a cluttered one and destroy the reference. Leave the composition free of type.`
-		: `- Adapt every template text block honestly to ${productLabel}, in ${language}, keeping the same message structure.`)}
-If a template text block has no replacement listed, adapt its message honestly to the new product${input.brandName ? '' : ". If that block was the advertiser's brand name or stamp, leave it visually clean and empty instead of writing a placeholder — never write words like \"null\", \"undefined\", \"marca\" or \"your brand\" inside the ad"}. Do not invent prices, percentages, reviews, certifications or claims. NEVER translate or carry over the template's guarantees, discounts, shipping promises, review counts, ratings, certifications, awards or deadlines — those are commitments of the template's brand, not of this advertiser. If such a badge or pill has no verified replacement, fill it with a real product benefit at the same size and in the same shape instead; leaving the template's promise there (even translated) is a hard error. NO EXTRA COPY: the finished ad must contain the SAME NUMBER of text blocks as the template, no more. Never add a headline, badge, feature box, bullet list, comparison row, seal or CTA that the template does not have — an ad with more text than its reference stops looking like the reference. Render all text sharp, correctly spelled, no gibberish or distorted words. NO DUPLICATION: each text appears exactly ONCE — never repeat a word, a line or the tail of a sentence on the next line (a heading ending in "...resultados visibles?" must not be followed by a stray "visibles?"), and never render the same block twice. FIT: every text MUST fit fully inside its card, bubble or badge with the same padding as the template — if a replacement is long, reduce its font size slightly or tighten line spacing; text must NEVER overflow, collide with other elements or spill outside its container. If the template shows a person next to a testimonial, keep that exact person unchanged and make the attribution plausibly match them.
+	2. IMAGE-ONLY OUTPUT — This instruction overrides template fidelity for all publication text. The final image must contain ZERO publication copy: erase every headline, subtitle, caption, CTA button label, offer, price, URL, social handle, badge label and explanatory sentence from the template. Preserve only the empty shape, spacing or visual container when it is part of the composition. Do not replace erased text with new text or placeholder words. Preserve text only when it is physically printed on the supplied product or is part of the supplied official logo.
+	Do not preserve, translate, paraphrase, rewrite or invent any publication copy, claims, offers, prices, URLs, social handles or explanatory text.
 
 3. BRAND SWAP — ERASE every trace of the template's own brand. Its wordmark, logo, emblem, monogram and brand name must NOT appear anywhere in the output, in any size, not even faintly, partially, redrawn or stylised, and never merged with other text. Scan the whole canvas for it: corners, footer, badges, the product itself and any watermark. That brand belongs to a different company — leaving it in makes the ad unusable. ${input.hasLogo ? 'The user explicitly selected INCLUDE LOGO. If the layout needs a brand mark, place the provided brand logo (last input image) in that same spot, ONCE, small and discreet. Reproduce that logo image EXACTLY as supplied and complete: it may itself contain more than one element (a shield plus a seal, a symbol plus a wordmark, several marks side by side) — keep every element it contains, in the same arrangement and proportions, and render any text inside it letter for letter. Never redraw, recolour, restyle, split or simplify it. Do NOT add any badge, seal, medallion, ribbon, star rating, laurel or certification stamp that is not part of that logo image.' : 'The user explicitly selected NO ADDED LOGO. Do not add a separate logo, wordmark, emblem, monogram, initials, shield, crest, badge, seal, medallion, ribbon, laurel, star mark, coat of arms or certification stamp to the layout. Where the template showed its brand mark, leave that area completely empty and clean — no invented name, placeholder or symbol. This does not remove the real label or branding physically printed on the supplied product packaging, which must remain faithful to the product photo.'}
 
-WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website. Render exactly "${input.displayWebsite}" ONCE, discreetly, only in an existing footer, URL or CTA slot. Never render the protocol, a product path, query parameters, another domain, a social handle or a QR code.` : 'The user explicitly selected NO WEBSITE. Do not render any URL, domain, web address, social handle or QR code anywhere. Remove any website from the winning template and leave that space clean; never infer one from product data.'}
+No URLs, domains, web addresses, social handles or QR codes may appear in the generated image.
 
 4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
 ${peopleBlock}${comparisonBlock}

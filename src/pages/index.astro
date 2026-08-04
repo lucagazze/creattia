@@ -62,6 +62,27 @@ const cylinderImages = [
 	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/2712b3774b326865.webp'
 ];
 
+// Selección pública de la biblioteca gratuita. Estas son las mismas rutas
+// que usa /api/creativos/library.ts para cuentas sin suscripción.
+const landingFreeLibraryImages = [
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/2fb666571bf2802e.png`, label: 'Producto / presentación' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/55596501e64f813b.png`, label: 'Producto / presentación' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/174faa5c6ab2a671.png`, label: 'Producto / presentación' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/8640d4617f2e692d.png`, label: 'Producto / presentación' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/b3aaaa6a8d580a1a.png`, label: 'Producto / presentación' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}23/ec1000c7e99f98bf.jpg`, label: 'Nosotros vs Ellos' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}7/c621e734bc3f2b0d.jpg`, label: 'Testimonios' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}13/8d769523a157558c.jpg`, label: 'Promociones y descuentos' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}30/5ae18f7a117144e3.jpg`, label: 'Razones por qué' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}41/fee532dba2b04af0.jpg`, label: 'Características y beneficios' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}6/ccc3b55b994178f1.png`, label: 'Antes y después' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}10/383bfa16d248c64d.png`, label: 'Noticias' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}31/cb9f7322f9c919c5.jpg`, label: 'Datos y estadísticas' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}19/4e9aee92bbc8b5db.jpg`, label: 'Vacaciones / Estacional' },
+];
+const landingShowcase = landingFreeLibraryImages;
+const landingCylinderImages = landingFreeLibraryImages.map((item) => item.src);
+
 const plans = [
 	{ name: 'Gratis / Pago por uso', price: '0', description: 'Probá gratis y comprá packs sueltos por imagen.', cta: 'Pagar por imagen', href: '/app/?plan=free', features: ['3 créditos de regalo al registrarte', 'Págs de destino y biblioteca de ganadores', 'Comprá packs individuales por imagen', '1 marca activa', 'Soporte por email estándar'] },
 	{ name: 'Starter', price: '29', description: 'Para creadores de contenido que recién empiezan.', cta: 'Elegir Starter', href: '/app/?plan=creator', features: ['40 imágenes al mes', '≈ $0.72 por imagen', 'Hasta 2 generaciones simultáneas', '1 marca activa', 'Soporte estándar por email'] },
@@ -180,7 +201,7 @@ const faqs = [
 
 				<div class="showcase-marquee" aria-label="Ejemplos de la biblioteca de Creattia">
 					<div class="showcase-track">
-						{showcase.map((item) => (
+						{landingShowcase.map((item) => (
 							<div class="showcase-card">
 								<img src={item.src} alt={`Ejemplo de ${item.label}`} decoding="async" loading="lazy"/>
 							</div>
@@ -311,8 +332,8 @@ const faqs = [
 
 			<div class="cylinder-carousel-container">
 				<div class="carousel-cylinder">
-					{cylinderImages.map((src, idx) => {
-						const angle = idx * 30; // 12 cards * 30deg = 360deg
+					{landingCylinderImages.map((src, idx) => {
+						const angle = idx * (360 / landingCylinderImages.length);
 						return (
 							<div 
 								class="cylinder-card" 
@@ -435,7 +456,7 @@ const faqs = [
 								<small>Idea 12 de 50</small>
 							</div>
 							<div class="phone-card-image">
-								<img src="https://tryholo.ai/rootPage/assets/contentCalendar/tinderImage.avif" alt="Swipe card example" decoding="async" loading="lazy"/>
+								<img src={landingFreeLibraryImages[1].src} alt="Ejemplo gratuito de producto" decoding="async" loading="lazy"/>
 							</div>
 							<div class="phone-actions">
 								<button class="btn-swipe-dislike">×</button>

@@ -12,8 +12,6 @@ import WinnersLibrary from './WinnersLibrary';
 import AvatarManager from './AvatarManager';
 import { UrlBatchSection, driveBatchWorkers } from './UrlBatchSection';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
-import { normalizeAdCopy, type AdaptedAdCopy } from '../../lib/creattia/ad-copy';
-import AdCopyPanel from './AdCopyPanel';
 import AdminDashboard from './AdminDashboard';
 
 type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved' | 'discover' | 'admin';
@@ -61,7 +59,6 @@ type Generation = {
 	createdAt: string;
 	category: string;
 	templateId?: number;
-	brief?: string;
 	preset?: string;
 	imageType?: string;
 	productId?: string;
@@ -74,12 +71,7 @@ type Generation = {
 	referenceName?: string;
 	status?: 'processing' | 'completed' | 'failed';
 	error?: string;
-	adCopy?: AdaptedAdCopy;
 };
-
-function adCopyFromSnapshot(snapshot: any): AdaptedAdCopy | undefined {
-	return snapshot?.adCopy ? normalizeAdCopy(snapshot.adCopy) : undefined;
-}
 
 type HistoryGroup = { key: string; createdAt: string; item: Generation; slides?: Generation[] };
 
@@ -864,7 +856,7 @@ export default function CreativeApp() {
 				if (favoriteRecords) setFavorites(new Set(favoriteRecords.map((item) => Number(item.template_id))));
 
 					const { data: records, error: generationsError } = await supabase.from('creative_generations')
-						.select('id,title,output_path,format,created_at,template_id,user_brief,variant_key,image_type,product_id,batch_id,output_index,settings_snapshot,status')
+						.select('id,title,output_path,format,created_at,template_id,variant_key,image_type,product_id,batch_id,output_index,settings_snapshot,status')
 						.in('status', ['completed', 'processing'])
 						.order('created_at', { ascending: false }).limit(150);
 
@@ -882,7 +874,6 @@ export default function CreativeApp() {
 								createdAt: record.created_at || new Date().toISOString(),
 								category: creative ? ringMeta[creative.ring]?.label : 'Creativo',
 								templateId: record.template_id,
-								brief: record.user_brief || '',
 								preset: record.variant_key || record.settings_snapshot?.preset || 'fiel',
 								imageType: record.image_type || record.settings_snapshot?.imageType || 'product',
 								productId: record.product_id || record.settings_snapshot?.productId || '',
@@ -891,7 +882,6 @@ export default function CreativeApp() {
 								outputIndex: record.output_index || 1,
 								referencePath: record.settings_snapshot?.referencePath || '',
 								referenceName: record.settings_snapshot?.referenceName || '',
-								adCopy: adCopyFromSnapshot(record.settings_snapshot),
 								status: record.status || (imgUrl ? 'completed' : 'processing'),
 							};
 						});
@@ -977,7 +967,6 @@ export default function CreativeApp() {
 								templateId: r.template_id,
 								referencePath: (r as any).settings_snapshot?.referencePath || '',
 								referenceName: (r as any).settings_snapshot?.referenceName || '',
-								adCopy: adCopyFromSnapshot((r as any).settings_snapshot),
 								status: imgUrl ? 'completed' : r.status,
 							} as any);
 						} else if ((existing as any).status !== r.status || (!existing.imageUrl && imgUrl)) {
@@ -987,7 +976,6 @@ export default function CreativeApp() {
 							map.set(r.id, {
 								...existing,
 								imageUrl: imgUrl || existing.imageUrl,
-								adCopy: adCopyFromSnapshot((r as any).settings_snapshot) || existing.adCopy,
 								status: imgUrl ? 'completed' : r.status,
 							} as any);
 						}
@@ -1250,7 +1238,6 @@ export default function CreativeApp() {
 						status: row.status || 'processing',
 						referencePath: row.settings_snapshot?.referencePath || '',
 						referenceName: row.settings_snapshot?.referenceName || '',
-						adCopy: adCopyFromSnapshot(row.settings_snapshot),
 					} as Generation));
 					setHistory((previous) => {
 						const byId = new Map(previous.map((item) => [item.id, item]));
@@ -1293,7 +1280,7 @@ export default function CreativeApp() {
 		let cancelled = false;
 		const poll = async () => {
 			const { data, error } = await client.from('creative_generations')
-				.select('id,status,output_path,error_code,title,format,template_id,batch_id,output_index,created_at,image_type,user_brief,variant_key,product_id,settings_snapshot')
+				.select('id,status,output_path,error_code,title,format,template_id,batch_id,output_index,created_at,image_type,variant_key,product_id,settings_snapshot')
 				.eq('batch_id', batch.batchId).order('output_index');
 			if (cancelled || error || !data?.length) return;
 
@@ -1313,7 +1300,6 @@ export default function CreativeApp() {
 					createdAt: row.created_at || new Date().toISOString(),
 					category: 'Creativo',
 					templateId: row.template_id,
-					brief: row.user_brief || '',
 					preset: row.variant_key || '',
 					imageType: row.image_type || 'product',
 					productId: row.product_id || '',
@@ -1322,7 +1308,6 @@ export default function CreativeApp() {
 					outputIndex: row.output_index,
 					referencePath: row.settings_snapshot?.referencePath || '',
 					referenceName: row.settings_snapshot?.referenceName || '',
-					adCopy: adCopyFromSnapshot(row.settings_snapshot),
 					error: row.error_code || '',
 					status: row.status,
 				} as any);
@@ -2382,7 +2367,7 @@ function Dashboard({
 												WebkitBoxOrient: 'vertical'
 											}}
 										>
-											{winner.promptNotes || 'Inspiración publicitaria ganadora.'}
+											Inspiración visual ganadora.
 										</p>
 										<button
 											onClick={(e) => {
@@ -2685,7 +2670,7 @@ function GenerationView({ batch, onBack, onReuse, onHistory }: { batch: ActiveBa
 	const stage = elapsed < 25
 		? 'Analizando el anuncio ganador y tu producto…'
 		: elapsed < 55
-			? 'Escribiendo el copy y planificando cada zona del diseño…'
+			? 'Analizando la composición y planificando la imagen…'
 			: 'Generando tu imagen en alta calidad…';
 
 	return (
@@ -2720,7 +2705,6 @@ function GenerationView({ batch, onBack, onReuse, onHistory }: { batch: ActiveBa
 						{batch.results.map((generation) => (
 							<figure key={generation.id} style={{ margin: 0, background: '#fff', border: '1px solid #eee9f2', borderRadius: '16px', padding: '14px' }}>
 								<img src={generation.imageUrl} alt={generation.title} style={{ width: '100%', borderRadius: '10px', display: 'block' }} />
-								{generation.adCopy && <AdCopyPanel copy={generation.adCopy} compact />}
 								<figcaption style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
 									<button onClick={() => void downloadImage(generation.imageUrl, `creattia-${generation.id}.png`)} style={{ flex: 1, padding: '11px 0', borderRadius: '10px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Descargar</button>
 									<button onClick={() => onReuse(generation)} style={{ flex: 1, padding: '11px 0', borderRadius: '10px', border: '1px solid #dcd5e4', background: '#fff', color: '#19171d', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Nueva versión</button>
@@ -2801,11 +2785,11 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 		if (!isSupabaseConfigured || !supabase) return;
 		const client = supabase;
 		void (async () => {
-			const { data } = await client.from('creative_references').select('id,name,image_path,prompt_notes').eq('template_id', creative.id).eq('is_active', true).in('rights_status', ['owned', 'licensed', 'public_domain']).order('sort_order').limit(5);
+			const { data } = await client.from('creative_references').select('id,name,image_path').eq('template_id', creative.id).eq('is_active', true).in('rights_status', ['owned', 'licensed', 'public_domain']).order('sort_order').limit(5);
 			let loaded: CreativeReference[] = (data || []).map((item) => ({
 				id: item.id,
 				name: item.name,
-				description: item.prompt_notes || 'Composición ganadora validada.',
+				description: 'Composición visual ganadora validada.',
 				imageUrl: client.storage.from('creative-references').getPublicUrl(item.image_path).data.publicUrl,
 				storagePath: item.image_path,
 			}));
@@ -2817,7 +2801,7 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 					loaded = (remoteManifest.items || []).filter((item: any) => Number(item.templateId) === creative.id).slice(0, 5).map((item: any) => ({
 						id: `storage:${item.imagePath}`,
 						name: item.name,
-						description: item.promptNotes || 'Composición estática original.',
+						description: 'Composición estática original.',
 						imageUrl: client.storage.from('creative-references').getPublicUrl(item.imagePath).data.publicUrl,
 						storagePath: item.imagePath,
 					}));
@@ -2960,7 +2944,7 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 					{/* Fast Product URL Import Box */}
 					<div className="fast-url-import-box" style={{ background: '#110d17', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
 						<strong style={{ fontSize: '11px', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="spark" size={13} /> ¿Querés crear con un producto nuevo?</strong>
-						<p style={{ margin: 0, fontSize: '9px', color: '#8b8490', lineHeight: 1.4 }}>Pegá la URL del producto de tu tienda. Analizaremos las imágenes, el copy y los estilos automáticamente para la generación.</p>
+						<p style={{ margin: 0, fontSize: '9px', color: '#8b8490', lineHeight: 1.4 }}>Pegá la URL del producto de tu tienda. Analizaremos las imágenes y el estilo visual automáticamente para la generación.</p>
 						<div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
 							<input 
 								type="text" 
@@ -3557,8 +3541,6 @@ function GenerationCard({
 				<span>{new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(new Date(item.createdAt))}</span>
 				{(onExpand || onReuse) && <button onClick={() => (onExpand || onReuse)?.(active)}><Icon name="history" size={14}/>Crear otra versión</button>}
 			</footer>
-			{item.adCopy && <AdCopyPanel copy={item.adCopy} compact title={isCarousel ? 'Copy del carrusel' : 'Copy del anuncio'} />}
-
 			{refPreview && <WinnerReferenceModal
 				reference={refPreview}
 				isLiked={likedReferencePaths.has(refPreview.path)}
@@ -3845,7 +3827,6 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 							</span>
 						</button>
 					)}
-					{item.adCopy && <AdCopyPanel copy={item.adCopy} title="Copy para publicar" />}
 					<button onClick={() => void downloadImage(item.imageUrl, `creattia-${item.id}.png`)} style={{ width: '100%', height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>Descargar imagen</button>
 					{item.referenceUrl && (
 						<button onClick={() => setShowReference(!showReference)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: showReference ? '#eceaef' : '#f8f6fb', border: showReference ? '1px solid #cfc9d8' : '1px solid transparent', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>

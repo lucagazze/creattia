@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { LANGUAGE_NAMES } from '../../../lib/creattia/ad-analysis';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 
@@ -53,13 +52,10 @@ export const POST: APIRoute = async ({ request }) => {
 		const requestedFormat = String(body?.format || 'original');
 		const allowedFormats = new Set(['original', 'square', 'portrait', 'story', 'landscape', '1:1', '3:4', '9:16', '4:3', '16:9']);
 		const format = allowedFormats.has(requestedFormat) ? requestedFormat : 'original';
-		const requestedLanguage = String(body?.language || 'es');
-		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : 'es';
 		const brandSources = new Set(['url', 'mine', 'none']);
 		const brandSource = brandSources.has(String(body?.brandSource)) ? String(body?.brandSource) : 'url';
 		const colorMode = body?.colorMode === 'brand' ? 'brand' : 'winner';
 		const typoMode = body?.typoMode === 'brand' ? 'brand' : 'winner';
-		const includeWebsite = body?.includeWebsite === true;
 		// El usuario elige, página por página, en cuáles va su logo. Antes se
 		// agregaba solo si había uno disponible, sin preguntar nunca.
 		const logoSlideIndexes = new Set(
@@ -117,12 +113,10 @@ export const POST: APIRoute = async ({ request }) => {
 				requested_outputs: count,
 				settings_snapshot: {
 					format,
-					language,
 					colorMode,
 					typoMode,
 					brandSource,
 					includeLogo: logoSlideIndexes.has(index),
-					includeWebsite,
 					imageType: 'product',
 					referencePath: slidePath,
 					referenceName: `${referenceName} · página ${index + 1}/${count}`,
