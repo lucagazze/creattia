@@ -859,19 +859,6 @@ export default function WinnersLibrary({
 		setVisibleCount(20);
 		setLockedVisibleCount(8);
 	}, [selectedCategories, selectedFormat, savedOnly, query]);
-	const pendingFilterScrollY = useRef<number | null>(null);
-	const rememberFilterPosition = useCallback(() => {
-		pendingFilterScrollY.current = window.scrollY;
-	}, []);
-	useEffect(() => {
-		if (pendingFilterScrollY.current === null) return;
-		const targetY = pendingFilterScrollY.current;
-		pendingFilterScrollY.current = null;
-		requestAnimationFrame(() => requestAnimationFrame(() => {
-			const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-			window.scrollTo({ top: Math.min(targetY, maxY), behavior: 'auto' });
-		}));
-	}, [filteredItems]);
 
 	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
 	// imagen al instante en vez de esperar a que baje cada foto de a una.
@@ -1307,7 +1294,7 @@ export default function WinnersLibrary({
 					<Icon name="search" size={18} />
 					<input
 						value={query}
-						onChange={(e) => { rememberFilterPosition(); setQuery(e.target.value); }}
+						onChange={(e) => setQuery(e.target.value)}
 						placeholder="Buscar por marca o palabra clave..."
 					/>
 				</label>
@@ -1317,7 +1304,7 @@ export default function WinnersLibrary({
 			    En computadora se acomodan en una fila; en mobile, al no entrar,
 			    el propio wrap los acomoda de a 2 (gracias al ancho fijo/50% de
 			    cada .niche-dd) sin necesidad de filas separadas a mano. */}
-			<div className="library-filters-row library-filter-controls" onPointerDown={rememberFilterPosition} style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
+			<div className="library-filters-row library-filter-controls" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
 				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
 					<button type="button" className="niche-dd-trigger" onClick={() => { setShowCategoryMenu((v) => !v); setShowFormatMenu(false); }}>
 						<span className="niche-dd-label">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? 'Ángulo' : a.length === 1 ? (categoryLabels[a[0]] || a[0]) : `${a.length} ángulos`; })()}</span>
@@ -1395,7 +1382,7 @@ export default function WinnersLibrary({
 				if (savedOnly) chips.push({ key: 'saved', label: '❤️ Guardados', onRemove: () => setSavedOnly(false) });
 				if (!chips.length) return null;
 				return (
-					<div className="library-active-filters" onPointerDown={rememberFilterPosition} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+					<div className="library-active-filters" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
 						{chips.map((chip) => (
 							<button
 								key={chip.key}
@@ -1441,7 +1428,7 @@ export default function WinnersLibrary({
 					<Icon name="search" size={40} />
 					<h3>No encontramos anuncios</h3>
 					<p>Probá cambiando el ángulo, el formato o la palabra clave.</p>
-					<button onPointerDown={rememberFilterPosition} onClick={() => { setSelectedCategories(['todos']); setSelectedFormat('todos'); setSavedOnly(false); setQuery(''); }}>Limpiar filtros</button>
+					<button onClick={() => { setSelectedCategories(['todos']); setSelectedFormat('todos'); setSavedOnly(false); setQuery(''); }}>Limpiar filtros</button>
 				</div>
 			) : (<>
 				<div ref={gridRef} className="library-masonry-columns" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
