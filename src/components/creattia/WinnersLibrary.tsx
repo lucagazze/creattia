@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { ArrowLeftRight, BadgePercent, BarChart3, Image as ImageIcon, Layers3, Lightbulb, ListChecks, Newspaper, Play, Sparkles, Star, SunMedium, Swords } from 'lucide-react';
 import { supabase } from '../../lib/creattia/supabase-browser';
@@ -7,6 +7,8 @@ import { isAdminEmail } from '../../lib/creattia/admin';
 import { canAccessVideoFeature } from '../../lib/creattia/video-access';
 import CreationFlow from './CreationFlow';
 import VideoCreationFlow from './VideoCreationFlow';
+
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number; fill?: string }) {
 	const common = { width: size, height: size, viewBox: '0 0 24 24', fill, stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
@@ -855,10 +857,17 @@ export default function WinnersLibrary({
 	// Lazy load: primeras 20 tarjetas y +20 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(20);
 	const [lockedVisibleCount, setLockedVisibleCount] = useState(8);
+	const pendingLoadScrollY = useRef<number | null>(null);
 	useEffect(() => {
 		setVisibleCount(20);
 		setLockedVisibleCount(8);
 	}, [selectedCategories, selectedFormat, savedOnly, query]);
+	useIsomorphicLayoutEffect(() => {
+		const scrollY = pendingLoadScrollY.current;
+		if (scrollY === null) return;
+		pendingLoadScrollY.current = null;
+		window.scrollTo({ top: scrollY, left: 0, behavior: 'auto' });
+	}, [visibleCount, lockedVisibleCount]);
 
 	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
 	// imagen al instante en vez de esperar a que baje cada foto de a una.
@@ -901,10 +910,12 @@ export default function WinnersLibrary({
 	const hasMoreItems = visibleCount < filteredItems.length || lockedVisibleCount < lockedTotalForSelection;
 	const loadMore = useCallback(() => {
 		if (visibleCount < filteredItems.length) {
+			if (pendingLoadScrollY.current === null) pendingLoadScrollY.current = window.scrollY;
 			setVisibleCount((current) => Math.min(current + 20, filteredItems.length));
 			return;
 		}
 		if (lockedVisibleCount < lockedTotalForSelection) {
+			if (pendingLoadScrollY.current === null) pendingLoadScrollY.current = window.scrollY;
 			setLockedVisibleCount((current) => Math.min(current + 20, lockedTotalForSelection));
 		}
 	}, [filteredItems.length, lockedTotalForSelection, lockedVisibleCount, visibleCount]);
