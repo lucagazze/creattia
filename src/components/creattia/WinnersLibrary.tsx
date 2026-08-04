@@ -854,6 +854,11 @@ export default function WinnersLibrary({
 
 	// Lazy load: primeras 20 tarjetas y +20 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(20);
+	const [lockedVisibleCount, setLockedVisibleCount] = useState(8);
+	useEffect(() => {
+		setVisibleCount(20);
+		setLockedVisibleCount(8);
+	}, [selectedCategories, selectedFormat, savedOnly, query]);
 	const pendingFilterScrollY = useRef<number | null>(null);
 	const rememberFilterPosition = useCallback(() => {
 		pendingFilterScrollY.current = window.scrollY;
@@ -898,17 +903,33 @@ export default function WinnersLibrary({
 		observer.observe(element);
 		return () => observer.disconnect();
 	}, [activeAd, videoCreationRef, loading, filteredItems.length]);
+	const selectedLockedAngles = useMemo(() => {
+		if (libraryAccess.isPaid || savedOnly || query.trim()) return [];
+		return selectedCategories.includes('todos') ? winnersCategories.map((angle) => angle.id) : selectedCategories;
+	}, [libraryAccess.isPaid, query, savedOnly, selectedCategories]);
+	const lockedTotalForSelection = useMemo(
+		() => selectedLockedAngles.reduce((total, angle) => total + (libraryAccess.lockedByAngle[angle] || 0), 0),
+		[selectedLockedAngles, libraryAccess.lockedByAngle]
+	);
+	const hasMoreItems = visibleCount < filteredItems.length || lockedVisibleCount < lockedTotalForSelection;
 	const loadMore = useCallback(() => {
-		setVisibleCount((current) => Math.min(current + 20, filteredItems.length));
-	}, [filteredItems.length]);
+		if (visibleCount < filteredItems.length) {
+			setVisibleCount((current) => Math.min(current + 20, filteredItems.length));
+			return;
+		}
+		if (lockedVisibleCount < lockedTotalForSelection) {
+			setLockedVisibleCount((current) => Math.min(current + 20, lockedTotalForSelection));
+		}
+	}, [filteredItems.length, lockedTotalForSelection, lockedVisibleCount, visibleCount]);
 	const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
 	const lockedItems = useMemo<WinnerItem[]>(() => {
-		if (libraryAccess.isPaid || !libraryAccess.lockedCount) return [];
-		const selectedAngles = selectedCategories.includes('todos') ? winnersCategories.map((angle) => angle.id) : selectedCategories;
+		if (!selectedLockedAngles.length || !lockedVisibleCount) return [];
+		const selectedAngles = selectedLockedAngles;
 		const result: WinnerItem[] = [];
 		selectedAngles.forEach((angle) => {
 			const remaining = libraryAccess.lockedByAngle[angle] || 0;
-			if (!remaining || result.length >= 12) return;
+			if (!remaining || result.length >= lockedVisibleCount) return;
+			for (let position = 0; position < remaining && result.length < lockedVisibleCount; position += 1) {
 			result.push({
 				templateId: -1000 - result.length,
 				name: categoryLabels[angle] || 'Ángulo premium',
@@ -922,9 +943,10 @@ export default function WinnersLibrary({
 				isLocked: true,
 				lockedCount: remaining,
 			});
+			}
 		});
 		return result;
-	}, [libraryAccess, selectedCategories]);
+	}, [libraryAccess, lockedVisibleCount, selectedLockedAngles]);
 	const displayItems = useMemo(() => [...visibleItems, ...lockedItems], [visibleItems, lockedItems]);
 	const visibleColumns = useMemo(() => splitColumns(displayItems, columnCount), [displayItems, columnCount]);
 	const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
@@ -944,7 +966,7 @@ export default function WinnersLibrary({
 	}, [activeAd, loadMore]);
 	useEffect(() => {
 		const sentinel = loadMoreRef.current;
-		if (!sentinel || visibleCount >= filteredItems.length) return;
+		if (!sentinel || !hasMoreItems) return;
 		const maybeLoadMore = () => {
 			if (sentinel.getBoundingClientRect().top <= window.innerHeight + 900) loadMore();
 		};
@@ -961,7 +983,7 @@ export default function WinnersLibrary({
 			window.removeEventListener('resize', maybeLoadMore);
 			cancelAnimationFrame(frame);
 		};
-	}, [visibleCount, filteredItems.length, activeAd, loadMore]);
+	}, [activeAd, hasMoreItems, loadMore]);
 
 	// Delete winner handler
 	const handleDelete = async (imagePath: string) => {
@@ -1800,7 +1822,7 @@ export default function WinnersLibrary({
 					</div>
 					))}
 				</div>
-				{visibleCount < filteredItems.length && (
+				{hasMoreItems && (
 					<div ref={loadMoreRef} style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
 						<span className="studio-spinner" style={{ width: '22px', height: '22px' }} />
 					</div>
