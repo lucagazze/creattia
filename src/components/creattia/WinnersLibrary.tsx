@@ -993,29 +993,83 @@ export default function WinnersLibrary({
 		}
 	};
 
+	const handleDeleteVideo = async (item: WinnerItem) => {
+		if (!window.confirm('¿Seguro que querés eliminar este video de la biblioteca de ganadores?')) return;
+		try {
+			const res = await fetch('/api/creativos/videos', {
+				method: 'DELETE',
+				headers: {
+					'Authorization': `Bearer ${session?.access_token || ''}`,
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({
+					videoPath: item.metadata?.videoPath,
+					thumbnailPath: item.imagePath,
+				}),
+			});
+			const payload = await res.json();
+			if (!res.ok) throw new Error(payload.error || 'Error al eliminar el video.');
+
+			winnersLibraryCache.public = null;
+			winnersLibraryCache.admin = null;
+			setPlayingVideoPath((current) => current === item.imagePath ? null : current);
+			setItems((prev) => prev.filter((current) => current.imagePath !== item.imagePath));
+			setSelectedImagePaths((prev) => prev.filter((path) => path !== item.imagePath));
+		} catch (err: any) {
+			alert(err.message || 'Error al eliminar el video.');
+		}
+	};
+
+	const handleDeleteItem = (item: WinnerItem) => {
+		if (item.metadata?.mediaType === 'video') void handleDeleteVideo(item);
+		else void handleDelete(item.imagePath);
+	};
+
 	// Bulk delete winner handler for admin
 	const handleBulkDelete = async () => {
 		if (!selectedImagePaths.length) return;
 		if (!window.confirm(`¿Seguro que querés eliminar los ${selectedImagePaths.length} anuncios seleccionados de la biblioteca de ganadores?`)) return;
 
 		try {
-			const res = await fetch('/api/creativos/references', {
-				method: 'DELETE',
-				headers: {
-					'Authorization': `Bearer ${session?.access_token || ''}`,
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({ imagePaths: selectedImagePaths })
-			});
-			const payload = await res.json();
-			if (!res.ok) throw new Error(payload.error || 'Error al eliminar selección.');
+			const selectedItems = items.filter((item) => selectedImagePaths.includes(item.imagePath));
+			const staticPaths = selectedItems.filter((item) => item.metadata?.mediaType !== 'video').map((item) => item.imagePath);
+			const videoItems = selectedItems.filter((item) => item.metadata?.mediaType === 'video');
+			let deletedCount = 0;
+
+			if (staticPaths.length) {
+				const res = await fetch('/api/creativos/references', {
+					method: 'DELETE',
+					headers: {
+						'Authorization': `Bearer ${session?.access_token || ''}`,
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({ imagePaths: staticPaths })
+				});
+				const payload = await res.json();
+				if (!res.ok) throw new Error(payload.error || 'Error al eliminar selección.');
+				deletedCount += payload.deletedCount || staticPaths.length;
+			}
+
+			if (videoItems.length) {
+				const res = await fetch('/api/creativos/videos', {
+					method: 'DELETE',
+					headers: {
+						'Authorization': `Bearer ${session?.access_token || ''}`,
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({ items: videoItems.map((item) => ({ videoPath: item.metadata?.videoPath, thumbnailPath: item.imagePath })) })
+				});
+				const payload = await res.json();
+				if (!res.ok) throw new Error(payload.error || 'Error al eliminar los videos seleccionados.');
+				deletedCount += payload.deletedCount || videoItems.length;
+			}
 
 			const removeSet = new Set(selectedImagePaths);
 			winnersLibraryCache.public = null;
 			winnersLibraryCache.admin = null;
 			setItems(prev => prev.filter(item => !removeSet.has(item.imagePath)));
 			setSelectedImagePaths([]);
-			if (onToast) onToast(`¡${payload.deletedCount || selectedImagePaths.length} anuncios eliminados con éxito!`);
+			if (onToast) onToast(`¡${deletedCount || selectedImagePaths.length} anuncios eliminados con éxito!`);
 		} catch (err: any) {
 			alert(err.message || 'Error al eliminar los anuncios seleccionados.');
 		}
@@ -1515,11 +1569,11 @@ export default function WinnersLibrary({
 										</strong>
 									</div>
 
-									{isAdmin && !isVideo && (
+									{isAdmin && (
 										<button
 											onClick={(e) => {
 												e.stopPropagation();
-												handleDelete(item.imagePath);
+											handleDeleteItem(item);
 											}}
 											style={{ 
 												border: 0, 
@@ -1832,7 +1886,7 @@ export default function WinnersLibrary({
 								onClick={() => handleCreateVideo(cardContextMenu.item)}
 								style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f4edff', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#6333c9', fontWeight: 700, textAlign: 'left', width: '100%', fontFamily: 'inherit' }}
 							>
-								Usar esta idea →
+								<Icon name="spark" size={13} /> Usar este diseño
 							</button>
 						</>
 					) : (
@@ -1859,10 +1913,10 @@ export default function WinnersLibrary({
 							return <><Icon name="heart" size={13} fill={liked ? '#ff4185' : 'none'} /> {liked ? 'Quitar de guardados' : 'Guardar idea'}</>;
 						})()}
 					</button>
-					{isAdmin && cardContextMenu.item.metadata?.mediaType !== 'video' && (
+					{isAdmin && (
 						<button
 							type="button"
-							onClick={() => { handleDelete(cardContextMenu.item.imagePath); setCardContextMenu(null); }}
+							onClick={() => { handleDeleteItem(cardContextMenu.item); setCardContextMenu(null); }}
 							style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#fff0f0', border: 0, borderRadius: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#a43f3f', fontWeight: 700, textAlign: 'left', width: '100%', marginTop: '4px', fontFamily: 'inherit' }}
 						>
 							🗑️ Eliminar ganador
