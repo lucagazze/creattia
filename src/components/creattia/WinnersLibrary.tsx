@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { ArrowLeftRight, BadgePercent, BarChart3, Clock3, Image as ImageIcon, Layers3, Lightbulb, ListChecks, Newspaper, Play, Sparkles, Star, SunMedium, Swords, Timer, Zap } from 'lucide-react';
+import { ArrowLeftRight, BadgePercent, BarChart3, Image as ImageIcon, Layers3, Lightbulb, ListChecks, Newspaper, Play, Sparkles, Star, SunMedium, Swords } from 'lucide-react';
 import { supabase } from '../../lib/creattia/supabase-browser';
 import { creativeCatalog } from '../../lib/creattia/catalog';
 import { isAdminEmail } from '../../lib/creattia/admin';
@@ -51,14 +51,6 @@ const formatOptions: Array<{ id: 'static_image' | 'carousel' | 'video'; label: s
 	{ id: 'video', label: 'Video', icon: Play },
 ];
 const formatLabels: Record<string, string> = Object.fromEntries(formatOptions.map((f) => [f.id, f.label]));
-type DurationFilter = 'todos' | 'hasta-15' | '16-30' | '31-60' | 'mas-60';
-const durationOptions: Array<{ id: Exclude<DurationFilter, 'todos'>; label: string; icon: LucideIcon }> = [
-	{ id: 'hasta-15', label: 'Hasta 15 s', icon: Zap },
-	{ id: '16-30', label: '16 a 30 s', icon: Timer },
-	{ id: '31-60', label: '31 a 60 s', icon: Clock3 },
-	{ id: 'mas-60', label: 'Más de 60 s', icon: Clock3 },
-];
-const durationLabels: Record<string, string> = Object.fromEntries(durationOptions.map((option) => [option.id, option.label]));
 const categoryIcons: Record<string, LucideIcon> = Object.fromEntries(winnersCategories.map((c) => [c.id, c.icon]));
 const categoryLabels: Record<string, string> = Object.fromEntries(winnersCategories.map((c) => [c.id, c.label]));
 
@@ -245,8 +237,6 @@ export default function WinnersLibrary({
 	const [selectedCategories, setSelectedCategories] = useState<string[]>(['todos']);
 	const [showCategoryMenu, setShowCategoryMenu] = useState(false);
 	const [showFormatMenu, setShowFormatMenu] = useState(false);
-	const [selectedDuration, setSelectedDuration] = useState<DurationFilter>('todos');
-	const [showDurationMenu, setShowDurationMenu] = useState(false);
 
 	useEffect(() => {
 		if (!showCategoryMenu) return;
@@ -262,12 +252,6 @@ export default function WinnersLibrary({
 		return () => window.removeEventListener('click', close);
 	}, [showFormatMenu]);
 
-	useEffect(() => {
-		if (!showDurationMenu) return;
-		const close = () => setShowDurationMenu(false);
-		window.addEventListener('click', close);
-		return () => window.removeEventListener('click', close);
-	}, [showDurationMenu]);
 	// Menú de click derecho sobre una tarjeta: guardar/usar sin tener que
 	// pasar por los botones chiquitos superpuestos a la imagen.
 	const [cardContextMenu, setCardContextMenu] = useState<{ x: number; y: number; item: WinnerItem } | null>(null);
@@ -808,15 +792,6 @@ export default function WinnersLibrary({
 	const itemFormat = (item: WinnerItem): 'static_image' | 'carousel' | 'video' =>
 		item.metadata?.mediaType === 'carousel' ? 'carousel' : item.metadata?.mediaType === 'video' ? 'video' : 'static_image';
 	const matchesFormat = (item: WinnerItem) => selectedFormat === 'todos' || itemFormat(item) === selectedFormat;
-	const matchesDuration = (item: WinnerItem) => {
-		if (selectedDuration === 'todos') return true;
-		if (itemFormat(item) !== 'video') return false;
-		const seconds = Number(item.metadata?.durationSec) || 0;
-		if (selectedDuration === 'hasta-15') return seconds > 0 && seconds <= 15;
-		if (selectedDuration === '16-30') return seconds > 15 && seconds <= 30;
-		if (selectedDuration === '31-60') return seconds > 30 && seconds <= 60;
-		return seconds > 60;
-	};
 	const matchesCategory = (item: WinnerItem) =>
 		selectedCategories.includes('todos') || selectedCategories.length === 0 || selectedCategories.includes((item as any).category || 'producto');
 	const searchTerm = query.toLowerCase().trim();
@@ -832,7 +807,7 @@ export default function WinnersLibrary({
 		let carouselCount = 0;
 		let videoCount = 0;
 		items.forEach((item) => {
-			if (!matchesSaved(item) || !matchesDuration(item) || !matchesCategory(item) || !matchesSearch(item)) return;
+			if (!matchesSaved(item) || !matchesCategory(item) || !matchesSearch(item)) return;
 			const f = itemFormat(item);
 			if (f === 'carousel') carouselCount += 1;
 			else if (f === 'video') videoCount += 1;
@@ -840,7 +815,7 @@ export default function WinnersLibrary({
 		});
 		return { static_image: staticCount, carousel: carouselCount, video: videoCount };
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedDuration, selectedCategories, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedCategories, query, likedScrapedPaths, favorites]);
 	const formatAllCount = formatCounts.static_image + formatCounts.carousel + formatCounts.video;
 
 	// Cuántos ganadores hay de cada ángulo (precio, testimonios, etc.), ya
@@ -848,40 +823,23 @@ export default function WinnersLibrary({
 	const categoryCounts = useMemo(() => {
 		const m: Record<string, number> = {};
 		items.forEach((item) => {
-			if (!matchesSaved(item) || !matchesFormat(item) || !matchesDuration(item) || !matchesSearch(item)) return;
+			if (!matchesSaved(item) || !matchesFormat(item) || !matchesSearch(item)) return;
 			const c = (item as any).category || 'producto';
 			m[c] = (m[c] || 0) + 1;
 		});
 		return m;
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedFormat, selectedDuration, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedFormat, query, likedScrapedPaths, favorites]);
 	// El ángulo es un solo valor por anuncio: sumar los buckets da el total real.
 	const categoryAllCount = useMemo(() => Object.values(categoryCounts).reduce((a, b) => a + b, 0), [categoryCounts]);
-
-	// Duraciones disponibles, considerando todos los filtros menos la propia duración.
-	const durationCounts = useMemo(() => {
-		const counts: Record<Exclude<DurationFilter, 'todos'>, number> = { 'hasta-15': 0, '16-30': 0, '31-60': 0, 'mas-60': 0 };
-		items.forEach((item) => {
-			if (itemFormat(item) !== 'video' || !matchesSaved(item) || !matchesFormat(item) || !matchesCategory(item) || !matchesSearch(item)) return;
-			const seconds = Number(item.metadata?.durationSec) || 0;
-			if (seconds <= 0) return;
-			if (seconds <= 15) counts['hasta-15'] += 1;
-			else if (seconds <= 30) counts['16-30'] += 1;
-			else if (seconds <= 60) counts['31-60'] += 1;
-			else counts['mas-60'] += 1;
-		});
-		return counts;
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedFormat, selectedCategories, query, likedScrapedPaths, favorites]);
-	const durationAllCount = useMemo(() => Object.values(durationCounts).reduce((sum, count) => sum + count, 0), [durationCounts]);
 
 	// Filtros combinados para lo que realmente se ve en la grilla.
 	const filteredItems = useMemo(() => {
 		return items.filter((item) =>
-			matchesSaved(item) && matchesFormat(item) && matchesDuration(item) && matchesCategory(item) && matchesSearch(item)
+			matchesSaved(item) && matchesFormat(item) && matchesCategory(item) && matchesSearch(item)
 		);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [items, savedOnly, selectedFormat, selectedDuration, selectedCategories, query, likedScrapedPaths, favorites]);
+	}, [items, savedOnly, selectedFormat, selectedCategories, query, likedScrapedPaths, favorites]);
 
 	// Lazy load: primeras 20 tarjetas y +20 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(20);
@@ -1287,13 +1245,13 @@ export default function WinnersLibrary({
 				</label>
 			</div>
 
-			{/* Ángulo, Formato, Duración y Guardados: un solo contenedor.
+			{/* Ángulo, Formato y Guardados: un solo contenedor.
 			    En computadora se acomodan en una fila; en mobile, al no entrar,
 			    el propio wrap los acomoda de a 2 (gracias al ancho fijo/50% de
 			    cada .niche-dd) sin necesidad de filas separadas a mano. */}
 			<div className="library-filters-row library-filter-controls" onPointerDown={rememberFilterPosition} style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
 				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
-					<button type="button" className="niche-dd-trigger" onClick={() => { setShowCategoryMenu((v) => !v); setShowFormatMenu(false); setShowDurationMenu(false); }}>
+					<button type="button" className="niche-dd-trigger" onClick={() => { setShowCategoryMenu((v) => !v); setShowFormatMenu(false); }}>
 						<span className="niche-dd-label">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? 'Ángulo' : a.length === 1 ? (categoryLabels[a[0]] || a[0]) : `${a.length} ángulos`; })()}</span>
 						<span className="niche-dd-badge">{(() => { const a = selectedCategories.filter((x) => x !== 'todos'); return a.length === 0 ? categoryAllCount : a.reduce((s, x) => s + (categoryCounts[x] || 0), 0); })()}</span>
 						<span className={`niche-dd-caret${showCategoryMenu ? ' is-open' : ''}`}>▾</span>
@@ -1324,7 +1282,7 @@ export default function WinnersLibrary({
 				</div>
 
 				<div className="niche-dd" onClick={(e) => e.stopPropagation()}>
-					<button type="button" className="niche-dd-trigger" onClick={() => { setShowFormatMenu((v) => !v); setShowCategoryMenu(false); setShowDurationMenu(false); }}>
+					<button type="button" className="niche-dd-trigger" onClick={() => { setShowFormatMenu((v) => !v); setShowCategoryMenu(false); }}>
 						<span className="niche-dd-label">{selectedFormat === 'todos' ? 'Formato' : formatLabels[selectedFormat]}</span>
 						<span className="niche-dd-badge">{selectedFormat === 'todos' ? formatAllCount : formatCounts[selectedFormat]}</span>
 						<span className={`niche-dd-caret${showFormatMenu ? ' is-open' : ''}`}>▾</span>
@@ -1339,7 +1297,7 @@ export default function WinnersLibrary({
 							{availableFormatOptions.map((opt) => {
 								const active = selectedFormat === opt.id;
 								return (
-									<button type="button" key={opt.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => { setSelectedFormat(opt.id); if (opt.id !== 'video') setSelectedDuration('todos'); setShowFormatMenu(false); }}>
+									<button type="button" key={opt.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => { setSelectedFormat(opt.id); setShowFormatMenu(false); }}>
 										<span className="niche-dd-icon"><FilterIcon icon={opt.icon} /></span>
 										<span className="niche-dd-name">{opt.label}</span><span className="niche-dd-count">{formatCounts[opt.id] || 0}</span>
 										<span className="niche-dd-check">{active ? '✓' : ''}</span>
@@ -1349,33 +1307,6 @@ export default function WinnersLibrary({
 						</div>
 					)}
 				</div>
-
-				{canUseVideos && <div className="niche-dd duration-filter" onClick={(e) => e.stopPropagation()}>
-					<button type="button" className="niche-dd-trigger" onClick={() => { setShowDurationMenu((value) => !value); setShowCategoryMenu(false); setShowFormatMenu(false); }}>
-						<span className="niche-dd-label">{selectedDuration === 'todos' ? 'Duración' : durationLabels[selectedDuration]}</span>
-						<span className="niche-dd-badge">{selectedDuration === 'todos' ? durationAllCount : durationCounts[selectedDuration]}</span>
-						<span className={`niche-dd-caret${showDurationMenu ? ' is-open' : ''}`}>▾</span>
-					</button>
-					{showDurationMenu && (
-						<div className="niche-dd-menu">
-							<button type="button" className={`niche-dd-item${selectedDuration === 'todos' ? ' is-active' : ''}`} onClick={() => { setSelectedDuration('todos'); setShowDurationMenu(false); }}>
-												<span className="niche-dd-icon"><FilterIcon icon={Timer} /></span>
-								<span className="niche-dd-name">Cualquier duración</span><span className="niche-dd-count">{durationAllCount}</span>
-								<span className="niche-dd-check">{selectedDuration === 'todos' ? '✓' : ''}</span>
-							</button>
-							{durationOptions.map((option) => {
-								const active = selectedDuration === option.id;
-								return (
-									<button type="button" key={option.id} className={`niche-dd-item${active ? ' is-active' : ''}`} onClick={() => { setSelectedDuration(option.id); setSelectedFormat('video'); setShowDurationMenu(false); }}>
-										<span className="niche-dd-icon"><FilterIcon icon={option.icon} /></span>
-										<span className="niche-dd-name">{option.label}</span><span className="niche-dd-count">{durationCounts[option.id]}</span>
-										<span className="niche-dd-check">{active ? '✓' : ''}</span>
-									</button>
-								);
-							})}
-						</div>
-					)}
-				</div>}
 
 				<div className="niche-dd">
 					<button onClick={() => setSavedOnly((v) => !v)} className="niche-dd-trigger" style={{ borderColor: savedOnly ? '#f0b3c6' : undefined, background: savedOnly ? '#fdeef5' : undefined, color: savedOnly ? '#c2276f' : undefined }}><span style={{ color: '#e5313f', fontSize: '14px' }}>♥</span> Guardados</button>
@@ -1393,10 +1324,6 @@ export default function WinnersLibrary({
 					key: 'format', label: formatLabels[selectedFormat],
 					onRemove: () => setSelectedFormat('todos'),
 				});
-				if (selectedDuration !== 'todos') chips.push({
-					key: 'duration', label: durationLabels[selectedDuration],
-					onRemove: () => setSelectedDuration('todos'),
-				});
 				if (savedOnly) chips.push({ key: 'saved', label: '❤️ Guardados', onRemove: () => setSavedOnly(false) });
 				if (!chips.length) return null;
 				return (
@@ -1410,14 +1337,13 @@ export default function WinnersLibrary({
 							>
 													{chip.key.startsWith('c-') && categoryIcons[chip.key.slice(2)] ? <FilterIcon icon={categoryIcons[chip.key.slice(2)]} size={13} /> : null}
 													{chip.key === 'format' && availableFormatOptions.find((option) => option.id === selectedFormat)?.icon ? <FilterIcon icon={availableFormatOptions.find((option) => option.id === selectedFormat)!.icon} size={13} /> : null}
-													{chip.key === 'duration' && durationOptions.find((option) => option.id === selectedDuration)?.icon ? <FilterIcon icon={durationOptions.find((option) => option.id === selectedDuration)!.icon} size={13} /> : null}
 													{chip.label}
 								<span style={{ display: 'grid', placeItems: 'center', width: '16px', height: '16px', borderRadius: '50%', background: '#e7dffa', fontSize: '10px', fontWeight: 900 }}>✕</span>
 							</button>
 						))}
 						<button
 							type="button"
-							onClick={() => { setSelectedCategories(['todos']); setSelectedFormat('todos'); setSelectedDuration('todos'); setSavedOnly(false); }}
+							onClick={() => { setSelectedCategories(['todos']); setSelectedFormat('todos'); setSavedOnly(false); }}
 							style={{ border: 0, background: 'transparent', color: '#8b8490', fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}
 						>
 							Limpiar todo
@@ -1447,7 +1373,7 @@ export default function WinnersLibrary({
 					<Icon name="search" size={40} />
 					<h3>No encontramos anuncios</h3>
 					<p>Probá cambiando el ángulo, el formato o la palabra clave.</p>
-					<button onPointerDown={rememberFilterPosition} onClick={() => { setSelectedCategories(['todos']); setSelectedFormat('todos'); setSelectedDuration('todos'); setSavedOnly(false); setQuery(''); }}>Limpiar filtros</button>
+					<button onPointerDown={rememberFilterPosition} onClick={() => { setSelectedCategories(['todos']); setSelectedFormat('todos'); setSavedOnly(false); setQuery(''); }}>Limpiar filtros</button>
 				</div>
 			) : (<>
 				<div ref={gridRef} className="library-masonry-columns" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
