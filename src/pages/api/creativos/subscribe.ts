@@ -18,7 +18,7 @@ export const prerender = false;
  * medium — se descartó el ruteo automático a 'low' porque degradaba la letra
  * chica de las etiquetas, y no vale arriesgar un anuncio por unos centavos.
  *
- *   Creator   USD 11.99/mes ->  65 créditos  -> costo 5.62  -> margen 53.2%
+ *   Básico    USD 9.99/mes  ->   5 créditos  -> precio de entrada del lanzamiento
  *   Pro       USD 39.99/mes -> 230 créditos  -> costo 19.87 -> margen 50.3%
  *   Scale     USD 109.99/mes-> 635 créditos  -> costo 54.86 -> margen 50.1%
  *
@@ -36,8 +36,8 @@ const plans = {
 	creator: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_CREATOR_ID', fallback: 'MERCADO_PAGO_PLAN_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_CREATOR_YEARLY_ID', fallback: 'MERCADO_PAGO_PLAN_YEARLY_ID' },
-		credits: 65,
-		reason: 'Creattia — Creator' 
+		credits: 5,
+		reason: 'Creattia — Básico'
 	},
 	pro: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_PRO_ID' },

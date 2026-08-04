@@ -141,8 +141,8 @@ const defaultProfile: AppProfile = {
 	instagram: '',
 	primaryColor: '#18181b',
 	secondaryColor: '#f4f0ff',
-	credits: 3,
-	monthlyCredits: 0,
+	credits: 1,
+	monthlyCredits: 1,
 	subscriptionStatus: 'trial',
 	planCode: 'trial',
 	subscriptionPeriodEnd: '',
@@ -167,31 +167,33 @@ const demoProducts: Product[] = [
 const subscriptionPlans = [
 	{
 		code: 'free',
-		name: 'Gratis / Pago por uso',
+		name: 'Gratis',
 		price: 0,
-		description: 'Probá gratis y comprá packs sueltos por imagen.',
+		description: 'Conocé Creattia antes de suscribirte.',
 		featured: false,
 		features: [
-			{ name: '3 créditos de regalo al registrarte', active: true },
-			{ name: 'Págs de destino y biblioteca de ganadores', active: true },
-			{ name: 'Comprá packs individuales por imagen', active: true },
+			{ name: '1 token de regalo', active: true },
+			{ name: '5 creativos por ángulo para explorar', active: true },
+			{ name: 'Biblioteca completa bloqueada', active: true },
+			{ name: 'Comprá tokens cuando quieras', active: true },
 			{ name: '1 marca activa', active: true },
-			{ name: 'Soporte por email estándar', active: true },
+			{ name: 'Sin tarjeta para empezar', active: true },
 		]
 	},
 	{ 
 		code: 'creator',
-		name: 'Starter',
-		price: 29,
-		credits: 40,
-		description: 'Para creadores de contenido que recién empiezan.', 
-		featured: false,
+		name: 'Básico',
+		price: 9.99,
+		credits: 5,
+		description: 'La biblioteca completa y 5 tokens para empezar a crear.',
+		featured: true,
 		features: [
-			{ name: '40 imágenes al mes', active: true },
-			{ name: '≈ $0.72 por imagen', active: true },
-			{ name: 'Hasta 2 generaciones simultáneas', active: true },
+			{ name: 'Biblioteca completa de ganadores', active: true },
+			{ name: '5 tokens incluidos por mes', active: true },
+			{ name: 'Tokens extra disponibles', active: true },
+			{ name: 'Todos los ángulos, estáticos y carruseles', active: true },
 			{ name: '1 marca activa', active: true },
-			{ name: 'Soporte estándar por email', active: true },
+			{ name: 'Cancelá cuando quieras', active: true },
 		]
 	},
 	{ 
@@ -288,7 +290,7 @@ function planLabel(profile: AppProfile) {
 	if (profile.subscriptionStatus === 'pending') return 'Activación pendiente';
 	if (profile.subscriptionStatus === 'paused') return 'Plan pausado';
 	if (profile.subscriptionStatus === 'cancelled') return 'Plan cancelado';
-	return 'Prueba gratuita';
+	return 'Plan Gratis';
 }
 
 function conciseText(value: string, maxLength = 105) {
@@ -680,17 +682,15 @@ export default function CreativeApp() {
 	const [likedScrapedPaths, setLikedScrapedPaths] = useState<Set<string>>(new Set());
 	const [preselectedWinnerPath, setPreselectedWinnerPath] = useState<string | null>(null);
 
-	// Carga 5 ganadores al azar del manifiesto. Los "guardados" (likedScrapedPaths)
+	// Carga únicamente la muestra autorizada por el endpoint de biblioteca. Los
+	// usuarios gratuitos nunca reciben el manifiesto completo en el navegador.
 	// se cargan aparte, por cuenta, en el efecto que reacciona a `session`.
 	useEffect(() => {
+		if (!session && isSupabaseConfigured) return;
 		async function loadRandomWinners() {
 			try {
-				let res: Response | null = null;
-				if (isSupabaseConfigured && supabase) {
-					const { data: manifestUrl } = supabase.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
-					res = await fetch(manifestUrl.publicUrl).catch(() => null);
-				}
-				if (!res || !res.ok) res = await fetch('/scraped_ads/manifest.json');
+				const headers = getSessionToken(session) ? { authorization: `Bearer ${getSessionToken(session)}` } : undefined;
+				const res = isSupabaseConfigured ? await fetch('/api/creativos/library', { headers }) : await fetch('/scraped_ads/manifest.json');
 				if (!res.ok) return;
 				const data = await res.json();
 				const items: any[] = data.items || [];
@@ -712,7 +712,7 @@ export default function CreativeApp() {
 			}
 		}
 		void loadRandomWinners();
-	}, []);
+	}, [session]);
 
 	const sessionUserIdRef = useRef<string | undefined>(undefined);
 
@@ -1498,7 +1498,7 @@ export default function CreativeApp() {
 						<div className="studio-plan-card">
 							<div><span className="studio-plan-orb"><Icon name="spark" size={15}/></span><small>PLAN ACTUAL</small></div>
 							<strong>{planLabel(profile)}</strong>
-							<p><span style={{ width: `${Math.min(100, profile.credits / (profile.monthlyCredits || 3) * 100)}%` }}/></p>
+					<p><span style={{ width: `${Math.min(100, profile.credits / (profile.monthlyCredits || 1) * 100)}%` }}/></p>
 							<footer><span>{profile.credits} {profile.credits === 1 ? 'generación' : 'generaciones'}</span><button onClick={() => navigateTo('plans')}>Ver planes</button></footer>
 						</div>
 					)}
@@ -1610,8 +1610,9 @@ export default function CreativeApp() {
 							onUpdateProfile={updateProfile}
 							historyCount={history.length}
 							favorites={favorites}
-							onToggleFavorite={toggleFavorite}
-							onBackToPreviousView={() => {
+												onToggleFavorite={toggleFavorite}
+												onOpenPlans={() => setView('plans')}
+												onBackToPreviousView={() => {
 								if (openedFromView) {
 									setView(openedFromView);
 									setOpenedFromView(null);
@@ -1836,7 +1837,7 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onSeen }: 
 	}, [pool]);
 
 	function resolveUrl(item: any) {
-		return item.imagePath?.startsWith('http') ? item.imagePath : supabaseBase + item.imagePath;
+		return item.imageUrl || (item.imagePath?.startsWith('http') ? item.imagePath : supabaseBase + item.imagePath);
 	}
 
 	function replaceCard(path: string, direction: 'left' | 'right') {
@@ -1961,7 +1962,7 @@ function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved }: { po
 	const current = remaining[0];
 
 	function resolveUrl(item: any) {
-		return item.imagePath?.startsWith('http') ? item.imagePath : supabaseBase + item.imagePath;
+		return item.imageUrl || (item.imagePath?.startsWith('http') ? item.imagePath : supabaseBase + item.imagePath);
 	}
 
 	// La acción (like/pass) y la dirección en la que vuela la tarjeta son cosas
@@ -2231,7 +2232,7 @@ function Dashboard({
 					<div className="library-ad-grid-masonry dashboard-masonry" style={{ columnGap: '16px' }}>
 						{likedWinners.map((winner, idx) => {
 							const supabaseUrl = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
-							const imageUrl = winner.imagePath?.startsWith('http') ? winner.imagePath : supabaseUrl + winner.imagePath;
+							const imageUrl = winner.imageUrl || (winner.imagePath?.startsWith('http') ? winner.imagePath : supabaseUrl + winner.imagePath);
 							const isLiked = likedScrapedPaths.has(winner.imagePath);
 
 							return (
@@ -4115,7 +4116,7 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 	const [cancelling, setCancelling] = useState(false);
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
-	const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+	const billingCycle = 'monthly';
 
 	async function subscribe(planCode: string) {
 		if (!isSupabaseConfigured || !supabase) { setError('Para activar pagos faltan las credenciales de Supabase y Mercado Pago.'); return; }
@@ -4154,56 +4155,19 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 		}
 	}
 
-	return <><div className="studio-page-heading"><div><p>PLANES</p><h1>Elegí cuántas imágenes querés crear.</h1><span>Todos los planes incluyen las mismas herramientas. Solo cambia la cantidad mensual.</span></div></div>
+	return <><div className="studio-page-heading"><div><p>PLANES Y ACCESO</p><h1>Desbloqueá la biblioteca que te inspira.</h1><span>Explorá gratis. Cuando encuentres tu próximo ángulo ganador, pasá a Básico por USD 9,99 al mes.</span></div></div>
 		
-		{/* Toggle Facturación Mensual / Anual */}
-		<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginBottom: '28px', marginTop: '16px' }}>
-			<span style={{ fontSize: '14px', fontWeight: billingCycle === 'monthly' ? 700 : 500, color: billingCycle === 'monthly' ? '#744bde' : '#716d79' }}>Mensual</span>
-			<button 
-				type="button" 
-				onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')} 
-				style={{
-					width: '50px',
-					height: '26px',
-					borderRadius: '999px',
-					background: '#744bde',
-					border: 0,
-					cursor: 'pointer',
-					position: 'relative',
-					padding: '2px'
-				}}
-			>
-				<span style={{
-					display: 'block',
-					width: '22px',
-					height: '22px',
-					borderRadius: '50%',
-					background: '#fff',
-					transition: 'transform 0.2s',
-					transform: billingCycle === 'yearly' ? 'translateX(24px)' : 'translateX(0)'
-				}} />
-			</button>
-			<span style={{ fontSize: '14px', fontWeight: billingCycle === 'yearly' ? 700 : 500, color: billingCycle === 'yearly' ? '#744bde' : '#716d79', display: 'flex', alignItems: 'center', gap: '6px' }}>
-				Anual <span style={{ background: '#e8f9f0', color: '#1e7e4a', fontSize: '11px', fontWeight: 800, padding: '2px 6px', borderRadius: '999px' }}>Ahorrá 20%</span>
-			</span>
-		</div>
-
 		{error && <p className="studio-form-error">{error}</p>}
 		{notice && <p className="studio-form-notice">{notice}</p>}
-		<div className="studio-plans-grid">{subscriptionPlans.map((plan) => { 
+		<div className="studio-plans-grid">{subscriptionPlans.filter((plan) => plan.code === 'free' || plan.code === 'creator').map((plan) => {
 			const isFreePlan = plan.code === 'free';
 			const currentPlan = isFreePlan 
 				? (!profile.planCode || profile.planCode === 'trial' || profile.planCode === 'free') && !['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus)
 				: ['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && profile.planCode === plan.code; 
-			// El tachado solo aparece en la vista anual, comparando contra el
-			// precio mensual real del mismo plan — así siempre se entiende qué
-			// significa (antes se mostraba también en la vista mensual, sin
-			// ninguna explicación de qué era ese precio "viejo").
-			const price = isFreePlan ? 0 : (billingCycle === 'monthly' ? plan.price : Math.round(plan.price * 0.8));
-			const frequencyText = isFreePlan ? '' : (billingCycle === 'monthly' ? '/mes' : '/mes (anual)');
-			const showOldPrice = !isFreePlan && billingCycle === 'yearly';
-			const yearlySavings = !isFreePlan ? (plan.price - price) * 12 : 0;
-			const savingLabel = !isFreePlan && billingCycle === 'yearly' && yearlySavings > 0 ? `Ahorrás $${yearlySavings}/año` : '';
+			const price = isFreePlan ? 0 : plan.price;
+			const frequencyText = isFreePlan ? '' : '/mes';
+			const showOldPrice = false;
+			const savingLabel = '';
 
 			const handleButtonClick = () => {
 				if (isFreePlan) {
@@ -4214,9 +4178,9 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 				}
 			};
 
-			return <article key={plan.code} className={plan.featured ? 'featured' : ''}>{plan.featured && <span className="most-popular-badge">MOST POPULAR</span>}<h3>{plan.name}</h3><small className="plan-description">{plan.description}</small><div className="plan-price-row">{showOldPrice && <span className="plan-old-price">${plan.price}</span>}<span className="plan-price-val"><b>$</b>{price}</span><span className="plan-price-freq">{frequencyText}</span>{savingLabel && <span className="plan-save-badge">{savingLabel}</span>}</div><button className="plan-subscribe-btn" style={{ background: plan.featured ? 'linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%)' : '#744bde' }} onClick={handleButtonClick} disabled={Boolean(billing) || currentPlan}>{currentPlan ? (isFreePlan ? 'Plan actual' : (profile.subscriptionStatus === 'authorized' ? 'Plan actual' : planLabel(profile))) : (isFreePlan ? 'Pagar por imagen' : (billing === plan.code ? 'Abriendo pago…' : `Elegir ${plan.name}`))}</button><ul>{plan.features.map((f, i) => <li key={i} className={f.active ? 'active-feature' : 'inactive-feature'}>{f.active ? <Icon name="check" size={14}/> : <Icon name="close" size={14}/>}{f.name}</li>)}</ul></article>; 
+			return <article key={plan.code} className={plan.featured ? 'featured' : ''}>{plan.featured && <span className="most-popular-badge">MÁS ELEGIDO</span>}<h3>{plan.name}</h3><small className="plan-description">{plan.description}</small><div className="plan-price-row">{showOldPrice && <span className="plan-old-price">${plan.price}</span>}<span className="plan-price-val"><b>$</b>{price}</span><span className="plan-price-freq">{frequencyText}</span>{savingLabel && <span className="plan-save-badge">{savingLabel}</span>}</div><button className="plan-subscribe-btn" style={{ background: plan.featured ? 'linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%)' : '#744bde' }} onClick={handleButtonClick} disabled={Boolean(billing) || currentPlan}>{currentPlan ? (isFreePlan ? 'Plan actual' : (profile.subscriptionStatus === 'authorized' ? 'Plan actual' : planLabel(profile))) : (isFreePlan ? 'Explorar gratis' : (billing === plan.code ? 'Abriendo pago…' : `Elegir ${plan.name}`))}</button><ul>{plan.features.map((f, i) => <li key={i} className={f.active ? 'active-feature' : 'inactive-feature'}>{f.active ? <Icon name="check" size={14}/> : <Icon name="close" size={14}/>}{f.name}</li>)}</ul></article>;
 		})}</div>
-		<p className="studio-plan-note">Los créditos se renuevan cada mes. Podés cambiar o cancelar tu plan desde tu cuenta.</p>
+		<p className="studio-plan-note">Pago seguro con Mercado Pago. Los 5 tokens se renuevan cada mes y podés cancelar cuando quieras.</p>
 		{['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && <button className="studio-cancel-subscription" onClick={() => void cancelSubscription()} disabled={cancelling}>{cancelling ? <><span className="studio-spinner small" aria-hidden="true" /> Cancelando…</> : 'Cancelar renovación'}</button>}
 		
 		<BuyCreditsSection session={session} />
@@ -4689,7 +4653,7 @@ function SavedAds({
 							<div className="studio-history-grid">
 								{likedScrapedItems.map((winner, idx) => {
 									const supabaseUrl = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
-									const imageUrl = winner.imagePath?.startsWith('http') ? winner.imagePath : supabaseUrl + winner.imagePath;
+									const imageUrl = winner.imageUrl || (winner.imagePath?.startsWith('http') ? winner.imagePath : supabaseUrl + winner.imagePath);
 									return (
 										<article
 											className="studio-generation-card"
@@ -4760,5 +4724,5 @@ function BrandSettings({ profile, onSave, session, onPlans }: { profile: AppProf
 		finally { setSaving(false); }
 	}
 
-	return <><div className="studio-page-heading"><div><p>MI MARCA</p><h1>Tu marca, lista en cada imagen.</h1><span>Guardá tu web, Instagram, colores y logo una sola vez.</span></div></div><div className="studio-settings-layout"><form className="studio-settings-card" onSubmit={save}><header><span>{(draft.brandName || 'M').slice(0, 1).toUpperCase()}</span><div><h2>Datos de tu marca</h2><p>La IA usa esta información para crear mejor.</p></div></header><div className="studio-form-grid"><label className="wide">Nombre de la marca<input value={draft.brandName} onChange={(e) => setDraft({ ...draft, brandName: e.target.value })} required/></label><label>Tu nombre<input value={draft.fullName} onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}/></label><label>Email<input value={getSessionEmail(session)} disabled/></label><label>Sitio web (opcional)<input type="url" value={draft.website} onChange={(e) => setDraft({ ...draft, website: e.target.value })}/></label><label>Instagram (opcional)<input value={draft.instagram} onChange={(e) => setDraft({ ...draft, instagram: e.target.value })}/></label><label>Color principal<span className="studio-color-input"><input type="color" value={draft.primaryColor} onChange={(e) => setDraft({ ...draft, primaryColor: e.target.value })}/><b>{draft.primaryColor}</b></span></label><label>Color de apoyo<span className="studio-color-input"><input type="color" value={draft.secondaryColor} onChange={(e) => setDraft({ ...draft, secondaryColor: e.target.value })}/><b>{draft.secondaryColor}</b></span></label><label className="wide studio-logo-upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setLogo(e.target.files?.[0] || null)}/><span><Icon name="upload"/></span><div><strong>{logo ? logo.name : 'Actualizar logo'}</strong><small>Queda guardado en tu cuenta privada.</small></div><b>Elegir archivo</b></label></div>{error && <p className="studio-form-error">{error}</p>}<button className="studio-primary-button compact" disabled={saving}>{saving ? <span className="studio-spinner small"/> : 'Guardar cambios'}</button></form><aside className="studio-billing-card"><span className="studio-plan-orb"><Icon name="spark"/></span><small>{planLabel(profile).toUpperCase()}</small><h2>{profile.credits} {profile.credits === 1 ? 'generación disponible' : 'generaciones disponibles'}</h2><p>{profile.subscriptionStatus === 'authorized' ? `Tu plan incluye ${profile.monthlyCredits} generaciones mensuales.` : profile.subscriptionStatus === 'cancelled' ? 'La renovación está cancelada. Tus créditos actuales siguen disponibles.' : 'Tus 3 pruebas no vencen. Elegí un plan cuando quieras seguir creando.'}</p><ul><li><Icon name="check" size={14}/>Nuevas ideas cada semana</li><li><Icon name="check" size={14}/>Favoritos e imágenes guardadas</li><li><Icon name="check" size={14}/>Marca y productos privados</li></ul><button onClick={onPlans}>Ver los tres planes<Icon name="arrow" size={16}/></button><footer>Pago seguro con Mercado Pago.</footer></aside></div></>;
+	return <><div className="studio-page-heading"><div><p>MI MARCA</p><h1>Tu marca, lista en cada imagen.</h1><span>Guardá tu web, Instagram, colores y logo una sola vez.</span></div></div><div className="studio-settings-layout"><form className="studio-settings-card" onSubmit={save}><header><span>{(draft.brandName || 'M').slice(0, 1).toUpperCase()}</span><div><h2>Datos de tu marca</h2><p>La IA usa esta información para crear mejor.</p></div></header><div className="studio-form-grid"><label className="wide">Nombre de la marca<input value={draft.brandName} onChange={(e) => setDraft({ ...draft, brandName: e.target.value })} required/></label><label>Tu nombre<input value={draft.fullName} onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}/></label><label>Email<input value={getSessionEmail(session)} disabled/></label><label>Sitio web (opcional)<input type="url" value={draft.website} onChange={(e) => setDraft({ ...draft, website: e.target.value })}/></label><label>Instagram (opcional)<input value={draft.instagram} onChange={(e) => setDraft({ ...draft, instagram: e.target.value })}/></label><label>Color principal<span className="studio-color-input"><input type="color" value={draft.primaryColor} onChange={(e) => setDraft({ ...draft, primaryColor: e.target.value })}/><b>{draft.primaryColor}</b></span></label><label>Color de apoyo<span className="studio-color-input"><input type="color" value={draft.secondaryColor} onChange={(e) => setDraft({ ...draft, secondaryColor: e.target.value })}/><b>{draft.secondaryColor}</b></span></label><label className="wide studio-logo-upload"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setLogo(e.target.files?.[0] || null)}/><span><Icon name="upload"/></span><div><strong>{logo ? logo.name : 'Actualizar logo'}</strong><small>Queda guardado en tu cuenta privada.</small></div><b>Elegir archivo</b></label></div>{error && <p className="studio-form-error">{error}</p>}<button className="studio-primary-button compact" disabled={saving}>{saving ? <span className="studio-spinner small"/> : 'Guardar cambios'}</button></form><aside className="studio-billing-card"><span className="studio-plan-orb"><Icon name="spark"/></span><small>{planLabel(profile).toUpperCase()}</small><h2>{profile.credits} {profile.credits === 1 ? 'generación disponible' : 'generaciones disponibles'}</h2><p>{profile.subscriptionStatus === 'authorized' ? `Tu plan incluye ${profile.monthlyCredits} generaciones mensuales.` : profile.subscriptionStatus === 'cancelled' ? 'La renovación está cancelada. Tus créditos actuales siguen disponibles.' : 'Tu token de bienvenida te permite probar la app. Elegí Básico para desbloquear la biblioteca completa.'}</p><ul><li><Icon name="check" size={14}/>Nuevas ideas cada semana</li><li><Icon name="check" size={14}/>Favoritos e imágenes guardadas</li><li><Icon name="check" size={14}/>Marca y productos privados</li></ul><button onClick={onPlans}>Ver planes<Icon name="arrow" size={16}/></button><footer>Pago seguro con Mercado Pago.</footer></aside></div></>;
 }

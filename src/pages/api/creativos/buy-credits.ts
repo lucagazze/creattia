@@ -19,7 +19,7 @@ export const GET: APIRoute = async ({ request }) => {
 	const unitPrice = getUnitPrice();
 	return json({
 		unitPrice,
-		currency: import.meta.env.CREDIT_CURRENCY || process.env.CREDIT_CURRENCY || 'ARS',
+		currency: import.meta.env.CREDIT_CURRENCY || process.env.CREDIT_CURRENCY || 'USD',
 		packs,
 		configured: unitPrice > 0 && Boolean(import.meta.env.MERCADO_PAGO_ACCESS_TOKEN),
 	});
@@ -41,7 +41,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 	if (!packs.includes(quantity)) return json({ error: 'Elegí un pack válido de créditos.' }, 400);
 
 	const siteUrl = import.meta.env.PUBLIC_SITE_URL || url.origin;
-	const currency = import.meta.env.CREDIT_CURRENCY || process.env.CREDIT_CURRENCY || 'ARS';
+	const currency = import.meta.env.CREDIT_CURRENCY || process.env.CREDIT_CURRENCY || 'USD';
 	const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
 		method: 'POST',
 		headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },

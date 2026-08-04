@@ -161,6 +161,9 @@ type WinnerItem = {
 	templateId: number;
 	name: string;
 	imagePath: string;
+	imageUrl?: string;
+	isLocked?: boolean;
+	lockedCount?: number;
 	promptNotes: string | null;
 	categoryGroup: string | null;
 	categoryBranch: string | null;
@@ -185,7 +188,16 @@ type WinnerItem = {
 };
 
 const VIDEOS_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-videos';
-const winnersLibraryCache: Record<'public' | 'admin', WinnerItem[] | null> = { public: null, admin: null };
+const winnersLibraryCache: Record<'free' | 'paid' | 'admin', WinnerItem[] | null> = { free: null, paid: null, admin: null };
+const defaultLibraryAccess = {
+	isPaid: false,
+	planCode: 'trial',
+	previewPerAngle: 5,
+	totalCount: 0,
+	accessibleCount: 0,
+	lockedCount: 0,
+	lockedByAngle: {} as Record<string, number>,
+};
 
 export default function WinnersLibrary({
 	session,
@@ -205,6 +217,7 @@ export default function WinnersLibrary({
 	onToggleFavorite,
 	onGenerationStarted,
 	onGenerationRequested,
+	onOpenPlans,
 	onBackToPreviousView
 }: {
 	session: any;
@@ -224,9 +237,12 @@ export default function WinnersLibrary({
 	historyCount?: number;
 	favorites?: Set<number>;
 	onToggleFavorite?: (id: number) => void;
+	onOpenPlans?: () => void;
 	onBackToPreviousView?: () => void;
 }) {
 	const [items, setItems] = useState<WinnerItem[]>([]);
+	const [libraryAccess, setLibraryAccess] = useState<typeof defaultLibraryAccess>(defaultLibraryAccess);
+	const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [query, setQuery] = useState('');
 	const [error, setError] = useState('');
@@ -377,7 +393,8 @@ export default function WinnersLibrary({
 	const userEmail = session?.user?.email || '';
 	const isAdmin = isAdminEmail(userEmail);
 	const canUseVideos = canAccessVideoFeature(userEmail);
-	const libraryCacheKey = canUseVideos ? 'admin' : 'public';
+	const isPaidLibraryUser = isAdmin || (profile?.planCode === 'creator' && profile?.subscriptionStatus === 'authorized');
+	const libraryCacheKey = isAdmin ? 'admin' : isPaidLibraryUser ? 'paid' : 'free';
 	const availableFormatOptions = canUseVideos ? formatOptions : formatOptions.filter((option) => option.id !== 'video');
 
 	const getSessionToken = (sess: any) => sess?.access_token || '';
@@ -668,13 +685,7 @@ export default function WinnersLibrary({
 		}
 	};
 
-	const loadWinners = async (force = false) => {
-		if (!force && winnersLibraryCache[libraryCacheKey]) {
-			setError('');
-			setItems(winnersLibraryCache[libraryCacheKey] || []);
-			setLoading(false);
-			return;
-		}
+	const loadWinners = async () => {
 		try {
 			setLoading(true);
 			let rawItems: any[] = [];
@@ -686,20 +697,20 @@ export default function WinnersLibrary({
 					.catch(() => null)
 				: Promise.resolve(null);
 			if (supabase) {
-				const { data: manifestUrl } = supabase.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
-				let res = await fetch(manifestUrl.publicUrl);
-				if (!res.ok) {
-					await new Promise((resolve) => setTimeout(resolve, 1200));
-					res = await fetch(manifestUrl.publicUrl);
-				}
-				if (!res.ok) throw new Error('No se pudo descargar el catálogo de ganadores.');
+				const token = getSessionToken(session);
+				const res = await fetch('/api/creativos/library', {
+					headers: token ? { authorization: `Bearer ${token}` } : undefined,
+				});
+				if (!res.ok) throw new Error('No se pudo cargar tu acceso a la biblioteca.');
 				const data = await res.json();
 				rawItems = data.items || [];
+				if (data.access) setLibraryAccess({ ...defaultLibraryAccess, ...data.access });
 			} else {
 				const res = await fetch('/scraped_ads/manifest.json');
 				if (!res.ok) throw new Error('No se pudo cargar el catálogo local.');
 				const data = await res.json();
 				rawItems = data.items || [];
+				setLibraryAccess({ ...defaultLibraryAccess, isPaid: true, totalCount: rawItems.length, accessibleCount: rawItems.length });
 			}
 
 			// Videos ganadores: misma biblioteca, un bucket aparte. Se normalizan al
@@ -891,7 +902,31 @@ export default function WinnersLibrary({
 		setVisibleCount((current) => Math.min(current + 20, filteredItems.length));
 	}, [filteredItems.length]);
 	const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
-	const visibleColumns = useMemo(() => splitColumns(visibleItems, columnCount), [visibleItems, columnCount]);
+	const lockedItems = useMemo<WinnerItem[]>(() => {
+		if (libraryAccess.isPaid || !libraryAccess.lockedCount) return [];
+		const selectedAngles = selectedCategories.includes('todos') ? winnersCategories.map((angle) => angle.id) : selectedCategories;
+		const result: WinnerItem[] = [];
+		selectedAngles.forEach((angle) => {
+			const remaining = libraryAccess.lockedByAngle[angle] || 0;
+			if (!remaining || result.length >= 12) return;
+			result.push({
+				templateId: -1000 - result.length,
+				name: categoryLabels[angle] || 'Ángulo premium',
+				imagePath: `locked-${angle}-${result.length}`,
+				promptNotes: 'Desbloqueá la biblioteca completa para ver esta referencia.',
+				categoryGroup: null,
+				categoryBranch: null,
+				categoryLeaf: angle,
+				category: angle,
+				metadata: { mediaType: 'static_image' },
+				isLocked: true,
+				lockedCount: remaining,
+			});
+		});
+		return result;
+	}, [libraryAccess, selectedCategories]);
+	const displayItems = useMemo(() => [...visibleItems, ...lockedItems], [visibleItems, lockedItems]);
+	const visibleColumns = useMemo(() => splitColumns(displayItems, columnCount), [displayItems, columnCount]);
 	const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
 	// Al volver de "Crear con este diseño" a la grilla, restaura el scroll
 	// guardado en handleUseIdea en vez de dejar la página arriba de todo.
@@ -942,7 +977,8 @@ export default function WinnersLibrary({
 			if (!res.ok) throw new Error(payload.error || 'Error al eliminar.');
 			
 			// Update local state
-			winnersLibraryCache.public = null;
+			winnersLibraryCache.free = null;
+			winnersLibraryCache.paid = null;
 			winnersLibraryCache.admin = null;
 			setItems(prev => prev.filter(item => item.imagePath !== imagePath));
 			setSelectedImagePaths(prev => prev.filter(p => p !== imagePath));
@@ -968,7 +1004,8 @@ export default function WinnersLibrary({
 			const payload = await res.json();
 			if (!res.ok) throw new Error(payload.error || 'Error al eliminar el video.');
 
-			winnersLibraryCache.public = null;
+			winnersLibraryCache.free = null;
+			winnersLibraryCache.paid = null;
 			winnersLibraryCache.admin = null;
 			setPlayingVideoPath((current) => current === item.imagePath ? null : current);
 			setItems((prev) => prev.filter((current) => current.imagePath !== item.imagePath));
@@ -1023,7 +1060,8 @@ export default function WinnersLibrary({
 			}
 
 			const removeSet = new Set(selectedImagePaths);
-			winnersLibraryCache.public = null;
+			winnersLibraryCache.free = null;
+			winnersLibraryCache.paid = null;
 			winnersLibraryCache.admin = null;
 			setItems(prev => prev.filter(item => !removeSet.has(item.imagePath)));
 			setSelectedImagePaths([]);
@@ -1086,7 +1124,7 @@ export default function WinnersLibrary({
 			setNewAdFile(null);
 			setNewAdMediaType('static_image');
 			setNewAdCarouselFiles([]);
-			void loadWinners(true);
+			void loadWinners();
 		} catch (err: any) {
 			alert(err.message);
 		} finally {
@@ -1136,9 +1174,17 @@ export default function WinnersLibrary({
 				<div>
 					<p>Catálogo de Alto Rendimiento</p>
 					<h1>Biblioteca de ganadores</h1>
-					<span>Inspirate en más de {items.length} anuncios ganadores reales y usalos como plantilla.</span>
+					<span>{libraryAccess.isPaid ? `Explorá los ${libraryAccess.totalCount.toLocaleString('es-AR')} anuncios ganadores y usalos como plantilla.` : `Explorá ${libraryAccess.accessibleCount} selecciones gratis y desbloqueá ${libraryAccess.totalCount.toLocaleString('es-AR')} anuncios ganadores.`}</span>
 				</div>
 			</div>
+
+			{!libraryAccess.isPaid && !isAdmin && !loading && (
+				<section className="library-access-banner">
+					<div className="library-access-banner-icon">✦</div>
+					<div className="library-access-banner-copy"><strong>Estás viendo una selección gratuita</strong><span>{libraryAccess.accessibleCount} creativos seleccionados · {libraryAccess.lockedCount} más esperan ser desbloqueados</span></div>
+					<button type="button" onClick={() => setShowUpgradePrompt(true)}>Ver biblioteca completa <Icon name="arrow" size={15} /></button>
+				</section>
+			)}
 
 			{isAdmin && (
 				<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', background: '#f5effe', padding: '12px 18px', borderRadius: '14px', marginBottom: '20px', border: '1.5px solid #dcd0f7' }}>
@@ -1366,7 +1412,7 @@ export default function WinnersLibrary({
 					<Icon name="close" size={40} />
 					<h3>Error de conexión</h3>
 					<p>{error}</p>
-					<button onClick={() => void loadWinners(true)}>Reintentar</button>
+					<button onClick={() => void loadWinners()}>Reintentar</button>
 				</div>
 			) : filteredItems.length === 0 ? (
 				<div className="studio-empty large">
@@ -1380,6 +1426,12 @@ export default function WinnersLibrary({
 					{visibleColumns.map((columnItems, columnIndex) => (
 					<div key={columnIndex} className="library-masonry-column" style={{ flex: '1 1 0%', minWidth: 0, maxWidth: `${100 / columnCount}%`, display: 'flex', flexDirection: 'column', gap: '16px' }}>
 					{columnItems.map((item, idx) => {
+						if (item.isLocked) return (
+							<article key={item.imagePath} className="library-locked-card" onClick={() => setShowUpgradePrompt(true)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setShowUpgradePrompt(true); }}>
+								<div className="library-locked-art"><span className="library-locked-noise" /><span className="library-locked-lock">⌑</span><strong>Creativo premium</strong><small>{item.lockedCount || 'Más'} referencias en este ángulo</small></div>
+								<footer><span>{categoryLabels[item.category || 'producto'] || 'Ángulo premium'}</span><button type="button" onClick={(event) => { event.stopPropagation(); setShowUpgradePrompt(true); }}>Desbloquear</button></footer>
+							</article>
+						);
 						const hasFailed = item.imagePath ? failedImages.has(item.imagePath) : false;
 						if (hasFailed) return null; // imagen rota: no mostrar placeholder genérico
 						const isVideo = item.metadata?.mediaType === 'video';
@@ -1388,7 +1440,7 @@ export default function WinnersLibrary({
 							: supabase
 								? supabase.storage.from('creative-references').getPublicUrl(path).data.publicUrl
 								: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${path}`;
-						const imageUrl = urlFor(item.imagePath);
+						const imageUrl = item.imageUrl || urlFor(item.imagePath);
 
 						// Carrusel: varias páginas para navegar dentro de la misma tarjeta.
 						const slides = item.metadata?.mediaType === 'carousel' && Array.isArray(item.metadata.carouselImages) && item.metadata.carouselImages.length > 1
@@ -1755,6 +1807,25 @@ export default function WinnersLibrary({
 				)}
 			</>
 		)}
+
+			{showUpgradePrompt && !libraryAccess.isPaid && (
+				<div className="library-upgrade-overlay" role="dialog" aria-modal="true" aria-labelledby="library-upgrade-title">
+					<div className="library-upgrade-modal">
+						<button type="button" className="library-upgrade-close" onClick={() => setShowUpgradePrompt(false)} aria-label="Cerrar">×</button>
+						<div className="library-upgrade-kicker"><span>✦</span> ACCESO BÁSICO</div>
+						<h2 id="library-upgrade-title">Tu próximo anuncio ganador está acá.</h2>
+						<p className="library-upgrade-lead">Desbloqueá toda la biblioteca y dejá de trabajar con referencias al azar. Encontrá el ángulo exacto para cada producto.</p>
+						<div className="library-upgrade-value-list">
+							<div><span>✓</span><p><strong>Biblioteca completa</strong><small>Todos los estáticos y carruseles, organizados por ángulo.</small></p></div>
+							<div><span>✓</span><p><strong>5 tokens incluidos cada mes</strong><small>Generá tus primeras ideas sin comprar nada extra.</small></p></div>
+							<div><span>✓</span><p><strong>Cancelá cuando quieras</strong><small>Sin permanencia y con pago seguro.</small></p></div>
+						</div>
+						<div className="library-upgrade-price"><strong>USD 9,99</strong><span>/mes · incluye 5 tokens</span></div>
+						<button type="button" className="library-upgrade-cta" onClick={() => { setShowUpgradePrompt(false); onOpenPlans?.(); }}>Desbloquear biblioteca <Icon name="arrow" size={16} /></button>
+						<button type="button" className="library-upgrade-later" onClick={() => setShowUpgradePrompt(false)}>Seguir explorando gratis</button>
+					</div>
+				</div>
+			)}
 
 			{/* Add winner modal */}
 			{/* Menú de click derecho: guardar / usar sin buscar los botones chicos */}
