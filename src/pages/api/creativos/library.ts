@@ -7,6 +7,7 @@ export const prerender = false;
 const BUCKET = 'creative-references';
 const MANIFEST_PATH = 'manifests/starter-static-50.json';
 const PREVIEW_PER_ANGLE = 5;
+const PAID_PLAN_CODES = new Set(['creator', 'pro', 'scale', 'agency']);
 const STATIC_MEDIA_TYPES = new Set(['static_image', 'carousel']);
 const ANGLES = new Set([
 	'producto',
@@ -79,7 +80,7 @@ export const GET: APIRoute = async ({ request }) => {
 	if (profileError) return json({ error: profileError.message }, 500);
 
 	const isAdmin = isAdminEmail(auth.user.email || '');
-	const isPaid = isAdmin || (profile?.plan_code === 'creator' && profile?.subscription_status === 'authorized');
+	const isPaid = isAdmin || (PAID_PLAN_CODES.has(String(profile?.plan_code || '')) && profile?.subscription_status === 'authorized');
 	const { data: manifestFile, error: manifestError } = await admin.storage.from(BUCKET).download(MANIFEST_PATH);
 	if (manifestError || !manifestFile) return json({ error: 'No se pudo cargar la biblioteca de ganadores.' }, 502);
 

@@ -393,7 +393,7 @@ export default function WinnersLibrary({
 	const userEmail = session?.user?.email || '';
 	const isAdmin = isAdminEmail(userEmail);
 	const canUseVideos = canAccessVideoFeature(userEmail);
-	const isPaidLibraryUser = isAdmin || (profile?.planCode === 'creator' && profile?.subscriptionStatus === 'authorized');
+	const isPaidLibraryUser = isAdmin || (['creator', 'pro', 'scale', 'agency'].includes(profile?.planCode) && profile?.subscriptionStatus === 'authorized');
 	const libraryCacheKey = isAdmin ? 'admin' : isPaidLibraryUser ? 'paid' : 'free';
 	const availableFormatOptions = canUseVideos ? formatOptions : formatOptions.filter((option) => option.id !== 'video');
 

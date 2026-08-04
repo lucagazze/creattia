@@ -202,7 +202,7 @@ const subscriptionPlans = [
 		price: 59,
 		credits: 120,
 		description: 'Para marcas en crecimiento y e-commerce activos.', 
-		featured: true,
+		featured: false,
 		features: [
 			{ name: '120 imágenes al mes', active: true },
 			{ name: '≈ $0.49 por imagen — el más elegido', active: true },
@@ -223,6 +223,21 @@ const subscriptionPlans = [
 			{ name: '≈ $0.33 por imagen — menor costo', active: true },
 			{ name: 'Generaciones simultáneas ilimitadas', active: true },
 			{ name: 'Hasta 5 marcas activas', active: true },
+			{ name: 'Soporte prioritario y acceso anticipado', active: true },
+		]
+	},
+	{
+		code: 'agency',
+		name: 'Agency',
+		price: 199,
+		credits: 1000,
+		description: 'Para agencias y equipos que producen contenido a escala.',
+		featured: false,
+		features: [
+			{ name: '1.000 tokens al mes', active: true },
+			{ name: '≈ $0.20 por imagen — mejor costo', active: true },
+			{ name: 'Generaciones simultáneas ilimitadas', active: true },
+			{ name: 'Hasta 10 marcas activas', active: true },
 			{ name: 'Soporte prioritario y acceso anticipado', active: true },
 		]
 	}
@@ -286,7 +301,10 @@ function firstName(profile: AppProfile, email = '') {
 }
 
 function planLabel(profile: AppProfile) {
-	if (profile.subscriptionStatus === 'authorized') return `Plan ${profile.planCode.charAt(0).toUpperCase()}${profile.planCode.slice(1)}`;
+	if (profile.subscriptionStatus === 'authorized') {
+		const names: Record<string, string> = { creator: 'Básico', pro: 'Pro', scale: 'Scale', agency: 'Agency' };
+		return `Plan ${names[profile.planCode] || profile.planCode.charAt(0).toUpperCase() + profile.planCode.slice(1)}`;
+	}
 	if (profile.subscriptionStatus === 'pending') return 'Activación pendiente';
 	if (profile.subscriptionStatus === 'paused') return 'Plan pausado';
 	if (profile.subscriptionStatus === 'cancelled') return 'Plan cancelado';
@@ -4159,7 +4177,7 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 		
 		{error && <p className="studio-form-error">{error}</p>}
 		{notice && <p className="studio-form-notice">{notice}</p>}
-		<div className="studio-plans-grid">{subscriptionPlans.filter((plan) => plan.code === 'free' || plan.code === 'creator').map((plan) => {
+		<div className="studio-plans-grid">{subscriptionPlans.map((plan) => {
 			const isFreePlan = plan.code === 'free';
 			const currentPlan = isFreePlan 
 				? (!profile.planCode || profile.planCode === 'trial' || profile.planCode === 'free') && !['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus)

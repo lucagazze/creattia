@@ -19,8 +19,9 @@ export const prerender = false;
  * chica de las etiquetas, y no vale arriesgar un anuncio por unos centavos.
  *
  *   Básico    USD 9.99/mes  ->   5 créditos  -> precio de entrada del lanzamiento
- *   Pro       USD 39.99/mes -> 230 créditos  -> costo 19.87 -> margen 50.3%
- *   Scale     USD 109.99/mes-> 635 créditos  -> costo 54.86 -> margen 50.1%
+ *   Pro       USD 59/mes    -> 120 créditos  -> costo 10.32 -> margen 82.5%
+ *   Scale     USD 99/mes    -> 300 créditos  -> costo 25.80 -> margen 73.9%
+ *   Agency    USD 199/mes   -> 1.000 créditos -> costo 86.00 -> margen 56.8%
  *
  * Esos márgenes son con el usuario consumiendo el 100% de sus créditos; con el
  * consumo real típico (55%) los tres superan el 70%.
@@ -42,14 +43,20 @@ const plans = {
 	pro: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_PRO_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_PRO_YEARLY_ID' },
-		credits: 230,
+		credits: 120,
 		reason: 'Creattia — Pro' 
 	},
 	scale: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_SCALE_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_SCALE_YEARLY_ID' },
-		credits: 635,
+		credits: 300,
 		reason: 'Creattia — Scale' 
+	},
+	agency: {
+		monthly: { env: 'MERCADO_PAGO_PLAN_AGENCY_ID' },
+		yearly: { env: 'MERCADO_PAGO_PLAN_AGENCY_YEARLY_ID' },
+		credits: 1000,
+		reason: 'Creattia â€” Agency'
 	},
 } as const;
 

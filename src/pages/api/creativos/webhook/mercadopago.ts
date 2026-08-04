@@ -4,7 +4,7 @@ import { getAdminClient, json } from '../../../../lib/creattia/server';
 
 export const prerender = false;
 
-const planCredits: Record<string, number> = { creator: 5, pro: 120, scale: 300 };
+const planCredits: Record<string, number> = { creator: 5, pro: 120, scale: 300, agency: 1000 };
 
 function resolvePlan(subscription: any) {
 	const external = String(subscription.external_reference || '');
@@ -16,6 +16,7 @@ function resolvePlan(subscription: any) {
 		[String(import.meta.env.MERCADO_PAGO_PLAN_CREATOR_ID || import.meta.env.MERCADO_PAGO_PLAN_ID || '')]: 'creator',
 		[String(import.meta.env.MERCADO_PAGO_PLAN_PRO_ID || '')]: 'pro',
 		[String(import.meta.env.MERCADO_PAGO_PLAN_SCALE_ID || '')]: 'scale',
+		[String(import.meta.env.MERCADO_PAGO_PLAN_AGENCY_ID || '')]: 'agency',
 	};
 	return { userId: external.split(':')[0] || external, planCode: configured[providerPlan] || 'creator', yearly: false };
 }
