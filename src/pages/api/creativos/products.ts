@@ -189,6 +189,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 	let productId = '';
 	let uploadedPath = '';
+	let uploadedPaths: string[] = [];
 	try {
 		if ((request.headers.get('content-type') || '').includes('application/json')) {
 			const body = await request.json().catch(() => ({}));
@@ -240,7 +241,12 @@ export const POST: APIRoute = async ({ request }) => {
 		const priceText = String(form.get('priceText') || '').trim().slice(0, 60);
 		const rawProductUrl = String(form.get('productUrl') || '').trim().slice(0, 500);
 		const productUrl = rawProductUrl ? normalizeExternalUrl(rawProductUrl) : '';
-		const image = form.get('image');
+		const images = form.getAll('image').filter((file): file is File => file instanceof File && file.size > 0).slice(0, 5);
+		const image = images[0];
+		for (const file of images) {
+			if (!mimeExtensions[file.type]) return json({ error: 'Formato de imagen no soportado.' }, 415);
+			if (file.size > 15 * 1024 * 1024) return json({ error: 'Una imagen supera los 15 MB.' }, 413);
+		}
 		if (!name) return json({ error: 'Poné un nombre para el producto.' }, 400);
 		if (!(image instanceof File) || !image.size) return json({ error: 'Subí una imagen del producto.' }, 400);
 		if (!mimeExtensions[image.type]) return json({ error: 'Usá una imagen PNG, JPG, WebP o AVIF.' }, 415);
@@ -258,16 +264,29 @@ export const POST: APIRoute = async ({ request }) => {
 		const { error: uploadError } = await admin.storage.from('creative-assets').upload(path, bytes, { contentType: image.type, upsert: true });
 		if (uploadError) throw uploadError;
 		uploadedPath = path;
+		uploadedPaths = [path];
 		const { error: updateError } = await admin.from('creative_products').update({ image_path: path, updated_at: new Date().toISOString() }).eq('id', product.id).eq('user_id', auth.user.id);
 		if (updateError) throw updateError;
 		const { error: imageError } = await admin.from('creative_product_images').upsert({
 			user_id: auth.user.id, product_id: product.id, storage_path: path, sort_order: 0, is_primary: true,
 		}, { onConflict: 'product_id,storage_path' });
 		if (imageError) throw imageError;
+		for (let index = 1; index < images.length; index += 1) {
+			const extra = images[index];
+			const extraPath = `${auth.user.id}/products/${product.id}/extra-${index}.${mimeExtensions[extra.type]}`;
+			const { error: extraUploadError } = await admin.storage.from('creative-assets').upload(extraPath, new Uint8Array(await extra.arrayBuffer()), { contentType: extra.type, upsert: true });
+			if (extraUploadError) throw extraUploadError;
+			uploadedPaths.push(extraPath);
+			const { error: extraImageError } = await admin.from('creative_product_images').upsert({
+				user_id: auth.user.id, product_id: product.id, storage_path: extraPath, sort_order: index, is_primary: false,
+			}, { onConflict: 'product_id,storage_path' });
+			if (extraImageError) throw extraImageError;
+		}
 		const { data: signed } = await admin.storage.from('creative-assets').createSignedUrl(path, 60 * 60);
 		return json({ product: { id: product.id, name, description, price_text: priceText, product_url: productUrl, image_path: path, source: 'manual', imageUrl: signed?.signedUrl || '' } }, 201);
 	} catch (error) {
-		if (uploadedPath) await admin.storage.from('creative-assets').remove([uploadedPath]);
+		const pathsToRemove = [...new Set([uploadedPath, ...uploadedPaths].filter(Boolean))];
+		if (pathsToRemove.length) await admin.storage.from('creative-assets').remove(pathsToRemove);
 		if (productId) await admin.from('creative_products').delete().eq('id', productId).eq('user_id', auth.user.id);
 		return json({ error: error instanceof Error ? error.message : 'No se pudo guardar el producto.' }, 500);
 	}

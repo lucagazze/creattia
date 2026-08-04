@@ -92,11 +92,18 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	referenceMime: string;
 	productB64?: string;
 	productMime?: string;
+	/** Additional views of the SAME real product/SKU, usually uploaded manually. */
+	productImages?: Array<{ b64: string; mime?: string }>;
 	productName: string;
 	productFacts: string;
 	brandName: string;
 }): Promise<LayoutAnalysis | null> {
-	const systemPrompt = `You are a senior performance ad designer. You receive: (1) a winning static ad TEMPLATE image${input.productB64 ? ', (2) a real product photo' : ''}, and verified product facts.
+	const productInputs = [
+		...(input.productB64 ? [{ b64: input.productB64, mime: input.productMime }] : []),
+		...(input.productImages || []),
+	].filter((photo, index, all) => Boolean(photo.b64) && all.findIndex((candidate) => candidate.b64 === photo.b64) === index).slice(0, 5);
+	const hasProductImages = productInputs.length > 0;
+	const systemPrompt = `You are a senior performance ad designer. You receive: (1) a winning static ad TEMPLATE image${hasProductImages ? ', (2) one or more photos of the SAME real product/SKU from different views' : ''}, and verified product facts.
 
 Return STRICT JSON:
 {
@@ -153,7 +160,7 @@ Rules:
 - "productOnBody": true if ANY instance is worn on / used on a human body (garment, underwear, shoes, jewellery, a patch on skin). This decides whether the layout can host a product that cannot be worn.
 - "creative": read the ad the way a senior art director would. This is not decoration: "designPattern" and "styleFamily" have to be precise enough that another designer could rebuild the ad from them, and "score" has to be honest — a weak ad gets a low number even if it is in the library.
   - PHYSICAL SCALE (CRITICAL): judge the REAL size of both products. A pill pinched between two fingertips and a full leather hide are not interchangeable: rendering the hide at pill size gives an absurd ad. Fill "templateProductScale", "targetProductScale" and "stagingAdaptation" so the new product appears at its true size. The rule is to keep the SHOT (same crop, same framing, same part of the body in frame, same area of the canvas occupied) and change only HOW the product is handled so it is physically possible.
-  - ORIENTATION AND SURFACE DETAILS (CRITICAL): for garments and any product with a front, back, side or inside, inspect every supplied product photo and the verified page facts. Fill "productOrientation" with the exact placement of each print, embroidery, patch, label or other distinctive detail. Never mirror, flip, turn inside out or move a detail to another physical side. A graphic specified as BACK must never appear on the FRONT; when a front-facing view is requested, show only front details, and when a back-facing view is requested, show only back details. If a side is not visible and not verified, do not invent its artwork.
+  - ORIENTATION AND SURFACE DETAILS (CRITICAL): for garments and any product with a front, back, side or inside, inspect EVERY supplied product photo as a multi-view set and the verified page facts. Treat all photos as the SAME real product/SKU, not different variants to blend. Fill "productOrientation" with the exact placement of each print, embroidery, patch, label or other distinctive detail. Never mirror, flip, turn inside out or move a detail to another physical side. A graphic specified as BACK must never appear on the FRONT; when a front-facing view is requested, show only front details, and when a back-facing view is requested, show only back details. If a side is not visible and not verified, do not invent its artwork.
 - "imageSlots" (CRITICAL): a winning ad wins because of its STRUCTURE and its IDEA — the layout, the rhythm, the way attention is directed — not because of the specific photos it happens to contain. List EVERY visual area of the template: the hero shot, each photo in a collage or grid, the background image, avatars, before/after panels, lifestyle scenes, and decorative photo strips. For each one, propose what that area should depict for the TARGET product instead. Think like an art director briefing a photographer: if the template shows three photos of people hugging dogs and the target product is wholesale leather, the replacement is three photos of artisans cutting, stitching and finishing leather at a workbench — same tilt, same crop, same lighting mood, same energy. Never propose keeping the template's original subject, and never propose an empty or generic "product photo" when the slot is clearly a lifestyle or context shot. If the template has a single product shot and nothing else, one entry is enough.
 - "productHasPackaging": look ONLY at the REAL product photo — true ONLY if that photo clearly shows a printed box, wrapper or label belonging to the product. Raw materials (leather hides, fabrics, wood), unpackaged food, plants, garments or bare objects have NO packaging → false. The template's product is irrelevant for this field.
 - TESTIMONIALS: if the template shows a person's photo next to a quote, the replacement quote and attribution must plausibly belong to that SAME visible person (never mismatch apparent gender or age; a neutral attribution like 'Cliente verificada' is fine).
@@ -174,10 +181,13 @@ Rules:
 		try {
 			const model = (typeof import.meta.env !== 'undefined' && import.meta.env.GEMINI_ANALYSIS_MODEL) || process.env.GEMINI_ANALYSIS_MODEL || 'gemini-2.5-flash';
 			const parts: any[] = [
-				{ text: `${systemPrompt}\n\n${userText}\n\nThe first image is the TEMPLATE${input.productB64 ? ', the second is the REAL PRODUCT PHOTO' : ''}.` },
+				{ text: `${systemPrompt}\n\n${userText}\n\nThe first image is the TEMPLATE${hasProductImages ? `. The next ${productInputs.length} images are REAL PRODUCT PHOTOS of the SAME SKU, in different views; reconcile them instead of blending or averaging them.` : ''}` },
 				{ inline_data: { mime_type: input.referenceMime, data: input.referenceB64 } },
 			];
-			if (input.productB64) parts.push({ inline_data: { mime_type: input.productMime || 'image/jpeg', data: input.productB64 } });
+			productInputs.forEach((photo, index) => {
+				parts.push({ text: `REAL PRODUCT PHOTO ${index + 1} OF THE SAME SKU:` });
+				parts.push({ inline_data: { mime_type: photo.mime || 'image/jpeg', data: photo.b64 } });
+			});
 			const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keys.googleKey}`, {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
@@ -208,10 +218,10 @@ Rules:
 				{ type: 'text', text: 'TEMPLATE:' },
 				{ type: 'image_url', image_url: { url: `data:${input.referenceMime};base64,${input.referenceB64}` } },
 			];
-			if (input.productB64) {
-				content.push({ type: 'text', text: 'REAL PRODUCT PHOTO:' });
-				content.push({ type: 'image_url', image_url: { url: `data:${input.productMime || 'image/jpeg'};base64,${input.productB64}` } });
-			}
+			productInputs.forEach((photo, index) => {
+				content.push({ type: 'text', text: `REAL PRODUCT PHOTO ${index + 1} OF THE SAME SKU:` });
+				content.push({ type: 'image_url', image_url: { url: `data:${photo.mime || 'image/jpeg'};base64,${photo.b64}` } });
+			});
 			const response = await openai.chat.completions.create({
 				model,
 				response_format: { type: 'json_object' },
@@ -243,6 +253,7 @@ export function buildReferenceClonePrompt(input: {
 	typoMode?: 'winner' | 'brand';
 	brandColors?: string[];
 	brandTypography?: { headings?: string; body?: string };
+	carousel?: { index: number; total: number };
 }) {
 	const productLabel = input.productNames.length ? input.productNames.join(' + ') : 'the real product supplied by the user';
 	const verifiedProductFacts = (input.productFacts || []).filter(Boolean);
@@ -262,6 +273,9 @@ export function buildReferenceClonePrompt(input: {
 	// (p. ej. "PDRN" leído como "PORN") y arruinar el anuncio.
 	const labelFidelityRule = `\nLABEL TEXT FIDELITY (CRITICAL) — Any text printed on the product's own packaging must be reproduced CHARACTER BY CHARACTER exactly as it appears in the product photo${input.productNames.length ? `; the product name is literally "${input.productNames.join(' + ')}" and must be spelled exactly that way on the label` : ''}. Never re-spell, auto-correct, translate or "improve" a word on the packaging, and never swap a letter for a similar-looking one — a single wrong character can turn the real product name into a different word. If part of the label is too small or blurry to read with certainty in the photo, render it as realistically soft/out-of-focus micro-text instead of guessing letters.`;
 	const orientationRule = `\nPRODUCT IDENTITY AND MULTI-VIEW CONSISTENCY (CRITICAL) — All supplied product photos are different views of ONE SAME SKU, not different variants to blend together. Use them jointly as the source of truth: preserve the exact silhouette, dimensions, proportions, construction, seams, materials, finish, colors, texture, packaging and distinctive details. Never average two views into a new hybrid product, change the product category, add a missing component or remove a real component.\nPRODUCT ORIENTATION AND GRAPHICS (CRITICAL) — Treat the supplied product photos as a multi-view reference, not as a texture to mirror. Preserve the product's real front/back/side orientation and keep every print, embroidery, patch, label and graphic on the exact physical side where it belongs. Never mirror the garment, turn it inside out, or move a back graphic onto the chest/front. If verified facts identify front and back details, they are authoritative: ${verifiedProductFacts.length ? verifiedProductFacts.join(' | ') : 'use only what is clearly visible in the supplied product photos'}.${input.analysis?.productOrientation ? ` Vision analysis also found: ${input.analysis.productOrientation}.` : ''} If the requested camera angle cannot show a detail from its correct side, hide it naturally rather than inventing or relocating it.`;
+	const carouselRule = input.carousel
+		? `\nCAROUSEL CONSISTENCY (CRITICAL) — This is slide ${input.carousel.index} of ${input.carousel.total} in one carousel. The supplied product photos are the identity master for this same product across every slide. Keep the exact same SKU, silhouette, proportions, construction, materials, finish, colors, texture, packaging, labels and front/back orientation from slide to slide. Only the scene, layout adaptation and presentation may change according to this slide's reference; never redesign, resize arbitrarily, recolor, mirror or substitute the product between slides.`
+		: '';
 
 	// Cada aparición del producto del template, enumerada. Reemplazar solo la
 	// principal dejaba el resto en el anuncio: el ganador vendía corpiños y el
@@ -362,7 +376,7 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 
 	return `The first input image is a WINNING AD TEMPLATE. It is a STRUCTURAL reference, not artwork to copy: what you must preserve is its skeleton — the layout, the composition, the proportions, the background treatment, the colour palette, the graphic devices (badges, stars, speech bubbles, banners, buttons, dividers), the position of every visual block and the visual hierarchy. What must change is everything it is ABOUT: the product, the scenes and the people all become ${productLabel}. Someone who saw both ads should recognise the same design system and never suspect they show the same subject.
 ${creativeBlock}${imageSlotBlock}
-	${productSwap}${orientationRule}
+	${productSwap}${orientationRule}${carouselRule}
 
 	2. IMAGE-ONLY OUTPUT — This instruction overrides template fidelity for all publication text. The final image must contain ZERO publication copy: erase every headline, subtitle, caption, CTA button label, offer, price, URL, social handle, badge label and explanatory sentence from the template. Preserve only the empty shape, spacing or visual container when it is part of the composition. Do not replace erased text with new text or placeholder words. Preserve text only when it is physically printed on the supplied product or is part of the supplied official logo.
 	Do not preserve, translate, paraphrase, rewrite or invent any publication copy, claims, offers, prices, URLs, social handles or explanatory text.

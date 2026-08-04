@@ -273,7 +273,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				const productForm = new FormData();
 				productForm.set('name', manualProductName.trim());
 				productForm.set('description', manualProductFacts.trim());
-				productForm.set('image', uploadFiles[0]);
+				uploadFiles.slice(0, 5).forEach((file) => productForm.append('image', file));
 				const productRes = await fetch('/api/creativos/products', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: productForm });
 				const productPayload = await productRes.json();
 				if (!productRes.ok || !productPayload.product?.id) throw new Error(productPayload.error || 'No se pudo guardar el producto.');

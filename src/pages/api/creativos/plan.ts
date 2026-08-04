@@ -59,6 +59,7 @@ export const POST: APIRoute = async ({ request }) => {
 		let productFacts = '';
 		let productB64: string | undefined;
 		let productMime: string | undefined;
+		const productImages: Array<{ b64: string; mime: string }> = [];
 		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
 		let brandFromUrl: { name?: string; website?: string } | null = null;
 		if (productId) {
@@ -79,13 +80,18 @@ export const POST: APIRoute = async ({ request }) => {
 				}
 			}
 		} else if (productsUploaded.length > 0) {
-			const normalized = await normalizeImageInput(Buffer.from(await productsUploaded[0].arrayBuffer()));
-			if (normalized) {
-				productB64 = normalized.buffer.toString('base64');
-				productMime = normalized.type;
-				productName = clean(form.get('productName'), 120) || 'the product in the supplied photo';
-				productFacts = clean(form.get('productFacts'), 1200);
+			for (const uploaded of productsUploaded.slice(0, 5)) {
+				const normalized = await normalizeImageInput(Buffer.from(await uploaded.arrayBuffer()));
+				if (!normalized) continue;
+				const photo = { b64: normalized.buffer.toString('base64'), mime: normalized.type };
+				productImages.push(photo);
+				if (!productB64) {
+					productB64 = photo.b64;
+					productMime = photo.mime;
+				}
 			}
+			productName = clean(form.get('productName'), 120) || 'the product in the supplied photo';
+			productFacts = clean(form.get('productFacts'), 1200);
 		} else {
 			productName = clean(form.get('productName'), 120);
 			productFacts = clean(form.get('productFacts'), 1200);
@@ -106,6 +112,7 @@ export const POST: APIRoute = async ({ request }) => {
 			referenceMime: normalizedReference.type,
 			productB64,
 			productMime,
+			productImages,
 			productName: productName || 'no specific product yet',
 			productFacts,
 			brandName: effectiveBrandName || clean(form.get('brandName'), 80),

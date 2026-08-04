@@ -131,6 +131,7 @@ ${input.products.length > 1 ? `- This is a multi-product creative with ${input.p
 ${input.products.length === 1 || (!input.products.length && input.hasUploadedProduct) ? '- The selected product is supplied as an input image. Preserve its real shape, packaging, logo and colors with high fidelity.' : ''}
   - PRODUCT INTEGRATION & REALISM (CRITICAL): Do NOT simply place the product image as a rigid, flat cutout with hard artificial edges. Seamlessly integrate the product into the scene with matching lighting, exposure, contrast, color temperature, and realistic shadows. If a hand is holding a product in the reference layout, the fingers must grip and wrap around the new product naturally, with realistic occlusion and contact shadows. Place the product on any surfaces with realistic contact shadows and oclusions.
   - PRODUCT ORIENTATION (CRITICAL): if the product has a front, back or side, preserve the real orientation shown in all supplied photos and verified facts. Never mirror or turn a garment inside out, and never move a print, embroidery, patch or label from the back to the front. If a detail belongs to a hidden side, do not invent or relocate it.
+  - PRODUCT CONSISTENCY (CRITICAL): when multiple product photos are supplied manually, they are different views of ONE SAME real product/SKU. Reconcile them as a single identity: preserve the exact silhouette, dimensions, proportions, construction, seams, materials, finish, colors, texture, packaging, labels and distinctive details. Never average views into a hybrid, mix variants, add components or remove real components.
 ${input.products.length === 0 && !input.hasUploadedProduct ? '- Build a brand-level promotion without inventing a specific packaged product.' : ''}
 ${input.imageType === 'lifestyle' ? '- Create a believable lifestyle scene. Every real product must remain commercially prominent.' : ''}
 ${input.imageType === 'catalog' ? '- Use a clean ecommerce catalog treatment: controlled lighting, precise product edges, minimal environment and premium spacing.' : ''}
@@ -428,6 +429,8 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const productInputPlan: Array<{ product: any; path: string; photoIndex: number }> = [];
+		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
+		const productVisionInputs: Array<{ buffer: Buffer; type: string }> = [];
 		for (const storedProduct of storedProducts) {
 			if (storedProduct.id === 'manual') continue;
 			const paths = [...new Set([
@@ -451,7 +454,6 @@ export const POST: APIRoute = async ({ request }) => {
 		// Revisión sutil: el usuario pidió un cambio puntual sobre una imagen ya
 		// generada. Solo se manda la imagen original + el pedido; re-adjuntar
 		// producto/logo/contexto hace que el modelo rediseñe todo.
-		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
 		const hasNewProductInput = productIds.length > 0 || productsUploaded.length > 0 || Boolean(manualProductName);
 		const isExactRevision = hasSourceGeneration && variationStrength === 'exact' && Boolean(brief) && !hasNewProductInput;
 
@@ -469,6 +471,7 @@ export const POST: APIRoute = async ({ request }) => {
 			}));
 			for (const { item, normalized } of normalizedPhotos) {
 				if (!normalized) continue; // foto ilegible: no puede tumbar la generación
+				if (normalized) productVisionInputs.push(normalized);
 				if (!primaryProductBuffer) {
 					primaryProductBuffer = normalized.buffer;
 					primaryProductMime = normalized.type;
@@ -476,10 +479,11 @@ export const POST: APIRoute = async ({ request }) => {
 				await pushInput(normalized.buffer, normalized.type, `product-${item.product.id}-${item.photoIndex}.png`, `verified photo ${item.photoIndex} of the SAME real product SKU “${item.product.name}”; preserve exact geometry, proportions, construction, packaging, label, material, texture, color and physical side orientation`);
 			}
 		}
-		if (!isExactRevision && !storedProducts.length && productsUploaded.length > 0) {
+		if (!isExactRevision && !productIds.length && productsUploaded.length > 0) {
 			for (let idx = 0; idx < productsUploaded.length; idx++) {
 				const fileObj = productsUploaded[idx];
 				const normalized = await normalizeImageInput(Buffer.from(await fileObj.arrayBuffer()));
+				if (normalized) productVisionInputs.push(normalized);
 				if (!normalized) throw new Error('La foto del producto no se pudo procesar. Probá con otra imagen.');
 				if (!primaryProductBuffer) {
 					primaryProductBuffer = normalized.buffer;
@@ -489,8 +493,7 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 
-		let hasUploadedProduct = false;
-		if (!storedProducts.length && productsUploaded.length > 0) hasUploadedProduct = true;
+		const hasUploadedProduct = productsUploaded.length > 0;
 
 		let hasLogo = false;
 		if (!includeLogo || isExactRevision || brandSource === 'none') {
@@ -566,6 +569,7 @@ export const POST: APIRoute = async ({ request }) => {
 					productMime: primaryProductMime,
 					productName: storedProducts[0]?.name || 'the product in the supplied photo',
 					productFacts,
+					productImages: productVisionInputs.map((photo) => ({ b64: photo.buffer.toString('base64'), mime: photo.type })),
 					brandName: effectiveBrandName || clean(form.get('brandName'), 80),
 				});
 			} catch (analysisErr) {

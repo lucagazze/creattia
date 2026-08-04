@@ -99,7 +99,7 @@ export const POST: APIRoute = async ({ request }) => {
 			for (const item of extraImages || []) {
 				if (item.storage_path) paths.push(item.storage_path);
 			}
-			for (const path of [...new Set(paths)].slice(0, 3)) {
+			for (const path of [...new Set(paths)].slice(0, 5)) {
 				const { data: blob } = await admin.storage.from(ASSETS).download(path);
 				if (!blob) continue;
 				const normalized = await normalizeImageInput(Buffer.from(await blob.arrayBuffer()));
@@ -184,6 +184,7 @@ export const POST: APIRoute = async ({ request }) => {
 				productMime: productImages[0]?.type,
 				productName,
 				productFacts,
+				productImages: productImages.map((photo) => ({ b64: photo.buffer.toString('base64'), mime: photo.type })),
 				brandName,
 			});
 		} catch (analysisError) {
@@ -199,6 +200,7 @@ export const POST: APIRoute = async ({ request }) => {
 			typoMode: snapshot.typoMode === 'brand' ? 'brand' : 'winner',
 			brandColors,
 			brandTypography,
+			carousel: snapshot.carousel ? { index: Number(snapshot.carouselIndex || row.output_index || 1), total: Number(snapshot.carouselTotal || 1) } : undefined,
 		});
 
 		// ── 5. Formato: 'original' toma la proporción real del ganador ────────
