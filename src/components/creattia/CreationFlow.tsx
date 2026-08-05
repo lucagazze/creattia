@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
+import AdCopyPanel from './AdCopyPanel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Página completa de creación fiel al ganador (reemplaza el modal). Mismo
@@ -95,10 +96,16 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	// El armado es secuencial, como en el lote: 1 producto, 2 formato, 3 estilo.
 	const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
 	const [phase, setPhase] = useState<'setup' | 'planning' | 'review' | 'starting'>('setup');
+	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
 	const [plan, setPlan] = useState<any>(null);
+	const [zones, setZones] = useState<Array<{ where?: string; messageRole?: string; original?: string; replacement?: string; onProduct?: boolean }>>([]);
 	const [people, setPeople] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
 	const [comparisons, setComparisons] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
 	const [error, setError] = useState('');
+	const chip = (active: boolean) => ({
+		padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+		border: active ? '2px solid #744bde' : '1px solid #e2dde9', background: active ? '#f4f2f6' : '#fff', color: active ? '#744bde' : '#3f3a48',
+	} as const);
 
 	const label = { display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '9px', letterSpacing: '.01em' } as const;
 	// Carrusel completo con productos distintos: 1 URL por página, en orden.
@@ -188,6 +195,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (!response.ok) throw new Error(payload.error || 'No se pudo analizar la referencia.');
 			const analysis = payload.analysis || {};
 			setPlan(analysis);
+			setZones((analysis.textZones || []).filter((zone: any) => analysis.productHasPackaging ? true : !zone.onProduct));
 			setPeople(Array.isArray(analysis.people) ? analysis.people.map((p: any) => ({ ...p, directive: '' })) : []);
 			setComparisons(Array.isArray(analysis.comparisonItems) ? analysis.comparisonItems.map((c: any) => ({ ...c, directive: '' })) : []);
 			setPhase('review');
@@ -223,7 +231,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
-			form.set('plan', JSON.stringify({ ...plan, people, comparisonItems: comparisons }));
+			form.set('plan', JSON.stringify({ ...plan, textZones: zones, people, comparisonItems: comparisons }));
 
 			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
 			const payload = await response.json();
@@ -241,6 +249,40 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la generación.');
 			setPhase('review');
 		}
+	}
+
+	async function regenerateCopy(index: number) {
+		const zone = zones[index];
+		if (!zone) return;
+		try {
+			const response = await fetch('/api/creativos/rewrite', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+				body: JSON.stringify({
+					original: zone.original,
+					current: zone.replacement,
+					messageRole: zone.messageRole,
+					productName: manualProductName || 'producto',
+					productFacts: manualProductFacts,
+					language,
+				}),
+			});
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error || 'No se pudo reescribir el texto.');
+			setZones((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, replacement: payload.replacement } : item));
+			onToast?.('Texto regenerado con éxito.');
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'No se pudo reescribir el texto.');
+		}
+	}
+
+	async function regenerateAllCopies() {
+		if (!zones.length) return;
+		if (!window.confirm('¿Seguro que querés volver a escribir todos los textos con IA? Se perderán las ediciones manuales actuales.')) return;
+		setError('');
+		setPhase('planning');
+		await requestPlan();
+		onToast?.('Todos los textos fueron regenerados.');
 	}
 
 	// Carrusel completo: sin revisión de textos (igual que el lote) — se resuelven
@@ -736,6 +778,40 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								<span>✓ Incluiremos el logo de tu marca en el espacio del diseño.</span>
 							</div>
 						)}
+
+						<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
+							<strong style={{ ...label, marginBottom: 0 }}>Textos detectados del anuncio</strong>
+							<div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+								{zones.length > 0 && <button type="button" onClick={regenerateAllCopies} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>✨ Rehacer todos</button>}
+								<button type="button" onClick={() => setCopyMode('auto')} style={chip(copyMode === 'auto')}>✨ Automáticos</button>
+								<button type="button" onClick={() => setCopyMode('edit')} style={chip(copyMode === 'edit')}>✏️ Editarlos yo</button>
+							</div>
+						</div>
+
+						{zones.length > 0 ? (
+							<div style={{ background: '#fff', border: '1px solid #eee9f2', borderRadius: '12px', marginBottom: '22px', overflow: 'hidden' }}>
+								{zones.map((zone, index) => (
+									<div key={index} title={`${zone.where || ''}${zone.messageRole ? ` · ${zone.messageRole}` : ''}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, .8fr) minmax(220px, 1.2fr)', gap: '12px', alignItems: 'center', padding: '12px 14px', borderBottom: index < zones.length - 1 ? '1px solid #f4f0f8' : 'none' }}>
+										<div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+											<span style={{ fontSize: '12px', fontWeight: 600, color: '#8b8490', lineHeight: 1.35, fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>“{zone.original || 'Texto detectado'}”</span>
+											{zone.messageRole && <span style={{ fontSize: '9.5px', color: '#744bde', fontWeight: 700 }}>{zone.messageRole}</span>}
+										</div>
+										<div style={{ display: 'flex', gap: '8px', alignItems: 'center', minWidth: 0 }}>
+											{copyMode === 'edit' ? (
+												<textarea value={zone.replacement || ''} rows={1} onChange={(event) => setZones((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, replacement: event.target.value } : item))} style={{ flex: 1, minHeight: '38px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e6e0ee', background: '#faf8fc', fontSize: '13.5px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.4 }} />
+											) : (
+												<span style={{ flex: 1, fontSize: '13.5px', color: '#19171d', lineHeight: 1.4 }}>{zone.replacement || 'Sin reemplazo detectado'}</span>
+											)}
+											<button type="button" onClick={() => void regenerateCopy(index)} style={{ border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', padding: '6px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }} title="Rehacer este texto con IA">✨ Rehacer</button>
+										</div>
+									</div>
+								))}
+							</div>
+						) : (
+							<div style={{ padding: '14px 16px', marginBottom: '18px', border: '1px solid #eee9f2', borderRadius: '12px', background: '#fcfbfe', color: '#716d79', fontSize: '13px' }}>No detectamos textos de publicación fuera del producto. Se conservarán únicamente los textos y detalles que ya pertenecen al producto real.</div>
+						)}
+
+						{plan.adCopy && <AdCopyPanel copy={plan.adCopy} onChange={(adCopy) => setPlan((current: any) => ({ ...(current || {}), adCopy }))} title="Copy adaptado para publicar" />}
 
 						{/* Personas detectadas en el anuncio */}
 						{people.length > 0 && (
