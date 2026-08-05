@@ -802,8 +802,11 @@ export default function CreativeApp() {
 						client.from('creative_admin_access_overrides').select('access_mode,plan_code,credits_override').eq('user_id', profileId).maybeSingle(),
 					]);
 					const { data: templateRecords, error: templateError } = templatesResult;
-					if (templateError) throw templateError;
-				if (templateRecords?.length) {
+					if (templateError) {
+						// El catálogo local es un fallback válido: una tabla opcional
+						// ausente o con una migración pendiente no debe bloquear el login.
+						console.warn('No se pudo cargar el catálogo de plantillas:', templateError.message);
+					} else if (templateRecords?.length) {
 					loadedCatalog = templateRecords.map(mapTemplateRecord);
 					setCatalog(loadedCatalog);
 				}
@@ -847,16 +850,25 @@ export default function CreativeApp() {
 				// cargando de fondo y aparecen apenas llegan.
 				if (active) setAccountLoading(false);
 
-				const { data: favoriteRecords, error: favoritesError } = await supabase.from('creative_template_favorites').select('template_id');
-				if (favoritesError) throw favoritesError;
-				if (favoriteRecords) setFavorites(new Set(favoriteRecords.map((item) => Number(item.template_id))));
+				// Estas consultas son secundarias. Un fallo de esquema, permisos o red
+				// no debe impedir que la persona entre a su cuenta.
+				try {
+					const { data: favoriteRecords, error: favoritesError } = await supabase.from('creative_template_favorites').select('template_id');
+					if (favoritesError) console.warn('No se pudieron cargar los favoritos:', favoritesError.message);
+					else if (favoriteRecords) setFavorites(new Set(favoriteRecords.map((item) => Number(item.template_id))));
+				} catch (error) {
+					console.warn('No se pudieron cargar los favoritos:', error);
+				}
 
+				try {
 					const { data: records, error: generationsError } = await supabase.from('creative_generations')
 						.select('id,title,output_path,format,created_at,template_id,variant_key,image_type,product_id,batch_id,output_index,settings_snapshot,status')
 						.in('status', ['completed', 'processing'])
 						.order('created_at', { ascending: false }).limit(150);
 
-					if (!generationsError && records?.length) {
+					if (generationsError) {
+						console.warn('No se pudo cargar el historial:', generationsError.message);
+					} else if (records?.length) {
 						const signedByPath = await signGenerationPaths(client, records.map((record: any) => record.output_path));
 						const mapped = records.map((record: any) => {
 							const imgUrl = record.output_path ? signedByPath.get(record.output_path) || '' : '';
@@ -883,12 +895,20 @@ export default function CreativeApp() {
 						});
 						setHistory(mapped);
 					}
+				} catch (error) {
+					console.warn('No se pudo cargar el historial:', error);
+				}
+
 				const token = getSessionToken(activeSession);
 				if (token) {
-					const response = await fetch('/api/creativos/products', { headers: { authorization: `Bearer ${token}` } });
-					const payload = await response.json();
-					if (!response.ok) throw new Error(payload.error || 'No se pudo cargar el catálogo.');
-					setProducts((payload.products || []).map(mapProduct));
+					try {
+						const response = await fetch('/api/creativos/products', { headers: { authorization: `Bearer ${token}` } });
+						const payload = await response.json().catch(() => ({}));
+						if (!response.ok) throw new Error(payload.error || 'No se pudo cargar el catálogo.');
+						setProducts((payload.products || []).map(mapProduct));
+					} catch (error) {
+						console.warn('No se pudo cargar el catálogo:', error);
+					}
 				}
 				} else {
 					setProfile({ ...defaultProfile, ...loadLocal(PROFILE_KEY, defaultProfile) });
@@ -1820,8 +1840,7 @@ function AccountSetupError({ message, onRetry, onLogout }: { message: string; on
 	return <div className="studio-account-error">
 		<a href="/" className="studio-auth-logo"><span><img src="/images/creattia/avatar-nobg.webp" alt=""/></span><strong>Creattia</strong></a>
 		<section>
-			<Moki className="studio-account-error-moki" label="Moki esperando que el espacio esté listo"/>
-			<span><Icon name="spark" size={18}/></span>
+			<img className="studio-account-error-logo" src="/images/creattia/avatar-nobg.webp" alt="Creattia" />
 			<h1>{missingSchema ? 'Estamos preparando tu espacio.' : 'No pudimos cargar tu cuenta.'}</h1>
 			<p>{missingSchema ? 'Tu acceso ya funciona. Falta terminar la configuración segura de tu espacio antes de guardar productos e imágenes.' : 'Reintentá en unos segundos. Si el problema continúa, volvé a ingresar.'}</p>
 			<div><button onClick={onRetry}>Reintentar</button><button onClick={onLogout}>Cerrar sesión</button></div>

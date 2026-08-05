@@ -21,10 +21,25 @@ async function listProducts(userId: string) {
 		.eq('user_id', userId).eq('is_active', true).order('updated_at', { ascending: false }).limit(200);
 	if (error) throw error;
 	const ids = (data || []).map((product) => product.id);
-	const { data: imageRows, error: imageError } = ids.length
-		? await admin.from('creative_product_images').select('product_id,storage_path,source_url,sort_order,is_primary,media_type,metadata').eq('user_id', userId).in('product_id', ids).order('sort_order')
-		: { data: [], error: null };
-	if (imageError) throw imageError;
+	let imageRows: Array<any> = [];
+	if (ids.length) {
+		const mediaResult = await admin.from('creative_product_images')
+			.select('product_id,storage_path,source_url,sort_order,is_primary,media_type,metadata')
+			.eq('user_id', userId).in('product_id', ids).order('sort_order');
+		if (!mediaResult.error) {
+			imageRows = mediaResult.data || [];
+		} else if (/media_type|schema cache|column|does not exist/i.test(mediaResult.error.message || '')) {
+			// Compatibilidad mientras la migración de videos termina de propagarse.
+			// El catálogo sigue mostrando las imágenes antiguas y las trata como tales.
+			const legacyResult = await admin.from('creative_product_images')
+				.select('product_id,storage_path,source_url,sort_order,is_primary')
+				.eq('user_id', userId).in('product_id', ids).order('sort_order');
+			if (legacyResult.error) throw legacyResult.error;
+			imageRows = (legacyResult.data || []).map((row) => ({ ...row, media_type: 'image', metadata: {} }));
+		} else {
+			throw mediaResult.error;
+		}
+	}
 	const imagesByProduct = new Map<string, Array<any>>();
 	for (const row of imageRows || []) {
 		const current = imagesByProduct.get(row.product_id) || [];
