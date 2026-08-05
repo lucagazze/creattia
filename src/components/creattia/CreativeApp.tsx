@@ -4030,7 +4030,7 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 			window.location.href = payload.checkoutUrl;
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Error al conectar con Mercado Pago.');
-			setBuying(null);
+			setBuying(false);
 		}
 	}
 
@@ -4059,7 +4059,7 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 			
 			{error && <p style={{ color: '#dc2626', fontSize: '13px', margin: '0 0 12px', fontWeight: 600 }}>{error}</p>}
 
-			<div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 320px)', gap: '16px', alignItems: 'stretch', marginBottom: '14px' }}>
+			<div className="credit-checkout-grid">
 				<div style={{ background: '#fff', border: '1px solid #e9e6ed', borderRadius: '12px', padding: '18px', boxShadow: '0 4px 12px rgba(25, 23, 29, 0.03)' }}>
 					<label htmlFor="credit-quantity" style={{ display: 'block', marginBottom: '7px', color: '#19171d', fontSize: '15px', fontWeight: 800 }}>¿Cuántos créditos querés comprar?</label>
 					<p style={{ margin: '0 0 14px', color: '#716d79', fontSize: '12.5px', lineHeight: 1.45 }}>Elegí cualquier cantidad. Cada crédito equivale a una imagen generada.</p>
@@ -4070,56 +4070,11 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 					<small style={{ display: 'block', marginTop: '9px', color: '#8b8290', fontSize: '11px' }}>Podés comprar de 1 a {maxCredits} créditos en una sola operación.</small>
 				</div>
 				<div style={{ background: '#fff', border: '1px solid #d8c5fa', borderRadius: '12px', padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 16px rgba(116, 75, 222, 0.08)' }}>
-					<div><span style={{ display: 'block', color: '#716d79', fontSize: '12px' }}>Total a pagar</span><strong style={{ display: 'block', marginTop: '5px', color: '#744bde', fontSize: '30px', letterSpacing: '-.03em' }}>{unconfigured ? '—' : `${symbol}${totalPrice}`}</strong><small style={{ color: '#8b8290', fontSize: '11px' }}>{symbol}0.30 por crédito</small></div>
+					<div><span style={{ display: 'block', color: '#716d79', fontSize: '12px' }}>Total a pagar</span><strong style={{ display: 'block', marginTop: '5px', color: '#744bde', fontSize: '30px', letterSpacing: '-.03em' }}>{symbol}{totalPrice}</strong><small style={{ color: '#8b8290', fontSize: '11px' }}>{symbol}0.30 por crédito</small></div>
 					<button onClick={() => void buy(safeQuantity)} disabled={buying || unconfigured} style={{ width: '100%', minHeight: '42px', marginTop: '16px', borderRadius: '10px', border: 0, background: 'linear-gradient(110deg, #744bde, #ec4492 65%, #f05427)', color: '#fff', fontWeight: 800, fontSize: '13px', cursor: 'pointer', opacity: buying ? 0.65 : 1 }}>{unconfigured ? 'Pago no disponible' : buying ? <><span className="studio-spinner small" aria-hidden="true" /> Abriendo Mercado Pago...</> : 'Continuar al pago'}</button>
 				</div>
 			</div>
 
-			<div style={{ display: 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-				{(config.packs || []).map((qty: number) => (
-					<div 
-						key={qty} 
-						style={{ 
-							background: '#fff', 
-							border: '1px solid #e9e6ed', 
-							borderRadius: '12px', 
-							padding: '16px', 
-							display: 'flex', 
-							flexDirection: 'column', 
-							alignItems: 'center',
-							boxShadow: '0 4px 12px rgba(25, 23, 29, 0.03)'
-						}}
-					>
-						<strong style={{ fontSize: '18px', color: '#19171d', marginBottom: '4px' }}>
-							{qty} {qty === 1 ? 'Imagen' : 'Imágenes'}
-						</strong>
-						<span style={{ fontSize: '12px', color: '#716d79', marginBottom: '12px' }}>
-							{qty === 1 ? '1 crédito' : `${qty} créditos`}
-						</span>
-						<div style={{ fontSize: '22px', fontWeight: 800, color: '#744bde', marginBottom: '16px' }}>
-							{unconfigured ? '—' : `${symbol}${config.unitPrice * qty}`}
-						</div>
-						<button 
-							onClick={() => void buy(qty)}
-							disabled={buying || unconfigured}
-							style={{ 
-								width: '100%', 
-								height: '38px', 
-								borderRadius: '8px', 
-								border: 0, 
-								background: '#744bde', 
-								color: '#fff', 
-								fontWeight: 700, 
-								fontSize: '13px', 
-								cursor: 'pointer',
-								opacity: buying ? 0.6 : 1
-							}}
-						>
-							{unconfigured ? 'Muy pronto' : buying ? <><span className="studio-spinner small" aria-hidden="true" /> Abriendo Mercado Pago...</> : 'Comprar ahora'}
-						</button>
-					</div>
-				))}
-			</div>
 		</div>
 	);
 }
@@ -4137,9 +4092,6 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 		if (!targetPlan) return;
 		setPendingPlanChange({ planCode, direction });
 		return;
-		const verb = direction === 'up' ? 'subir' : 'bajar';
-		if (!window.confirm(`Â¿QuerÃ©s ${verb} al plan ${targetPlan.name}? Se actualizarÃ¡ tu suscripciÃ³n actual sin crear un segundo cobro.`)) return;
-		await subscribe(planCode, true);
 	}
 	const returnedFromCheckout = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('subscription') === 'return';
 
@@ -4164,7 +4116,7 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 			});
 			const payload = await response.json();
 			if (payload.changed) {
-				setNotice(`Listo: tu suscripciÃ³n ahora es ${subscriptionPlans.find((plan) => plan.code === planCode)?.name || planCode}. No se creÃ³ un segundo cobro.`);
+				setNotice(`Listo: tu suscripción ahora es ${subscriptionPlans.find((plan) => plan.code === planCode)?.name || planCode}. No se creó un segundo cobro.`);
 				setBilling('');
 				window.setTimeout(() => window.location.reload(), 800);
 				return;
@@ -4176,7 +4128,7 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 	}
 
 	async function cancelSubscription() {
-		if (!window.confirm('¿Cancelar la renovación? Conservás tus créditos actuales, pero no se renovarán el próximo período.')) return;
+		setConfirmingCancel(false);
 		setCancelling(true); setError(''); setNotice('');
 		try {
 			const response = await fetch('/api/creativos/subscribe', {
@@ -4210,7 +4162,7 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 
 			const handleButtonClick = () => {
 				if (isFreePlan) {
-					if (hasPaidSubscription) void cancelSubscription();
+					if (hasPaidSubscription) setConfirmingCancel(true);
 					else {
 						const el = document.getElementById('buy-credits-section');
 						if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -4251,9 +4203,16 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 
 		})}</div>
 		<p className="studio-plan-note">Pago seguro con Mercado Pago. Los tokens de tu plan se renuevan cada mes y podés cancelar cuando quieras.</p>
-		{['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && <button className="studio-cancel-subscription" onClick={() => void cancelSubscription()} disabled={cancelling}>{cancelling ? <><span className="studio-spinner small" aria-hidden="true" /> Cancelando…</> : 'Cancelar renovación'}</button>}
+		{['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && <button className="studio-cancel-subscription" onClick={() => setConfirmingCancel(true)} disabled={cancelling}>{cancelling ? <><span className="studio-spinner small" aria-hidden="true" /> Cancelando…</> : 'Cancelar renovación'}</button>}
 		
 		<BuyCreditsSection session={session} />
+		{pendingPlanChange && (() => {
+			const target = subscriptionPlans.find((plan) => plan.code === pendingPlanChange.planCode);
+			if (!target) return null;
+			const isUpgrade = pendingPlanChange.direction === 'up';
+			return <div className="studio-confirm-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPendingPlanChange(null); }}><section className="studio-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="plan-change-title"><div className="studio-confirm-icon" aria-hidden="true">{isUpgrade ? '↑' : '↓'}</div><p className="studio-confirm-kicker">CAMBIO DE PLAN</p><h2 id="plan-change-title">{isUpgrade ? 'Subir' : 'Bajar'} al plan {target.name}</h2><p>Tu suscripción actual se va a actualizar sin crear un segundo cobro. Vas a conservar el acceso y los créditos que correspondan al nuevo plan.</p><div className="studio-confirm-actions"><button type="button" className="studio-confirm-secondary" onClick={() => setPendingPlanChange(null)}>Cancelar</button><button type="button" className="studio-confirm-primary" onClick={() => { setPendingPlanChange(null); void subscribe(target.code, true); }}>{isUpgrade ? 'Subir de plan' : 'Bajar de plan'}</button></div></section></div>;
+		})()}
+		{confirmingCancel && <div className="studio-confirm-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmingCancel(false); }}><section className="studio-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="cancel-subscription-title"><div className="studio-confirm-icon muted" aria-hidden="true">×</div><p className="studio-confirm-kicker">RENOVACIÓN</p><h2 id="cancel-subscription-title">Cancelar la renovación</h2><p>Vas a conservar tus créditos y el acceso actual hasta que termine el período ya pagado. Después, la cuenta volverá al plan Gratis.</p><div className="studio-confirm-actions"><button type="button" className="studio-confirm-secondary" onClick={() => setConfirmingCancel(false)}>Mantener mi plan</button><button type="button" className="studio-confirm-danger" onClick={() => void cancelSubscription()}>Cancelar renovación</button></div></section></div>}
 	</>;
 }
 

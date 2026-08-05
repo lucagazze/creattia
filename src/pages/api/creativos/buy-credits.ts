@@ -3,15 +3,12 @@ import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia
 
 export const prerender = false;
 
-// Pago por imagen: entrada barata sin suscripción. El precio unitario se define
-// en CREDIT_UNIT_PRICE (el doble del precio efectivo por imagen del suscriptor).
+// Compra puntual: el precio público es USD 0.30 por crédito.
 const DEFAULT_UNIT_PRICE = 0.3;
 const MAX_CREDITS_PER_CHECKOUT = 1000;
 
 function getUnitPrice() {
-	const raw = import.meta.env.CREDIT_UNIT_PRICE || process.env.CREDIT_UNIT_PRICE || '';
-	const value = Number(raw);
-	return Number.isFinite(value) && value > 0 ? value : DEFAULT_UNIT_PRICE;
+	return DEFAULT_UNIT_PRICE;
 }
 
 export const GET: APIRoute = async ({ request }) => {

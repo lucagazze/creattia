@@ -26,9 +26,7 @@ export const prerender = false;
  * Esos márgenes son con el usuario consumiendo el 100% de sus créditos; con el
  * consumo real típico (55%) los tres superan el 70%.
  *
- * Compra suelta sin suscripción (CREDIT_UNIT_PRICE): USD 0.69 por imagen, 90% de
- * margen. Tiene que quedar claramente más caro que el plan (0.15/img en Creator)
- * o nadie se suscribe.
+ * Compra suelta sin suscripción: USD 0.30 por imagen.
  *
  * Si cambiás el precio en Mercado Pago, actualizá los créditos de acá o el
  * margen se rompe.

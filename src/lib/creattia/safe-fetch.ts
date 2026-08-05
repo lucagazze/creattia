@@ -51,37 +51,68 @@ async function assertPublicUrl(url: URL) {
 
 export async function safeExternalFetch(rawUrl: string, init: RequestInit = {}, timeoutMs = 12_000) {
 	const scraperApiKey = (typeof import.meta.env !== 'undefined' && import.meta.env.SCRAPER_API_KEY) || process.env.SCRAPER_API_KEY;
-	// ScraperAPI es un proxy para HTML: corrompe binarios de imagen. Las descargas
-	// de imágenes (accept: image/...) siempre van directo.
-	const wantsImage = String((init.headers as Record<string, string> | undefined)?.accept || '').startsWith('image/');
-	if (scraperApiKey && !wantsImage && !rawUrl.includes('localhost') && !rawUrl.includes('127.0.0.1')) {
-		const proxyUrl = `http://api.scraperapi.com?api_key=${scraperApiKey}&url=${encodeURIComponent(rawUrl)}`;
+	const baseHeaders = new Headers(init.headers);
+	const wantsImage = (baseHeaders.get('accept') || '').startsWith('image/');
+	const buildBrowserHeaders = (referer?: string) => {
+		const headers = new Headers(baseHeaders);
+		if (!headers.has('user-agent')) headers.set('user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36');
+		if (!headers.has('accept')) headers.set('accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/jpeg;q=0.8,*/*;q=0.5');
+		if (!headers.has('accept-language')) headers.set('accept-language', 'es-AR,es;q=0.9,en;q=0.8');
+		if (referer && !headers.has('referer')) headers.set('referer', referer);
+		return headers;
+	};
+	const fetchDirect = (target: URL, referer?: string) => fetch(target, {
+		...init,
+		redirect: 'manual',
+		signal: AbortSignal.timeout(timeoutMs),
+		headers: buildBrowserHeaders(referer),
+	});
+	const fetchThroughScraper = async (target: URL) => {
+		if (!scraperApiKey || wantsImage) return null;
+		const proxyUrl = `https://api.scraperapi.com?api_key=${encodeURIComponent(scraperApiKey)}&url=${encodeURIComponent(target.toString())}`;
 		try {
-			return await fetch(proxyUrl, {
-				signal: AbortSignal.timeout(timeoutMs + 8000), // ScraperAPI takes slightly longer
-				headers: {
-					accept: 'text/html,application/xhtml+xml,application/xml;q=0.9',
-					'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-				},
+			const proxyResponse = await fetch(proxyUrl, {
+				signal: AbortSignal.timeout(timeoutMs + 8000),
+				headers: buildBrowserHeaders(),
 			});
-		} catch (e) {
-			console.error('ScraperAPI fetch failed, falling back to direct fetch:', e);
+			// Una clave vencida o sin saldo suele responder 401/403. En ese caso no
+			// propagamos el bloqueo del proxy: conservamos la respuesta directa.
+			return proxyResponse.ok ? proxyResponse : null;
+		} catch (error) {
+			console.warn('ScraperAPI fetch failed; using the direct site response:', error);
+			return null;
 		}
-	}
+	};
 
 	let current = new URL(rawUrl);
 	for (let redirects = 0; redirects < 4; redirects += 1) {
 		await assertPublicUrl(current);
-		const response = await fetch(current, {
-			...init,
-			redirect: 'manual',
-			signal: AbortSignal.timeout(timeoutMs),
-			headers: {
-				'user-agent': 'CreattiaCatalogBot/1.0 (+https://creattia.app)',
-				accept: 'text/html,application/json,image/avif,image/webp,image/png,image/jpeg;q=0.9,*/*;q=0.5',
-				...(init.headers || {}),
-			},
-		});
+		let response = await fetchDirect(current);
+		// Algunos e-commerce bloquean el primer request del servidor por el
+		// user-agent o la falta de referer. Reintentamos una vez como navegador
+		// antes de devolver el 403 al flujo de generación.
+		if (response.status === 403) {
+			try {
+				response = await fetchDirect(current, `${current.origin}/`);
+			} catch (retryError) {
+				console.warn('Browser-like external fetch retry failed:', retryError);
+			}
+			if (response.status === 403 && !current.hostname.startsWith('localhost')) {
+				try {
+					const alternate = new URL(current.toString());
+					alternate.hostname = alternate.hostname.startsWith('www.') ? alternate.hostname.slice(4) : `www.${alternate.hostname}`;
+					await assertPublicUrl(alternate);
+					const alternateResponse = await fetchDirect(alternate, `${alternate.origin}/`);
+					if (alternateResponse.ok) response = alternateResponse;
+				} catch (alternateError) {
+					console.warn('Alternate host fetch failed:', alternateError);
+				}
+			}
+			if (response.status === 403) {
+				const proxyResponse = await fetchThroughScraper(current);
+				if (proxyResponse) response = proxyResponse;
+			}
+		}
 		if (response.status < 300 || response.status >= 400) return response;
 		const location = response.headers.get('location');
 		if (!location) return response;

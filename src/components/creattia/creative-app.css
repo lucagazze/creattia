@@ -4118,6 +4118,31 @@
 	cursor: pointer;
 }
 
+/* Confirmaciones propias de Creattia: evita los alerts nativos del navegador. */
+.studio-confirm-overlay { position: fixed; inset: 0; z-index: 5000; display: grid; place-items: center; padding: 20px; background: rgba(25, 20, 34, .48); backdrop-filter: blur(10px); animation: studio-confirm-fade .18s ease both; }
+.studio-confirm-modal { width: min(440px, calc(100vw - 32px)); box-sizing: border-box; padding: 26px; border: 1px solid rgba(255,255,255,.7); border-radius: 20px; background: #fff; box-shadow: 0 24px 80px rgba(36, 22, 60, .24); animation: studio-confirm-rise .2s ease both; }
+.studio-confirm-icon { width: 42px; height: 42px; display: grid; place-items: center; margin-bottom: 16px; border-radius: 13px; background: #f0e9ff; color: #744bde; font-size: 24px; font-weight: 900; }
+.studio-confirm-icon.muted { background: #f3eff5; color: #716d79; }
+.studio-confirm-kicker { margin: 0 0 7px; color: #744bde; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
+.studio-confirm-modal h2 { margin: 0; color: #19171d; font-size: 22px; letter-spacing: -.03em; }
+.studio-confirm-modal > p:not(.studio-confirm-kicker) { margin: 11px 0 22px; color: #716d79; font-size: 13px; line-height: 1.55; }
+.studio-confirm-actions { display: flex; justify-content: flex-end; gap: 9px; flex-wrap: wrap; }
+.studio-confirm-actions button { min-height: 40px; padding: 0 15px; border-radius: 10px; font: 800 12.5px/1 'Satoshi', 'Inter Variable', Inter, sans-serif; cursor: pointer; }
+.studio-confirm-secondary { border: 1px solid #e0d9e8; background: #fff; color: #716d79; }
+.studio-confirm-primary { border: 0; background: linear-gradient(110deg, #744bde, #ec4492 65%, #f05427); color: #fff; box-shadow: 0 8px 20px rgba(116,75,222,.2); }
+.studio-confirm-danger { border: 0; background: #c7445a; color: #fff; }
+@keyframes studio-confirm-fade { from { opacity: 0; } }
+@keyframes studio-confirm-rise { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+
+.credit-checkout-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 320px); gap: 16px; align-items: stretch; margin-bottom: 14px; }
+
+@media (max-width: 600px) {
+	.studio-confirm-modal { padding: 21px; border-radius: 17px; }
+	.studio-confirm-actions { display: grid; grid-template-columns: 1fr; }
+	.studio-confirm-actions button { width: 100%; }
+	.credit-checkout-grid { grid-template-columns: 1fr; }
+}
+
 /* Formato e idioma del lote por URL: listas desplegables.
    Antes eran filas de botones y con 6 idiomas se desbordaban una sobre la otra. */
 .batch-select-row {
@@ -5183,8 +5208,8 @@
    tres orígenes quedan siempre en una fila; en pantallas angostas vuelven a
    flex-wrap para que ningún botón se aplaste ni desborde. */
 .creation-style-source-groups { gap: 18px; }
-.creation-style-source-groups .batch-style-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.creation-style-source-groups .batch-style-options button { width: 100%; min-width: 0; padding-inline: 8px; overflow: hidden; text-overflow: ellipsis; }
+.creation-style-source-groups .batch-style-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.creation-style-source-groups .batch-style-options button { min-width: 0; flex: 1 1 0; padding-inline: 8px; overflow: hidden; text-overflow: ellipsis; }
 
 @media (max-width: 980px) {
 	.batch-format-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -5200,7 +5225,7 @@
 
 @media (max-width: 900px) {
 	.creation-style-source-groups .batch-style-options { display: flex; flex-wrap: wrap; }
-	.creation-style-source-groups .batch-style-options button { width: auto; flex: 1 1 auto; }
+	.creation-style-source-groups .batch-style-options button { width: auto; flex: 1 1 130px; white-space: normal; }
 }
 
 @media (max-width: 390px) {

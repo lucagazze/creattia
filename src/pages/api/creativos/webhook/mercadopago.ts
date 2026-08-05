@@ -69,7 +69,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 		if (!match || payment.status !== 'approved') return json({ received: true });
 		const [, userId, creditsRaw] = match;
 		const credits = Number(creditsRaw);
-		if (!Number.isInteger(credits) || credits < 1 || credits > 100) return json({ received: true });
+		if (!Number.isInteger(credits) || credits < 1 || credits > 1000) return json({ received: true });
 
 		const admin = getAdminClient();
 		if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
@@ -86,7 +86,12 @@ export const POST: APIRoute = async ({ request, url }) => {
 			return json({ error: purchaseError.message }, 500);
 		}
 		const { error: creditError } = await admin.rpc('add_purchased_credits', { p_user_id: userId, p_amount: credits });
-		if (creditError) return json({ error: creditError.message }, 500);
+		if (creditError) {
+			// Permitimos que Mercado Pago reintente el webhook si la acreditación
+			// falló después de registrar el pago.
+			await admin.from('creative_credit_purchases').delete().eq('payment_id', String(payment.id));
+			return json({ error: creditError.message }, 500);
+		}
 		return json({ received: true, credited: credits });
 	}
 
