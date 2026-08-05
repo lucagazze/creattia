@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { loadWinners } from '../../../lib/creattia/winner-picker';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
+import { countProductImages } from '../../../lib/creattia/product-media';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -72,9 +73,7 @@ export const POST: APIRoute = async ({ request }) => {
 			if (!found) return json({ error: 'El producto no existe o no pertenece a tu cuenta.' }, 404);
 			product = found;
 
-			const { count: photoCount } = await admin.from('creative_product_images')
-				.select('id', { count: 'exact', head: true }).eq('product_id', productId).eq('user_id', userId)
-				.eq('media_type', 'image');
+			const photoCount = await countProductImages(admin, userId, productId);
 			if (!photoCount && !product.image_path && !allowNoProductImage) {
 				return json({ error: 'El producto no tiene ninguna foto real guardada. Subí una foto y volvé a intentar.', code: 'NO_PRODUCT_PHOTO' }, 422);
 			}

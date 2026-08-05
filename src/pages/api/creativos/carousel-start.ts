@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
+import { listProductImageRows } from '../../../lib/creattia/product-media';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -75,9 +76,8 @@ export const POST: APIRoute = async ({ request }) => {
 		if (byId.size !== uniqueProductIds.length) {
 			return json({ error: 'Alguno de los productos no existe o no pertenece a tu cuenta.' }, 404);
 		}
-		const { data: imageRows } = await admin.from('creative_product_images')
-			.select('product_id').eq('user_id', userId).in('product_id', uniqueProductIds).eq('media_type', 'image');
-		const hasPhotoById = new Set((imageRows || []).map((r) => r.product_id));
+		const imageRows = await listProductImageRows(admin, userId, uniqueProductIds);
+		const hasPhotoById = new Set(imageRows.map((r) => r.product_id));
 		for (const id of uniqueProductIds) {
 			const product = byId.get(id);
 			if (!product?.image_path && !hasPhotoById.has(id)) {

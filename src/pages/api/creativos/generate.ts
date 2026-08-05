@@ -6,6 +6,7 @@ import { generateAdImage } from '../../../lib/creattia/image-engines';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad-copy';
+import { listProductImageRows } from '../../../lib/creattia/product-media';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -282,11 +283,8 @@ export const POST: APIRoute = async ({ request }) => {
 			if ((data || []).length !== productIds.length) return json({ error: 'Uno de los productos ya no existe o no pertenece a tu cuenta.' }, 400);
 			const byId = new Map((data || []).map((item) => [item.id, item]));
 			storedProducts = productIds.map((id) => byId.get(id));
-			const { data: productImageRows, error: productImageError } = await admin.from('creative_product_images')
-				.select('product_id,storage_path,sort_order').eq('user_id', auth.user.id).in('product_id', productIds)
-				.eq('media_type', 'image').order('sort_order');
-			if (productImageError) throw productImageError;
-			for (const row of productImageRows || []) {
+			const productImageRows = await listProductImageRows(admin, auth.user.id, productIds);
+			for (const row of productImageRows) {
 				const current = productImagesById.get(row.product_id) || [];
 				current.push(row); productImagesById.set(row.product_id, current);
 			}

@@ -76,7 +76,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	// Cómo cargar el producto: por URL(s), a mano (con archivos), o sin producto.
 	const [productMode, setProductMode] = useState<'url' | 'manual'>('url');
 	const [urls, setUrls] = useState<string[]>(['']);
-	const [scannedProductIds, setScannedProductIds] = useState<string[]>([]);
+	const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 	const [importedProducts, setImportedProducts] = useState<ProductReviewItem[]>([]);
 	const [uploadFiles, setUploadFiles] = useState<File[]>([]);
 	const [uploadPreviews, setUploadPreviews] = useState<string[]>([]);
@@ -160,11 +160,16 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				else if (list.length === 1) throw new Error(payload.errors?.[0]?.error || payload.error || 'No pudimos analizar esa URL.');
 			}
 			if (!ids.length) throw new Error('No pudimos analizar ninguna de las URLs.');
+			const uniqueIds = [...new Set(ids)];
 			setImportedProducts([...productsById.values()]);
-			return [...new Set(ids)];
+			// Por defecto usamos todos los productos que el usuario pidió
+			// explícitamente; después puede dejar solo uno desde el carrusel.
+			setSelectedProductIds(uniqueIds);
+			return uniqueIds;
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo escanear la URL.');
 			setImportedProducts([]);
+			setSelectedProductIds([]);
 			return [];
 		}
 	}
@@ -208,7 +213,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				if (!list.length) { setError('Pegá al menos una URL.'); setPhase('setup'); return; }
 				productIds = await scanUrls(list);
 				if (!productIds.length) { setPhase('setup'); return; }
-				setScannedProductIds(productIds);
 			}
 			const form = new FormData();
 			form.set('referencePath', effectiveReferencePath);
@@ -242,6 +246,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		setPhase('starting'); setError('');
 		onGenerationRequested?.();
 		try {
+			if (productMode === 'url' && selectedProductIds.length === 0) {
+				throw new Error('Elegí al menos un producto para generar la imagen.');
+			}
 			const pathPrefixId = parseInt(ad.imagePath.split('/')[0], 10);
 			const form = new FormData();
 			form.set('templateId', String(!isNaN(pathPrefixId) ? pathPrefixId : 40));
@@ -257,8 +264,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
 			form.set('includeLogo', includeLogo ? '1' : '0');
-			if (productMode === 'url' && scannedProductIds.length) {
-				scannedProductIds.forEach((id) => form.append('productIds', id));
+			if (productMode === 'url' && selectedProductIds.length) {
+				selectedProductIds.forEach((id) => form.append('productIds', id));
 			} else if (productMode === 'manual') {
 				if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
 				form.set('productName', manualProductName.trim());
@@ -683,20 +690,20 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									</div>
 								)}
 
-								<div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
-									<div className="batch-style-group" style={{ flex: '0 1 300px', maxWidth: '340px' }}>
+								<div className="batch-style-groups creation-style-source-groups">
+									<div className="batch-style-group">
 										<span className="picker-label">Colores</span>
 										<div className="batch-style-options">
-													{STYLE_OPTIONS.map((option) => (
-														<button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value as 'winner' | 'url' | 'brand')} aria-pressed={colorMode === option.value}>{option.label}</button>
+											{STYLE_OPTIONS.map((option) => (
+												<button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value as 'winner' | 'url' | 'brand')} aria-pressed={colorMode === option.value}>{option.label}</button>
 											))}
 										</div>
 									</div>
-									<div className="batch-style-group" style={{ flex: '0 1 300px', maxWidth: '340px' }}>
+									<div className="batch-style-group">
 										<span className="picker-label">Tipografía</span>
 										<div className="batch-style-options">
-													{STYLE_OPTIONS.map((option) => (
-														<button key={option.value} type="button" className={typoMode === option.value ? 'active' : ''} onClick={() => setTypoMode(option.value as 'winner' | 'url' | 'brand')} aria-pressed={typoMode === option.value}>{option.label}</button>
+											{STYLE_OPTIONS.map((option) => (
+												<button key={option.value} type="button" className={typoMode === option.value ? 'active' : ''} onClick={() => setTypoMode(option.value as 'winner' | 'url' | 'brand')} aria-pressed={typoMode === option.value}>{option.label}</button>
 											))}
 										</div>
 									</div>
@@ -760,7 +767,13 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					</>}
 
 					{(phase === 'review' || phase === 'starting') && plan && <>
-						{productMode === 'url' && importedProducts.length > 0 && <ProductAssetReview products={importedProducts} />}
+						{productMode === 'url' && importedProducts.length > 0 && (
+							<ProductAssetReview
+								products={importedProducts}
+								selectedProductIds={selectedProductIds}
+								onToggleProduct={(productId) => setSelectedProductIds((current) => current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId])}
+							/>
+						)}
 						{plan.templateHasLogoSlot && includeLogo && (
 							<div style={{
 								display: 'flex',

@@ -11,6 +11,7 @@ import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { stripWebReferences } from '../../../lib/creattia/ad-copy';
+import { listProductImageRows } from '../../../lib/creattia/product-media';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -95,9 +96,7 @@ export const POST: APIRoute = async ({ request }) => {
 			productRecord = product;
 			const paths: string[] = [];
 			if (product?.image_path) paths.push(product.image_path);
-			const { data: extraImages } = await admin.from('creative_product_images')
-				.select('storage_path,sort_order').eq('product_id', productId).eq('user_id', userId)
-				.eq('media_type', 'image').order('sort_order');
+			const extraImages = await listProductImageRows(admin, userId, [productId]);
 			for (const item of extraImages || []) {
 				if (item.storage_path) paths.push(item.storage_path);
 			}

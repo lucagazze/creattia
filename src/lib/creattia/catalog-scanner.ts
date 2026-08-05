@@ -483,13 +483,28 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 		1000,
 	);
 
-	// 3. Collect product images (OG first, then DOM images in product sections)
+	// 3. Collect product images. Structured data and an explicit product gallery
+	// are trusted first; broad page selectors are deliberately filtered so
+	// recommendation cards do not become part of the main product gallery.
 	const productImages: string[] = [];
+	const galleryImages: string[] = [];
 	const addImage = (src: unknown) => {
 		const abs = absoluteUrl(src, base);
 		if (abs && !productImages.includes(abs) && !/\/(icon|logo|sprite|avatar|favicon|pixel|tracking)/i.test(abs)) {
 			productImages.push(abs);
 		}
+	};
+	const relatedContainer = /(related|recommend|upsell|cross[-_ ]?sell|similar|you[-_ ]?may|also[-_ ]?bought|collection|product[-_ ]?(grid|card|recommendation))/i;
+	const isLikelyRelatedImage = (element: any) => $(element).parents().addBack().toArray().some((node: any) => {
+		const id = node?.attribs?.id || '';
+		const className = node?.attribs?.class || '';
+		return relatedContainer.test(`${id} ${className}`);
+	});
+	const addGalleryImage = (element: any) => {
+		if (isLikelyRelatedImage(element)) return;
+		const src = $(element).attr('src') || $(element).attr('data-src') || $(element).attr('data-lazy-src') || $(element).attr('data-original');
+		const abs = absoluteUrl(src, base);
+		if (abs && !galleryImages.includes(abs) && looksLikeProductPhoto(abs)) galleryImages.push(upgradeImageSize(abs));
 	};
 	addImage($('meta[property="og:image"]').attr('content'));
 	addImage($('meta[name="twitter:image"]').attr('content'));
@@ -509,18 +524,25 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 			walk(data);
 		} catch { /* malformed */ }
 	});
-	// DOM images in likely product containers
-	$('main img, [class*="product"] img, [class*="gallery"] img, [class*="swiper"] img, [class*="slider"] img, [id*="product"] img').each((_i, el) => {
-		addImage($(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy-src') || $(el).attr('data-original'));
+	// Explicit gallery/media selectors are much more reliable than every image
+	// inside <main>, which often also contains “productos relacionados”.
+	('[data-product-media] img, [data-gallery] img, [class*="product-gallery"] img, [class*="product__media"] img, [class*="product-media"] img, [class*="product-detail"] img, main [class*="gallery"] img, main [class*="swiper"] img, main [class*="slider"] img, [id*="product-gallery"] img').split(',').forEach((selector) => {
+		$(selector.trim()).each((_i, el) => addGalleryImage(el));
 	});
-	// Deduplicate and limit
+	// Fallback for shops without named gallery containers: still exclude the
+	// recommendation/card regions before accepting page images.
+	if (galleryImages.length < 2) {
+		$('main img, [class*="product"] img, [class*="gallery"] img, [class*="swiper"] img, [class*="slider"] img, [id*="product"] img').each((_i, el) => addGalleryImage(el));
+	}
+	// Deduplicate and limit to a compact, useful gallery.
 	// Último recurso: las tiendas SPA (Next/Nuxt) no publican las fotos en el HTML
 	// sino dentro del JSON que hidrata la página. Sin esto, en Frávega no se
 	// encontraba ninguna foto y la generación se cortaba antes de empezar.
 	const finalImages = [...new Set([
 		...productImages,
-		...(productImages.length ? [] : imagesFromEmbeddedJson(html, base)),
-	])].slice(0, 24);
+		...galleryImages,
+		...(productImages.length || galleryImages.length ? [] : imagesFromEmbeddedJson(html, base, 6)),
+	])].slice(0, 6);
 
 	// Videos suelen vivir como <video><source>, en reproductores embebidos o en
 	// JSON de hidrataciÃ³n. No se mandan al modelo como referencia visual, pero sÃ­

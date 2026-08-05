@@ -6,6 +6,7 @@ import { analyzeBrandStyle } from '../../../lib/creattia/brand-style';
 import { mirrorProductImages, mirrorProductVideos } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { countProductImages, upsertProductMediaRows } from '../../../lib/creattia/product-media';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -188,14 +189,14 @@ export const POST: APIRoute = async ({ request }) => {
 								.upload(path, Buffer.from(await file.arrayBuffer()), { contentType: file.type, upsert: true });
 							if (uploadErr) continue;
 							productPhotoCount += 1;
-							await admin.from('creative_product_images').upsert({
+							await upsertProductMediaRows(admin, [{
 								user_id: userId,
 								product_id: storedProductId,
 								storage_path: path,
 								sort_order: 50 + index,
 								is_primary: false,
 								media_type: 'image',
-							}, { onConflict: 'product_id,storage_path' });
+							}], 'image');
 						} catch (extraErr) {
 							console.error('Error subiendo foto extra:', extraErr);
 						}
@@ -209,10 +210,9 @@ export const POST: APIRoute = async ({ request }) => {
 		// En modo manual las imágenes son opcionales. Si no hay una, el worker usa
 		// el nombre, descripción y la referencia ganadora sin inventar una foto.
 		if (mode === 'url' && (!storedProductId || productPhotoCount === 0)) {
-			const { count: existingPhotos } = storedProductId
-				? await admin.from('creative_product_images').select('id', { count: 'exact', head: true })
-					.eq('product_id', storedProductId).eq('user_id', userId).eq('media_type', 'image')
-				: { count: 0 };
+			const existingPhotos = storedProductId
+				? await countProductImages(admin, userId, storedProductId)
+				: 0;
 			if (!existingPhotos) {
 				return json({
 					error: 'No pudimos obtener ninguna foto del producto desde esa URL. Subí al menos una foto real para continuar.',

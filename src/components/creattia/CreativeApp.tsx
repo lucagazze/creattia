@@ -2595,7 +2595,11 @@ function ProductIntake({ session, products, onProductsChanged, onCreated, compac
 					uploadedPaths.push(path);
 					imageRows.push({ user_id: getSessionId(session), product_id: createdId, storage_path: path, sort_order: index, is_primary: index === 0, media_type: 'image' });
 				}
-				const { error: imageError } = await supabase.from('creative_product_images').insert(imageRows);
+				let { error: imageError } = await supabase.from('creative_product_images').insert(imageRows);
+				if (imageError && /media_type|schema cache|column .*does not exist/i.test(imageError.message || '')) {
+					const legacyRows = imageRows.map(({ media_type: _mediaType, ...row }) => row);
+					({ error: imageError } = await supabase.from('creative_product_images').insert(legacyRows));
+				}
 				if (imageError) throw imageError;
 				const { error: updateError } = await supabase.from('creative_products').update({ image_path: uploadedPaths[0], updated_at: new Date().toISOString() }).eq('id', createdId).eq('user_id', getSessionId(session));
 				if (updateError) throw updateError;

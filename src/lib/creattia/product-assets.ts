@@ -1,5 +1,6 @@
 import { readLimited, safeExternalFetch } from './safe-fetch';
 import { getAdminClient } from './server';
+import { upsertProductMediaRows } from './product-media';
 
 const imageTypes: Record<string, string> = {
 	'image/png': 'png',
@@ -63,7 +64,7 @@ export async function mirrorProductImages(userId: string, product: {
 		source_image_url: mirrored[0].sourceUrl,
 		updated_at: new Date().toISOString(),
 	}).eq('id', product.id).eq('user_id', userId);
-	await admin.from('creative_product_images').upsert(mirrored.map((item, position) => ({
+	await upsertProductMediaRows(admin, mirrored.map((item, position) => ({
 			user_id: userId,
 			product_id: product.id,
 			storage_path: item.path,
@@ -71,7 +72,7 @@ export async function mirrorProductImages(userId: string, product: {
 			sort_order: position,
 			is_primary: position === 0,
 			media_type: 'image',
-		})), { onConflict: 'product_id,storage_path' });
+		})), 'image');
 
 	return mirrored.map((item) => item.path);
 }
@@ -113,7 +114,7 @@ export async function mirrorProductVideos(userId: string, product: { id: string 
 	}
 	if (!mirrored.length) return [];
 
-	await admin.from('creative_product_images').upsert(mirrored.map((item, position) => ({
+	await upsertProductMediaRows(admin, mirrored.map((item, position) => ({
 		user_id: userId,
 		product_id: product.id,
 		storage_path: item.path,
@@ -122,7 +123,7 @@ export async function mirrorProductVideos(userId: string, product: { id: string 
 		is_primary: false,
 		media_type: 'video',
 		metadata: { mediaType: 'video', contentType: item.contentType },
-	})), { onConflict: 'product_id,storage_path' });
+	})), 'video');
 
 	return mirrored.map((item) => item.path);
 }

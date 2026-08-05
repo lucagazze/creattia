@@ -5,6 +5,7 @@ import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/crea
 import { mirrorProductImages, mirrorProductVideos } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
+import { countProductImages, listProductImageRows, upsertProductMediaRows } from '../../../lib/creattia/product-media';
 
 export const prerender = false;
 export const maxDuration = 180;
@@ -79,8 +80,12 @@ async function listProducts(userId: string) {
 		if (product.image_path && !seenPaths.has(product.image_path)) {
 			addMedia({ path: product.image_path, url: signedByPath.get(product.image_path) || product.source_image_url || '', type: 'image', sourceUrl: product.source_image_url || undefined });
 		}
-		const sourceImageUrls = Array.isArray(metadata.sourceImageUrls) ? metadata.sourceImageUrls : [];
-		sourceImageUrls.forEach((url: unknown) => addMedia({ url: String(url || ''), type: 'image', sourceUrl: String(url || '') }));
+		// Mirrored rows are the curated gallery. The old metadata fallback could
+		// expose every image found on the page, including related products.
+		if (!rows.some((row) => row.media_type !== 'video' && row.metadata?.mediaType !== 'video')) {
+			const sourceImageUrls = Array.isArray(metadata.sourceImageUrls) ? metadata.sourceImageUrls.slice(0, 6) : [];
+			sourceImageUrls.forEach((url: unknown) => addMedia({ url: String(url || ''), type: 'image', sourceUrl: String(url || '') }));
+		}
 		const sourceVideoUrls = Array.isArray(metadata.sourceVideoUrls) ? metadata.sourceVideoUrls : [];
 		sourceVideoUrls.forEach((url: unknown) => addMedia({ url: String(url || ''), type: 'video', sourceUrl: String(url || '') }));
 		const images = media.filter((item) => item.type === 'image');
@@ -269,9 +274,7 @@ export const POST: APIRoute = async ({ request }) => {
 			if (!owned) return json({ error: 'El producto no existe.' }, 404);
 			const files = form.getAll('image').filter((file): file is File => file instanceof File && file.size > 0).slice(0, 6);
 			if (!files.length) return json({ error: 'Subi al menos una foto.' }, 400);
-			const { count } = await admin.from('creative_product_images').select('storage_path', { count: 'exact', head: true })
-				.eq('product_id', existingProductId).eq('user_id', auth.user.id).eq('media_type', 'image');
-			let sortOrder = count || 0;
+			let sortOrder = await countProductImages(admin, auth.user.id, existingProductId);
 			let firstPath = '';
 			for (const file of files) {
 				if (!mimeExtensions[file.type]) return json({ error: 'Usa imagenes PNG, JPG, WebP o AVIF.' }, 415);
@@ -280,10 +283,9 @@ export const POST: APIRoute = async ({ request }) => {
 				if (!firstPath) firstPath = path;
 				const { error: uploadError } = await admin.storage.from('creative-assets').upload(path, new Uint8Array(await file.arrayBuffer()), { contentType: file.type, upsert: true });
 				if (uploadError) throw uploadError;
-				const { error: rowError } = await admin.from('creative_product_images').upsert({
+				await upsertProductMediaRows(admin, [{
 					user_id: auth.user.id, product_id: existingProductId, storage_path: path, sort_order: sortOrder, is_primary: false, media_type: 'image',
-				}, { onConflict: 'product_id,storage_path' });
-				if (rowError) throw rowError;
+				}], 'image');
 				sortOrder += 1;
 			}
 			if (!owned.image_path && firstPath) {
@@ -322,20 +324,18 @@ export const POST: APIRoute = async ({ request }) => {
 		uploadedPaths = [path];
 		const { error: updateError } = await admin.from('creative_products').update({ image_path: path, updated_at: new Date().toISOString() }).eq('id', product.id).eq('user_id', auth.user.id);
 		if (updateError) throw updateError;
-		const { error: imageError } = await admin.from('creative_product_images').upsert({
+		await upsertProductMediaRows(admin, [{
 			user_id: auth.user.id, product_id: product.id, storage_path: path, sort_order: 0, is_primary: true, media_type: 'image',
-		}, { onConflict: 'product_id,storage_path' });
-		if (imageError) throw imageError;
+		}], 'image');
 		for (let index = 1; index < images.length; index += 1) {
 			const extra = images[index];
 			const extraPath = `${auth.user.id}/products/${product.id}/extra-${index}.${mimeExtensions[extra.type]}`;
 			const { error: extraUploadError } = await admin.storage.from('creative-assets').upload(extraPath, new Uint8Array(await extra.arrayBuffer()), { contentType: extra.type, upsert: true });
 			if (extraUploadError) throw extraUploadError;
 			uploadedPaths.push(extraPath);
-			const { error: extraImageError } = await admin.from('creative_product_images').upsert({
+			await upsertProductMediaRows(admin, [{
 				user_id: auth.user.id, product_id: product.id, storage_path: extraPath, sort_order: index, is_primary: false, media_type: 'image',
-			}, { onConflict: 'product_id,storage_path' });
-			if (extraImageError) throw extraImageError;
+			}], 'image');
 		}
 		const { data: signed } = await admin.storage.from('creative-assets').createSignedUrl(path, 60 * 60);
 		return json({ product: { id: product.id, name, description, price_text: priceText, product_url: productUrl, image_path: path, source: 'manual', imageUrl: signed?.signedUrl || '' } }, 201);
@@ -364,9 +364,7 @@ export const DELETE: APIRoute = async ({ request }) => {
 		const { data: productRow } = await admin.from('creative_products').select('image_path')
 			.eq('id', imageProductId).eq('user_id', auth.user.id).maybeSingle();
 		if (productRow?.image_path === imagePath) {
-			const { data: nextImage } = await admin.from('creative_product_images').select('storage_path')
-				.eq('product_id', imageProductId).eq('user_id', auth.user.id).eq('media_type', 'image')
-				.order('sort_order').limit(1).maybeSingle();
+			const nextImage = (await listProductImageRows(admin, auth.user.id, [imageProductId]))[0];
 			await admin.from('creative_products').update({ image_path: nextImage?.storage_path || null, updated_at: new Date().toISOString() })
 				.eq('id', imageProductId).eq('user_id', auth.user.id);
 		}
