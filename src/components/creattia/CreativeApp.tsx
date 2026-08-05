@@ -1721,14 +1721,14 @@ export default function CreativeApp() {
 }
 
 function authRedirectUrl() {
-	// Mantener el mismo host desde el que inició sesión evita enviar al usuario
-	// a un dominio alternativo que no tenga la ruta de la aplicación autorizada.
-	return new URL('/app/', window.location.origin).toString();
+	// Volvemos siempre por una ruta propia que conserva el hash de Supabase y
+	// luego nos lleva a la app. Mantener el host actual también evita mezclar
+	// www.creattia.app con creattia.app en el allowlist de OAuth.
+	return new URL('/auth/callback/', window.location.origin).toString();
 }
 
 function AuthScreen({ onSession }: { onSession: (session: AppSession) => void }) {
-	const [mode, setMode] = useState<'signup' | 'login'>('signup');
-	const [authStep, setAuthStep] = useState<'email' | 'credentials'>('email');
+	const [mode, setMode] = useState<'signup' | 'login'>('login');
 	const [fullName, setFullName] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
@@ -1738,11 +1738,6 @@ function AuthScreen({ onSession }: { onSession: (session: AppSession) => void })
 
 	async function submit(event: FormEvent) {
 		event.preventDefault();
-		if (authStep === 'email') {
-			setError(''); setNotice('');
-			setAuthStep('credentials');
-			return;
-		}
 		setError(''); setNotice(''); setLoading(true);
 		try {
 			if (isSupabaseConfigured && supabase) {
@@ -1778,7 +1773,6 @@ function AuthScreen({ onSession }: { onSession: (session: AppSession) => void })
 
 	function changeMode(nextMode: 'signup' | 'login') {
 		setMode(nextMode);
-		setAuthStep('email');
 		setPassword('');
 		setError('');
 		setNotice('');
@@ -1810,18 +1804,21 @@ function AuthScreen({ onSession }: { onSession: (session: AppSession) => void })
 				<div className="studio-auth-card">
 					<div className="studio-auth-heading">
 						{!isSupabaseConfigured && <span className="studio-demo-label"><i/> Modo demo local</span>}
-						<h2>{authStep === 'email' ? (mode === 'signup' ? 'Creá imágenes que venden en minutos' : 'Volvé a tu espacio creativo') : (mode === 'signup' ? 'Creá tu cuenta gratis' : 'Ingresá tu contraseña')}</h2>
-						<p>{authStep === 'email' ? (mode === 'signup' ? 'Tus primeras 3 imágenes son gratis. Sin tarjeta.' : 'Ingresá para seguir creando con tu marca.') : <><strong>{email}</strong> · <button type="button" onClick={() => setAuthStep('email')}>Cambiar email</button></>}</p>
+						<h2>{mode === 'signup' ? 'Creá imágenes que venden en minutos' : 'Volvé a tu espacio creativo'}</h2>
+						<p>{mode === 'signup' ? 'Tus primeras 3 imágenes son gratis. Sin tarjeta.' : 'Ingresá para seguir creando con tu marca.'}</p>
 					</div>
-					{authStep === 'email' && <><button className="studio-google-button" type="button" onClick={signInWithGoogle} disabled={loading}><img src="/images/creattia/google-g.svg" alt=""/>Continuar con Google</button><div className="studio-auth-divider"><span>o</span></div></>}
 					<form onSubmit={submit}>
-						{authStep === 'email' ? <label>Correo electrónico<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vos@tumarca.com" autoComplete="email" autoFocus required /></label> : <>{mode === 'signup' && <label>Tu nombre<input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="¿Cómo te llamás?" autoComplete="name" autoFocus required /></label>}<label>Contraseña<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} autoFocus={mode === 'login'} required /></label></>}
+						{mode === 'signup' && <label>Tu nombre<input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="¿Cómo te llamás?" autoComplete="name" autoFocus required /></label>}
+						<label>Correo electrónico<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vos@tumarca.com" autoComplete="email" autoFocus={mode === 'login'} required /></label>
+						<label>Contraseña<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required /></label>
 						{error && <p className="studio-form-error">{error}</p>}
 						{notice && <p className="studio-form-notice">{notice}</p>}
-						<button className="studio-primary-button" disabled={loading || (authStep === 'email' && !email.trim())}>{loading ? <span className="studio-spinner small"/> : <>{authStep === 'email' ? 'Continuar' : mode === 'signup' ? 'Crear cuenta gratis' : 'Ingresar'}<Icon name="arrow" size={18}/></>}</button>
+						<button className="studio-primary-button" disabled={loading || !email.trim() || !password}>{loading ? <span className="studio-spinner small"/> : <>{mode === 'signup' ? 'Crear cuenta gratis' : 'Ingresar'}<Icon name="arrow" size={18}/></>}</button>
 					</form>
+					<div className="studio-auth-divider"><span>o</span></div>
+					<button className="studio-google-button" type="button" onClick={signInWithGoogle} disabled={loading}><img src="/images/creattia/google-g.svg" alt=""/>Continuar con Google</button>
 					{!isSupabaseConfigured && <button className="studio-demo-entry" onClick={enterDemo}>Entrar directo con la cuenta demo</button>}
-					<small className="studio-terms">Al continuar aceptás los <a href="/legal/terminos/">términos</a> y la <a href="/legal/privacidad/">política de privacidad</a>.</small>
+					<small className="studio-terms">Al continuar aceptás los <a href="/terminos/">términos</a> y la <a href="/privacidad/">política de privacidad</a>.</small>
 				</div>
 				<p className="studio-auth-switch">{mode === 'signup' ? '¿Ya tenés una cuenta?' : '¿Todavía no tenés cuenta?'} <button onClick={() => changeMode(mode === 'signup' ? 'login' : 'signup')}>{mode === 'signup' ? 'Ingresar' : 'Crear cuenta gratis'}</button></p>
 			</section>

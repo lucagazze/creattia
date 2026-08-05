@@ -73,11 +73,11 @@ const landingFreeLibraryImages = [
 	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}23/ec1000c7e99f98bf.jpg`, label: 'Nosotros vs Ellos' },
 	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}7/c621e734bc3f2b0d.jpg`, label: 'Testimonios' },
 	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}13/8d769523a157558c.jpg`, label: 'Promociones y descuentos' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}30/5ae18f7a117144e3.jpg`, label: 'Razones por qué' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/1d58518c1d718dd4.webp`, label: 'Producto / presentación' },
 	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}41/fee532dba2b04af0.jpg`, label: 'Características y beneficios' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}6/ccc3b55b994178f1.png`, label: 'Antes y después' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/9c8d4a8001b24d29.webp`, label: 'Características y beneficios' },
 	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}10/383bfa16d248c64d.png`, label: 'Noticias' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}31/cb9f7322f9c919c5.jpg`, label: 'Datos y estadísticas' },
+	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/6115528cf8820436.webp`, label: 'Producto / presentación' },
 	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}19/4e9aee92bbc8b5db.jpg`, label: 'Vacaciones / Estacional' },
 ];
 const landingShowcase = landingFreeLibraryImages;
@@ -1004,9 +1004,18 @@ const faqs = [
 		const goTo = (requestedIndex: number) => {
 			if (!originalCount) return;
 			let targetIndex = requestedIndex;
-			if (targetIndex < originalCount) targetIndex += originalCount;
+			let behavior: ScrollBehavior = 'smooth';
+			// Hay tres copias consecutivas: al cruzar un extremo saltamos al
+			// mismo elemento de la copia central sin que el usuario lo perciba.
+			if (targetIndex < 0) {
+				targetIndex = originalCount * 2 - 1;
+				behavior = 'auto';
+			} else if (targetIndex >= showcaseCards.length) {
+				targetIndex = originalCount;
+				behavior = 'auto';
+			}
 			currentIndex = clampIndex(targetIndex);
-			showcaseTrack.scrollTo({ left: leftForIndex(currentIndex), behavior: 'smooth' });
+			showcaseTrack.scrollTo({ left: leftForIndex(currentIndex), behavior });
 			scheduleLoopNormalization();
 		};
 		const scrollNext = () => goTo(currentIndex + 1);
@@ -2063,6 +2072,7 @@ const faqs = [
 	.all-in-one-section {
 		padding: 100px 20px;
 		background: #FFF;
+		overflow-x: clip;
 	}
 
 	/* ==========================================
@@ -2075,12 +2085,13 @@ const faqs = [
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		overflow: visible;
+		overflow: clip;
+		isolation: isolate;
 		perspective: var(--carousel-perspective);
 		height: var(--carousel-height);
-		--carousel-card-w: 220px;
-		--carousel-card-h: 390px;
-		--carousel-radius: 420px;
+		--carousel-card-w: clamp(180px, 16vw, 220px);
+		--carousel-card-h: clamp(320px, 29vw, 390px);
+		--carousel-radius: min(30vw, 360px);
 		--carousel-perspective: 1240px;
 		--carousel-height: 520px;
 	}
@@ -2089,7 +2100,7 @@ const faqs = [
 		.cylinder-carousel-container {
 			--carousel-card-w: 140px;
 			--carousel-card-h: 250px;
-			--carousel-radius: 280px;
+			--carousel-radius: min(42vw, 240px);
 			--carousel-perspective: 1000px;
 			--carousel-height: 360px;
 		}
