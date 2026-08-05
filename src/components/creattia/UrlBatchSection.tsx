@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
 import { supabase } from '../../lib/creattia/supabase-browser';
+import ProductAssetReview, { type ProductReviewMedia } from './ProductAssetReview';
 
 // Cuántos anuncios se generan a la vez. Cada uno es una request independiente:
 // si una falla o se corta, las demás siguen y esa se puede reintentar sola.
@@ -142,7 +143,7 @@ type WinnerRef = {
 };
 
 type BatchPreview = {
-	product: { id: string; name: string; description?: string; priceText?: string; imageUrl?: string };
+	product: { id: string; name: string; description?: string; priceText?: string; imageUrl?: string; imageUrls?: string[]; videoUrls?: string[]; media?: ProductReviewMedia[]; productUrl?: string };
 	count: number;
 	wearable?: boolean;
 	hasImage?: boolean;
@@ -160,7 +161,7 @@ const FORMAT_CARDS = [
 ];
 
 export const BRAND_OPTIONS = [
-	{ value: 'url', label: 'Marca del producto', icon: 'link', hint: 'Usa la identidad detectada en el sitio del producto' },
+	{ value: 'url', label: 'Marca de la URL', icon: 'link', hint: 'Usa el nombre, logo y estilo detectados en la URL del producto' },
 	{ value: 'mine', label: 'Mi marca', icon: 'brand', hint: 'Usa la identidad guardada en Mi marca' },
 	{ value: 'none', label: 'Solo producto', icon: 'none', hint: 'Sin nombre, logo ni redes de marca' },
 ];
@@ -177,13 +178,14 @@ export const LANGUAGE_OPTIONS = [
 
 export const STYLE_OPTIONS = [
 	{ value: 'winner', label: 'Del anuncio ganador', emoji: '🏆', hint: 'Conserva lo que hizo funcionar al original' },
+	{ value: 'url', label: 'De la URL', emoji: '🔗', hint: 'Usa los colores y la tipografía detectados en la URL' },
 	{ value: 'brand', label: 'De mi marca', emoji: '🎨', hint: 'Usa los colores y la tipografía de tu marca' },
 ];
 
 export const brandSourceDescription = (source: string) => {
 	if (source === 'mine') return 'Usa nombre, logo, colores y estilo guardados en Mi marca.';
 	if (source === 'none') return 'No agrega nombre, logo ni redes: el foco queda únicamente en el producto.';
-	return 'Toma del sitio el nombre, logo, colores y estilo que encuentre.';
+	return 'Toma de la URL el nombre y la identidad que encuentre.';
 };
 
 export function BrandOptionIcon({ icon, size = 19 }: { icon: string; size?: number }) {
@@ -805,6 +807,10 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						</div>
 					</div>
 
+					{reviewStep === 1 && mode === 'url' && Boolean(preview.product?.media?.length) && (
+						<ProductAssetReview products={[preview.product]} />
+					)}
+
 					{reviewStep === 1 && (
 					<div className="ref-grid">
 						{selected.map((winner, index) => (
@@ -859,7 +865,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							<BatchSelect label="Idioma de los textos" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
 							<div className="batch-brand-block">
 								<span className="picker-label">¿De quién es el anuncio?</span>
-								<p className="batch-detail-help">Elegí de dónde tomar el nombre y la identidad visual. La URL solo se reemplaza si el anuncio ganador original ya tenía una.</p>
+								<p className="batch-detail-help">Elegí de dónde tomar el nombre y el logo. Los colores y la tipografía se eligen por separado.</p>
 								<div className="batch-brand-options">
 									{BRAND_OPTIONS.map((option) => (
 										<button key={option.value} type="button" className={`batch-brand-option ${brandSource === option.value ? 'active' : ''}`} onClick={() => setBrandSource(option.value)} aria-pressed={brandSource === option.value}>
@@ -875,7 +881,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 										<span className="picker-label">Logo en el anuncio</span>
 										<div className="batch-style-options">
 											<button type="button" className={!includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(false)} aria-pressed={!includeLogo}>Sin logo</button>
-											<button type="button" className={includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(true)} aria-pressed={includeLogo}>Con mi logo</button>
+										<button type="button" className={includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(true)} aria-pressed={includeLogo}>Con logo de {brandSource === 'mine' ? 'Mi marca' : 'la URL'}</button>
 										</div>
 										<small className="batch-brand-note">{includeLogo ? 'Lo agregamos en el espacio del diseño cuando el anuncio tenga lugar para él.' : 'El anuncio sale solo con tu producto, sin logo ni marca de agua.'}</small>
 									</div>

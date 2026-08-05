@@ -3,7 +3,7 @@ import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/crea
 import { loadWinners, pickWinnersForProduct, type Winner } from '../../../lib/creattia/winner-picker';
 import { isCompatible, screenWinners } from '../../../lib/creattia/winner-screening';
 import { analyzeBrandStyle } from '../../../lib/creattia/brand-style';
-import { mirrorProductImages } from '../../../lib/creattia/product-assets';
+import { mirrorProductImages, mirrorProductVideos } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 
@@ -91,6 +91,7 @@ export const POST: APIRoute = async ({ request }) => {
 				productUrl,
 				imageUrl: '',
 				imageUrls: [],
+				videoUrls: [],
 				metadata: { enteredManually: true },
 			};
 		} else try {
@@ -132,7 +133,7 @@ export const POST: APIRoute = async ({ request }) => {
 						source: mode === 'manual' ? 'manual' : 'website',
 						external_id: scannedProduct.externalId || productUrl,
 						source_image_url: scannedProduct.imageUrl || null,
-						metadata: { ...scannedProduct.metadata, importedFromUrl: productUrl, sourceImageUrls: scannedProduct.imageUrls },
+						metadata: { ...scannedProduct.metadata, importedFromUrl: productUrl, sourceImageUrls: scannedProduct.imageUrls, sourceVideoUrls: scannedProduct.videoUrls || [] },
 						is_active: true,
 						updated_at: new Date().toISOString(),
 						synced_at: new Date().toISOString(),
@@ -145,6 +146,17 @@ export const POST: APIRoute = async ({ request }) => {
 				}
 
 				if (storedProductId && storedProduct) {
+					await admin.from('creative_products').update({
+						source_image_url: scannedProduct.imageUrl || storedProduct.source_image_url || null,
+						metadata: {
+							...(storedProduct.metadata || {}),
+							...scannedProduct.metadata,
+							importedFromUrl: productUrl,
+							sourceImageUrls: scannedProduct.imageUrls || [],
+							sourceVideoUrls: scannedProduct.videoUrls || [],
+						},
+						updated_at: new Date().toISOString(),
+					}).eq('id', storedProductId).eq('user_id', userId);
 					// Se espera el espejo de fotos a propósito: los workers necesitan la
 					// foto real del producto ya guardada antes de generar. Sin esto el
 					// modelo dibuja un producto inventado.
@@ -155,6 +167,13 @@ export const POST: APIRoute = async ({ request }) => {
 							productPhotoCount += mirrored.length;
 						} catch (mirrorErr) {
 							console.error('Error espejo fotos:', mirrorErr);
+						}
+					}
+					if (scannedProduct.videoUrls?.length) {
+						try {
+							await mirrorProductVideos(userId, { id: storedProductId }, scannedProduct.videoUrls);
+						} catch (mirrorErr) {
+							console.error('Error espejo videos:', mirrorErr);
 						}
 					}
 
@@ -175,6 +194,7 @@ export const POST: APIRoute = async ({ request }) => {
 								storage_path: path,
 								sort_order: 50 + index,
 								is_primary: false,
+								media_type: 'image',
 							}, { onConflict: 'product_id,storage_path' });
 						} catch (extraErr) {
 							console.error('Error subiendo foto extra:', extraErr);
@@ -191,7 +211,7 @@ export const POST: APIRoute = async ({ request }) => {
 		if (mode === 'url' && (!storedProductId || productPhotoCount === 0)) {
 			const { count: existingPhotos } = storedProductId
 				? await admin.from('creative_product_images').select('id', { count: 'exact', head: true })
-					.eq('product_id', storedProductId).eq('user_id', userId)
+					.eq('product_id', storedProductId).eq('user_id', userId).eq('media_type', 'image')
 				: { count: 0 };
 			if (!existingPhotos) {
 				return json({
@@ -307,6 +327,12 @@ export const POST: APIRoute = async ({ request }) => {
 				description: scannedProduct.description || '',
 				priceText: scannedProduct.priceText || '',
 				imageUrl: scannedProduct.imageUrl,
+				imageUrls: [...new Set(scannedProduct.imageUrls || [])],
+				videoUrls: [...new Set(scannedProduct.videoUrls || [])],
+				media: [
+					...[...new Set(scannedProduct.imageUrls || [])].map((url) => ({ url, type: 'image' as const })),
+					...[...new Set(scannedProduct.videoUrls || [])].map((url) => ({ url, type: 'video' as const })),
+				],
 				productUrl,
 			},
 			mode,

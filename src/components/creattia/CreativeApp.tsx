@@ -2574,7 +2574,7 @@ function ProductIntake({ session, products, onProductsChanged, onCreated, compac
 					const { error: uploadError } = await supabase.storage.from('creative-assets').upload(path, file, { contentType: file.type, upsert: false });
 					if (uploadError) throw uploadError;
 					uploadedPaths.push(path);
-					imageRows.push({ user_id: getSessionId(session), product_id: createdId, storage_path: path, sort_order: index, is_primary: index === 0 });
+					imageRows.push({ user_id: getSessionId(session), product_id: createdId, storage_path: path, sort_order: index, is_primary: index === 0, media_type: 'image' });
 				}
 				const { error: imageError } = await supabase.from('creative_product_images').insert(imageRows);
 				if (imageError) throw imageError;

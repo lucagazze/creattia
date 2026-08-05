@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
-import AdCopyPanel from './AdCopyPanel';
+import ProductAssetReview, { type ProductReviewItem } from './ProductAssetReview';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Página completa de creación fiel al ganador (reemplaza el modal). Mismo
@@ -77,14 +77,15 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [productMode, setProductMode] = useState<'url' | 'manual'>('url');
 	const [urls, setUrls] = useState<string[]>(['']);
 	const [scannedProductIds, setScannedProductIds] = useState<string[]>([]);
+	const [importedProducts, setImportedProducts] = useState<ProductReviewItem[]>([]);
 	const [uploadFiles, setUploadFiles] = useState<File[]>([]);
 	const [uploadPreviews, setUploadPreviews] = useState<string[]>([]);
 	const [parsingDoc, setParsingDoc] = useState(false);
 
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
-	const [colorMode, setColorMode] = useState<'winner' | 'brand'>('winner');
-	const [typoMode, setTypoMode] = useState<'winner' | 'brand'>('winner');
+	const [colorMode, setColorMode] = useState<'winner' | 'url' | 'brand'>('winner');
+	const [typoMode, setTypoMode] = useState<'winner' | 'url' | 'brand'>('winner');
 	const [brandSource, setBrandSource] = useState('url');
 	const [includeLogo, setIncludeLogo] = useState(false);
 	// Carrusel completo: en cuáles páginas va el logo. Vacío = en ninguna.
@@ -101,6 +102,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [zones, setZones] = useState<Array<{ where?: string; messageRole?: string; original?: string; replacement?: string; onProduct?: boolean }>>([]);
 	const [people, setPeople] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
 	const [comparisons, setComparisons] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
+	const [creativeDecisions, setCreativeDecisions] = useState<Array<{ type?: string; title?: string; where?: string; description?: string; question?: string; defaultStrategy?: string; confidence?: string; directive?: string }>>([]);
+	const [comparisonGuidance, setComparisonGuidance] = useState('');
 	const [error, setError] = useState('');
 	const chip = (active: boolean) => ({
 		padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
@@ -114,11 +117,30 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const filledUrls = urls.map((u) => u.trim()).filter(Boolean).length;
 	const step1Ready = (productMode === 'url' && filledUrls >= urlsNeeded)
 		|| (productMode === 'manual' && manualProductName.trim() && !(wantsFullCarousel && !carouselSameProduct));
+	const comparisonInfo = plan?.comparison || {};
+	const comparisonDetected = comparisons.length > 0 || comparisonInfo.detected === true;
+	const comparisonTitle = comparisonInfo.type === 'us-vs-them'
+		? 'Detectamos un “Nosotros vs. Ellos”'
+		: comparisonInfo.type === 'before-after'
+			? 'Detectamos una comparación antes y después'
+			: comparisonInfo.type === 'comparison-grid'
+				? 'Detectamos una comparación entre varias opciones'
+			: 'Detectamos una comparación en el diseño';
+	const creativeDecisionIcon = (type?: string) => ({
+		person: '👤',
+		scene: '◫',
+		styling: '✦',
+		object: '◆',
+		comparison: '⇄',
+		'product-handling': '◉',
+		other: '✧',
+	}[type || 'other'] || '✧');
 
 	// Escanea una o varias URLs → devuelve los IDs de producto importados.
 	async function scanUrls(list: string[]): Promise<string[]> {
 		setError('');
 		const ids: string[] = [];
+		const productsById = new Map<string, ProductReviewItem>();
 		try {
 			for (const raw of list) {
 				const response = await fetch('/api/creativos/products', {
@@ -127,13 +149,22 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					body: JSON.stringify({ url: raw }),
 				});
 				const payload = await response.json();
-				if (response.ok && payload.importedIds?.length) ids.push(...payload.importedIds);
+				if (response.ok && payload.importedIds?.length) {
+					ids.push(...payload.importedIds);
+					if (Array.isArray(payload.products)) {
+						payload.products.forEach((product: ProductReviewItem) => {
+							if (product?.id && payload.importedIds.includes(product.id)) productsById.set(product.id, product);
+						});
+					}
+				}
 				else if (list.length === 1) throw new Error(payload.errors?.[0]?.error || payload.error || 'No pudimos analizar esa URL.');
 			}
 			if (!ids.length) throw new Error('No pudimos analizar ninguna de las URLs.');
-			return ids;
+			setImportedProducts([...productsById.values()]);
+			return [...new Set(ids)];
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo escanear la URL.');
+			setImportedProducts([]);
 			return [];
 		}
 	}
@@ -198,6 +229,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			setZones((analysis.textZones || []).filter((zone: any) => analysis.productHasPackaging ? true : !zone.onProduct));
 			setPeople(Array.isArray(analysis.people) ? analysis.people.map((p: any) => ({ ...p, directive: '' })) : []);
 			setComparisons(Array.isArray(analysis.comparisonItems) ? analysis.comparisonItems.map((c: any) => ({ ...c, directive: '' })) : []);
+			setCreativeDecisions(Array.isArray(analysis.creativeDecisions) ? analysis.creativeDecisions.map((decision: any) => ({ ...decision, directive: '' })) : []);
+			setComparisonGuidance('');
 			setPhase('review');
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo analizar la referencia.');
@@ -231,7 +264,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
-			form.set('plan', JSON.stringify({ ...plan, textZones: zones, people, comparisonItems: comparisons }));
+			form.set('plan', JSON.stringify({ ...plan, textZones: zones, people, comparisonItems: comparisons, creativeDecisions, comparison: { ...(plan.comparison || {}), userGuidance: comparisonGuidance.trim() } }));
 
 			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
 			const payload = await response.json();
@@ -587,7 +620,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							<BatchSelect label="Idioma del anuncio" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
 							<div className="batch-brand-block">
 									<span className="picker-label">¿Qué identidad querés usar?</span>
-									<p className="batch-detail-help">Elegí de dónde tomar el nombre y la identidad visual. La URL solo se reemplaza si el anuncio ganador original ya tenía una.</p>
+									<p className="batch-detail-help">Elegí de dónde tomar el nombre y el logo. Los colores y la tipografía se eligen por separado.</p>
 									<div className="batch-brand-options">
 										{BRAND_OPTIONS.map((option) => (
 											<button key={option.value} type="button" className={`batch-brand-option ${brandSource === option.value ? 'active' : ''}`} onClick={() => { setBrandSource(option.value); if (option.value === 'none') { setIncludeLogo(false); setLogoCarouselPages(new Set()); } }} aria-pressed={brandSource === option.value}>
@@ -604,7 +637,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 										<span className="picker-label">Logo en el carrusel</span>
 										<div className="batch-style-options">
 											<button type="button" className={logoCarouselPages.size === 0 ? 'active' : ''} onClick={() => setLogoCarouselPages(new Set())}>Sin logo</button>
-											<button type="button" className={logoCarouselPages.size > 0 ? 'active' : ''} onClick={() => setLogoCarouselPages(new Set(carouselSlides.map((_, i) => i)))}>Con mi logo</button>
+											<button type="button" className={logoCarouselPages.size > 0 ? 'active' : ''} onClick={() => setLogoCarouselPages(new Set(carouselSlides.map((_, i) => i)))}>Con logo de {brandSource === 'mine' ? 'Mi marca' : 'la URL'}</button>
 										</div>
 										{logoCarouselPages.size > 0 && (
 											<>
@@ -644,7 +677,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 										<span className="picker-label">¿Incluir el logo?</span>
 										<div className="batch-style-options">
 											<button type="button" className={!includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(false)}>Sin logo</button>
-											<button type="button" className={includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(true)}>Incluir logo</button>
+										<button type="button" className={includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(true)}>Con logo de {brandSource === 'mine' ? 'Mi marca' : 'la URL'}</button>
 										</div>
 										<small className="batch-brand-note">Usamos el logo oficial de la marca elegida. Por defecto no se agrega.</small>
 									</div>
@@ -654,16 +687,16 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									<div className="batch-style-group" style={{ flex: '0 1 300px', maxWidth: '340px' }}>
 										<span className="picker-label">Colores</span>
 										<div className="batch-style-options">
-											{STYLE_OPTIONS.map((option) => (
-												<button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value as 'winner' | 'brand')} aria-pressed={colorMode === option.value}>{option.label}</button>
+													{STYLE_OPTIONS.map((option) => (
+														<button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value as 'winner' | 'url' | 'brand')} aria-pressed={colorMode === option.value}>{option.label}</button>
 											))}
 										</div>
 									</div>
 									<div className="batch-style-group" style={{ flex: '0 1 300px', maxWidth: '340px' }}>
 										<span className="picker-label">Tipografía</span>
 										<div className="batch-style-options">
-											{STYLE_OPTIONS.map((option) => (
-												<button key={option.value} type="button" className={typoMode === option.value ? 'active' : ''} onClick={() => setTypoMode(option.value as 'winner' | 'brand')} aria-pressed={typoMode === option.value}>{option.label}</button>
+													{STYLE_OPTIONS.map((option) => (
+														<button key={option.value} type="button" className={typoMode === option.value ? 'active' : ''} onClick={() => setTypoMode(option.value as 'winner' | 'url' | 'brand')} aria-pressed={typoMode === option.value}>{option.label}</button>
 											))}
 										</div>
 									</div>
@@ -727,40 +760,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					</>}
 
 					{(phase === 'review' || phase === 'starting') && plan && <>
-						{plan.templateHasLogoSlot && !includeLogo && (
-							<div style={{
-								display: 'flex',
-								alignItems: 'center',
-								justifyContent: 'space-between',
-								gap: '12px',
-								flexWrap: 'wrap',
-								padding: '12px 16px',
-								background: '#f4f0ff',
-								border: '1px solid #dcd2ff',
-								borderRadius: '11px',
-								marginBottom: '16px'
-							}}>
-								<span style={{ fontSize: '13.5px', color: '#522cbd', fontWeight: 600 }}>
-									💡 Este diseño tiene un espacio ideal para colocar tu logo o nombre de marca.
-								</span>
-								<button
-									type="button"
-									onClick={() => setIncludeLogo(true)}
-									style={{
-										padding: '6px 12px',
-										borderRadius: '8px',
-										border: 0,
-										background: '#744bde',
-										color: '#fff',
-										fontSize: '13px',
-										fontWeight: 700,
-										cursor: 'pointer'
-									}}
-								>
-									Incluir mi logo
-								</button>
-							</div>
-						)}
+						{productMode === 'url' && importedProducts.length > 0 && <ProductAssetReview products={importedProducts} />}
 						{plan.templateHasLogoSlot && includeLogo && (
 							<div style={{
 								display: 'flex',
@@ -811,10 +811,31 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							<div style={{ padding: '14px 16px', marginBottom: '18px', border: '1px solid #eee9f2', borderRadius: '12px', background: '#fcfbfe', color: '#716d79', fontSize: '13px' }}>No detectamos textos de publicación fuera del producto. Se conservarán únicamente los textos y detalles que ya pertenecen al producto real.</div>
 						)}
 
-						{plan.adCopy && <AdCopyPanel copy={plan.adCopy} onChange={(adCopy) => setPlan((current: any) => ({ ...(current || {}), adCopy }))} title="Copy adaptado para publicar" />}
+						{/* Decisiones contextuales: no se limita a comparaciones. */}
+						{creativeDecisions.length > 0 && (
+							<section className="creative-decisions-review" aria-label="Decisiones contextuales del anuncio" style={{ marginBottom: '18px', padding: '16px', border: '1px solid #e6ddf5', borderRadius: '12px', background: 'linear-gradient(135deg, #fcfaff, #fff)' }}>
+								<div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '12px' }}>
+									<span aria-hidden="true" style={{ width: '30px', height: '30px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#eee7ff', color: '#744bde', fontSize: '16px' }}>✦</span>
+									<div>
+										<strong style={label}>Decisiones para clonar mejor</strong>
+										<p style={{ margin: '-4px 0 0', fontSize: '12px', lineHeight: 1.45, color: '#716d79' }}>La IA detectó elementos importantes del anuncio. Podés orientar cada uno o dejarlo vacío para que elija la opción más coherente.</p>
+									</div>
+								</div>
+								<div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+									{creativeDecisions.map((decision, index) => (
+										<div key={index} style={{ padding: '12px 14px', border: '1px solid #eee6f2', borderRadius: '11px', background: '#fff' }}>
+											<strong style={{ display: 'block', fontSize: '13px', color: '#3f3560', marginBottom: '3px' }}>{creativeDecisionIcon(decision.type)} {decision.title || 'Elemento visual detectado'}</strong>
+											{(decision.where || decision.description) && <p style={{ margin: '0 0 7px', fontSize: '12px', lineHeight: 1.4, color: '#5f5a67' }}>{decision.where ? `${decision.where}${decision.description ? ' · ' : ''}` : ''}{decision.description || ''}</p>}
+											<p style={{ margin: '0 0 8px', fontSize: '12px', lineHeight: 1.4, color: '#744bde', fontWeight: 600 }}>{decision.question || `¿Cómo querés resolver ${decision.title?.toLowerCase() || 'este elemento'}?`}</p>
+											<input value={decision.directive || ''} onChange={(event) => setCreativeDecisions(creativeDecisions.map((current, decisionIndex) => decisionIndex === index ? { ...current, directive: event.target.value } : current))} placeholder={decision.defaultStrategy ? `Vacío = ${decision.defaultStrategy}` : 'Dejalo vacío para que la IA decida'} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '9px', border: '1px solid #e2dde9', fontSize: '13px' }} />
+										</div>
+									))}
+								</div>
+							</section>
+						)}
 
-						{/* Personas detectadas en el anuncio */}
-						{people.length > 0 && (
+						{/* Personas detectadas en el anuncio: fallback para análisis antiguos */}
+						{people.length > 0 && creativeDecisions.length === 0 && (
 							<div style={{ marginBottom: '18px' }}>
 								<strong style={label}>👤 {people.length === 1 ? 'Persona en el anuncio' : 'Personas en el anuncio'}</strong>
 								<p style={{ margin: '-4px 0 10px', fontSize: '12px', color: '#8b8490' }}>Detectamos {people.length === 1 ? 'una persona' : `${people.length} personas`}. Decinos cómo querés que se vea (o dejalo vacío para mantenerla parecida).</p>
@@ -829,26 +850,56 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							</div>
 						)}
 
-						{/* Comparación: qué poner en los ítems que no son tu producto */}
-						{comparisons.length > 0 && (
-							<div className="comparison-review">
-								<strong style={label}>⚖️ ¿Qué mostramos como alternativa?</strong>
-								<p>Decinos qué debe aparecer junto a tu producto. Vacío = producto genérico sin marca.</p>
-								<div className="comparison-list">
-									{comparisons.map((item, index) => (
-										<div key={index} className="comparison-item" title={item.description || item.where || undefined}>
-											<label htmlFor={`comparison-${index}`}>{comparisons.length === 1 ? 'Alternativa' : `Alternativa ${index + 1}`}</label>
-											<input
-												id={`comparison-${index}`}
-												className="comparison-input"
-												value={item.directive || ''}
-												onChange={(e) => setComparisons(comparisons.map((c, i) => i === index ? { ...c, directive: e.target.value } : c))}
-								placeholder="Ej.: producto genérico o envase sin logo"
-											/>
-										</div>
-									))}
+						{comparisonDetected && creativeDecisions.length === 0 && (
+							<section className="comparison-review" aria-label="Decisión sobre la comparación del anuncio">
+								<div className="comparison-review-heading">
+									<span className="comparison-review-icon" aria-hidden="true">⇄</span>
+									<div>
+										<strong>{comparisonTitle}</strong>
+										<p>{comparisonInfo.summary || 'La composición parece contrastar tu producto con otra opción.'}</p>
+									</div>
 								</div>
-							</div>
+								<p className="comparison-review-guidance">
+									{comparisonInfo.confidence === 'low' && comparisonInfo.question
+										? comparisonInfo.question
+										: '¿Qué querés mostrar del otro lado? Podés aclararlo o dejarlo vacío: la IA va a elegir una alternativa coherente, de la misma categoría y sin marcas ajenas.'}
+								</p>
+								{comparisonInfo.confidence === 'low' && (
+									<textarea
+										className="comparison-guidance-input"
+										value={comparisonGuidance}
+										onChange={(event) => setComparisonGuidance(event.target.value)}
+										placeholder="Respondé la duda de la IA o dejalo vacío para que decida"
+										rows={2}
+									/>
+								)}
+								{comparisons.length > 0 ? (
+									<div className="comparison-list">
+										{comparisons.map((item, index) => (
+											<div key={index} className="comparison-item">
+												<div className="comparison-item-copy">
+													<strong>{comparisons.length === 1 ? 'La alternativa' : `Alternativa ${index + 1}`}</strong>
+													<span>{item.description || item.role || item.where || 'Elemento que aparece del otro lado'}</span>
+												</div>
+												<input
+													className="comparison-input"
+													value={item.directive || ''}
+													onChange={(event) => setComparisons(comparisons.map((current, itemIndex) => itemIndex === index ? { ...current, directive: event.target.value } : current))}
+													placeholder="Dejalo vacío para que la IA decida"
+												/>
+											</div>
+										))}
+									</div>
+								) : comparisonInfo.confidence !== 'low' ? (
+									<textarea
+										className="comparison-guidance-input"
+										value={comparisonGuidance}
+										onChange={(event) => setComparisonGuidance(event.target.value)}
+										placeholder="Ej.: comparalo con un rack fijo que requiere agujerear la pared"
+										rows={2}
+									/>
+								) : null}
+							</section>
 						)}
 
 						{error && <p style={{ margin: '0 0 14px', padding: '12px 14px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '10px', color: '#a43f3f', fontSize: '14px' }}>{error}</p>}

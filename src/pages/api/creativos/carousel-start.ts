@@ -54,8 +54,9 @@ export const POST: APIRoute = async ({ request }) => {
 		const format = allowedFormats.has(requestedFormat) ? requestedFormat : 'original';
 		const brandSources = new Set(['url', 'mine', 'none']);
 		const brandSource = brandSources.has(String(body?.brandSource)) ? String(body?.brandSource) : 'url';
-		const colorMode = body?.colorMode === 'brand' ? 'brand' : 'winner';
-		const typoMode = body?.typoMode === 'brand' ? 'brand' : 'winner';
+		const styleModes = new Set(['winner', 'url', 'brand']);
+		const colorMode = styleModes.has(String(body?.colorMode)) ? String(body.colorMode) : 'winner';
+		const typoMode = styleModes.has(String(body?.typoMode)) ? String(body.typoMode) : 'winner';
 		const supportedLanguages = new Set(['es', 'en', 'pt', 'it', 'fr', 'de']);
 		const language = supportedLanguages.has(String(body?.language)) ? String(body.language) : 'es';
 		// El usuario elige, página por página, en cuáles va su logo. Antes se
@@ -75,7 +76,7 @@ export const POST: APIRoute = async ({ request }) => {
 			return json({ error: 'Alguno de los productos no existe o no pertenece a tu cuenta.' }, 404);
 		}
 		const { data: imageRows } = await admin.from('creative_product_images')
-			.select('product_id').eq('user_id', userId).in('product_id', uniqueProductIds);
+			.select('product_id').eq('user_id', userId).in('product_id', uniqueProductIds).eq('media_type', 'image');
 		const hasPhotoById = new Set((imageRows || []).map((r) => r.product_id));
 		for (const id of uniqueProductIds) {
 			const product = byId.get(id);

@@ -208,14 +208,18 @@ export const POST: APIRoute = async ({ request }) => {
 				if (parsed && typeof parsed === 'object' && (
 					Array.isArray(parsed.people)
 					|| Array.isArray(parsed.comparisonItems)
+					|| Array.isArray(parsed.creativeDecisions)
 					|| Array.isArray(parsed.textZones)
 					|| typeof parsed.messageStrategy === 'string'
 					|| parsed.adCopy
 				)) approvedPlan = parsed;
 			}
 		} catch { /* plan inválido: se analiza normalmente */ }
-		const colorMode = clean(form.get('colorMode'), 10) === 'brand' ? 'brand' as const : 'winner' as const;
-		const typoMode = clean(form.get('typoMode'), 10) === 'brand' ? 'brand' as const : 'winner' as const;
+		const styleModes = new Set(['winner', 'url', 'brand']);
+		const requestedColorMode = clean(form.get('colorMode'), 10);
+		const requestedTypoMode = clean(form.get('typoMode'), 10);
+		const colorMode = (styleModes.has(requestedColorMode) ? requestedColorMode : 'winner') as 'winner' | 'url' | 'brand';
+		const typoMode = (styleModes.has(requestedTypoMode) ? requestedTypoMode : 'winner') as 'winner' | 'url' | 'brand';
 		// Por defecto NO se agrega logo ni marca si el caller no lo pide de
 		// forma explícita — antes el default era "sí" y varios flujos (revisión
 		// desde el lightbox, modal de la biblioteca, wizard de Studio) nunca
@@ -279,7 +283,8 @@ export const POST: APIRoute = async ({ request }) => {
 			const byId = new Map((data || []).map((item) => [item.id, item]));
 			storedProducts = productIds.map((id) => byId.get(id));
 			const { data: productImageRows, error: productImageError } = await admin.from('creative_product_images')
-				.select('product_id,storage_path,sort_order').eq('user_id', auth.user.id).in('product_id', productIds).order('sort_order');
+				.select('product_id,storage_path,sort_order').eq('user_id', auth.user.id).in('product_id', productIds)
+				.eq('media_type', 'image').order('sort_order');
 			if (productImageError) throw productImageError;
 			for (const row of productImageRows || []) {
 				const current = productImagesById.get(row.product_id) || [];
@@ -307,10 +312,12 @@ export const POST: APIRoute = async ({ request }) => {
 		// en cada uso del prompt más abajo.
 		const urlBrand = (storedProducts[0] as any)?.metadata?.brandFromUrl || null;
 		const effectiveBrandName = brandSource === 'mine' ? (profile?.brand_name || '') : brandSource === 'url' ? (urlBrand?.name || '') : '';
-		const effectiveBrandColors = brandSource === 'mine'
-			? (Array.isArray(profile?.brand_colors) ? profile.brand_colors : [])
-			: brandSource === 'url' ? (Array.isArray(urlBrand?.colors) ? urlBrand.colors : []) : [];
-		const effectiveBrandTypography = brandSource === 'mine' ? brandStyle?.typography : brandSource === 'url' ? (urlBrand?.typography || undefined) : undefined;
+		const myBrandColors = Array.isArray(profile?.brand_colors) ? profile.brand_colors : [];
+		const urlBrandColors = Array.isArray(urlBrand?.colors) ? urlBrand.colors : [];
+		const effectiveBrandColors = colorMode === 'brand' ? myBrandColors : colorMode === 'url' ? urlBrandColors : [];
+		const myBrandTypography = brandStyle?.typography;
+		const urlBrandTypography = urlBrand?.typography || undefined;
+		const effectiveBrandTypography = typoMode === 'brand' ? myBrandTypography : typoMode === 'url' ? urlBrandTypography : undefined;
 		const effectiveBrandSummary = brandSource === 'mine' ? (profile?.brand_summary || '') : brandSource === 'url' ? (urlBrand?.styleSummary || '') : '';
 		const effectiveBrandVoice = brandSource === 'mine' ? (profile?.brand_voice || '') : '';
 		const effectiveStyleSummary = brandSource === 'mine' ? (brandStyle?.styleSummary || '') : brandSource === 'url' ? (urlBrand?.styleSummary || '') : '';

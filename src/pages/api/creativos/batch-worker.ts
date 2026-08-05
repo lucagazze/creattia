@@ -96,7 +96,8 @@ export const POST: APIRoute = async ({ request }) => {
 			const paths: string[] = [];
 			if (product?.image_path) paths.push(product.image_path);
 			const { data: extraImages } = await admin.from('creative_product_images')
-				.select('storage_path,sort_order').eq('product_id', productId).eq('user_id', userId).order('sort_order');
+				.select('storage_path,sort_order').eq('product_id', productId).eq('user_id', userId)
+				.eq('media_type', 'image').order('sort_order');
 			for (const item of extraImages || []) {
 				if (item.storage_path) paths.push(item.storage_path);
 			}
@@ -134,6 +135,11 @@ export const POST: APIRoute = async ({ request }) => {
 			.select('brand_name,website_url,brand_colors,logo_path,brand_style').eq('user_id', userId).maybeSingle();
 
 		let brandName = '';
+		let urlBrand: any = (productRecord?.metadata as any)?.brandFromUrl || null;
+		const myBrandColors: string[] = Array.isArray(profile?.brand_colors) ? profile.brand_colors : [];
+		const urlBrandColors: string[] = Array.isArray(urlBrand?.colors) ? urlBrand.colors : [];
+		const myBrandTypography: any = (profile?.brand_style as any)?.typography;
+		const urlBrandTypography: any = urlBrand?.typography || undefined;
 		let brandColors: string[] = [];
 		let brandTypography: any = undefined;
 		let logoImage: EngineImage | null = null;
@@ -145,23 +151,18 @@ export const POST: APIRoute = async ({ request }) => {
 
 		if (brandSource === 'mine') {
 			brandName = profile?.brand_name || '';
-			brandColors = Array.isArray(profile?.brand_colors) ? profile.brand_colors : [];
-			brandTypography = (profile?.brand_style as any)?.typography;
 			if (includeLogo && profile?.logo_path) {
 				const { data: logoBlob } = await admin.storage.from(ASSETS).download(profile.logo_path);
 				const normalized = logoBlob ? await normalizeImageInput(Buffer.from(await logoBlob.arrayBuffer())) : null;
 				if (normalized) logoImage = { buffer: normalized.buffer, type: normalized.type };
 			}
 		} else if (brandSource === 'url') {
-			const fromUrl = (productRecord?.metadata as any)?.brandFromUrl;
-			brandName = fromUrl?.name || '';
-			brandColors = Array.isArray(fromUrl?.colors) ? fromUrl.colors : [];
-			brandTypography = fromUrl?.typography || undefined;
+			brandName = urlBrand?.name || '';
 			// El logo del sitio viene como URL: se baja y se normaliza. Si sale
 			// sucio o no se puede leer, se sigue sin logo antes que arruinar el aviso.
-			if (includeLogo && fromUrl?.logoUrl) {
+			if (includeLogo && urlBrand?.logoUrl) {
 				try {
-					const logoResponse = await fetch(fromUrl.logoUrl);
+					const logoResponse = await fetch(urlBrand.logoUrl);
 					if (logoResponse.ok) {
 						const raw = Buffer.from(await logoResponse.arrayBuffer());
 						if (raw.length > 500 && raw.length < 4_000_000) {
@@ -174,6 +175,8 @@ export const POST: APIRoute = async ({ request }) => {
 				}
 			}
 		}
+		brandColors = snapshot.colorMode === 'brand' ? myBrandColors : snapshot.colorMode === 'url' ? urlBrandColors : [];
+		brandTypography = snapshot.typoMode === 'brand' ? myBrandTypography : snapshot.typoMode === 'url' ? urlBrandTypography : undefined;
 		const hasLogo = Boolean(logoImage);
 		// ── 4. Análisis visual del ganador y de las áreas de imagen ──────────────
 		let analysis: LayoutAnalysis | null = null;
@@ -206,8 +209,8 @@ export const POST: APIRoute = async ({ request }) => {
 				cta: analysis.adCopy.cta,
 				language: analysis.language,
 			} : undefined,
-			colorMode: snapshot.colorMode === 'brand' ? 'brand' : 'winner',
-			typoMode: snapshot.typoMode === 'brand' ? 'brand' : 'winner',
+			colorMode: ['winner', 'url', 'brand'].includes(snapshot.colorMode) ? snapshot.colorMode : 'winner',
+			typoMode: ['winner', 'url', 'brand'].includes(snapshot.typoMode) ? snapshot.typoMode : 'winner',
 			brandColors,
 			brandTypography,
 			carousel: snapshot.carousel ? { index: Number(snapshot.carouselIndex || row.output_index || 1), total: Number(snapshot.carouselTotal || 1) } : undefined,

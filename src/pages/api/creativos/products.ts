@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { waitUntil } from '@vercel/functions';
 import { analyzeBrandStyle, persistBrandStyle } from '../../../lib/creattia/brand-style';
 import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
-import { mirrorProductImages } from '../../../lib/creattia/product-assets';
+import { mirrorProductImages, mirrorProductVideos } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 
@@ -17,15 +17,15 @@ async function listProducts(userId: string) {
 	const admin = getAdminClient();
 	if (!admin) throw new Error('Supabase no está configurado.');
 	const { data, error } = await admin.from('creative_products')
-		.select('id,name,description,price_text,currency,product_url,image_path,source,source_image_url,analysis,updated_at')
+		.select('id,name,description,price_text,currency,product_url,image_path,source,source_image_url,metadata,analysis,updated_at')
 		.eq('user_id', userId).eq('is_active', true).order('updated_at', { ascending: false }).limit(200);
 	if (error) throw error;
 	const ids = (data || []).map((product) => product.id);
 	const { data: imageRows, error: imageError } = ids.length
-		? await admin.from('creative_product_images').select('product_id,storage_path,source_url,sort_order,is_primary').eq('user_id', userId).in('product_id', ids).order('sort_order')
+		? await admin.from('creative_product_images').select('product_id,storage_path,source_url,sort_order,is_primary,media_type,metadata').eq('user_id', userId).in('product_id', ids).order('sort_order')
 		: { data: [], error: null };
 	if (imageError) throw imageError;
-	const imagesByProduct = new Map<string, Array<{ storage_path: string; source_url: string | null }>>();
+	const imagesByProduct = new Map<string, Array<any>>();
 	for (const row of imageRows || []) {
 		const current = imagesByProduct.get(row.product_id) || [];
 		current.push(row); imagesByProduct.set(row.product_id, current);
@@ -41,12 +41,47 @@ async function listProducts(userId: string) {
 	}
 	return (data || []).map((product) => {
 		const rows = imagesByProduct.get(product.id) || [];
-		const paths = [...new Set([product.image_path, ...rows.map((row) => row.storage_path)].filter(Boolean) as string[])];
-		const imageUrls = paths.map((path, index) => signedByPath.get(path) || rows[index]?.source_url || (index === 0 ? product.source_image_url : '') || '');
-		const usableImageUrls = imageUrls.filter(Boolean);
-		if (!usableImageUrls.length && product.source_image_url) usableImageUrls.push(product.source_image_url);
-		const images = paths.map((path) => ({ path, url: signedByPath.get(path) || '' })).filter((image) => image.url);
-		return { ...product, imageUrl: usableImageUrls[0] || '', imageUrls: usableImageUrls, imageCount: usableImageUrls.length, images };
+		const metadata = (product.metadata && typeof product.metadata === 'object' ? product.metadata : {}) as Record<string, any>;
+		const media: Array<{ path: string; url: string; type: 'image' | 'video'; sourceUrl?: string }> = [];
+		const seenPaths = new Set<string>();
+		const seenUrls = new Set<string>();
+		const seenSourceUrls = new Set<string>();
+		const addMedia = (item: { path?: string; url?: string; type?: 'image' | 'video'; sourceUrl?: string }) => {
+			const path = item.path || '';
+			const url = item.url || item.sourceUrl || '';
+			if (!url || (path && seenPaths.has(path)) || seenUrls.has(url) || (item.sourceUrl && seenSourceUrls.has(item.sourceUrl))) return;
+			if (path) seenPaths.add(path);
+			seenUrls.add(url);
+			if (item.sourceUrl) seenSourceUrls.add(item.sourceUrl);
+			media.push({ path, url, type: item.type || 'image', sourceUrl: item.sourceUrl });
+		};
+		rows.forEach((row) => addMedia({
+			path: row.storage_path,
+			url: signedByPath.get(row.storage_path) || row.source_url || '',
+			type: row.media_type === 'video' || row.metadata?.mediaType === 'video' ? 'video' : 'image',
+			sourceUrl: row.source_url || undefined,
+		}));
+		if (product.image_path && !seenPaths.has(product.image_path)) {
+			addMedia({ path: product.image_path, url: signedByPath.get(product.image_path) || product.source_image_url || '', type: 'image', sourceUrl: product.source_image_url || undefined });
+		}
+		const sourceImageUrls = Array.isArray(metadata.sourceImageUrls) ? metadata.sourceImageUrls : [];
+		sourceImageUrls.forEach((url: unknown) => addMedia({ url: String(url || ''), type: 'image', sourceUrl: String(url || '') }));
+		const sourceVideoUrls = Array.isArray(metadata.sourceVideoUrls) ? metadata.sourceVideoUrls : [];
+		sourceVideoUrls.forEach((url: unknown) => addMedia({ url: String(url || ''), type: 'video', sourceUrl: String(url || '') }));
+		const images = media.filter((item) => item.type === 'image');
+		const videos = media.filter((item) => item.type === 'video');
+		const imageUrls = images.map((item) => item.url);
+		return {
+			...product,
+			media,
+			images,
+			videos,
+			imageUrl: imageUrls[0] || '',
+			imageUrls,
+			videoUrls: videos.map((item) => item.url),
+			imageCount: imageUrls.length,
+			mediaCount: media.length,
+		};
 	});
 }
 
@@ -89,6 +124,7 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 				...product.metadata,
 				importedFromUrl: url,
 				sourceImageUrls: product.imageUrls,
+				sourceVideoUrls: product.videoUrls || [],
 				aiExtracted: true,
 			};
 			const { data: stored, error } = await admin.from('creative_products').upsert({
@@ -120,6 +156,9 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 				await mirrorProductImages(userId, stored, product.imageUrls);
 			} else if (product.imageUrl) {
 				await mirrorProductImages(userId, stored, [product.imageUrl]);
+			}
+			if (product.videoUrls?.length) {
+				await mirrorProductVideos(userId, stored, product.videoUrls);
 			}
 
 			// Marca del sitio de este producto (no "Mi marca": puede ser la web de
@@ -201,7 +240,8 @@ export const POST: APIRoute = async ({ request }) => {
 			if (!withinLimit) return json({ error: 'Analizaste muchas URLs en poco tiempo. Esperá un rato y volvé a intentar.' }, 429);
 			const imported = await importProductUrls(auth.user.id, rawUrls);
 			const products = await listProducts(auth.user.id);
-			return json({ ...imported, products }, imported.importedIds.length ? 201 : 422);
+			const importedSet = new Set(imported.importedIds);
+			return json({ ...imported, products: products.filter((product) => importedSet.has(product.id)) }, imported.importedIds.length ? 201 : 422);
 		}
 
 		const form = await request.formData();
@@ -215,7 +255,7 @@ export const POST: APIRoute = async ({ request }) => {
 			const files = form.getAll('image').filter((file): file is File => file instanceof File && file.size > 0).slice(0, 6);
 			if (!files.length) return json({ error: 'Subi al menos una foto.' }, 400);
 			const { count } = await admin.from('creative_product_images').select('storage_path', { count: 'exact', head: true })
-				.eq('product_id', existingProductId).eq('user_id', auth.user.id);
+				.eq('product_id', existingProductId).eq('user_id', auth.user.id).eq('media_type', 'image');
 			let sortOrder = count || 0;
 			let firstPath = '';
 			for (const file of files) {
@@ -226,7 +266,7 @@ export const POST: APIRoute = async ({ request }) => {
 				const { error: uploadError } = await admin.storage.from('creative-assets').upload(path, new Uint8Array(await file.arrayBuffer()), { contentType: file.type, upsert: true });
 				if (uploadError) throw uploadError;
 				const { error: rowError } = await admin.from('creative_product_images').upsert({
-					user_id: auth.user.id, product_id: existingProductId, storage_path: path, sort_order: sortOrder, is_primary: false,
+					user_id: auth.user.id, product_id: existingProductId, storage_path: path, sort_order: sortOrder, is_primary: false, media_type: 'image',
 				}, { onConflict: 'product_id,storage_path' });
 				if (rowError) throw rowError;
 				sortOrder += 1;
@@ -268,7 +308,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const { error: updateError } = await admin.from('creative_products').update({ image_path: path, updated_at: new Date().toISOString() }).eq('id', product.id).eq('user_id', auth.user.id);
 		if (updateError) throw updateError;
 		const { error: imageError } = await admin.from('creative_product_images').upsert({
-			user_id: auth.user.id, product_id: product.id, storage_path: path, sort_order: 0, is_primary: true,
+			user_id: auth.user.id, product_id: product.id, storage_path: path, sort_order: 0, is_primary: true, media_type: 'image',
 		}, { onConflict: 'product_id,storage_path' });
 		if (imageError) throw imageError;
 		for (let index = 1; index < images.length; index += 1) {
@@ -278,7 +318,7 @@ export const POST: APIRoute = async ({ request }) => {
 			if (extraUploadError) throw extraUploadError;
 			uploadedPaths.push(extraPath);
 			const { error: extraImageError } = await admin.from('creative_product_images').upsert({
-				user_id: auth.user.id, product_id: product.id, storage_path: extraPath, sort_order: index, is_primary: false,
+				user_id: auth.user.id, product_id: product.id, storage_path: extraPath, sort_order: index, is_primary: false, media_type: 'image',
 			}, { onConflict: 'product_id,storage_path' });
 			if (extraImageError) throw extraImageError;
 		}
@@ -310,7 +350,8 @@ export const DELETE: APIRoute = async ({ request }) => {
 			.eq('id', imageProductId).eq('user_id', auth.user.id).maybeSingle();
 		if (productRow?.image_path === imagePath) {
 			const { data: nextImage } = await admin.from('creative_product_images').select('storage_path')
-				.eq('product_id', imageProductId).eq('user_id', auth.user.id).order('sort_order').limit(1).maybeSingle();
+				.eq('product_id', imageProductId).eq('user_id', auth.user.id).eq('media_type', 'image')
+				.order('sort_order').limit(1).maybeSingle();
 			await admin.from('creative_products').update({ image_path: nextImage?.storage_path || null, updated_at: new Date().toISOString() })
 				.eq('id', imageProductId).eq('user_id', auth.user.id);
 		}

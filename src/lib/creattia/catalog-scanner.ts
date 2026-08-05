@@ -12,6 +12,8 @@ export type ScannedProduct = {
 	productUrl: string;
 	imageUrl: string;
 	imageUrls: string[];
+	/** Videos found in the product page/gallery. Kept optional for legacy scanners. */
+	videoUrls?: string[];
 	metadata: Record<string, unknown>;
 };
 
@@ -33,7 +35,7 @@ function absoluteUrl(value: unknown, base: string) {
 	try { return value ? new URL(String(value), base).toString() : ''; } catch { return ''; }
 }
 
-function imageUrls(values: unknown[], base: string, limit = 6) {
+function imageUrls(values: unknown[], base: string, limit = 24) {
 	const urls = values.flatMap((value) => {
 		if (Array.isArray(value)) return value;
 		if (value && typeof value === 'object') {
@@ -46,7 +48,6 @@ function imageUrls(values: unknown[], base: string, limit = 6) {
 		.map((url) => upgradeImageSize(url as string));
 	return [...new Set(urls)].slice(0, limit);
 }
-
 
 /**
  * Descarta lo que no es una foto de producto: logos, iconos, banners de pago,
@@ -80,7 +81,7 @@ function upgradeImageSize(url: string) {
  * dentro del JSON que hidrata la página (__NEXT_DATA__, __NUXT__, apolloState).
  * Acá se barre ese JSON buscando URLs de imagen del propio CDN del sitio.
  */
-function imagesFromEmbeddedJson(html: string, base: string, limit = 8) {
+function imagesFromEmbeddedJson(html: string, base: string, limit = 24) {
 	const found: string[] = [];
 	const blocks = html.match(/<script[^>]*>[\s\S]{0,400000}?<\/script>/gi) || [];
 	for (const block of blocks) {
@@ -95,6 +96,21 @@ function imagesFromEmbeddedJson(html: string, base: string, limit = 8) {
 		}
 	}
 	// Las que más se repiten suelen ser las del producto; se conserva el orden.
+	return [...new Set(found)].slice(0, limit);
+}
+
+function videosFromEmbeddedJson(html: string, limit = 12) {
+	const found: string[] = [];
+	const blocks = html.match(/<script[^>]*>[\s\S]{0,400000}?<\/script>/gi) || [];
+	for (const block of blocks) {
+		if (!/video|media|mp4|webm|m4v/i.test(block)) continue;
+		const urls = block.match(/https?:\/\/[^"'\s\\]+\.(?:mp4|webm|mov|m4v)(?:\?[^"'\s\\]*)?/gi) || [];
+		for (const raw of urls) {
+			const clean = raw.replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
+			if (!found.includes(clean)) found.push(clean);
+			if (found.length >= limit * 2) break;
+		}
+	}
 	return [...new Set(found)].slice(0, limit);
 }
 
@@ -485,7 +501,7 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 				if (!node || typeof node !== 'object') return;
 				if (Array.isArray(node)) { node.forEach(walk); return; }
 				if (node['@type'] && String(node['@type']).toLowerCase() === 'product') {
-					const imgs = imageUrls([node.image], base, 6);
+					const imgs = imageUrls([node.image], base, 24);
 					imgs.forEach(addImage);
 				}
 				Object.values(node).forEach(walk);
@@ -504,7 +520,22 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 	const finalImages = [...new Set([
 		...productImages,
 		...(productImages.length ? [] : imagesFromEmbeddedJson(html, base)),
-	])].slice(0, 8);
+	])].slice(0, 24);
+
+	// Videos suelen vivir como <video><source>, en reproductores embebidos o en
+	// JSON de hidrataciÃ³n. No se mandan al modelo como referencia visual, pero sÃ­
+	// se conservan para que el usuario pueda revisarlos antes de generar.
+	const productVideos: string[] = [];
+	const addVideo = (src: unknown) => {
+		const abs = absoluteUrl(src, base);
+		if (abs && !productVideos.includes(abs)) productVideos.push(abs);
+	};
+	$('main video, main video source, [class*="product"] video, [class*="product"] video source, [class*="gallery"] video, [class*="gallery"] video source, [class*="swiper"] video source, [class*="slider"] video source').each((_i, el) => {
+		addVideo($(el).attr('src') || $(el).attr('data-src'));
+	});
+	if (!productVideos.length) $('video source, video').each((_i, el) => addVideo($(el).attr('src') || $(el).attr('data-src')));
+	productVideos.push(...videosFromEmbeddedJson(html));
+	const finalVideos = [...new Set(productVideos.map((src) => absoluteUrl(src, base)).filter(Boolean))].slice(0, 12);
 
 	// 4. Extract clean text content (remove chrome, keep product content)
 	$('script, style, noscript, nav, footer, header, aside, [class*="breadcrumb"], [class*="cookie"], [class*="popup"], [class*="modal"], [class*="cart"], [class*="related"], [class*="recommend"]').remove();
@@ -630,6 +661,7 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 		productUrl: base,
 		imageUrl: finalImages[0] || '',
 		imageUrls: finalImages,
+		videoUrls: finalVideos,
 		metadata: {
 			brand: compact(extracted.brand || '', 120),
 			category: compact(extracted.category || '', 100),

@@ -65,6 +65,29 @@ export type LayoutAnalysis = {
 	language?: string;
 	// Personas visibles en el anuncio (el usuario puede indicar cómo se reconstruyen).
 	people?: Array<{ where?: string; description?: string; role?: string; directive?: string }>;
+	// Decisiones contextuales que pueden mejorar la fidelidad sin limitarse a
+	// comparaciones: personas, escenas, objetos secundarios, styling, etc.
+	creativeDecisions?: Array<{
+		type?: 'person' | 'scene' | 'styling' | 'object' | 'comparison' | 'product-handling' | 'other';
+		title?: string;
+		where?: string;
+		description?: string;
+		question?: string;
+		defaultStrategy?: string;
+		confidence?: 'high' | 'medium' | 'low';
+		directive?: string;
+	}>;
+	// Lectura de una comparación real. Se muestra al usuario solo cuando la IA
+	// detecta una estructura comparativa o tiene una duda que conviene resolver.
+	comparison?: {
+		detected?: boolean;
+		type?: 'us-vs-them' | 'before-after' | 'comparison-grid' | 'other';
+		confidence?: 'high' | 'medium' | 'low';
+		summary?: string;
+		question?: string;
+		defaultStrategy?: string;
+		userGuidance?: string;
+	};
 	// Elementos de comparación que NO son el producto héroe (ej: barritas de la competencia).
 	comparisonItems?: Array<{ where?: string; description?: string; role?: string; directive?: string }>;
 };
@@ -161,10 +184,29 @@ Return STRICT JSON:
       "role": "their job in the ad (e.g. 'testimonial author', 'lifestyle model', 'before/after subject')",
       "description": "what they look like now in Argentine Spanish (apparent gender, age range, hair, expression, setting) so the user can decide how to reconstruct them" }
   ],
+  "comparison": {
+    "detected": true|false,
+    "type": "us-vs-them|before-after|comparison-grid|other",
+    "confidence": "high|medium|low",
+    "summary": "qué está comparando la pieza, en una frase corta en español argentino",
+    "question": "pregunta concreta para el usuario solo si hay una ambigüedad importante; si no, cadena vacía",
+    "defaultStrategy": "qué debe hacer la IA si el usuario deja la aclaración vacía",
+    "userGuidance": "cadena vacía"
+  },
   "comparisonItems": [
     { "where": "position of a NON-hero item that the ad compares AGAINST the product (e.g. 'left and right columns/products in a 3-way comparison')",
       "role": "what it represents (e.g. 'competitor bar', 'the old way', 'other brand')",
       "description": "short Argentine-Spanish description of that comparison item so the user can decide what to put there" }
+  ],
+  "creativeDecisions": [
+    { "type": "person|scene|styling|object|comparison|product-handling|other",
+      "title": "título corto y claro para la decisión",
+      "where": "dónde aparece el elemento",
+      "description": "qué detectaste y por qué puede cambiar la generación",
+      "question": "pregunta concreta para el usuario; vacía si no hace falta preguntar",
+      "defaultStrategy": "qué debe hacer la IA si el usuario deja la aclaración vacía",
+      "confidence": "high|medium|low",
+      "directive": "cadena vacía" }
   ],
   "creative": {
     "emotion": "la emoción dominante que dispara el anuncio (deseo, alivio, urgencia, pertenencia, culpa, orgullo, curiosidad, seguridad...)",
@@ -198,7 +240,8 @@ Rules:
 - "productHasPackaging": look ONLY at the REAL product photo — true ONLY if that photo clearly shows a printed box, wrapper or label belonging to the product. Raw materials (leather hides, fabrics, wood), unpackaged food, plants, garments or bare objects have NO packaging → false. The template's product is irrelevant for this field.
 - TESTIMONIALS: if the template shows a person's photo next to a quote, the replacement quote and attribution must plausibly belong to that SAME visible person (never mismatch apparent gender or age; a neutral attribution like 'Cliente verificada' is fine).
 - PEOPLE: list in "people" EVERY human clearly visible in the ad (models, testimonial faces, before/after subjects). Empty array if none. The user may later specify how they want each person to look.
-- COMPARISON: if the ad is a comparison/versus layout (e.g. three products side by side, "us vs them", before/after columns), the HERO is the advertiser's product; list every OTHER item being compared against it in "comparisonItems" so the user can decide what to place there (they may want generic unbranded stand-ins). Empty array if the ad is not a comparison. Never treat the hero product itself as a comparison item.
+- COMPARISON: first decide whether the ad genuinely compares two or more sides. Do not confuse a product collage, multiple views of one SKU, or decorative repetition with a comparison. If it is a real comparison (including "us vs them", old vs new, before/after, competitor vs hero or a comparison grid), set "comparison.detected" to true, identify its type and confidence, summarize the contrast, and list every OTHER item being compared against the HERO in "comparisonItems". If the exact alternative is unclear, set confidence to "low" and ask one concrete question in "comparison.question". If it is not a comparison, set detected to false, use an empty question, and return an empty comparisonItems array. Never treat the hero product itself as a comparison item. Always provide a practical "defaultStrategy" so the generator can make a coherent, neutral, unbranded choice when the user leaves the clarification empty.
+- CONTEXTUAL CREATIVE DECISIONS: this is broader than comparison detection. Return up to 5 decisions only when a visual element could materially change the fidelity, meaning or believability of the generated ad and a user preference would help. Consider people (appearance, age range, pose, role or testimonial identity), scenes (home, studio, workplace, outdoors), styling (clothes, makeup, mood), secondary objects, pets, product handling/scale/orientation, before-after or comparison alternatives, and ambiguous text or claims. For each decision, describe what you detected, ask one useful concrete question when appropriate, and give a safe default. Do not ask about trivial details, do not ask the user to repeat information already visible or verified, and do not create a decision merely because the ad contains multiple photos of the same product. If a person is clearly visible, include a person decision when the appearance or role affects the adaptation. If there are no material ambiguities, return an empty array.
 - Never use the template's brand name in replacements.${input.brandName ? ` The advertiser brand is "${input.brandName}".` : ''}`;
 	const userText = `Target product: ${input.productName}. Verified facts: ${input.productFacts || 'Only the product photo is available.'}`;
 
@@ -213,6 +256,31 @@ Rules:
 				brandName: input.brandName,
 			});
 			parsed.messageStrategy = typeof parsed.messageStrategy === 'string' ? parsed.messageStrategy.trim().slice(0, 1200) : '';
+			if (parsed.comparison && typeof parsed.comparison === 'object') {
+				parsed.comparison = {
+					detected: parsed.comparison.detected === true,
+					type: ['us-vs-them', 'before-after', 'comparison-grid', 'other'].includes(parsed.comparison.type) ? parsed.comparison.type : 'other',
+					confidence: ['high', 'medium', 'low'].includes(parsed.comparison.confidence) ? parsed.comparison.confidence : 'medium',
+					summary: typeof parsed.comparison.summary === 'string' ? parsed.comparison.summary.trim().slice(0, 500) : '',
+					question: typeof parsed.comparison.question === 'string' ? parsed.comparison.question.trim().slice(0, 500) : '',
+					defaultStrategy: typeof parsed.comparison.defaultStrategy === 'string' ? parsed.comparison.defaultStrategy.trim().slice(0, 800) : '',
+				};
+			} else {
+				parsed.comparison = { detected: false, confidence: 'high', type: 'other', summary: '', question: '', defaultStrategy: '' };
+			}
+			parsed.comparisonItems = Array.isArray(parsed.comparisonItems) ? parsed.comparisonItems : [];
+			parsed.creativeDecisions = Array.isArray(parsed.creativeDecisions)
+				? parsed.creativeDecisions.slice(0, 5).map((decision: any) => ({
+					type: ['person', 'scene', 'styling', 'object', 'comparison', 'product-handling', 'other'].includes(decision?.type) ? decision.type : 'other',
+					title: typeof decision?.title === 'string' ? decision.title.trim().slice(0, 160) : '',
+					where: typeof decision?.where === 'string' ? decision.where.trim().slice(0, 240) : '',
+					description: typeof decision?.description === 'string' ? decision.description.trim().slice(0, 500) : '',
+					question: typeof decision?.question === 'string' ? decision.question.trim().slice(0, 500) : '',
+					defaultStrategy: typeof decision?.defaultStrategy === 'string' ? decision.defaultStrategy.trim().slice(0, 700) : '',
+					confidence: ['high', 'medium', 'low'].includes(decision?.confidence) ? decision.confidence : 'medium',
+					directive: '',
+				}))
+				: [];
 			parsed.language = typeof parsed.language === 'string' && LANGUAGE_NAMES[parsed.language] ? parsed.language : (input.language || 'es');
 			parsed.textZones = parsed.textZones.map((zone: any) => ({
 				...zone,
@@ -295,8 +363,8 @@ export function buildReferenceClonePrompt(input: {
 	brief: string;
 	analysis?: LayoutAnalysis | null;
 	languageCode?: string;
-	colorMode?: 'winner' | 'brand';
-	typoMode?: 'winner' | 'brand';
+	colorMode?: 'winner' | 'url' | 'brand';
+	typoMode?: 'winner' | 'url' | 'brand';
 	brandColors?: string[];
 	brandTypography?: { headings?: string; body?: string };
 	includeWebsite?: boolean;
@@ -323,13 +391,6 @@ export function buildReferenceClonePrompt(input: {
 	let textSwap = '';
 	if (zones.length) {
 		textSwap = zones.map((zone, index) => `${index + 1}. [${zone.where || 'text zone'}${zone.messageRole ? ` — persuasive job: ${zone.messageRole}` : ''}] Replace "${zone.original || ''}" with "${zone.replacement}"`).join('\n');
-	} else if (input.adCopy) {
-		textSwap = [
-			input.adCopy.headline ? `- Headline: "${input.adCopy.headline}"` : '',
-			input.adCopy.subheadline ? `- Subheadline: "${input.adCopy.subheadline}"` : '',
-			input.adCopy.reviewText ? `- Customer review: "${input.adCopy.reviewText}"` : '',
-			input.adCopy.cta ? `- Call-to-action button: "${input.adCopy.cta}"` : '',
-		].filter(Boolean).join('\n');
 	}
 
 	const placement = input.analysis?.productPlacement
@@ -428,8 +489,8 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 		? `1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. The product must remain the SAME PHYSICAL OBJECT TYPE seen in its photo — if the photo shows a hide, render a hide; a bottle, a bottle; never morph it into the template's product form (e.g. never turn an unboxed product into a box). Render it as ONE single coherent object (never split it into disconnected pieces, and never show multiples unless the template does). RE-STAGE the product INTO the template's scene — do NOT paste it: re-photograph it as if it were shot in that exact environment, matching the scene's camera angle, perspective, lighting direction, color temperature, reflections and shadow behavior (e.g. if the template's product leans against a tiled wall in daylight, the new product must sit in that same tiled-wall daylight scene with the same grounding). Give it real volume and dimension, adapt its pose and orientation to fit the composition naturally, and ground it with the same shadow style the template uses. POSITION: place it at the SAME position and size ratio as the template's product — if the template's product occupies the right side, yours must occupy the right side; never center it unless the template does. Never leave hard cut-out edges or a floating pasted look: blend the product's edges with the scene lighting. LAYERING: match the template's stacking order exactly — any card, speech bubble or text panel that sits in front of the product in the template must stay fully in front, uncovered and readable; the product must never cut across, poke through or overlap a text card beyond what the template shows. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable. IDENTITY DETAILS (CRITICAL): whatever is printed, stitched, embossed, woven or engraved on the real product must survive — the brand mark on a garment's chest or sleeve, the tag, the logo on a shoe, the model name on a device, a pattern, a stripe, a stitching colour, a distinctive shape. Someone who owns this product has to recognise it as the same one. Do not clean it up, simplify it, remove a label or move a mark somewhere else.${packagingRule}${labelFidelityRule}${scaleRule}${instanceBlock}${onBodyRule}`
 		: `1. NO PRODUCT INSERTION — The template does NOT show a physical product, so the new ad must not show one either. This ad works through its visual composition and design, not through a product shot: that is exactly why it works. Keep its imagery style as it is (the typographic treatment, the colour field, the graphic devices, the scene) and adapt it naturally to the new context. Do NOT insert, paste, collage or hint at a product photo anywhere, at any size, not even small in a corner — not even if a product photo was supplied as input.`;
 
-	const colorRule = input.colorMode === 'brand' && input.brandColors?.length
-		? `COLOR RESTYLE (REQUIRED) — This is a hard requirement: recolor the ad into the brand palette ${input.brandColors.join(', ')} (the FIRST color is the primary/dominant one, the next are secondary/accents). The dominant background, the main accents, the buttons/CTA and the badges MUST visibly use these exact brand colors instead of the template's original colors — the finished ad has to read as belonging to this brand at a glance. Keep the template's exact LAYOUT, contrast hierarchy and legibility (dark text on light areas and vice-versa); only the hues change. Do not keep the template's original brand colors.`
+	const colorRule = input.colorMode !== 'winner' && input.brandColors?.length
+		? `COLOR RESTYLE (REQUIRED) — This is a hard requirement: recolor the ad into the selected brand palette ${input.brandColors.join(', ')} (the FIRST color is the primary/dominant one, the next are secondary/accents). The dominant background, the main accents, the buttons/CTA and the badges MUST visibly use these exact brand colors instead of the template's original colors — the finished ad has to read as belonging to the selected brand at a glance. Keep the template's exact LAYOUT, contrast hierarchy and legibility (dark text on light areas and vice-versa); only the hues change. Do not keep the template's original brand colors.`
 		: `Do not change the background color or palette — keep the template's exact colors.`;
 
 	// Personas: reconstruir según lo que pidió el usuario, o mantener si no indicó nada.
@@ -440,15 +501,35 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 
 	// Comparación: qué poner en los ítems que NO son el producto héroe.
 	const comparisons = (input.analysis?.comparisonItems || []).filter((c) => c && (c.description || c.directive || c.where));
+	const comparisonInfo = input.analysis?.comparison;
 	const comparisonBlock = comparisons.length
 		? `\n6. COMPARISON ITEMS — This is a comparison ad. The hero is ${productLabel}. For the OTHER compared items, follow the direction (and NEVER show a real competitor's brand name, logo or packaging unless explicitly told to):\n${comparisons.map((c, i) => `   - Item ${i + 1}${c.where ? ` (${c.where})` : ''}: ${c.directive?.trim() ? c.directive.trim() : `keep it as a neutral, unbranded stand-in in the same position and style as the template, clearly less appealing than the hero — but it MUST be the same KIND of thing as ${productLabel} (a plainer/duller alternative of the same category), never the template's original product category.`}`).join('\n')}`
 		: '';
-	const typoRule = input.typoMode === 'brand' && (input.brandTypography?.headings || input.brandTypography?.body)
-		? `TYPOGRAPHY — Use the brand's typography: headings in ${input.brandTypography?.headings || 'the brand font'}, body text in ${input.brandTypography?.body || 'the brand font'}, keeping the same sizes, weights and hierarchy as the template.`
+	const comparisonDescriptions = comparisons.map((c, i) => `Item ${i + 1}: ${c.description || c.role || c.where || 'alternative side'}`).join(' | ');
+	const comparisonContext = comparisons.length || comparisonInfo?.detected
+		? `\nCOMPARISON INTELLIGENCE — ${comparisonInfo?.summary || 'Preserve the contrast between the hero and the other side.'} ${comparisonDescriptions ? `The visual analysis identified these roles: ${comparisonDescriptions}.` : ''} ${comparisonInfo?.userGuidance?.trim() ? `The user clarified: ${comparisonInfo.userGuidance.trim()}.` : ''} ${comparisonInfo?.defaultStrategy?.trim() ? `If the user left the clarification empty, use this default: ${comparisonInfo.defaultStrategy.trim()}.` : 'If the user left it empty, infer a same-category, neutral, unbranded alternative from the analyzed role and description. Never invent an unrelated object or a real competitor brand.'}`
+		: '';
+
+	// No limitar la ayuda contextual a comparaciones: una persona, una escena o
+	// un objeto secundario también puede necesitar una decisión del usuario.
+	const creativeDecisions = (input.analysis?.creativeDecisions || []).filter((decision) => decision && (decision.description || decision.question || decision.defaultStrategy || decision.directive));
+	const creativeDecisionBlock = creativeDecisions.length
+		? `\nCONTEXTUAL CREATIVE DECISIONS — The visual analysis identified details that may materially affect fidelity or believability. Preserve the template structure, but apply the user's direction when present. If a direction is empty, use the safe default and do not invent an unrelated subject, brand or claim:\n${creativeDecisions.map((decision, index) => `   - Decision ${index + 1} [${decision.type || 'other'}]${decision.title ? ` ${decision.title}` : ''}${decision.where ? ` (${decision.where})` : ''}: detected — ${decision.description || 'contextual visual element'}. User direction: ${decision.directive?.trim() || 'none'}. Default: ${decision.defaultStrategy || 'make the most natural, same-category and production-ready choice.'}`).join('\n')}`
+		: '';
+	const typoRule = input.typoMode !== 'winner' && (input.brandTypography?.headings || input.brandTypography?.body)
+		? `TYPOGRAPHY — Use the selected brand typography: headings in ${input.brandTypography?.headings || 'the brand font'}, body text in ${input.brandTypography?.body || 'the brand font'}, keeping the same sizes, weights and hierarchy as the template.`
 		: `Match the template's typographic style, weight and case exactly (if the template headline is heavy condensed uppercase, keep it heavy condensed uppercase).`;
 	const strategyBlock = input.analysis?.messageStrategy
 		? `\nMESSAGE STRATEGY OF THE WINNING AD — preserve the same persuasion, adapted to ${productLabel}: ${input.analysis.messageStrategy}\n`
 		: '';
+	const logoDecision = input.analysis?.templateHasLogoSlot
+		? `\nLOGO DECISION (CRITICAL) — The winning reference contains an ad-level brand mark${input.analysis.logoDescription ? ` (${input.analysis.logoDescription})` : ''}. Do not copy that original logo, wordmark, domain or watermark literally. ${input.hasLogo
+			? 'Replace it with the supplied selected-identity logo, in the same structural role, scale and visual balance, exactly once. The selected logo is the only advertiser logo allowed.'
+			: 'Remove it cleanly and preserve the surrounding spacing and hierarchy. Do not invent a replacement name, icon or badge just to fill the gap.'} If the mark is printed on the TARGET PRODUCT itself (its packaging, label, garment, hardware or other physical surface), that is product identity and must remain faithful; this rule applies only to the winning ad\'s brand marks.`
+		: `\nLOGO DECISION (CRITICAL) — The winning reference has no confirmed ad-level logo slot. ${input.hasLogo
+			? 'Only include the supplied selected-identity logo if the reference has a natural, clearly visible brand position; never create a new logo lockup, badge or footer.'
+			: 'Do not add a logo, wordmark, domain, watermark or brand badge. Preserve any genuine branding printed on the TARGET PRODUCT itself because it is part of the product, not an ad overlay.'}`;
+	const qualityRule = `\nOUTPUT QUALITY (CRITICAL) — Render at the highest native resolution and quality available for this image engine; do not downscale, blur or soften the final image. Keep edges, product textures and shadows crisp and photorealistic. Render every replacement text character sharply and legibly, with correct spelling, stable letterforms, consistent kerning and no gibberish, melted letters, duplicated words or accidental symbols. Prefer clean, sufficiently large text inside its original zones over tiny unreadable text. The result must look production-ready at full resolution, suitable for a high-quality 4K export when the selected engine supports it.`;
 
 	return `The first input image is a WINNING AD TEMPLATE. It is a STRUCTURAL reference, not artwork to copy: what you must preserve is its skeleton — the layout, the composition, the proportions, the background treatment, the colour palette, the graphic devices (badges, stars, speech bubbles, banners, buttons, dividers), the position of every visual block and the visual hierarchy. What must change is everything it is ABOUT: the product, the scenes and the people all become ${productLabel}. Someone who saw both ads should recognise the same design system and never suspect they show the same subject.
 ${strategyBlock}${creativeBlock}${imageSlotBlock}
@@ -465,7 +546,9 @@ ${strategyBlock}${creativeBlock}${imageSlotBlock}
 WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website. Render exactly "${input.displayWebsite}" ONCE in an existing URL or footer slot.` : 'Do not render any URL, domain, web address, social handle or QR code. Remove any website from the winning template and leave that space clean.'}
 
 4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
-${peopleBlock}${comparisonBlock}
+${qualityRule}
+${logoDecision}
+${peopleBlock}${comparisonBlock}${comparisonContext}${creativeDecisionBlock}
 
 USER DIRECTION
 ${input.brief || 'None.'}`;
