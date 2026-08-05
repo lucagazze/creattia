@@ -5,7 +5,7 @@ import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput,
 import { generateAdImage } from '../../../lib/creattia/image-engines';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
-import { stripWebReferences } from '../../../lib/creattia/ad-copy';
+import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad-copy';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -82,6 +82,7 @@ function buildPrompt(input: {
 	variationStrength: string;
 	replaceProduct: boolean;
 	inputImageMap: string[];
+	adCopy?: AdaptedAdCopy;
 }) {
 	const revisionRules: Record<string, string> = {
 		exact: 'Use the first input image as the master reference. Preserve its framing, layout, hierarchy, palette, lighting, typography zones and every untouched detail as closely as possible. Apply only the requested change.',
@@ -96,6 +97,15 @@ function buildPrompt(input: {
 	const productFacts = input.products.length
 		? input.products.map((product, index) => `${index + 1}. ${product.name}: ${product.description || 'No additional verified facts.'}`).join('\n')
 		: 'No specific product selected.';
+	const adCopyBlock = input.adCopy
+		? `
+TEXT COPY TO WRITE EXACTLY ON THE IMAGE (keep the same visible zones, hierarchy and language as the winning reference):
+- Primary text / main message: "${input.adCopy.primaryText}"
+- Headline: "${input.adCopy.headline}"
+- Description: "${input.adCopy.description}"
+- CTA: "${input.adCopy.cta}"
+Render this copy sharply and correctly. Do not add extra text blocks that are not present in the reference.`
+		: '';
 
 	return `Create a production-ready static advertising image for a real ecommerce brand.
 
@@ -122,6 +132,7 @@ ${input.inputImageMap.length ? input.inputImageMap.map((label, index) => `- Imag
 
 SELECTED PRODUCTS
 ${productFacts}
+${adCopyBlock}
 
 ART DIRECTION
 ${compositionRule}
@@ -137,8 +148,8 @@ ${input.imageType === 'lifestyle' ? '- Create a believable lifestyle scene. Ever
 ${input.imageType === 'catalog' ? '- Use a clean ecommerce catalog treatment: controlled lighting, precise product edges, minimal environment and premium spacing.' : ''}
 ${input.imageType === 'promotion' ? '- Prioritize the verified offer and brand message. Do not invent a product-specific claim.' : ''}
 ${input.hasLogo ? '- LOGO PERMISSION: the user selected INCLUDE LOGO. Use the image identified as the brand logo in the input map, preserve it accurately and place it once with comfortable clear space.' : '- LOGO PERMISSION: the user selected NO ADDED LOGO. Do not add any separate logo, wordmark, emblem, monogram, badge, seal, watermark or invented brand symbol to the layout. Preserve only branding physically printed on the real product packaging.'}
-- Do not add publication copy, headlines, CTA buttons, offers, prices, URLs, social handles or explanatory text. This product is an image-only workflow.
-- Preserve only text that is physically part of the supplied product packaging or the official logo; do not invent new text.
+- Render the supplied winning-ad copy inside the same visible text zones when copy is provided above. If no copy is provided, keep text minimal and only use verified facts.
+- Do not add URLs, domains, social handles or QR codes. Preserve text physically printed on the supplied product packaging or the official logo exactly.
 - Do not invent prices, percentages, reviews, certifications, deadlines, product features or legal claims.
 - Do not include platform UI, watermarks, mock browser chrome or explanatory labels.
 - Make the result feel designed by a senior performance creative team, not like generic AI art.
@@ -194,7 +205,13 @@ export const POST: APIRoute = async ({ request }) => {
 			const rawPlan = clean(form.get('plan'), 30000);
 			if (rawPlan) {
 				const parsed = JSON.parse(rawPlan);
-				if (parsed && (Array.isArray(parsed.people) || Array.isArray(parsed.comparisonItems))) approvedPlan = parsed;
+				if (parsed && typeof parsed === 'object' && (
+					Array.isArray(parsed.people)
+					|| Array.isArray(parsed.comparisonItems)
+					|| Array.isArray(parsed.textZones)
+					|| typeof parsed.messageStrategy === 'string'
+					|| parsed.adCopy
+				)) approvedPlan = parsed;
 			}
 		} catch { /* plan inválido: se analiza normalmente */ }
 		const colorMode = clean(form.get('colorMode'), 10) === 'brand' ? 'brand' as const : 'winner' as const;
@@ -547,26 +564,23 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 
-		const useClonePrompt = hasReference && (!hasSourceGeneration || hasNewProductInput) && fidelity === 1
-			&& (storedProducts.length > 0 || hasUploadedProduct || approvedPlan?.referenceHasProduct === false);
-
-		// Análisis de layout con visión: enumera cada zona de texto del ganador
-		// con su reemplazo y cómo presentar el producto. Es la base del prompt clon.
-		// Si el usuario ya aprobó/editó los textos (plan), se usa eso directo.
+		// Análisis de layout + copy con visión: lee el ganador completo antes de
+		// generar. Incluye estrategia, zonas de texto, idioma, personas, producto y
+		// composición. Si el usuario ya aprobó/editó el plan, se usa ese resultado.
 		let layoutAnalysis: LayoutAnalysis | null = approvedPlan;
 		const verifiedProductFacts = storedProducts.map((item) => [
 			item.description,
 			item.price_text && `${item.price_text} ${item.currency || ''}`,
 			item.analysis?.category,
 		].filter(Boolean).join(' · '));
-		if (!layoutAnalysis && useClonePrompt && referenceBuffer && primaryProductBuffer) {
+		if (!layoutAnalysis && hasReference && referenceBuffer && (!isExactRevision)) {
 			try {
 				const productFacts = verifiedProductFacts.join('\n') || brief;
 				layoutAnalysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
 					referenceB64: referenceBuffer.toString('base64'),
 					referenceMime,
-					productB64: primaryProductBuffer.toString('base64'),
-					productMime: primaryProductMime,
+					productB64: primaryProductBuffer?.toString('base64'),
+					productMime: primaryProductBuffer ? primaryProductMime : undefined,
 					productName: storedProducts[0]?.name || 'the product in the supplied photo',
 					productFacts,
 					productImages: productVisionInputs.map((photo) => ({ b64: photo.buffer.toString('base64'), mime: photo.type })),
@@ -577,6 +591,10 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 		stamp(`análisis visual ${approvedPlan ? 'aprobado por el usuario' : layoutAnalysis ? 'ok' : 'sin resultado'}`);
+
+		const hasTargetProductInput = storedProducts.length > 0 || hasUploadedProduct || productVisionInputs.length > 0;
+		const useClonePrompt = hasReference && (!hasSourceGeneration || hasNewProductInput) && fidelity === 1
+			&& (hasTargetProductInput || layoutAnalysis?.referenceHasProduct === false);
 
 		const revisionPrompt = `The input image is a FINISHED advertisement. Reproduce it EXACTLY — same layout, same texts, same colors, same product, same typography, same background, every single detail identical — applying ONLY this modification:
 
@@ -594,6 +612,13 @@ The result must look like the same image with only that one adjustment applied.`
 			hasLogo,
 			brief: effectiveBrief,
 			analysis: layoutAnalysis,
+			languageCode: layoutAnalysis?.language,
+			adCopy: layoutAnalysis?.adCopy ? {
+				headline: layoutAnalysis.adCopy.headline,
+				subheadline: layoutAnalysis.adCopy.description,
+				cta: layoutAnalysis.adCopy.cta,
+				language: layoutAnalysis.language,
+			} : undefined,
 			colorMode,
 			typoMode,
 			brandColors: effectiveBrandColors,
@@ -627,6 +652,7 @@ The result must look like the same image with only that one adjustment applied.`
 			variationStrength,
 			replaceProduct: Boolean(hasSourceGeneration && sourceGeneration?.product_id !== (storedProducts[0]?.id || null)),
 			inputImageMap,
+			adCopy: layoutAnalysis?.adCopy,
 		});
 		const { error: promptUpdateError } = await admin.from('creative_generations').update({ prompt }).in('id', generationIds);
 		if (promptUpdateError) throw promptUpdateError;

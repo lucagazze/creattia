@@ -394,24 +394,6 @@
 .studio-credit-pill { height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 6px; border-radius: 20px; border: 1px solid #ded9e6; background: #fff; color: #19171d; cursor: pointer; box-shadow: 0 3px 10px rgba(32,22,42,.03); }
 .studio-credit-pill b { font-size: 11px; }
 
-/* Bienvenida de la primera visita: un cartel, no un tour con spotlights. */
-.studio-welcome-card {
-	display: flex; align-items: flex-start; gap: 14px;
-	padding: 16px 18px; margin-bottom: 22px;
-	background: linear-gradient(135deg, #f4f0ff 0%, #fdf5fb 100%);
-	border: 1.5px solid #e4d8fb; border-radius: 16px;
-	position: relative;
-}
-.studio-welcome-icon { font-size: 24px; line-height: 1; flex-shrink: 0; }
-.studio-welcome-card strong { display: block; margin-bottom: 4px; font-size: 14.5px; color: #19171d; }
-.studio-welcome-card p { margin: 0; font-size: 13px; line-height: 1.55; color: #4b4452; padding-right: 24px; }
-.studio-welcome-card p button { border: 0; background: transparent; padding: 0; color: #744bde; font-weight: 800; font-size: inherit; font-family: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
-.studio-welcome-close { position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(255,255,255,.7); color: #716d79; cursor: pointer; display: grid; place-items: center; font-size: 12px; }
-.studio-welcome-close:hover { background: #fff; color: #19171d; }
-@media (max-width: 640px) {
-	.studio-welcome-card { flex-direction: column; gap: 6px; padding: 14px 16px; }
-	.studio-welcome-card p { padding-right: 20px; }
-}
 .studio-credit-pill span { color: #77717d; font-size: 9px; font-weight: 600; }
 .studio-content { max-width: 1240px; margin: 0 auto; padding: 16px 38px 70px; }
 
@@ -5273,7 +5255,7 @@
 	}
 	.library-filter-controls > .niche-dd {
 		width: calc(50% - 5px);
-		flex: 1 1 calc(50% - 5px);
+		flex: 0 0 calc(50% - 5px);
 		min-width: 0;
 	}
 	.library-filter-controls .niche-dd-trigger {
@@ -5407,13 +5389,21 @@
 	border: 0;
 	border-radius: 999px;
 	padding: 10px 14px;
-	background: #251b35;
+	background: linear-gradient(104deg, #3e86c6 0%, #a666aa 22%, #ec4492 50%, #ee4454 76%, #f05427 100%);
 	color: #fff;
+	box-shadow: 0 10px 22px rgba(236, 68, 146, .18);
 	font: inherit;
 	font-size: 11px;
 	font-weight: 800;
 	cursor: pointer;
 	white-space: nowrap;
+	transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+
+.library-access-banner > button:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 13px 26px rgba(236, 68, 146, .25);
+	filter: saturate(1.08);
 }
 
 .library-locked-card {

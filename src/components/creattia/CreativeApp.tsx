@@ -519,17 +519,6 @@ export default function CreativeApp() {
 		} catch { /* storage bloqueado */ }
 	}, []);
 
-	// Bienvenida para cuentas nuevas: se marca completa apenas la cierran, no
-	// vuelve a aparecer.
-	async function dismissOnboarding() {
-		setProfile((prev) => ({ ...prev, onboardingCompleted: true }));
-		if (supabase && session) {
-			try {
-				await supabase.from('creative_profiles').update({ onboarding_completed: true }).eq('user_id', getSessionId(session));
-			} catch { /* si falla, vuelve a aparecer la próxima vez: no es grave */ }
-		}
-	}
-
 	// Favoritos y carpetas se guardan en localStorage, pero SIEMPRE con el id de
 	// la cuenta activa en la clave (ver sessionUserIdRef más abajo): sin eso, dos
 	// cuentas distintas en el mismo navegador terminan viendo lo del otro.
@@ -1566,7 +1555,6 @@ export default function CreativeApp() {
 								setPendingProductUrl('');
 								try { localStorage.removeItem('creattia_pending_url'); } catch { /* storage bloqueado */ }
 							}}
-							onDismissOnboarding={dismissOnboarding}
 							history={history}
 							catalog={catalog} 
 							onView={navigateTo} 
@@ -1807,16 +1795,16 @@ function AuthScreen({ onSession }: { onSession: (session: AppSession) => void })
 						<h2>{mode === 'signup' ? 'Creá imágenes que venden en minutos' : 'Volvé a tu espacio creativo'}</h2>
 						<p>{mode === 'signup' ? 'Tus primeras 3 imágenes son gratis. Sin tarjeta.' : 'Ingresá para seguir creando con tu marca.'}</p>
 					</div>
-					<form onSubmit={submit}>
-						{mode === 'signup' && <label>Tu nombre<input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="¿Cómo te llamás?" autoComplete="name" autoFocus required /></label>}
-						<label>Correo electrónico<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vos@tumarca.com" autoComplete="email" autoFocus={mode === 'login'} required /></label>
-						<label>Contraseña<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required /></label>
-						{error && <p className="studio-form-error">{error}</p>}
-						{notice && <p className="studio-form-notice">{notice}</p>}
-						<button className="studio-primary-button" disabled={loading || !email.trim() || !password}>{loading ? <span className="studio-spinner small"/> : <>{mode === 'signup' ? 'Crear cuenta gratis' : 'Ingresar'}<Icon name="arrow" size={18}/></>}</button>
-					</form>
-					<div className="studio-auth-divider"><span>o</span></div>
-					<button className="studio-google-button" type="button" onClick={signInWithGoogle} disabled={loading}><img src="/images/creattia/google-g.svg" alt=""/>Continuar con Google</button>
+						<button className="studio-google-button" type="button" onClick={signInWithGoogle} disabled={loading}><img src="/images/creattia/google-g.svg" alt=""/>Continuar con Google</button>
+						<div className="studio-auth-divider"><span>o</span></div>
+						<form onSubmit={submit}>
+							{mode === 'signup' && <label>Tu nombre<input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="¿Cómo te llamás?" autoComplete="name" required /></label>}
+							<label>Correo electrónico<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="negocio@gmail.com" autoComplete="email" required /></label>
+							<label>Contraseña<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required /></label>
+							{error && <p className="studio-form-error">{error}</p>}
+							{notice && <p className="studio-form-notice">{notice}</p>}
+							<button className="studio-primary-button" disabled={loading || !email.trim() || !password}>{loading ? <span className="studio-spinner small"/> : <>{mode === 'signup' ? 'Crear cuenta gratis' : 'Ingresar'}<Icon name="arrow" size={18}/></>}</button>
+						</form>
 					{!isSupabaseConfigured && <button className="studio-demo-entry" onClick={enterDemo}>Entrar directo con la cuenta demo</button>}
 					<small className="studio-terms">Al continuar aceptás los <a href="/terminos/">términos</a> y la <a href="/privacidad/">política de privacidad</a>.</small>
 				</div>
@@ -2144,7 +2132,6 @@ function Dashboard({
 	onGenerationRequested,
 	pendingProductUrl = '',
 	onPendingProductUrlUsed,
-	onDismissOnboarding,
 }: {
 	profile: AppProfile;
 	session?: AppSession;
@@ -2168,7 +2155,6 @@ function Dashboard({
 	// confirmación de email / login con Google).
 	pendingProductUrl?: string;
 	onPendingProductUrlUsed?: () => void;
-	onDismissOnboarding?: () => void;
 }) {
 	// Se precarga una sola vez: si el usuario la borra o la cambia, no se le
 	// vuelve a imponer en la próxima visita.
@@ -2179,17 +2165,6 @@ function Dashboard({
 
 	return (
 		<>
-			{!profile.onboardingCompleted && (
-				<div className="studio-welcome-card">
-					<span className="studio-welcome-icon" aria-hidden="true">👋</span>
-					<div>
-						<strong>¡Bienvenido a Creattia!</strong>
-						<p>Dos formas de arrancar: pegá la URL de tu producto para clonar varios anuncios ganadores a la vez, o entrá a la <button type="button" onClick={() => onView('winners')}>Biblioteca</button> y elegí uno puntual con "Usar este diseño". Tus primeros créditos ya están cargados — no hace falta tarjeta.</p>
-					</div>
-					<button type="button" className="studio-welcome-close" onClick={onDismissOnboarding} aria-label="Cerrar bienvenida">✕</button>
-				</div>
-			)}
-
 			{/* ── Generador Masivo de Anuncios por URL ── */}
 			<UrlBatchSection
 				userCredits={profile.credits}

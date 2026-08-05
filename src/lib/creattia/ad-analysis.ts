@@ -1,8 +1,13 @@
 import OpenAI from 'openai';
+import { normalizeAdCopy, stripWebReferences, type AdaptedAdCopy } from './ad-copy';
 
 // ── Compartido entre /api/creativos/plan y /api/creativos/generate ──────────
 
 export type LayoutAnalysis = {
+	/** Analysis used to adapt the winning message and render it in the generated image. */
+	messageStrategy?: string;
+	adCopy?: AdaptedAdCopy;
+	textZones?: Array<{ where?: string; onProduct?: boolean; original?: string; messageRole?: string; replacement?: string }>;
 	productHasPackaging?: boolean;
 	referenceHasProduct?: boolean;
 	templateHasLogoSlot?: boolean;
@@ -57,10 +62,20 @@ export type LayoutAnalysis = {
 		scoreReasons?: string[];
 	};
 	creativeOptions?: string[];
+	language?: string;
 	// Personas visibles en el anuncio (el usuario puede indicar cómo se reconstruyen).
 	people?: Array<{ where?: string; description?: string; role?: string; directive?: string }>;
 	// Elementos de comparación que NO son el producto héroe (ej: barritas de la competencia).
 	comparisonItems?: Array<{ where?: string; description?: string; role?: string; directive?: string }>;
+};
+
+export const LANGUAGE_NAMES: Record<string, string> = {
+	es: 'natural Argentine Spanish',
+	en: 'natural American English',
+	fr: 'natural French',
+	it: 'natural Italian',
+	pt: 'natural Brazilian Portuguese',
+	de: 'natural German',
 };
 
 // La API de imágenes de OpenAI solo decodifica PNG/JPEG de forma confiable
@@ -97,16 +112,30 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	productName: string;
 	productFacts: string;
 	brandName: string;
+	language?: string;
 }): Promise<LayoutAnalysis | null> {
 	const productInputs = [
 		...(input.productB64 ? [{ b64: input.productB64, mime: input.productMime }] : []),
 		...(input.productImages || []),
 	].filter((photo, index, all) => Boolean(photo.b64) && all.findIndex((candidate) => candidate.b64 === photo.b64) === index).slice(0, 5);
 	const hasProductImages = productInputs.length > 0;
+	const languageRule = input.language && LANGUAGE_NAMES[input.language]
+		? `Write the internal replacement suggestions in ${LANGUAGE_NAMES[input.language]} and set "language" to "${input.language}".`
+		: 'Detect the language used by the winning ad, set "language" to "es", "en", "fr", "it", "pt" or "de", and write replacement suggestions in that language.';
 	const systemPrompt = `You are a senior performance ad designer. You receive: (1) a winning static ad TEMPLATE image${hasProductImages ? ', (2) one or more photos of the SAME real product/SKU from different views' : ''}, and verified product facts.
 
 Return STRICT JSON:
 {
+  "messageStrategy": "2-3 sentences decoding the winning ad's persuasion: the emotion it triggers, the objection it removes, the promise it makes and the mechanism it uses (social proof, price anchor, before/after, authority, scarcity, contrast, curiosity, etc.).",
+  "adCopy": {
+    "primaryText": "adapted publication copy for the target product, using only verified facts",
+    "headline": "adapted headline, maximum 60 characters",
+    "description": "adapted supporting detail, maximum 90 characters",
+    "cta": "short adapted action, maximum 30 characters"
+  },
+  "textZones": [
+    { "where": "short position description", "onProduct": true|false, "original": "exact text visibly present in the winning image", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product, similar length" }
+  ],
   "referenceHasProduct": true|false,
   "templateHasLogoSlot": true|false — does the template visibly display a brand logo or brand wordmark (a natural spot where the advertiser brand belongs)?,
   "logoDescription": "if templateHasLogoSlot is true, briefly describe the logo/wordmark and WHERE it sits (e.g. 'small wordmark bottom-right'); else null",
@@ -155,6 +184,10 @@ Return STRICT JSON:
 }
 
 Rules:
+- Analyze the winner's wording before analyzing the visual layout. Enumerate EVERY text zone that is actually visible, including headline, subcopy, review, badges, pills, CTA, small print and text printed on packaging. Do not invent zones that are not visible. If the image has no publication text, return an empty textZones array.
+- "messageStrategy" must explain why the original copy works, not merely describe what it says. Keep the same emotional mechanism and rhetorical device in the internal replacements.
+- "adCopy" is the adapted publication copy and "textZones" are the exact visible text areas used by the generator. The text-zone replacements MUST be rendered inside the final image in the same positions and hierarchy; do not remove the winner's visible message. Text physically printed on the supplied product or inside its official logo must remain faithful to those supplied assets.
+- ${languageRule}
 - "referenceHasProduct": true only if the TEMPLATE visibly features a physical product shot (box, bottle, object). Lifestyle/person-only or pure-text ads → false.
 - "productInstances" (CRITICAL): list EVERY separate place where the TEMPLATE'S OWN product is visible — not just the hero shot. Count the product worn by a model, on someone's feet, held in a hand, repeated as colour variants, shown again small in a corner, or duplicated across a grid. If the same product appears 6 times in a circle, that is 6 instances (or one instance describing the whole arrangement, but say so explicitly). Missing one means it survives into the final ad and the ad ends up selling two different products at once.
 - "productOnBody": true if ANY instance is worn on / used on a human body (garment, underwear, shoes, jewellery, a patch on skin). This decides whether the layout can host a product that cannot be worn.
@@ -173,6 +206,18 @@ Rules:
 		try {
 			const parsed = JSON.parse(raw || 'null');
 			if (!parsed || typeof parsed !== 'object') return null;
+			parsed.textZones = Array.isArray(parsed.textZones) ? parsed.textZones : [];
+			parsed.adCopy = normalizeAdCopy(parsed.adCopy, {
+				productName: input.productName,
+				productFacts: input.productFacts,
+				brandName: input.brandName,
+			});
+			parsed.messageStrategy = typeof parsed.messageStrategy === 'string' ? parsed.messageStrategy.trim().slice(0, 1200) : '';
+			parsed.language = typeof parsed.language === 'string' && LANGUAGE_NAMES[parsed.language] ? parsed.language : (input.language || 'es');
+			parsed.textZones = parsed.textZones.map((zone: any) => ({
+				...zone,
+				replacement: stripWebReferences(zone?.replacement),
+			}));
 			return parsed as LayoutAnalysis;
 		} catch { return null; }
 	};
@@ -240,8 +285,8 @@ Rules:
 	return null;
 }
 
-// Prompt corto y sin contradicciones para el modo "Fiel al ganador":
-// el modelo edita la referencia reemplazando SOLO producto, textos y marca.
+	// Prompt para el modo "Fiel al ganador": conserva la estructura, adapta el
+	// producto y vuelve a escribir los textos visibles dentro de la imagen.
 export function buildReferenceClonePrompt(input: {
 	productNames: string[];
 	productFacts?: string[];
@@ -249,15 +294,43 @@ export function buildReferenceClonePrompt(input: {
 	hasLogo: boolean;
 	brief: string;
 	analysis?: LayoutAnalysis | null;
+	languageCode?: string;
 	colorMode?: 'winner' | 'brand';
 	typoMode?: 'winner' | 'brand';
 	brandColors?: string[];
 	brandTypography?: { headings?: string; body?: string };
+	includeWebsite?: boolean;
+	displayWebsite?: string;
+	adCopy?: { headline?: string; subheadline?: string; reviewText?: string; cta?: string; language?: string };
 	carousel?: { index: number; total: number };
 }) {
+	const languageCode = input.languageCode || input.analysis?.language || input.adCopy?.language || 'es';
+	const language = LANGUAGE_NAMES[languageCode] || LANGUAGE_NAMES.es;
 	const productLabel = input.productNames.length ? input.productNames.join(' + ') : 'the real product supplied by the user';
 	const verifiedProductFacts = (input.productFacts || []).filter(Boolean);
 	const referenceHasProduct = input.analysis?.referenceHasProduct !== false;
+
+	// Zonas de texto: son las palabras que sí deben volver a aparecer dentro del
+	// creativo. Las zonas impresas sobre un producto sin packaging no se inventan.
+	const isJunkReplacement = (value?: string) => {
+		const text = (value || '').trim();
+		return !text || /^(null|undefined|none|n\/a|nan|-|—)$/i.test(text);
+	};
+	const zones = (input.analysis?.textZones || [])
+		.filter((zone) => (input.analysis?.productHasPackaging ? true : !zone.onProduct))
+		.filter((zone) => !isJunkReplacement(zone.replacement));
+	const droppedOnProduct = (input.analysis?.textZones?.length || 0) - zones.length;
+	let textSwap = '';
+	if (zones.length) {
+		textSwap = zones.map((zone, index) => `${index + 1}. [${zone.where || 'text zone'}${zone.messageRole ? ` — persuasive job: ${zone.messageRole}` : ''}] Replace "${zone.original || ''}" with "${zone.replacement}"`).join('\n');
+	} else if (input.adCopy) {
+		textSwap = [
+			input.adCopy.headline ? `- Headline: "${input.adCopy.headline}"` : '',
+			input.adCopy.subheadline ? `- Subheadline: "${input.adCopy.subheadline}"` : '',
+			input.adCopy.reviewText ? `- Customer review: "${input.adCopy.reviewText}"` : '',
+			input.adCopy.cta ? `- Call-to-action button: "${input.adCopy.cta}"` : '',
+		].filter(Boolean).join('\n');
+	}
 
 	const placement = input.analysis?.productPlacement
 		? ` — same position, generous scale, dynamic angle and prominence described here: ${input.analysis.productPlacement}`
@@ -265,7 +338,7 @@ export function buildReferenceClonePrompt(input: {
 	// Regla incondicional: respetar la forma física real del producto aunque
 	// el análisis se equivoque con productHasPackaging.
 	const packagingRule = input.analysis && !input.analysis.productHasPackaging
-		? `\nCRITICAL: the real product has NO printed packaging. Its surface must stay completely clean — do NOT print any words, logos, badges, spec bubbles or graphics on the product itself.`
+		? `\nCRITICAL: the real product has NO printed packaging. Its surface must stay completely clean — do NOT print any words, logos, badges, spec bubbles or graphics on the product itself.${droppedOnProduct > 0 ? " The template's on-product texts are intentionally omitted; do not recreate or relocate them." : ''}`
 		: `\nNEVER invent a box, wrapper or label that is not visible in the product photo.`;
 
 	// El texto impreso en el envase se copia carácter por carácter. Inventar una
@@ -373,17 +446,23 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 	const typoRule = input.typoMode === 'brand' && (input.brandTypography?.headings || input.brandTypography?.body)
 		? `TYPOGRAPHY — Use the brand's typography: headings in ${input.brandTypography?.headings || 'the brand font'}, body text in ${input.brandTypography?.body || 'the brand font'}, keeping the same sizes, weights and hierarchy as the template.`
 		: `Match the template's typographic style, weight and case exactly (if the template headline is heavy condensed uppercase, keep it heavy condensed uppercase).`;
+	const strategyBlock = input.analysis?.messageStrategy
+		? `\nMESSAGE STRATEGY OF THE WINNING AD — preserve the same persuasion, adapted to ${productLabel}: ${input.analysis.messageStrategy}\n`
+		: '';
 
 	return `The first input image is a WINNING AD TEMPLATE. It is a STRUCTURAL reference, not artwork to copy: what you must preserve is its skeleton — the layout, the composition, the proportions, the background treatment, the colour palette, the graphic devices (badges, stars, speech bubbles, banners, buttons, dividers), the position of every visual block and the visual hierarchy. What must change is everything it is ABOUT: the product, the scenes and the people all become ${productLabel}. Someone who saw both ads should recognise the same design system and never suspect they show the same subject.
-${creativeBlock}${imageSlotBlock}
+${strategyBlock}${creativeBlock}${imageSlotBlock}
 	${productSwap}${orientationRule}${carouselRule}
 
-	2. IMAGE-ONLY OUTPUT — This instruction overrides template fidelity for all publication text. The final image must contain ZERO publication copy: erase every headline, subtitle, caption, CTA button label, offer, price, URL, social handle, badge label and explanatory sentence from the template. Preserve only the empty shape, spacing or visual container when it is part of the composition. Do not replace erased text with new text or placeholder words. Preserve text only when it is physically printed on the supplied product or is part of the supplied official logo.
-	Do not preserve, translate, paraphrase, rewrite or invent any publication copy, claims, offers, prices, URLs, social handles or explanatory text.
+	2. TEXT SWAP — LANGUAGE IS ABSOLUTE: every word visible in the final image must be in ${language} — headline, subcopy, badges, pills, buttons, small print and stamps. Replace the template's visible wording with the exact copy below, keeping each text in the same position, size, style, line count and visual hierarchy:
+	${textSwap || (input.analysis
+		? `- THIS AD HAS NO TEXT OVERLAY. Do not add a headline, badge, feature list, price tag, comparison table, CTA or logo lockup that is not visibly present in the template.`
+		: `- Adapt every template text block honestly to ${productLabel}, in ${language}, keeping the same message structure.`)}
+	If a visible text block has no replacement listed, adapt its message honestly to ${productLabel}. Do not invent prices, percentages, reviews, certifications or claims. Never carry over the template's guarantees, discounts, shipping promises, review counts, ratings, certifications, awards or deadlines unless they are verified for the target product. Keep the SAME NUMBER of text blocks as the template, no more. Render every replacement sharp, correctly spelled and fully inside its original card, bubble or badge. Never duplicate a line or let text overflow. Text physically printed on the supplied product or inside its official logo must remain faithful to those supplied assets.
 
 3. BRAND SWAP — ERASE every trace of the template's own brand. Its wordmark, logo, emblem, monogram and brand name must NOT appear anywhere in the output, in any size, not even faintly, partially, redrawn or stylised, and never merged with other text. Scan the whole canvas for it: corners, footer, badges, the product itself and any watermark. That brand belongs to a different company — leaving it in makes the ad unusable. ${input.hasLogo ? 'The user explicitly selected INCLUDE LOGO. If the layout needs a brand mark, place the provided brand logo (last input image) in that same spot, ONCE, small and discreet. Reproduce that logo image EXACTLY as supplied and complete: it may itself contain more than one element (a shield plus a seal, a symbol plus a wordmark, several marks side by side) — keep every element it contains, in the same arrangement and proportions, and render any text inside it letter for letter. Never redraw, recolour, restyle, split or simplify it. Do NOT add any badge, seal, medallion, ribbon, star rating, laurel or certification stamp that is not part of that logo image.' : 'The user explicitly selected NO ADDED LOGO. Do not add a separate logo, wordmark, emblem, monogram, initials, shield, crest, badge, seal, medallion, ribbon, laurel, star mark, coat of arms or certification stamp to the layout. Where the template showed its brand mark, leave that area completely empty and clean — no invented name, placeholder or symbol. This does not remove the real label or branding physically printed on the supplied product packaging, which must remain faithful to the product photo.'}
 
-No URLs, domains, web addresses, social handles or QR codes may appear in the generated image.
+WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website. Render exactly "${input.displayWebsite}" ONCE in an existing URL or footer slot.` : 'Do not render any URL, domain, web address, social handle or QR code. Remove any website from the winning template and leave that space clean.'}
 
 4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
 ${peopleBlock}${comparisonBlock}
