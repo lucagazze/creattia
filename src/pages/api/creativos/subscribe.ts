@@ -101,8 +101,11 @@ export const POST: APIRoute = async ({ request, url }) => {
 	
 	const cycleInfo = plan[billingCycle];
 	const planId = import.meta.env[cycleInfo.env] || ('fallback' in cycleInfo ? import.meta.env[cycleInfo.fallback] : '');
-	if (!accessToken || !planId) {
-		return json({ error: `Mercado Pago todavía no está configurado para el plan ${planCode} (${billingCycle}).`, requiresConfiguration: true }, 503);
+	if (!accessToken) {
+		return json({ error: 'Mercado Pago todavía no está configurado.', requiresConfiguration: true }, 503);
+	}
+	if (!planId && billingCycle !== 'monthly') {
+		return json({ error: `Mercado Pago todavía no está configurado para la modalidad ${billingCycle}.`, requiresConfiguration: true }, 503);
 	}
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
@@ -173,19 +176,33 @@ export const POST: APIRoute = async ({ request, url }) => {
 			.eq('user_id', auth.user.id).eq('provider', 'mercado_pago');
 	}
 
+	const preapprovalPayload: Record<string, unknown> = {
+		payer_email: auth.user.email,
+		external_reference: `${auth.user.id}:${planCode}:${billingCycle}`,
+		reason: plan.reason,
+		back_url: `${siteUrl}/app/?subscription=return`,
+	};
+	if (planId) {
+		preapprovalPayload.preapproval_plan_id = planId;
+	} else {
+		// Mercado Pago permite crear una suscripción mensual sin un plan previo.
+		// Esto mantiene funcionando el checkout aunque todavía no se hayan cargado
+		// los IDs opcionales de cada plan en Vercel.
+		preapprovalPayload.auto_recurring = {
+			frequency: 1,
+			frequency_type: 'months',
+			transaction_amount: plan.price,
+			currency_id: subscriptionCurrency,
+		};
+	}
+
 	const response = await fetch('https://api.mercadopago.com/preapproval', {
 		method: 'POST',
 		headers: {
 			authorization: `Bearer ${accessToken}`,
 			'content-type': 'application/json',
 		},
-		body: JSON.stringify({
-			preapproval_plan_id: planId,
-			payer_email: auth.user.email,
-			external_reference: `${auth.user.id}:${planCode}:${billingCycle}`,
-			reason: plan.reason,
-			back_url: `${siteUrl}/app/?subscription=return`,
-		}),
+		body: JSON.stringify(preapprovalPayload),
 	});
 
 	const payload = await response.json().catch(() => ({}));
