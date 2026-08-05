@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
+import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Página completa de creación fiel al ganador (reemplaza el modal). Mismo
@@ -81,6 +81,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [parsingDoc, setParsingDoc] = useState(false);
 
 	const [format, setFormat] = useState('original');
+	const [language, setLanguage] = useState('es');
 	const [colorMode, setColorMode] = useState<'winner' | 'brand'>('winner');
 	const [typoMode, setTypoMode] = useState<'winner' | 'brand'>('winner');
 	const [brandSource, setBrandSource] = useState('url');
@@ -173,6 +174,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			}
 			const form = new FormData();
 			form.set('referencePath', effectiveReferencePath);
+			form.set('language', language);
 			form.set('brandSource', brandSource);
 			if (productMode === 'url' && productIds.length) {
 				form.set('productId', productIds[0]); // contexto de análisis
@@ -209,6 +211,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('preset', 'Fiel al ganador');
 			form.set('count', String(count));
 			form.set('format', format);
+			form.set('language', language);
 			form.set('colorMode', colorMode);
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
@@ -289,7 +292,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					referenceName: ad.name || 'Carrusel ganador',
 					templateId: !isNaN(pathPrefixId) ? pathPrefixId : 40,
 					productIds,
-					format, colorMode, typoMode, brandSource,
+					format, language, colorMode, typoMode, brandSource,
 					logoSlideIndexes: [...logoCarouselPages],
 				}),
 			});
@@ -537,9 +540,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 						</div>
 
 						{/* 3 · Estilo (idioma, de quién es el anuncio, colores, tipografía, cantidad) */}
-						<div className="wiz-step" hidden={formStep !== 3}>
-							<div className="wiz-body">
-								<div className="batch-brand-block">
+					<div className="wiz-step" hidden={formStep !== 3}>
+						<div className="wiz-body">
+							<BatchSelect label="Idioma del anuncio" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+							<div className="batch-brand-block">
 									<span className="picker-label">¿Qué identidad querés usar?</span>
 									<p className="batch-detail-help">Elegí de dónde tomar el nombre y la identidad visual. La URL solo se reemplaza si el anuncio ganador original ya tenía una.</p>
 									<div className="batch-brand-options">

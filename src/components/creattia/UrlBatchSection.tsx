@@ -165,6 +165,16 @@ export const BRAND_OPTIONS = [
 	{ value: 'none', label: 'Solo producto', icon: 'none', hint: 'Sin nombre, logo ni redes de marca' },
 ];
 
+// Idioma de los textos que se adaptan dentro del creativo ganador.
+export const LANGUAGE_OPTIONS = [
+	{ value: 'es', label: 'Español', cc: 'ar' },
+	{ value: 'en', label: 'Inglés', cc: 'us' },
+	{ value: 'pt', label: 'Portugués', cc: 'br' },
+	{ value: 'it', label: 'Italiano', cc: 'it' },
+	{ value: 'fr', label: 'Francés', cc: 'fr' },
+	{ value: 'de', label: 'Alemán', cc: 'de' },
+];
+
 export const STYLE_OPTIONS = [
 	{ value: 'winner', label: 'Del anuncio ganador', emoji: '🏆', hint: 'Conserva lo que hizo funcionar al original' },
 	{ value: 'brand', label: 'De mi marca', emoji: '🎨', hint: 'Usa los colores y la tipografía de tu marca' },
@@ -204,6 +214,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [manualPrice, setManualPrice] = useState('');
 	const [count, setCount] = useState(10);
 	const [format, setFormat] = useState('original');
+	const [language, setLanguage] = useState('es');
 	const [colorMode, setColorMode] = useState('winner');
 	const [typoMode, setTypoMode] = useState('winner');
 	const [brandSource, setBrandSource] = useState('url');
@@ -455,6 +466,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					productDescription: preview.product.description,
 					winnerPaths: selected.map((winner) => winner.imagePath),
 					format,
+					language,
 					colorMode,
 					typoMode,
 					brandSource,
@@ -844,6 +856,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 									))}
 								</div>
 							</div>
+							<BatchSelect label="Idioma de los textos" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
 							<div className="batch-brand-block">
 								<span className="picker-label">¿De quién es el anuncio?</span>
 								<p className="batch-detail-help">Elegí de dónde tomar el nombre y la identidad visual. La URL solo se reemplaza si el anuncio ganador original ya tenía una.</p>

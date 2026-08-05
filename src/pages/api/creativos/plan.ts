@@ -30,6 +30,9 @@ export const POST: APIRoute = async ({ request }) => {
 		const form = await request.formData();
 		const referencePath = clean(form.get('referencePath'), 300);
 		const productId = clean(form.get('productId'), 60);
+		const requestedLanguage = clean(form.get('language'), 5);
+		const supportedLanguages = new Set(['es', 'en', 'pt', 'it', 'fr', 'de']);
+		const language = supportedLanguages.has(requestedLanguage) ? requestedLanguage : '';
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		const brandSource = ['url', 'mine', 'none'].includes(brandSourceParam) ? brandSourceParam : 'mine';
 
@@ -116,6 +119,7 @@ export const POST: APIRoute = async ({ request }) => {
 			productName: productName || 'no specific product yet',
 			productFacts,
 			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
+			language,
 		});
 		if (!analysis) return json({ error: 'No pudimos analizar el anuncio. Probá de nuevo.' }, 502);
 

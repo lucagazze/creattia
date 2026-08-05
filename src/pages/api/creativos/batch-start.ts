@@ -43,6 +43,8 @@ export const POST: APIRoute = async ({ request }) => {
 		// El estilo puede venir del ganador o de la marca elegida arriba.
 		const colorMode = body?.colorMode === 'brand' ? 'brand' : 'winner';
 		const typoMode = body?.typoMode === 'brand' ? 'brand' : 'winner';
+		const supportedLanguages = new Set(['es', 'en', 'pt', 'it', 'fr', 'de']);
+		const language = supportedLanguages.has(String(body?.language)) ? String(body.language) : 'es';
 		// El usuario elige explícitamente si quiere el logo en el anuncio o no —
 		// antes se agregaba solo si había uno disponible, sin preguntar.
 		const includeLogo = brandSource !== 'none' && Boolean(body?.includeLogo);
@@ -121,6 +123,7 @@ export const POST: APIRoute = async ({ request }) => {
 				format,
 				colorMode,
 				typoMode,
+				language,
 				brandSource,
 				includeLogo,
 				imageType: 'product',

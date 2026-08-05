@@ -3,6 +3,7 @@ import {
 	analyzeReferenceLayout,
 	buildReferenceClonePrompt,
 	normalizeImageInput,
+	LANGUAGE_NAMES,
 	type LayoutAnalysis,
 } from '../../../lib/creattia/ad-analysis';
 import { generateAdImage, type EngineImage } from '../../../lib/creattia/image-engines';
@@ -186,6 +187,7 @@ export const POST: APIRoute = async ({ request }) => {
 				productFacts,
 				productImages: productImages.map((photo) => ({ b64: photo.buffer.toString('base64'), mime: photo.type })),
 				brandName,
+				language: snapshot.language || '',
 			});
 		} catch (analysisError) {
 			console.error(`[batch-worker ${generationId}] análisis de layout falló:`, analysisError);
@@ -196,6 +198,14 @@ export const POST: APIRoute = async ({ request }) => {
 			hasLogo,
 			brief,
 			analysis,
+			productFacts: [productFacts],
+			languageCode: analysis?.language || (LANGUAGE_NAMES[snapshot.language] ? snapshot.language : undefined),
+			adCopy: analysis?.adCopy ? {
+				headline: analysis.adCopy.headline,
+				subheadline: analysis.adCopy.description,
+				cta: analysis.adCopy.cta,
+				language: analysis.language,
+			} : undefined,
 			colorMode: snapshot.colorMode === 'brand' ? 'brand' : 'winner',
 			typoMode: snapshot.typoMode === 'brand' ? 'brand' : 'winner',
 			brandColors,

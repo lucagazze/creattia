@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { waitUntil } from '@vercel/functions';
 import { toFile } from 'openai';
-import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput, renderStudioProductShot, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
+import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput, renderStudioProductShot, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import { generateAdImage } from '../../../lib/creattia/image-engines';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
@@ -230,6 +230,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const brandSource = ['url', 'mine', 'none'].includes(brandSourceParam) ? brandSourceParam : 'none';
 		const requestedVariationStrength = clean(form.get('variationStrength'), 20) || 'exact';
 		const variationStrength = variationStrengths.has(requestedVariationStrength) ? requestedVariationStrength : 'exact';
+		const requestedLanguage = clean(form.get('language'), 5);
+		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : '';
 		const productIds = uniqueIds([
 			...form.getAll('productIds').filter((value): value is string => typeof value === 'string'),
 			clean(form.get('productId'), 60),
@@ -363,7 +365,7 @@ export const POST: APIRoute = async ({ request }) => {
 			? storedProducts.map((item) => item.name).join(' + ')
 			: (requestedTemplateName || templateName);
 		const generationSettingsSnapshot = {
-			format, imageType, preset, quality, productIds, productNames: storedProducts.map((item) => item.name),
+			format, language, imageType, preset, quality, productIds, productNames: storedProducts.map((item) => item.name),
 			includeLogo,
 			// Las revisiones heredan el anuncio ganador de la imagen original.
 			referencePath: storedReference?.image_path || (sourceGeneration as any)?.settings_snapshot?.referencePath || null,
@@ -585,6 +587,7 @@ export const POST: APIRoute = async ({ request }) => {
 					productFacts,
 					productImages: productVisionInputs.map((photo) => ({ b64: photo.buffer.toString('base64'), mime: photo.type })),
 					brandName: effectiveBrandName || clean(form.get('brandName'), 80),
+					language,
 				});
 			} catch (analysisErr) {
 				console.error('Layout analysis failed, continuing with visual generation:', analysisErr);
@@ -612,7 +615,7 @@ The result must look like the same image with only that one adjustment applied.`
 			hasLogo,
 			brief: effectiveBrief,
 			analysis: layoutAnalysis,
-			languageCode: layoutAnalysis?.language,
+			languageCode: layoutAnalysis?.language || language,
 			adCopy: layoutAnalysis?.adCopy ? {
 				headline: layoutAnalysis.adCopy.headline,
 				subheadline: layoutAnalysis.adCopy.description,
