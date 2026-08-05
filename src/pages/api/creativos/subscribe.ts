@@ -62,7 +62,20 @@ const plans = {
 	},
 } as const;
 
-const subscriptionCurrency = import.meta.env.MERCADO_PAGO_CURRENCY || 'USD';
+const subscriptionCurrency = String(
+	import.meta.env.MERCADO_PAGO_SUBSCRIPTION_CURRENCY
+	|| import.meta.env.MERCADO_PAGO_CURRENCY
+	|| 'USD'
+).toUpperCase();
+const arsPerUsd = Number(import.meta.env.MERCADO_PAGO_ARS_PER_USD || 0);
+
+function providerAmount(usdPrice: number) {
+	if (subscriptionCurrency !== 'ARS') return usdPrice;
+	if (!Number.isFinite(arsPerUsd) || arsPerUsd <= 0) {
+		throw new Error('Falta configurar MERCADO_PAGO_ARS_PER_USD para cobrar suscripciones en pesos.');
+	}
+	return Math.round(usdPrice * arsPerUsd * 100) / 100;
+}
 
 async function cancelProviderSubscription(subscriptionId: string, accessToken: string) {
 	try {
@@ -104,6 +117,12 @@ export const POST: APIRoute = async ({ request, url }) => {
 	if (!accessToken) {
 		return json({ error: 'Mercado Pago todavía no está configurado.', requiresConfiguration: true }, 503);
 	}
+	let transactionAmount: number = plan.price;
+	try {
+		transactionAmount = providerAmount(plan.price);
+	} catch (error) {
+		return json({ error: error instanceof Error ? error.message : 'La conversión de moneda no está configurada.' }, 503);
+	}
 	if (!planId && billingCycle !== 'monthly') {
 		return json({ error: `Mercado Pago todavía no está configurado para la modalidad ${billingCycle}.`, requiresConfiguration: true }, 503);
 	}
@@ -127,7 +146,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 			external_reference: `${auth.user.id}:${planCode}:${billingCycle}`,
 			back_url: `${siteUrl}/app/?subscription=return`,
 			auto_recurring: {
-				transaction_amount: plan.price,
+				transaction_amount: transactionAmount,
 				currency_id: subscriptionCurrency,
 			},
 		});
@@ -191,7 +210,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 		preapprovalPayload.auto_recurring = {
 			frequency: 1,
 			frequency_type: 'months',
-			transaction_amount: plan.price,
+			transaction_amount: transactionAmount,
 			currency_id: subscriptionCurrency,
 		};
 	}
