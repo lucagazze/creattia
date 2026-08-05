@@ -191,6 +191,7 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 					name: new URL(product.productUrl || url).hostname.replace(/^www\./, ''),
 					website: origin,
 					colors: (style.colors || []).slice(0, 5),
+					palette: style.palette || null,
 					typography: style.typography || null,
 					styleSummary: style.styleSummary || '',
 					logoUrl: style.logoUrl || '',

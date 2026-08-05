@@ -7,6 +7,10 @@ TEXT RENDERING QUALITY (CRITICAL) — Treat publication text as clean, flat grap
 // ── Compartido entre /api/creativos/plan y /api/creativos/generate ──────────
 
 export type LayoutAnalysis = {
+	/** What the target represents: a physical item, a service, or a SaaS/brand. */
+	subjectType?: 'physical-product' | 'service' | 'saas' | 'brand-led' | 'unknown';
+	/** Semantic palette selected for the generation and shown in review. */
+	brandPalette?: { background?: string; text?: string; accent?: string; secondary?: string; source?: string };
 	/** Analysis used to adapt the winning message and render it in the generated image. */
 	messageStrategy?: string;
 	adCopy?: AdaptedAdCopy;
@@ -138,6 +142,11 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	productMime?: string;
 	/** Additional views of the SAME real product/SKU, usually uploaded manually. */
 	productImages?: Array<{ b64: string; mime?: string }>;
+	/** Reference photos for a person/avatar, never treated as product photos. */
+	avatarImages?: Array<{ b64: string; mime?: string }>;
+	avatarDescription?: string;
+	subjectMode?: 'product' | 'service' | 'saas' | 'brand';
+	brandPalette?: { background?: string; text?: string; accent?: string; secondary?: string; source?: string };
 	productName: string;
 	productFacts: string;
 	brandName: string;
@@ -150,14 +159,22 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 		...(input.productImages || []),
 	].filter((photo, index, all) => Boolean(photo.b64) && all.findIndex((candidate) => candidate.b64 === photo.b64) === index).slice(0, 5);
 	const hasProductImages = productInputs.length > 0;
+	const avatarInputs = (input.avatarImages || []).filter((photo, index, all) => Boolean(photo.b64) && all.findIndex((candidate) => candidate.b64 === photo.b64) === index).slice(0, 8);
+	const hasAvatarImages = avatarInputs.length > 0;
+	const subjectMode = input.subjectMode || (hasProductImages ? 'product' : 'brand');
 	const languageRule = input.language && LANGUAGE_NAMES[input.language]
 		? `Write the internal replacement suggestions in ${LANGUAGE_NAMES[input.language]} and set "language" to "${input.language}".`
 		: 'Detect the language used by the winning ad, set "language" to "es", "en", "fr", "it", "pt" or "de", and write replacement suggestions in that language.';
-	const systemPrompt = `You are a senior performance ad designer. You receive: (1) ${isCarouselReference ? 'multiple pages of one winning carousel, in order' : 'one winning static ad TEMPLATE image'}${hasProductImages ? ', (2) one or more photos of the SAME real product/SKU from different views' : ''}, and verified product facts.
+	const systemPrompt = `You are a senior performance ad designer. You receive: (1) ${isCarouselReference ? 'multiple pages of one winning carousel, in order' : 'one winning static ad TEMPLATE image'}${hasProductImages ? ', (2) one or more photos of the SAME real product/SKU from different views' : ''}${hasAvatarImages ? ', (3) several reference photos of the same person/avatar' : ''}, and verified context.
+
+TARGET SUBJECT MODE: ${subjectMode}. ${subjectMode === 'product' ? 'The target is a physical product and its exact geometry must be preserved.' : 'The target is a service, SaaS or brand-led offer. Do not invent a physical package or generic product. Build the visual around the interface, logo/avatar, people, result, workflow, environment or abstract brand world that best communicates the offer.'}
+${input.brandPalette ? `VERIFIED URL/BRAND PALETTE: background ${input.brandPalette.background || 'unknown'}, accent ${input.brandPalette.accent || 'unknown'}, text ${input.brandPalette.text || 'unknown'}${input.brandPalette.secondary ? `, secondary ${input.brandPalette.secondary}` : ''}.` : ''}
+${hasAvatarImages ? `AVATAR REFERENCE: ${input.avatarDescription || 'Use these photos only to preserve the chosen person/avatar identity; do not treat them as a product.'}` : ''}
 
 Return STRICT JSON:
 {
   "messageStrategy": "2-3 sentences decoding the winning ad's persuasion: the emotion it triggers, the objection it removes, the promise it makes and the mechanism it uses (social proof, price anchor, before/after, authority, scarcity, contrast, curiosity, etc.).",
+  "subjectType": "physical-product|service|saas|brand-led|unknown",
   "adCopy": {
     "primaryText": "adapted publication copy for the target product, using only verified facts",
     "headline": "adapted headline, maximum 60 characters",
@@ -252,7 +269,7 @@ Rules:
 - COMPARISON: first decide whether the ad genuinely compares two or more sides. Do not confuse a product collage, multiple views of one SKU, or decorative repetition with a comparison. If it is a real comparison (including "us vs them", old vs new, before/after, competitor vs hero or a comparison grid), set "comparison.detected" to true, identify its type and confidence, summarize the contrast, and list every OTHER item being compared against the HERO in "comparisonItems". If the exact alternative is unclear, set confidence to "low" and ask one concrete question in "comparison.question". If it is not a comparison, set detected to false, use an empty question, and return an empty comparisonItems array. Never treat the hero product itself as a comparison item. Always provide a practical "defaultStrategy" so the generator can make a coherent, neutral, unbranded choice when the user leaves the clarification empty.
 - CONTEXTUAL CREATIVE DECISIONS: this is broader than comparison detection. Return up to 5 decisions only when a visual element could materially change the fidelity, meaning or believability of the generated ad and a user preference would help. Consider people (appearance, age range, pose, role or testimonial identity), scenes (home, studio, workplace, outdoors), styling (clothes, makeup, mood), secondary objects, pets, product handling/scale/orientation, before-after or comparison alternatives, and ambiguous text or claims. For each decision, describe what you detected, ask one useful concrete question when appropriate, and give a safe default. Do not ask about trivial details, do not ask the user to repeat information already visible or verified, and do not create a decision merely because the ad contains multiple photos of the same product. If a person is clearly visible, include a person decision when the appearance or role affects the adaptation. If there are no material ambiguities, return an empty array.
 - Never use the template's brand name in replacements.${input.brandName ? ` The advertiser brand is "${input.brandName}".` : ''}`;
-	const userText = `Target product: ${input.productName}. Verified facts: ${input.productFacts || 'Only the product photo is available.'}`;
+	const userText = `Target offer: ${input.productName}. Verified facts/context: ${input.productFacts || 'No physical product was supplied; infer a coherent service or brand-led visual treatment.'}`;
 
 	const validate = (raw: string | null | undefined): LayoutAnalysis | null => {
 		try {
@@ -323,6 +340,10 @@ Rules:
 				parts.push({ text: `REAL PRODUCT PHOTO ${index + 1} OF THE SAME SKU:` });
 				parts.push({ inline_data: { mime_type: photo.mime || 'image/jpeg', data: photo.b64 } });
 			});
+			avatarInputs.forEach((photo, index) => {
+				parts.push({ text: `AVATAR/PERSON REFERENCE PHOTO ${index + 1}:` });
+				parts.push({ inline_data: { mime_type: photo.mime || 'image/jpeg', data: photo.b64 } });
+			});
 			const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keys.googleKey}`, {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
@@ -357,6 +378,10 @@ Rules:
 				content.push({ type: 'text', text: `REAL PRODUCT PHOTO ${index + 1} OF THE SAME SKU:` });
 				content.push({ type: 'image_url', image_url: { url: `data:${photo.mime || 'image/jpeg'};base64,${photo.b64}` } });
 			});
+			avatarInputs.forEach((photo, index) => {
+				content.push({ type: 'text', text: `AVATAR/PERSON REFERENCE PHOTO ${index + 1}:` });
+				content.push({ type: 'image_url', image_url: { url: `data:${photo.mime || 'image/jpeg'};base64,${photo.b64}` } });
+			});
 			const response = await openai.chat.completions.create({
 				model,
 				response_format: { type: 'json_object' },
@@ -389,6 +414,10 @@ export function buildReferenceClonePrompt(input: {
 	typoMode?: 'winner' | 'url' | 'brand';
 	brandColors?: string[];
 	brandTypography?: { headings?: string; body?: string };
+	brandPalette?: { background?: string; text?: string; accent?: string; secondary?: string; source?: string };
+	subjectMode?: 'product' | 'service' | 'saas' | 'brand';
+	hasAvatarReference?: boolean;
+	avatarDescription?: string;
 	includeWebsite?: boolean;
 	displayWebsite?: string;
 	adCopy?: { headline?: string; subheadline?: string; reviewText?: string; cta?: string; language?: string };
@@ -396,7 +425,9 @@ export function buildReferenceClonePrompt(input: {
 }) {
 	const languageCode = input.languageCode || input.analysis?.language || input.adCopy?.language || 'es';
 	const language = LANGUAGE_NAMES[languageCode] || LANGUAGE_NAMES.es;
-	const productLabel = input.productNames.length ? input.productNames.join(' + ') : 'the real product supplied by the user';
+	const subjectMode = input.subjectMode || 'product';
+	const isPhysicalSubject = subjectMode === 'product';
+	const productLabel = input.productNames.length ? input.productNames.join(' + ') : (isPhysicalSubject ? 'the real product supplied by the user' : 'the service or SaaS offer supplied by the user');
 	const verifiedProductFacts = (input.productFacts || []).filter(Boolean);
 	const referenceHasProduct = input.analysis?.referenceHasProduct !== false;
 
@@ -507,7 +538,7 @@ ART DIRECTION TO PRESERVE — this ad works because of how it is shot and arrang
 The new ad must be shot the same way. A flat, evenly lit product on a plain background is a failure if the template used directional light and shallow depth.`
 		: '';
 
-	const productSwap = referenceHasProduct
+	const productSwap = referenceHasProduct && isPhysicalSubject
 		? `1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. The product must remain the SAME PHYSICAL OBJECT TYPE seen in its photo — if the photo shows a hide, render a hide; a bottle, a bottle; never morph it into the template's product form (e.g. never turn an unboxed product into a box). Render it as ONE single coherent object (never split it into disconnected pieces, and never show multiples unless the template does). RE-STAGE the product INTO the template's scene — do NOT paste it: re-photograph it as if it were shot in that exact environment, matching the scene's camera angle, perspective, lighting direction, color temperature, reflections and shadow behavior (e.g. if the template's product leans against a tiled wall in daylight, the new product must sit in that same tiled-wall daylight scene with the same grounding). Give it real volume and dimension, adapt its pose and orientation to fit the composition naturally, and ground it with the same shadow style the template uses. POSITION: place it at the SAME position and size ratio as the template's product — if the template's product occupies the right side, yours must occupy the right side; never center it unless the template does. Never leave hard cut-out edges or a floating pasted look: blend the product's edges with the scene lighting. LAYERING: match the template's stacking order exactly — any card, speech bubble or text panel that sits in front of the product in the template must stay fully in front, uncovered and readable; the product must never cut across, poke through or overlap a text card beyond what the template shows. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable. IDENTITY DETAILS (CRITICAL): whatever is printed, stitched, embossed, woven or engraved on the real product must survive — the brand mark on a garment's chest or sleeve, the tag, the logo on a shoe, the model name on a device, a pattern, a stripe, a stitching colour, a distinctive shape. Someone who owns this product has to recognise it as the same one. Do not clean it up, simplify it, remove a label or move a mark somewhere else.${packagingRule}${labelFidelityRule}${scaleRule}${instanceBlock}${onBodyRule}`
 		: `1. NO PRODUCT INSERTION — The template does NOT show a physical product, so the new ad must not show one either. This ad works through its visual composition and design, not through a product shot: that is exactly why it works. Keep its imagery style as it is (the typographic treatment, the colour field, the graphic devices, the scene) and adapt it naturally to the new context. Do NOT insert, paste, collage or hint at a product photo anywhere, at any size, not even small in a corner — not even if a product photo was supplied as input.`;
 
@@ -516,6 +547,12 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 		: `Do not change the background color or palette — keep the template's exact colors.`;
 
 	// Personas: reconstruir según lo que pidió el usuario, o mantener si no indicó nada.
+	const semanticPaletteRule = input.colorMode !== 'winner' && input.brandPalette
+		? `\nSEMANTIC BRAND PALETTE (REQUIRED) — Use BACKGROUND ${input.brandPalette.background || 'not provided'}, ACCENT ${input.brandPalette.accent || 'not provided'}, TEXT ${input.brandPalette.text || 'not provided'}${input.brandPalette.secondary ? `, SECONDARY ${input.brandPalette.secondary}` : ''}. Apply each color to its semantic role instead of using a generic approximation, and preserve readable contrast.`
+		: '';
+	const identityBlock = input.hasAvatarReference
+		? `\nVISUAL IDENTITY REFERENCE — The user supplied multiple reference images for ${input.avatarDescription || 'a person/avatar'}. Use them only to keep that identity consistent: face, hairstyle, proportions, distinctive features and overall look. Do not merge different people, invent a new face or turn the avatar into a product.`
+		: `\nVISUAL IDENTITY — No person/avatar reference was selected. Do not invent a recurring human face or mascot. For a service/SaaS offer, prefer the logo, interface, result or an abstract brand-led visual unless the template clearly requires a generic contextual person.`;
 	const people = (input.analysis?.people || []).filter((p) => p && (p.description || p.directive || p.where));
 	const peopleBlock = people.length
 		? `\n5. PEOPLE — The ad shows ${people.length === 1 ? 'a person' : 'people'}. For each, follow the direction:\n${people.map((p, i) => `   - Person ${i + 1}${p.where ? ` (${p.where})` : ''}: ${p.directive?.trim() ? `render them as — ${p.directive.trim()}. Make it photorealistic and coherent with the scene.` : 'keep them essentially as in the template (same apparent gender, age and role), only refreshed to look natural in the new ad.'}`).join('\n')}\nKeep any person photorealistic, well-integrated into the scene lighting, never distorted.`
@@ -568,7 +605,7 @@ ${strategyBlock}${creativeBlock}${imageSlotBlock}
 WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website. Render exactly "${input.displayWebsite}" ONCE in an existing URL or footer slot.` : 'Do not render any URL, domain, web address, social handle or QR code. Remove any website from the winning template and leave that space clean.'}
 
 4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
-${qualityRule}${TEXT_RENDERING_RULE}
+${qualityRule}${TEXT_RENDERING_RULE}${semanticPaletteRule}${identityBlock}
 ${logoDecision}
 ${peopleBlock}${comparisonBlock}${comparisonContext}${creativeDecisionBlock}
 

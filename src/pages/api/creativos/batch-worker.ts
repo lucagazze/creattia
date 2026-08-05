@@ -12,6 +12,7 @@ import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { stripWebReferences } from '../../../lib/creattia/ad-copy';
 import { listProductImageRows } from '../../../lib/creattia/product-media';
+import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -76,6 +77,9 @@ export const POST: APIRoute = async ({ request }) => {
 		const snapshot: any = row.settings_snapshot || {};
 		const requestedFormat = String(row.format || snapshot.format || 'original');
 		const brief = stripWebReferences(row.user_brief);
+		const subjectMode = ['product', 'service', 'saas', 'brand'].includes(String(snapshot.subjectMode))
+			? String(snapshot.subjectMode) as 'product' | 'service' | 'saas' | 'brand'
+			: 'product';
 
 		// ── 1. El anuncio ganador que hay que clonar ──────────────────────────
 		const referencePath = String(snapshot.referencePath || '');
@@ -94,6 +98,7 @@ export const POST: APIRoute = async ({ request }) => {
 				.select('name,description,price_text,currency,image_path,analysis,metadata')
 				.eq('id', productId).eq('user_id', userId).maybeSingle();
 			productRecord = product;
+			if (subjectMode === 'product') {
 			const paths: string[] = [];
 			if (product?.image_path) paths.push(product.image_path);
 			const extraImages = await listProductImageRows(admin, userId, [productId]);
@@ -106,24 +111,27 @@ export const POST: APIRoute = async ({ request }) => {
 				const normalized = await normalizeImageInput(Buffer.from(await blob.arrayBuffer()));
 				if (normalized) productImages.push({ buffer: normalized.buffer, type: normalized.type });
 			}
+			}
 		}
 		// En modo texto no hay fotos y está bien: se clonan ganadores que no
 		// muestran producto y la composición visual se clona tal como está.
-		const textMode = snapshot.textMode === true || !productId;
+		const textMode = snapshot.textMode === true || subjectMode !== 'product' || !productId;
 		const allowNoProductImage = snapshot.allowNoProductImage === true;
 		if (!productImages.length && !textMode && !allowNoProductImage) {
 			throw new Error('No hay ninguna foto real del producto disponible para clonar el anuncio.');
 		}
 
-		const productName = productRecord?.name || snapshot.productName || row.title || 'el producto';
+		const productName = subjectMode === 'product'
+			? (productRecord?.name || snapshot.productName || row.title || 'el producto')
+			: (snapshot.productName || productRecord?.metadata?.brandFromUrl?.name || row.title || 'el servicio o la marca');
 		// Datos verificados del producto para reconstruirlo visualmente. Nunca se
 		// completa con supuestos.
-		const productFacts = [
+		const productFacts = subjectMode === 'product' ? [
 			productRecord?.description || snapshot.productDescription,
 			(productRecord?.price_text || snapshot.productPriceText)
 				&& `Precio exacto tal como figura en la web: ${productRecord?.price_text || snapshot.productPriceText}`,
 			productRecord?.analysis?.category,
-		].filter(Boolean).join(' · ');
+		].filter(Boolean).join(' · ') : [snapshot.productDescription, snapshot.serviceDescription, productRecord?.metadata?.brandFromUrl?.styleSummary].filter(Boolean).join(' · ');
 
 		// ── 3. De qué marca habla el anuncio ──────────────────────────────────
 		// 'url'  → la marca del sitio de donde salió el producto
@@ -139,6 +147,9 @@ export const POST: APIRoute = async ({ request }) => {
 		const urlBrandColors: string[] = Array.isArray(urlBrand?.colors) ? urlBrand.colors : [];
 		const myBrandTypography: any = (profile?.brand_style as any)?.typography;
 		const urlBrandTypography: any = urlBrand?.typography || undefined;
+		const myBrandPalette: any = (profile?.brand_style as any)?.palette || null;
+		const urlBrandPalette: any = urlBrand?.palette || null;
+		const brandPalette: any = snapshot.colorMode === 'brand' ? myBrandPalette : snapshot.colorMode === 'url' ? urlBrandPalette : null;
 		let brandColors: string[] = [];
 		let brandTypography: any = undefined;
 		let logoImage: EngineImage | null = null;
@@ -177,6 +188,15 @@ export const POST: APIRoute = async ({ request }) => {
 		brandColors = snapshot.colorMode === 'brand' ? myBrandColors : snapshot.colorMode === 'url' ? urlBrandColors : [];
 		brandTypography = snapshot.typoMode === 'brand' ? myBrandTypography : snapshot.typoMode === 'url' ? urlBrandTypography : undefined;
 		const hasLogo = Boolean(logoImage);
+		const avatarReferenceImages: EngineImage[] = [];
+		let avatarDescription = '';
+		if (snapshot.avatarId) {
+			const avatar = await resolveAvatarReferences({ admin, userId, mode: 'saved', avatarId: String(snapshot.avatarId) });
+			avatarDescription = avatar.description || avatar.name || '';
+			for (const image of avatar.images.slice(0, 8)) {
+				avatarReferenceImages.push({ buffer: image.buffer, type: image.type });
+			}
+		}
 		// ── 4. Análisis visual del ganador y de las áreas de imagen ──────────────
 		const approvedCarouselPlan = snapshot.approvedPlan && typeof snapshot.approvedPlan === 'object'
 			? snapshot.approvedPlan as LayoutAnalysis
@@ -198,8 +218,12 @@ export const POST: APIRoute = async ({ request }) => {
 				productName,
 				productFacts,
 				productImages: productImages.map((photo) => ({ b64: photo.buffer.toString('base64'), mime: photo.type })),
+				avatarImages: avatarReferenceImages.map((photo) => ({ b64: photo.buffer.toString('base64'), mime: photo.type })),
+				avatarDescription,
 				brandName,
 				language: snapshot.language || '',
+				subjectMode,
+				brandPalette,
 			});
 		}
 		} catch (analysisError) {
@@ -223,6 +247,10 @@ export const POST: APIRoute = async ({ request }) => {
 			typoMode: ['winner', 'url', 'brand'].includes(snapshot.typoMode) ? snapshot.typoMode : 'winner',
 			brandColors,
 			brandTypography,
+			brandPalette,
+			subjectMode,
+			hasAvatarReference: avatarReferenceImages.length > 0,
+			avatarDescription,
 			carousel: snapshot.carousel ? { index: Number(snapshot.carouselIndex || row.output_index || 1), total: Number(snapshot.carouselTotal || 1) } : undefined,
 		});
 
@@ -246,6 +274,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const engineImages: EngineImage[] = [
 			{ buffer: normalizedReference.buffer, type: normalizedReference.type },
 			...(referenceShowsProduct ? productImages : []),
+			...avatarReferenceImages,
 			...(logoImage ? [logoImage] : []),
 		];
 

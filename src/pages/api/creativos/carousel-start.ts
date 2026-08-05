@@ -33,6 +33,13 @@ export const POST: APIRoute = async ({ request }) => {
 		const body = await request.json().catch(() => ({}));
 
 		const referenceName = String(body?.referenceName || 'Carrusel ganador').slice(0, 180);
+		const subjectModeParam = String(body?.subjectMode || 'product');
+		const subjectMode = ['product', 'service', 'saas', 'brand'].includes(subjectModeParam)
+			? subjectModeParam as 'product' | 'service' | 'saas' | 'brand'
+			: 'product';
+		const productRequired = subjectMode === 'product';
+		const subjectName = String(body?.productName || '').trim().slice(0, 120);
+		const subjectDescription = String(body?.productDescription || '').trim().slice(0, 1200);
 		const templateId = Number(body?.templateId);
 		const slides: string[] = Array.isArray(body?.referenceSlidePaths)
 			? [...new Set(body.referenceSlidePaths.map((v: unknown) => String(v || '').trim()).filter(Boolean))] as string[]
@@ -46,7 +53,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const productIds: string[] = Array.isArray(body?.productIds)
 			? body.productIds.map((v: unknown) => String(v || '').trim()).filter(Boolean)
 			: [];
-		if (productIds.length !== 1 && productIds.length !== slides.length) {
+		if (productRequired && productIds.length !== 1 && productIds.length !== slides.length) {
 			return json({ error: 'Necesitás 1 producto (mismo para todas las páginas) o 1 por cada página del carrusel.' }, 400);
 		}
 
@@ -69,19 +76,21 @@ export const POST: APIRoute = async ({ request }) => {
 
 		// Los productos tienen que ser del usuario y tener al menos una foto real.
 		const uniqueProductIds = [...new Set(productIds)];
-		const { data: products, error: productsError } = await admin.from('creative_products')
-			.select('id,name,description,price_text,currency,image_path')
-			.in('id', uniqueProductIds).eq('user_id', userId);
+		const { data: products, error: productsError } = uniqueProductIds.length
+			? await admin.from('creative_products')
+				.select('id,name,description,price_text,currency,image_path')
+				.in('id', uniqueProductIds).eq('user_id', userId)
+			: { data: [], error: null };
 		if (productsError) throw productsError;
 		const byId = new Map((products || []).map((p) => [p.id, p]));
 		if (byId.size !== uniqueProductIds.length) {
 			return json({ error: 'Alguno de los productos no existe o no pertenece a tu cuenta.' }, 404);
 		}
-		const imageRows = await listProductImageRows(admin, userId, uniqueProductIds);
+		const imageRows = uniqueProductIds.length ? await listProductImageRows(admin, userId, uniqueProductIds) : [];
 		const hasPhotoById = new Set(imageRows.map((r) => r.product_id));
 		for (const id of uniqueProductIds) {
 			const product = byId.get(id);
-			if (!product?.image_path && !hasPhotoById.has(id)) {
+			if (productRequired && !product?.image_path && !hasPhotoById.has(id)) {
 				return json({ error: `El producto "${product?.name || id}" no tiene ninguna foto real guardada.`, code: 'NO_PRODUCT_PHOTO' }, 422);
 			}
 		}
@@ -102,16 +111,17 @@ export const POST: APIRoute = async ({ request }) => {
 
 		const batchId = crypto.randomUUID();
 		const generationRows = slides.map((slidePath, index) => {
-			const productId = productIds.length === 1 ? productIds[0] : productIds[index];
-			const product = byId.get(productId)!;
+			const productId = productIds.length ? (productIds.length === 1 ? productIds[0] : productIds[index]) : null;
+			const product = productId ? byId.get(productId) : null;
+			const title = productRequired ? (product?.name || referenceName) : (subjectName || product?.name || referenceName);
 			return {
 				user_id: userId,
 				template_id: templateId,
-				title: product.name,
+				title,
 				format,
-				image_type: 'product',
+				image_type: productRequired ? 'product' : 'promotion',
 				variant_key: 'carrusel',
-				product_id: productId,
+				product_id: productRequired ? productId : null,
 				batch_id: batchId,
 				output_index: index + 1,
 				requested_outputs: count,
@@ -122,15 +132,17 @@ export const POST: APIRoute = async ({ request }) => {
 					language,
 					brandSource,
 					includeLogo: logoSlideIndexes.has(index),
-					imageType: 'product',
+					imageType: productRequired ? 'product' : 'promotion',
 					referencePath: slidePath,
 					referenceName: `${referenceName} · página ${index + 1}/${count}`,
 					templateId,
 					productId,
-					productName: product.name,
-					productDescription: product.description || '',
-					productPriceText: product.price_text || '',
-					productCurrency: product.currency || '',
+					productName: title,
+					productDescription: productRequired ? (product?.description || '') : subjectDescription,
+					productPriceText: product?.price_text || '',
+					productCurrency: product?.currency || '',
+					subjectMode,
+					avatarId: String(body?.avatarId || '').trim() || null,
 					batchUrlMode: true,
 					approvedByUser: true,
 					carousel: true,
@@ -154,6 +166,7 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		try {
+			if (!productIds.length) return json({ batchId, count, generations });
 			await admin.from('creative_generation_products').insert(generations.map((generation, index) => ({
 				generation_id: generation.id,
 				product_id: productIds.length === 1 ? productIds[0] : productIds[index],

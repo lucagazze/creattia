@@ -43,6 +43,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const language = supportedLanguages.has(requestedLanguage) ? requestedLanguage : '';
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		const brandSource = ['url', 'mine', 'none'].includes(brandSourceParam) ? brandSourceParam : 'mine';
+		const subjectModeParam = clean(form.get('subjectMode'), 12);
+		const subjectMode = ['product', 'service', 'saas', 'brand'].includes(subjectModeParam) ? subjectModeParam as 'product' | 'service' | 'saas' | 'brand' : 'product';
 
 		if (!referencePath || !referencePaths.length || !referencePaths.every((path) => /^[0-9]+\/[a-f0-9]{8,}\.(png|jpe?g|webp|avif)$/i.test(path))) {
 			return json({ error: 'Elegí un anuncio ganador válido.' }, 400);
@@ -87,7 +89,7 @@ export const POST: APIRoute = async ({ request }) => {
 			productName = stored.name;
 			productFacts = [stored.description, stored.price_text && `${stored.price_text} ${stored.currency || ''}`, stored.analysis?.category].filter(Boolean).join(' · ');
 			brandFromUrl = (stored.metadata as any)?.brandFromUrl || null;
-			if (stored.image_path) {
+			if (stored.image_path && subjectMode === 'product') {
 				const { data: photoBlob } = await admin.storage.from('creative-assets').download(stored.image_path);
 				const normalized = photoBlob ? await normalizeImageInput(Buffer.from(await photoBlob.arrayBuffer())) : null;
 				if (normalized) {
@@ -112,9 +114,15 @@ export const POST: APIRoute = async ({ request }) => {
 			productName = clean(form.get('productName'), 120);
 			productFacts = clean(form.get('productFacts'), 1200);
 		}
+		if (subjectMode !== 'product') {
+			const suppliedName = clean(form.get('productName'), 120);
+			const suppliedFacts = clean(form.get('productFacts'), 1200);
+			productName = suppliedName || brandFromUrl?.name || productName || 'el servicio o la marca';
+			productFacts = suppliedFacts || (brandFromUrl as any)?.styleSummary || '';
+		}
 
 		const { data: profile } = await admin.from('creative_profiles')
-			.select('brand_name').eq('user_id', auth.user.id).maybeSingle();
+			.select('brand_name,brand_colors,brand_style').eq('user_id', auth.user.id).maybeSingle();
 
 		// Qué marca aparece en la imagen: la del sitio del producto, la guardada
 		// en "Mi marca", o ninguna. Mismo criterio que la generación por lote.
@@ -123,6 +131,11 @@ export const POST: APIRoute = async ({ request }) => {
 			: brandSource === 'url'
 				? (brandFromUrl?.name || '')
 				: '';
+		const brandPalette = brandSource === 'url'
+			? (brandFromUrl as any)?.palette || null
+			: brandSource === 'mine'
+				? (profile?.brand_style as any)?.palette || (Array.isArray(profile?.brand_colors) ? { accent: profile.brand_colors[0], secondary: profile.brand_colors[1], background: '#ffffff', text: '#19171d', source: 'brand' } : null)
+				: null;
 		const analysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
 			referenceB64: normalizedReference.buffer.toString('base64'),
 			referenceMime: normalizedReference.type,
@@ -134,10 +147,12 @@ export const POST: APIRoute = async ({ request }) => {
 			productFacts,
 			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
 			language,
+			subjectMode,
+			brandPalette,
 		});
 		if (!analysis) return json({ error: 'No pudimos analizar el anuncio. Probá de nuevo.' }, 502);
 
-		return json({ analysis, originalRatio });
+		return json({ analysis: { ...analysis, subjectType: analysis.subjectType || subjectMode, brandPalette: analysis.brandPalette || brandPalette }, originalRatio });
 	} catch (error) {
 		return json({ error: error instanceof Error ? error.message : 'No se pudo preparar el plan.' }, 500);
 	}

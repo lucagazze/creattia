@@ -3997,7 +3997,8 @@ function ImageLightbox({ item, slides, session, onClose, onStarted, onGeneration
 
 function BuyCreditsSection({ session }: { session: AppSession }) {
 	const [config, setConfig] = useState<any>(null);
-	const [buying, setBuying] = useState<number | null>(null);
+	const [buying, setBuying] = useState(false);
+	const [quantity, setQuantity] = useState(1);
 	const [error, setError] = useState('');
 
 	useEffect(() => {
@@ -4014,7 +4015,7 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 	}, [session]);
 
 	async function buy(quantity: number) {
-		setBuying(quantity); setError('');
+		setBuying(true); setError('');
 		try {
 			const response = await fetch('/api/creativos/buy-credits', {
 				method: 'POST',
@@ -4035,7 +4036,10 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 
 	if (!config) return <div className="studio-loading-panel" style={{ marginTop: '36px', minHeight: '120px' }}><span className="studio-spinner" aria-hidden="true" /><p>Cargando opciones de pago…</p></div>;
 	const unconfigured = !config.configured;
-
+	const maxCredits = Number(config.maxCredits || 1000);
+	const safeQuantity = Math.min(maxCredits, Math.max(1, Math.floor(quantity)));
+	const unitPrice = Number(config.unitPrice || 0.3);
+	const totalPrice = (unitPrice * safeQuantity).toFixed(2);
 	const symbol = config.currency === 'USD' ? 'u$s' : '$';
 
 	return (
@@ -4049,15 +4053,30 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 				{unconfigured ? (
 					<strong> Muy pronto vas a poder comprarlos acá.</strong>
 				) : (
-					<strong> El precio unitario es de {symbol}{config.unitPrice} {config.currency}</strong>
+					<strong> Cada crédito cuesta {symbol}{unitPrice.toFixed(2)} {config.currency}.</strong>
 				)}
-				{!unconfigured && ' (el doble de lo que sale en la suscripción, ¡ideal para empezar!).'}
 			</p>
 			
 			{error && <p style={{ color: '#dc2626', fontSize: '13px', margin: '0 0 12px', fontWeight: 600 }}>{error}</p>}
 
-			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-				{config.packs.map((qty: number) => (
+			<div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 320px)', gap: '16px', alignItems: 'stretch', marginBottom: '14px' }}>
+				<div style={{ background: '#fff', border: '1px solid #e9e6ed', borderRadius: '12px', padding: '18px', boxShadow: '0 4px 12px rgba(25, 23, 29, 0.03)' }}>
+					<label htmlFor="credit-quantity" style={{ display: 'block', marginBottom: '7px', color: '#19171d', fontSize: '15px', fontWeight: 800 }}>¿Cuántos créditos querés comprar?</label>
+					<p style={{ margin: '0 0 14px', color: '#716d79', fontSize: '12.5px', lineHeight: 1.45 }}>Elegí cualquier cantidad. Cada crédito equivale a una imagen generada.</p>
+					<div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+						<input id="credit-quantity" type="number" min={1} max={maxCredits} step={1} value={quantity} onChange={(event) => setQuantity(Math.min(maxCredits, Math.max(1, Number(event.target.value) || 1)))} style={{ width: '140px', boxSizing: 'border-box', height: '46px', padding: '0 13px', border: '1px solid #d8cceb', borderRadius: '10px', color: '#19171d', fontSize: '20px', fontWeight: 800 }} />
+						<span style={{ color: '#716d79', fontSize: '13px' }}>créditos</span>
+					</div>
+					<small style={{ display: 'block', marginTop: '9px', color: '#8b8290', fontSize: '11px' }}>Podés comprar de 1 a {maxCredits} créditos en una sola operación.</small>
+				</div>
+				<div style={{ background: '#fff', border: '1px solid #d8c5fa', borderRadius: '12px', padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 16px rgba(116, 75, 222, 0.08)' }}>
+					<div><span style={{ display: 'block', color: '#716d79', fontSize: '12px' }}>Total a pagar</span><strong style={{ display: 'block', marginTop: '5px', color: '#744bde', fontSize: '30px', letterSpacing: '-.03em' }}>{unconfigured ? '—' : `${symbol}${totalPrice}`}</strong><small style={{ color: '#8b8290', fontSize: '11px' }}>{symbol}0.30 por crédito</small></div>
+					<button onClick={() => void buy(safeQuantity)} disabled={buying || unconfigured} style={{ width: '100%', minHeight: '42px', marginTop: '16px', borderRadius: '10px', border: 0, background: 'linear-gradient(110deg, #744bde, #ec4492 65%, #f05427)', color: '#fff', fontWeight: 800, fontSize: '13px', cursor: 'pointer', opacity: buying ? 0.65 : 1 }}>{unconfigured ? 'Pago no disponible' : buying ? <><span className="studio-spinner small" aria-hidden="true" /> Abriendo Mercado Pago...</> : 'Continuar al pago'}</button>
+				</div>
+			</div>
+
+			<div style={{ display: 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+				{(config.packs || []).map((qty: number) => (
 					<div 
 						key={qty} 
 						style={{ 
@@ -4082,7 +4101,7 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 						</div>
 						<button 
 							onClick={() => void buy(qty)}
-							disabled={buying !== null || unconfigured}
+							disabled={buying || unconfigured}
 							style={{ 
 								width: '100%', 
 								height: '38px', 
@@ -4093,10 +4112,10 @@ function BuyCreditsSection({ session }: { session: AppSession }) {
 								fontWeight: 700, 
 								fontSize: '13px', 
 								cursor: 'pointer',
-								opacity: buying === qty ? 0.6 : 1
+								opacity: buying ? 0.6 : 1
 							}}
 						>
-							{unconfigured ? 'Muy pronto' : buying === qty ? <><span className="studio-spinner small" aria-hidden="true" /> Abriendo Mercado Pago...</> : 'Comprar ahora'}
+							{unconfigured ? 'Muy pronto' : buying ? <><span className="studio-spinner small" aria-hidden="true" /> Abriendo Mercado Pago...</> : 'Comprar ahora'}
 						</button>
 					</div>
 				))}
@@ -4110,10 +4129,14 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 	const [cancelling, setCancelling] = useState(false);
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
+	const [pendingPlanChange, setPendingPlanChange] = useState<{ planCode: string; direction: 'up' | 'down' } | null>(null);
+	const [confirmingCancel, setConfirmingCancel] = useState(false);
 	const billingCycle = 'monthly';
 	async function changePlan(planCode: string, direction: 'up' | 'down') {
 		const targetPlan = subscriptionPlans.find((plan) => plan.code === planCode);
 		if (!targetPlan) return;
+		setPendingPlanChange({ planCode, direction });
+		return;
 		const verb = direction === 'up' ? 'subir' : 'bajar';
 		if (!window.confirm(`Â¿QuerÃ©s ${verb} al plan ${targetPlan.name}? Se actualizarÃ¡ tu suscripciÃ³n actual sin crear un segundo cobro.`)) return;
 		await subscribe(planCode, true);

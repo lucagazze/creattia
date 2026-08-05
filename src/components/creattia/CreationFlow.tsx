@@ -74,7 +74,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	}, [isCarouselAd]);
 
 	// Cómo cargar el producto: por URL(s), a mano (con archivos), o sin producto.
-	const [productMode, setProductMode] = useState<'url' | 'manual'>('url');
+	const [productMode, setProductMode] = useState<'url' | 'manual' | 'service'>('url');
 	const [urls, setUrls] = useState<string[]>(['']);
 	const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 	const [importedProducts, setImportedProducts] = useState<ProductReviewItem[]>([]);
@@ -93,11 +93,27 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const count = wantsFullCarousel ? carouselSlides.length : 1;
 	const [manualProductName, setManualProductName] = useState('');
 	const [manualProductFacts, setManualProductFacts] = useState('');
+	type SavedAvatarOption = { id: string; name: string; description?: string | null; imageCount?: number; coverUrl?: string; images?: Array<{ url: string }> };
+	const [savedAvatars, setSavedAvatars] = useState<SavedAvatarOption[]>([]);
+	const [avatarMode, setAvatarMode] = useState<'none' | 'saved' | 'upload'>('none');
+	const [selectedAvatarId, setSelectedAvatarId] = useState('');
+	const [avatarFiles, setAvatarFiles] = useState<File[]>([]);
+	const [avatarPreviews, setAvatarPreviews] = useState<string[]>([]);
+	const [avatarConsent, setAvatarConsent] = useState(false);
 
 	// El armado es secuencial, como en el lote: 1 producto, 2 formato, 3 estilo.
 	const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
 	const [phase, setPhase] = useState<'setup' | 'planning' | 'review' | 'starting'>('setup');
 	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
+	useEffect(() => {
+		if (phase !== 'review' || !token) return;
+		let cancelled = false;
+		void fetch('/api/creativos/avatars', { headers: { authorization: `Bearer ${token}` } })
+			.then((response) => response.ok ? response.json() : null)
+			.then((payload) => { if (!cancelled && Array.isArray(payload?.avatars)) setSavedAvatars(payload.avatars); })
+			.catch(() => { /* la generación sigue funcionando sin avatares */ });
+		return () => { cancelled = true; };
+	}, [phase, token]);
 	const [plan, setPlan] = useState<any>(null);
 	const [zones, setZones] = useState<Array<{ where?: string; messageRole?: string; original?: string; replacement?: string; onProduct?: boolean }>>([]);
 	const [people, setPeople] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
@@ -116,6 +132,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const urlsNeeded = wantsFullCarousel && !carouselSameProduct ? carouselSlides.length : 1;
 	const filledUrls = urls.map((u) => u.trim()).filter(Boolean).length;
 	const step1Ready = (productMode === 'url' && filledUrls >= urlsNeeded)
+		|| (productMode === 'service' && (filledUrls > 0 || manualProductName.trim()))
 		|| (productMode === 'manual' && manualProductName.trim() && !(wantsFullCarousel && !carouselSameProduct));
 	const comparisonInfo = plan?.comparison || {};
 	const comparisonDetected = comparisons.length > 0 || comparisonInfo.detected === true;
@@ -208,21 +225,26 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		setPhase('planning'); setError('');
 		try {
 			let productIds: string[] = [];
-			if (productMode === 'url') {
+			if (productMode === 'url' || productMode === 'service') {
 				const list = urls.map((u) => u.trim()).filter(Boolean);
-				if (!list.length) { setError('Pegá al menos una URL.'); setPhase('setup'); return; }
-				productIds = await scanUrls(list);
-				if (!productIds.length) { setPhase('setup'); return; }
+				if (!list.length && productMode === 'url') { setError('Pegá al menos una URL.'); setPhase('setup'); return; }
+				if (list.length) productIds = await scanUrls(list);
+				if (productMode === 'url' && !productIds.length) { setPhase('setup'); return; }
 			}
 			const form = new FormData();
 			form.set('referencePath', effectiveReferencePath);
 			if (wantsFullCarousel) form.set('referencePaths', JSON.stringify(carouselSlides));
 			form.set('language', language);
 			form.set('brandSource', brandSource);
-			if (productMode === 'url' && productIds.length) {
+			form.set('subjectMode', productMode === 'service' ? 'service' : 'product');
+			if ((productMode === 'url' || productMode === 'service') && productIds.length) {
 				form.set('productId', productIds[0]); // contexto de análisis
-			} else if (productMode === 'manual') {
+			} else if (productMode === 'manual' || productMode === 'service') {
 				if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
+				form.set('productName', manualProductName.trim());
+				form.set('productFacts', manualProductFacts.trim());
+			}
+			if (productMode === 'service') {
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
@@ -264,13 +286,29 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('colorMode', colorMode);
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
+			form.set('subjectMode', productMode === 'service' ? 'service' : 'product');
 			form.set('includeLogo', includeLogo ? '1' : '0');
-			if (productMode === 'url' && selectedProductIds.length) {
+			if ((productMode === 'url' || productMode === 'service') && selectedProductIds.length) {
 				selectedProductIds.forEach((id) => form.append('productIds', id));
-			} else if (productMode === 'manual') {
+			} else if (productMode === 'manual' || productMode === 'service') {
 				if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
+			}
+			if (avatarMode === 'saved' && selectedAvatarId) form.set('avatarId', selectedAvatarId);
+			if (avatarMode === 'upload') {
+				if (avatarFiles.length < 4) throw new Error('Subí al menos 4 imágenes del avatar para mantener su identidad.');
+				if (!avatarConsent) throw new Error('Confirmá que tenés permiso para usar esas imágenes.');
+				const avatarForm = new FormData();
+				avatarForm.set('name', 'Avatar de esta generación');
+				avatarForm.set('description', 'Referencias visuales guardadas desde el flujo de generación.');
+				avatarForm.set('consentConfirmed', 'true');
+				avatarFiles.slice(0, 12).forEach((file) => avatarForm.append('images', file));
+				const avatarResponse = await fetch('/api/creativos/avatars', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: avatarForm });
+				const avatarPayload = await avatarResponse.json();
+				if (!avatarResponse.ok || !avatarPayload.avatar?.id) throw new Error(avatarPayload.error || 'No se pudo guardar el avatar.');
+				setSavedAvatars(Array.isArray(avatarPayload.avatars) ? avatarPayload.avatars : savedAvatars);
+				form.set('avatarId', avatarPayload.avatar.id);
 			}
 			form.set('plan', JSON.stringify({ ...plan, textZones: zones, people, comparisonItems: comparisons, creativeDecisions, comparison: { ...(plan.comparison || {}), userGuidance: comparisonGuidance.trim() } }));
 
@@ -338,7 +376,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		onGenerationRequested?.();
 		try {
 			let productIds: string[] = [];
-			if (productMode === 'url') {
+			if (productMode === 'url' || (productMode === 'service' && urls.some((url) => url.trim()))) {
 				const list = urls.map((u) => u.trim()).filter(Boolean);
 				if (carouselSameProduct) {
 					const ids = await scanUrls([list[0]]);
@@ -357,7 +395,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					}
 					productIds = ids;
 				}
-			} else {
+			} else if (productMode === 'manual') {
 				// Carga a mano: solo válida cuando es el mismo producto en todas las páginas.
 				if (!uploadFiles.length) { setError('Subí al menos una foto del producto.'); return; }
 				const productForm = new FormData();
@@ -370,6 +408,21 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				productIds = [productPayload.product.id];
 			}
 
+			let carouselAvatarId = avatarMode === 'saved' ? selectedAvatarId : '';
+			if (avatarMode === 'upload') {
+				if (avatarFiles.length < 4) throw new Error('Subí al menos 4 imágenes del avatar para mantener su identidad.');
+				if (!avatarConsent) throw new Error('Confirmá que tenés permiso para usar esas imágenes.');
+				const avatarForm = new FormData();
+				avatarForm.set('name', 'Avatar de esta generación');
+				avatarForm.set('description', 'Referencias visuales guardadas desde el flujo de generación.');
+				avatarForm.set('consentConfirmed', 'true');
+				avatarFiles.slice(0, 12).forEach((file) => avatarForm.append('images', file));
+				const avatarRes = await fetch('/api/creativos/avatars', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: avatarForm });
+				const avatarPayload = await avatarRes.json();
+				if (!avatarRes.ok || !avatarPayload.avatar?.id) throw new Error(avatarPayload.error || 'No se pudo guardar el avatar.');
+				carouselAvatarId = avatarPayload.avatar.id;
+			}
+
 			const pathPrefixId = parseInt(ad.imagePath.split('/')[0], 10);
 			const response = await fetch('/api/creativos/carousel-start', {
 				method: 'POST',
@@ -379,6 +432,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					referenceName: ad.name || 'Carrusel ganador',
 					templateId: !isNaN(pathPrefixId) ? pathPrefixId : 40,
 					productIds,
+					subjectMode: productMode === 'service' ? 'service' : 'product',
+					productName: manualProductName.trim(),
+					productDescription: manualProductFacts.trim(),
+					avatarId: carouselAvatarId || null,
 					format, language, colorMode, typoMode, brandSource,
 					logoSlideIndexes: [...logoCarouselPages],
 					approvedPlan: { ...plan, textZones: zones, people, comparisonItems: comparisons, creativeDecisions, comparison: { ...(plan?.comparison || {}), userGuidance: comparisonGuidance.trim() } },
@@ -532,7 +589,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								<label className="picker-label">¿Qué vas a promocionar?</label>
 								<div className="wiz-tabs">
 									{([
-										['url', '🔗', 'Con URL', 'Analizamos tu página'],
+						['url', '🔗', 'Con URL', 'Analizamos tu página'],
+						['service', '✦', 'Servicio / SaaS', 'Sin producto físico'],
 										...(wantsFullCarousel && !carouselSameProduct ? [] : [['manual', '✍️', 'Cargar a mano', 'Cargás los datos'] as const]),
 									] as const).map(([value, icon, text, hint]) => (
 										<button key={value} type="button" className={`wiz-tab ${productMode === value ? 'active' : ''}`} onClick={() => setProductMode(value)}>
@@ -548,7 +606,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									</p>
 								)}
 
-								{productMode === 'url' && (
+								{(productMode === 'url' || productMode === 'service') && (
 									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 										{urls.map((u, i) => (
 											<div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -571,6 +629,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												style={{ alignSelf: 'flex-start', padding: '7px 13px', borderRadius: '9px', border: '1px dashed #cbb8f0', background: '#faf8ff', color: '#5b3fc4', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}>
 												+ Agregar otra URL {wantsFullCarousel && !carouselSameProduct ? '(otra página)' : '(otro producto)'}
 											</button>
+										)}
+										{productMode === 'service' && (
+											<div className="wiz-fields" style={{ marginTop: '12px' }}>
+												<input className="wiz-input" value={manualProductName} onChange={(e) => setManualProductName(e.target.value)} placeholder="Nombre del servicio, SaaS o marca..." />
+												<textarea className="wiz-input" value={manualProductFacts} onChange={(e) => setManualProductFacts(e.target.value)} rows={3} placeholder="Qué hace, para quién es y qué resultado promete..." />
+											</div>
 										)}
 									</div>
 								)}
@@ -786,6 +850,44 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								selectedProductIds={selectedProductIds}
 								onToggleProduct={(productId) => setSelectedProductIds((current) => current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId])}
 							/>
+						)}
+						<section style={{ marginBottom: '18px', padding: '16px', border: '1px solid #e6ddf5', borderRadius: '12px', background: '#fcfaff' }} aria-label="Identidad visual">
+							<strong style={label}>{productMode === 'service' ? '¿Qué querés mostrar como protagonista?' : '¿Querés mostrar una persona o avatar?'}</strong>
+							<p style={{ margin: '-3px 0 12px', fontSize: '12px', color: '#716d79', lineHeight: 1.45 }}>
+								{productMode === 'service' ? 'Podés usar un avatar, o dejar que la IA decida entre logo, interfaz, resultado, persona contextual o una escena de marca según el anuncio ganador.' : 'Para mantener una persona consistente podés usar tu avatar. Si no elegís ninguno, la IA mantiene la dirección del anuncio ganador sin inventar una identidad recurrente.'}
+							</p>
+							<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+								<button type="button" style={chip(avatarMode === 'none')} onClick={() => setAvatarMode('none')}>Sin persona / avatar</button>
+								{savedAvatars.map((avatar) => (
+									<button key={avatar.id} type="button" style={{ ...chip(avatarMode === 'saved' && selectedAvatarId === avatar.id), display: 'inline-flex', alignItems: 'center', gap: '7px' }} onClick={() => { setAvatarMode('saved'); setSelectedAvatarId(avatar.id); }}>
+										{avatar.coverUrl && <img src={avatar.coverUrl} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />}
+										{avatar.name} <small>({avatar.imageCount || 0})</small>
+									</button>
+								))}
+								<button type="button" style={chip(avatarMode === 'upload')} onClick={() => setAvatarMode('upload')}>Cargar referencias</button>
+							</div>
+							{avatarMode === 'upload' && (
+								<div>
+									<input type="file" id="creation-avatar-files" accept="image/png,image/jpeg,image/webp" multiple className="hidden-file-input" onChange={(event) => {
+										const files = event.target.files ? Array.from(event.target.files).slice(0, 12) : [];
+										setAvatarFiles(files); setAvatarPreviews(files.map((file) => URL.createObjectURL(file))); event.target.value = '';
+									}} />
+									<label htmlFor="creation-avatar-files" className="uploader-label" style={{ display: 'inline-flex', width: 'auto' }}>Subir 4–12 imágenes de la misma persona/avatar</label>
+									{avatarPreviews.length > 0 && <div className="extra-previews-grid" style={{ marginTop: '10px' }}>{avatarPreviews.map((preview) => <div className="preview-thumb" key={preview}><img src={preview} alt="Referencia de avatar" /></div>)}</div>}
+									<label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginTop: '10px', fontSize: '12px', color: '#5f5a67' }}><input type="checkbox" checked={avatarConsent} onChange={(event) => setAvatarConsent(event.target.checked)} /> Confirmo que tengo permiso para usar estas imágenes.</label>
+								</div>
+							)}
+						</section>
+						{plan.brandPalette && (
+							<section style={{ marginBottom: '18px', padding: '14px 16px', border: '1px solid #eee9f2', borderRadius: '12px', background: '#fff' }} aria-label="Paleta detectada">
+								<strong style={label}>Colores que se van a usar</strong>
+								<p style={{ margin: '-3px 0 10px', fontSize: '12px', color: '#716d79' }}>Extraídos de la identidad seleccionada: fondo, acento y texto. La IA los aplica por rol para mantener contraste.</p>
+								<div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+									{(['background', 'accent', 'text', 'secondary'] as const).filter((key) => plan.brandPalette[key]).map((key) => (
+										<div key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', color: '#4c4654' }}><span style={{ width: '22px', height: '22px', borderRadius: '6px', background: plan.brandPalette[key], border: '1px solid #ddd5e6', display: 'inline-block' }} /> <span>{key === 'background' ? 'Fondo' : key === 'accent' ? 'Acento' : key === 'text' ? 'Texto' : 'Secundario'} <small style={{ color: '#8b8490' }}>{plan.brandPalette[key]}</small></span></div>
+									))}
+								</div>
+							</section>
 						)}
 						{plan.templateHasLogoSlot && includeLogo && (
 							<div style={{

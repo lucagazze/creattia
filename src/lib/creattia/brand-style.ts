@@ -4,6 +4,7 @@ import { normalizeExternalUrl, readLimited, safeExternalFetch } from './safe-fet
 
 export type BrandStyle = {
 	colors: string[];
+	palette?: BrandPalette;
 	typography: { headings: string; body: string };
 	logoUrl: string;
 	styleSummary: string;
@@ -12,6 +13,14 @@ export type BrandStyle = {
 	buttonStyle?: string;
 	pagesScanned: string[];
 	analyzedAt: string;
+};
+
+export type BrandPalette = {
+	background: string;
+	text: string;
+	accent: string;
+	secondary?: string;
+	source?: 'scraped' | 'ai' | 'fallback';
 };
 
 const INTERNAL_PAGE_PATTERNS = /(about|nosotros|sobre|quienes|historia|story|contact|contacto|servicios|services|faq|preguntas)/i;
@@ -53,6 +62,43 @@ function extractColorsFromCss(css: string) {
 	// las variables declaradas que a los colores de componentes secundarios.
 	for (const match of css.matchAll(/--(?:brand|primary|secondary|accent|color)[\w-]*\s*:\s*#([0-9a-f]{6}|[0-9a-f]{3})\b/gi)) add(match[1], 4);
 	return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([hex]) => hex);
+}
+
+function normalizeCssColor(value: string) {
+	const raw = value.trim().toLowerCase();
+	if (!raw || /^(transparent|inherit|initial|unset|currentcolor|none)$/i.test(raw)) return '';
+	const hex = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})\b/i);
+	if (hex) return `#${hex[1].length === 3 ? hex[1].split('').map((c) => c + c).join('') : hex[1]}`;
+	const rgb = raw.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i);
+	if (!rgb) return '';
+	return `#${[rgb[1], rgb[2], rgb[3]].map((channel) => Math.max(0, Math.min(255, Number(channel))).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function firstCssRoleColor(css: string, property: string) {
+	const values: string[] = [];
+	const pattern = new RegExp(`(?:^|[;{])\\s*(?:${property})\\s*:\\s*(#[0-9a-f]{3,6}\\b|rgba?\\([^;}{]+\\))`, 'gi');
+	for (const match of css.matchAll(pattern)) {
+		const color = normalizeCssColor(match[1]);
+		if (color && !values.includes(color)) values.push(color);
+	}
+	return values;
+}
+
+function extractSemanticPalette(css: string, themeColor: string): BrandPalette {
+	const backgrounds = firstCssRoleColor(css, 'background(?:-color)?');
+	const textColors = firstCssRoleColor(css, 'color');
+	const accents = [
+		themeColor,
+		...firstCssRoleColor(css, 'border-color'),
+		...firstCssRoleColor(css, 'background(?:-color)?'),
+	].map(normalizeCssColor).filter(Boolean);
+	const dedupe = (values: string[]) => [...new Set(values)];
+	const cleanBackground = dedupe(backgrounds)[0] || '#ffffff';
+	const cleanText = dedupe(textColors).find((color) => color !== cleanBackground) || '#19171d';
+	const cleanAccent = dedupe(accents).find((color) => color !== cleanBackground && color !== cleanText) || '#744bde';
+	const secondary = dedupe([...firstCssRoleColor(css, 'border-color'), ...firstCssRoleColor(css, 'background(?:-color)?')])
+		.find((color) => color !== cleanBackground && color !== cleanText && color !== cleanAccent);
+	return { background: cleanBackground, text: cleanText, accent: cleanAccent, secondary, source: 'scraped' };
 }
 
 function extractFontsFromCss(css: string) {
@@ -160,6 +206,7 @@ async function collectBrandSignals(websiteUrl: string) {
 		cssColors: extractColorsFromCss(cssText),
 		cssFonts: extractFontsFromCss(cssText),
 		googleFonts: extractGoogleFonts($),
+		palette: extractSemanticPalette(cssText, compact($('meta[name="theme-color"]').attr('content'), 20)),
 		pages,
 	};
 }
@@ -172,6 +219,7 @@ export async function analyzeBrandStyle(websiteUrl: string, keys?: string | { op
 	const signals = await collectBrandSignals(websiteUrl);
 	const fallback: BrandStyle = {
 		colors: [...new Set([signals.themeColor, ...signals.cssColors].filter(Boolean))].slice(0, 5),
+		palette: signals.palette,
 		typography: {
 			headings: signals.googleFonts[0] || signals.cssFonts[0] || '',
 			body: signals.googleFonts[1] || signals.cssFonts[1] || signals.cssFonts[0] || '',
@@ -189,6 +237,11 @@ export async function analyzeBrandStyle(websiteUrl: string, keys?: string | { op
 		// el modelo puede describir el estilo, pero no debe reemplazar los hex reales
 		// por una paleta inventada a partir de una lectura visual incompleta.
 		colors: [...new Set([...fallback.colors, ...(Array.isArray(parsed.colors) ? parsed.colors : [])])].slice(0, 5),
+		palette: {
+			...fallback.palette,
+			...(parsed.palette && typeof parsed.palette === 'object' ? parsed.palette : {}),
+			source: fallback.palette?.source || 'scraped',
+		},
 		typography: {
 			headings: compact(parsed.typography?.headings, 80) || fallback.typography.headings,
 			body: compact(parsed.typography?.body, 80) || fallback.typography.body,
@@ -207,6 +260,7 @@ export async function analyzeBrandStyle(websiteUrl: string, keys?: string | { op
 ${JSON.stringify({
 		siteName: signals.siteName, description: signals.description, themeColor: signals.themeColor,
 		cssColors: signals.cssColors, cssFonts: signals.cssFonts, googleFonts: signals.googleFonts,
+		palette: signals.palette,
 		pages: signals.pages,
 	})}`;
 
@@ -257,6 +311,7 @@ function buildSynthesisPrompt() {
 	return `You are a brand designer. From the scraped signals of a real brand website, produce STRICT JSON:
 {
   "colors": ["#hex primary first, max 5 — real brand identity colors only, not framework defaults"],
+  "palette": { "background": "#hex", "text": "#hex", "accent": "#hex", "secondary": "#hex" },
   "typography": { "headings": "font family used for headings", "body": "font family used for body text" },
   "styleSummary": "2-3 sentences describing the brand's visual aesthetic (minimal/bold/premium/playful, photography style, layout feel) in Spanish",
   "brandPersonality": "1-2 sentences on tone and personality in Spanish",

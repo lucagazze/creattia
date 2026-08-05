@@ -7,6 +7,7 @@ import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad-copy';
 import { listProductImageRows } from '../../../lib/creattia/product-media';
+import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -228,6 +229,9 @@ export const POST: APIRoute = async ({ request }) => {
 		// mandaban estos campos, así que terminaban agregando el logo guardado
 		// del usuario sin que nadie lo pidiera.
 		const includeLogo = clean(form.get('includeLogo'), 2) === '1';
+		const subjectModeParam = clean(form.get('subjectMode'), 12);
+		const subjectMode = ['product', 'service', 'saas', 'brand'].includes(subjectModeParam) ? subjectModeParam as 'product' | 'service' | 'saas' | 'brand' : 'product';
+		const avatarId = clean(form.get('avatarId'), 80);
 		const effectiveBrief = stripWebReferences(brief);
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		// 'url'  → la marca del sitio de donde salió el producto
@@ -293,7 +297,6 @@ export const POST: APIRoute = async ({ request }) => {
 
 		const manualProductName = clean(form.get('productName'), 120);
 		const manualProductFacts = clean(form.get('productFacts'), 1200);
-
 		if (!storedProducts.length && manualProductName) {
 			storedProducts = [{
 				id: 'manual',
@@ -310,10 +313,20 @@ export const POST: APIRoute = async ({ request }) => {
 		// en "Mi marca", o ninguna. Se resuelve acá para no repetir profile?.x
 		// en cada uso del prompt más abajo.
 		const urlBrand = (storedProducts[0] as any)?.metadata?.brandFromUrl || null;
+		if (subjectMode !== 'product') {
+			const serviceName = manualProductName || (brandSourceParam === 'mine' ? profile?.brand_name : brandSourceParam === 'url' ? urlBrand?.name : '') || 'el servicio o la marca';
+			const serviceFacts = manualProductFacts || urlBrand?.styleSummary || '';
+			if (storedProducts.length) {
+				storedProducts = [{ ...storedProducts[0], name: serviceName, description: serviceFacts, price_text: '', currency: '' }];
+			} else {
+				storedProducts = [{ id: 'manual', name: serviceName, description: serviceFacts, price_text: '', currency: '', image_path: null, source_image_url: null, analysis: { category: '' } }];
+			}
+		}
 		const effectiveBrandName = brandSource === 'mine' ? (profile?.brand_name || '') : brandSource === 'url' ? (urlBrand?.name || '') : '';
 		const myBrandColors = Array.isArray(profile?.brand_colors) ? profile.brand_colors : [];
 		const urlBrandColors = Array.isArray(urlBrand?.colors) ? urlBrand.colors : [];
 		const effectiveBrandColors = colorMode === 'brand' ? myBrandColors : colorMode === 'url' ? urlBrandColors : [];
+		const effectiveBrandPalette = colorMode === 'url' ? urlBrand?.palette : colorMode === 'brand' ? brandStyle?.palette : undefined;
 		const myBrandTypography = brandStyle?.typography;
 		const urlBrandTypography = urlBrand?.typography || undefined;
 		const effectiveBrandTypography = typoMode === 'brand' ? myBrandTypography : typoMode === 'url' ? urlBrandTypography : undefined;
@@ -373,6 +386,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const generationSettingsSnapshot = {
 			format, language, imageType, preset, quality, productIds, productNames: storedProducts.map((item) => item.name),
 			includeLogo,
+			subjectMode,
+			avatarId: avatarId || null,
 			// Las revisiones heredan el anuncio ganador de la imagen original.
 			referencePath: storedReference?.image_path || (sourceGeneration as any)?.settings_snapshot?.referencePath || null,
 			sourceGenerationId: sourceGeneration?.id || null,
@@ -456,7 +471,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const productInputPlan: Array<{ product: any; path: string; photoIndex: number }> = [];
 		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
 		const productVisionInputs: Array<{ buffer: Buffer; type: string }> = [];
-		for (const storedProduct of storedProducts) {
+		if (subjectMode === 'product') for (const storedProduct of storedProducts) {
 			if (storedProduct.id === 'manual') continue;
 			const paths = [...new Set([
 				storedProduct.image_path,
@@ -465,7 +480,7 @@ export const POST: APIRoute = async ({ request }) => {
 			if (!paths.length) throw new Error(`${storedProduct.name} todavía no tiene una foto disponible.`);
 			productInputPlan.push({ product: storedProduct, path: paths[0], photoIndex: 1 });
 		}
-		for (const storedProduct of storedProducts) {
+		if (subjectMode === 'product') for (const storedProduct of storedProducts) {
 			if (storedProduct.id === 'manual') continue;
 			if (productInputPlan.length >= 8) break;
 			const paths = [...new Set([
@@ -557,6 +572,17 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 
+		let avatarReferenceImages: Array<{ buffer: Buffer; type: string }> = [];
+		let avatarDescription = '';
+		if (avatarId) {
+			const avatar = await resolveAvatarReferences({ admin, userId: auth.user!.id, mode: 'saved', avatarId });
+			avatarReferenceImages = avatar.images;
+			avatarDescription = avatar.description || avatar.name;
+			for (const [index, image] of avatarReferenceImages.entries()) {
+				await pushInput(image.buffer, image.type, `avatar-${index + 1}.png`, `reference photo ${index + 1} of the same selected person/avatar; preserve identity consistently`);
+			}
+		}
+
 		stamp(`inputs listos (${inputBuffers.length} imágenes)`);
 
 		// Formato 'original': tomar la proporción real del anuncio de referencia.
@@ -594,6 +620,10 @@ export const POST: APIRoute = async ({ request }) => {
 					productImages: productVisionInputs.map((photo) => ({ b64: photo.buffer.toString('base64'), mime: photo.type })),
 					brandName: effectiveBrandName || clean(form.get('brandName'), 80),
 					language,
+					subjectMode,
+					avatarImages: avatarReferenceImages.map((photo) => ({ b64: photo.buffer.toString('base64'), mime: photo.type })),
+					avatarDescription,
+					brandPalette: effectiveBrandPalette,
 				});
 			} catch (analysisErr) {
 				console.error('Layout analysis failed, continuing with visual generation:', analysisErr);
@@ -632,6 +662,10 @@ The result must look like the same image with only that one adjustment applied.`
 			typoMode,
 			brandColors: effectiveBrandColors,
 			brandTypography: effectiveBrandTypography,
+			brandPalette: effectiveBrandPalette,
+			subjectMode,
+			hasAvatarReference: avatarReferenceImages.length > 0,
+			avatarDescription,
 		}) : buildPrompt({
 			templateName,
 			purpose: templatePurpose,

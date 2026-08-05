@@ -233,6 +233,7 @@ export const POST: APIRoute = async ({ request }) => {
 					name: new URL(productUrl).hostname.replace(/^www\./, ''),
 					website: origin,
 					colors: (style.colors || []).slice(0, 5),
+					palette: style.palette || null,
 					typography: style.typography || null,
 					styleSummary: style.styleSummary || '',
 					logoUrl: style.logoUrl || '',

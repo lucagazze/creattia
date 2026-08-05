@@ -5,12 +5,13 @@ export const prerender = false;
 
 // Pago por imagen: entrada barata sin suscripción. El precio unitario se define
 // en CREDIT_UNIT_PRICE (el doble del precio efectivo por imagen del suscriptor).
-const packs = [1, 5, 10];
+const DEFAULT_UNIT_PRICE = 0.3;
+const MAX_CREDITS_PER_CHECKOUT = 1000;
 
 function getUnitPrice() {
 	const raw = import.meta.env.CREDIT_UNIT_PRICE || process.env.CREDIT_UNIT_PRICE || '';
 	const value = Number(raw);
-	return Number.isFinite(value) && value > 0 ? value : 0;
+	return Number.isFinite(value) && value > 0 ? value : DEFAULT_UNIT_PRICE;
 }
 
 export const GET: APIRoute = async ({ request }) => {
@@ -20,7 +21,7 @@ export const GET: APIRoute = async ({ request }) => {
 	return json({
 		unitPrice,
 		currency: import.meta.env.CREDIT_CURRENCY || process.env.CREDIT_CURRENCY || 'USD',
-		packs,
+		maxCredits: MAX_CREDITS_PER_CHECKOUT,
 		configured: unitPrice > 0 && Boolean(import.meta.env.MERCADO_PAGO_ACCESS_TOKEN),
 	});
 };
@@ -38,7 +39,9 @@ export const POST: APIRoute = async ({ request, url }) => {
 
 	const body = await request.json().catch(() => ({}));
 	const quantity = Number(body.quantity);
-	if (!packs.includes(quantity)) return json({ error: 'Elegí un pack válido de créditos.' }, 400);
+	if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_CREDITS_PER_CHECKOUT) {
+		return json({ error: `Elegí entre 1 y ${MAX_CREDITS_PER_CHECKOUT} créditos.` }, 400);
+	}
 
 	const siteUrl = import.meta.env.PUBLIC_SITE_URL || url.origin;
 	const currency = import.meta.env.CREDIT_CURRENCY || process.env.CREDIT_CURRENCY || 'USD';

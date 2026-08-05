@@ -33,7 +33,7 @@ export async function resolveAvatarReferences(input: {
 		if (rowsError) throw rowsError;
 		if ((rows || []).length < 4) throw new Error('El avatar necesita al menos 4 imágenes antes de poder usarse.');
 		const images: VisualImage[] = [];
-		for (const row of evenlySample(rows || [], 5)) {
+		for (const row of evenlySample(rows || [], 8)) {
 			const { data: blob, error } = await input.admin.storage.from('creative-assets').download(row.storage_path);
 			if (error) throw error;
 			const normalized = blob ? await normalizeImageInput(Buffer.from(await blob.arrayBuffer())) : null;
@@ -51,7 +51,7 @@ export async function resolveAvatarReferences(input: {
 		if (file.size > MAX_BYTES) throw new Error('Cada foto del avatar puede pesar hasta 10 MB.');
 	}
 	const images: VisualImage[] = [];
-	for (const file of evenlySample(files, 5)) {
+	for (const file of evenlySample(files, 8)) {
 		const normalized = await normalizeImageInput(Buffer.from(await file.arrayBuffer()));
 		if (normalized) images.push(normalized);
 	}
