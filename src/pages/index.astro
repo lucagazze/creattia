@@ -2072,7 +2072,6 @@ const faqs = [
 	.all-in-one-section {
 		padding: 100px 20px;
 		background: #FFF;
-		overflow-x: clip;
 	}
 
 	/* ==========================================
@@ -2085,13 +2084,12 @@ const faqs = [
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		overflow: clip;
-		isolation: isolate;
+		overflow: visible;
 		perspective: var(--carousel-perspective);
 		height: var(--carousel-height);
-		--carousel-card-w: clamp(180px, 16vw, 220px);
-		--carousel-card-h: clamp(320px, 29vw, 390px);
-		--carousel-radius: min(30vw, 360px);
+		--carousel-card-w: 220px;
+		--carousel-card-h: 390px;
+		--carousel-radius: 420px;
 		--carousel-perspective: 1240px;
 		--carousel-height: 520px;
 	}
@@ -2100,7 +2098,7 @@ const faqs = [
 		.cylinder-carousel-container {
 			--carousel-card-w: 140px;
 			--carousel-card-h: 250px;
-			--carousel-radius: min(42vw, 240px);
+			--carousel-radius: 280px;
 			--carousel-perspective: 1000px;
 			--carousel-height: 360px;
 		}
