@@ -65,6 +65,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const logoSlideIndexes = new Set(
 			Array.isArray(body?.logoSlideIndexes) ? body.logoSlideIndexes.map((v: unknown) => Number(v)).filter((n: number) => Number.isInteger(n) && n >= 0) : []
 		);
+		const approvedPlan = body?.approvedPlan && typeof body.approvedPlan === 'object' ? body.approvedPlan : null;
 
 		// Los productos tienen que ser del usuario y tener al menos una foto real.
 		const uniqueProductIds = [...new Set(productIds)];
@@ -135,6 +136,7 @@ export const POST: APIRoute = async ({ request }) => {
 					carousel: true,
 					carouselIndex: index + 1,
 					carouselTotal: count,
+					approvedPlan,
 				},
 				status: 'processing',
 			};

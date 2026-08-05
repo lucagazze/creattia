@@ -33,7 +33,7 @@ export async function mirrorProductImages(userId: string, product: {
 }, rawUrls: string[]) {
 	const admin = getAdminClient();
 	if (!admin) return product.image_path ? [product.image_path] : [];
-	const urls = [...new Set(rawUrls.map((value) => String(value || '').trim()).filter(Boolean))].slice(0, 6);
+	const urls = [...new Set(rawUrls.map((value) => String(value || '').trim()).filter(Boolean))].slice(0, 24);
 	if (!urls.length) return product.image_path ? [product.image_path] : [];
 
 	const mirrored: Array<{ path: string; sourceUrl: string; index: number }> = [];

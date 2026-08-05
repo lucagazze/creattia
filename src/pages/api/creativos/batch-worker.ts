@@ -178,8 +178,18 @@ export const POST: APIRoute = async ({ request }) => {
 		brandTypography = snapshot.typoMode === 'brand' ? myBrandTypography : snapshot.typoMode === 'url' ? urlBrandTypography : undefined;
 		const hasLogo = Boolean(logoImage);
 		// ── 4. Análisis visual del ganador y de las áreas de imagen ──────────────
-		let analysis: LayoutAnalysis | null = null;
+		const approvedCarouselPlan = snapshot.approvedPlan && typeof snapshot.approvedPlan === 'object'
+			? snapshot.approvedPlan as LayoutAnalysis
+			: null;
+		let analysis: LayoutAnalysis | null = approvedCarouselPlan ? {
+			...approvedCarouselPlan,
+			textZones: approvedCarouselPlan.textZones?.filter((zone: any) => !zone.slide || zone.slide === Number(snapshot.carouselIndex || row.output_index || 1)),
+			people: approvedCarouselPlan.people?.filter((person: any) => !person.slide || person.slide === Number(snapshot.carouselIndex || row.output_index || 1)),
+			comparisonItems: approvedCarouselPlan.comparisonItems?.filter((item: any) => !item.slide || item.slide === Number(snapshot.carouselIndex || row.output_index || 1)),
+			creativeDecisions: approvedCarouselPlan.creativeDecisions?.filter((decision: any) => !decision.slide || decision.slide === Number(snapshot.carouselIndex || row.output_index || 1)),
+		} : null;
 		try {
+		if (!analysis) {
 			analysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
 				referenceB64: normalizedReference.buffer.toString('base64'),
 				referenceMime: normalizedReference.type,
@@ -191,6 +201,7 @@ export const POST: APIRoute = async ({ request }) => {
 				brandName,
 				language: snapshot.language || '',
 			});
+		}
 		} catch (analysisError) {
 			console.error(`[batch-worker ${generationId}] análisis de layout falló:`, analysisError);
 		}

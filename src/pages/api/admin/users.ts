@@ -37,13 +37,19 @@ export const GET: APIRoute = async ({ request }) => {
 		for (const result of [profileResult, subscriptionsResult, purchasesResult, subscriptionPaymentsResult, generationsResult, videosResult, overrideResult, auditResult]) {
 			if (result.error && result.error.code !== '42P01') throw result.error;
 		}
+		const generations = generationsResult.data || [];
+		const paths = [...new Set(generations.map((row: any) => String(row.output_path || '').trim()).filter(Boolean))];
+		const signedResult = paths.length ? await admin.storage.from('creative-assets').createSignedUrls(paths, 60 * 60) : { data: [] };
+		const signedByPath = new Map((signedResult.data || []).map((row: any, index: number) => [row.path || paths[index], row.signedUrl]));
+		const generationsWithImages = generations.map((row: any) => ({ ...row, image_url: row.output_path ? signedByPath.get(row.output_path) || null : null }));
+
 		return json({
 			user: userResult.data.user,
 			profile: profileResult.data,
 			subscriptions: subscriptionsResult.data || [],
 			purchases: purchasesResult.data || [],
 			subscriptionPayments: subscriptionPaymentsResult.error?.code === '42P01' ? [] : (subscriptionPaymentsResult.data || []),
-			generations: generationsResult.data || [],
+			generations: generationsWithImages,
 			videos: videosResult.error?.code === '42P01' ? [] : (videosResult.data || []),
 			override: overrideResult.error?.code === '42P01' ? null : overrideResult.data,
 			audit: auditResult.error?.code === '42P01' ? [] : (auditResult.data || []),

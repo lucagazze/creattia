@@ -13,6 +13,7 @@ import AvatarManager from './AvatarManager';
 import { UrlBatchSection, driveBatchWorkers } from './UrlBatchSection';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
 import AdminDashboard from './AdminDashboard';
+import { subscriptionPlans } from '../../lib/creattia/subscription-plans';
 
 type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved' | 'discover' | 'admin';
 
@@ -74,6 +75,7 @@ type Generation = {
 };
 
 type HistoryGroup = { key: string; createdAt: string; item: Generation; slides?: Generation[] };
+type LightboxState = { item: Generation; slides?: Generation[] };
 
 /**
  * Las páginas de un mismo carrusel comparten batchId y variant_key='carrusel':
@@ -155,85 +157,6 @@ const demoProducts: Product[] = [
 	{ id: 'demo-1', name: 'Producto estrella', description: 'El producto principal de tu tienda.', priceText: '$89.900', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('01', '#19171d'), imageUrls: [demoProductArt('01', '#19171d')], imageCount: 1, source: 'website' },
 	{ id: 'demo-2', name: 'Nueva colección', description: 'Una segunda opción para probar otro enfoque.', priceText: '$64.500', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('02', '#ea580c'), imageUrls: [demoProductArt('02', '#ea580c')], imageCount: 1, source: 'website' },
 	{ id: 'demo-3', name: 'Best seller', description: 'Producto con buena respuesta comercial.', priceText: '$112.000', currency: 'ARS', productUrl: '', imageUrl: demoProductArt('03', '#059669'), imageUrls: [demoProductArt('03', '#059669')], imageCount: 1, source: 'website' },
-];
-
-const subscriptionPlans = [
-	{
-		code: 'free',
-		name: 'Gratis',
-		price: 0,
-		description: 'Probá Creattia con 1 token y una muestra de cada ángulo.',
-		featured: false,
-		features: [
-			{ name: '1 token de regalo', active: true },
-			{ name: '5 creativos por ángulo para explorar', active: true },
-			{ name: 'Biblioteca completa bloqueada', active: true },
-			{ name: 'Comprá tokens cuando quieras', active: true },
-			{ name: '1 marca activa', active: true },
-			{ name: 'Sin tarjeta para empezar', active: true },
-		]
-	},
-	{ 
-		code: 'creator',
-		name: 'Básico',
-		price: 9.99,
-		credits: 5,
-		description: 'Biblioteca completa y 5 tokens mensuales para empezar a crear.',
-		featured: true,
-		features: [
-			{ name: 'Biblioteca completa de ganadores', active: true },
-			{ name: '5 tokens incluidos por mes', active: true },
-			{ name: 'Tokens extra disponibles', active: true },
-			{ name: 'Todos los ángulos, estáticos y carruseles', active: true },
-			{ name: '1 marca activa', active: true },
-			{ name: 'Cancelá cuando quieras', active: true },
-		]
-	},
-	{ 
-		code: 'pro',
-		name: 'Pro',
-		price: 24.99,
-		credits: 60,
-		description: 'Hasta 60 tokens mensuales para marcas en crecimiento.',
-		featured: false,
-		features: [
-			{ name: '60 tokens al mes', active: true },
-			{ name: '≈ $0.42 por token — el mejor equilibrio', active: true },
-			{ name: 'Hasta 4 generaciones simultáneas', active: true },
-			{ name: 'Hasta 2 marcas activas', active: true },
-			{ name: 'Soporte prioritario por email', active: true },
-		]
-	},
-	{ 
-		code: 'scale',
-		name: 'Scale',
-		price: 49.99,
-		credits: 120,
-		description: 'Hasta 120 tokens mensuales para producir a mayor volumen.',
-		featured: false,
-		features: [
-			{ name: '120 tokens al mes', active: true },
-			{ name: '≈ $0.42 por token — menor costo', active: true },
-			{ name: 'Hasta 6 generaciones simultáneas', active: true },
-			{ name: 'Hasta 4 marcas activas', active: true },
-			{ name: 'Soporte prioritario y acceso anticipado', active: true },
-		]
-	},
-	{
-		code: 'agency',
-		name: 'Agency',
-		price: 97.70,
-		credits: 300,
-		description: 'Hasta 300 tokens mensuales para agencias y equipos grandes.',
-		featured: false,
-		features: [
-			{ name: '300 tokens al mes', active: true },
-			{ name: '≈ $0.33 por token — mejor costo', active: true },
-			{ name: 'Generaciones simultáneas ilimitadas', active: true },
-			{ name: 'Hasta 6 marcas activas', active: true },
-			{ name: 'Soporte prioritario y acceso anticipado', active: true },
-		]
-	}
 ];
 
 function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number; fill?: string }) {
@@ -491,6 +414,28 @@ export default function CreativeApp() {
 	const [session, setSession] = useState<AppSession | null>(null);
 	const [profile, setProfile] = useState<AppProfile>(defaultProfile);
 	const canUseVideos = canAccessVideoFeature(getSessionEmail(session));
+
+	// Presencia liviana para que el Centro admin pueda distinguir usuarios
+	// conectados ahora de quienes simplemente iniciaron sesión alguna vez.
+	useEffect(() => {
+		const token = getSessionToken(session);
+		if (!token || !isSupabaseConfigured) return undefined;
+		let stopped = false;
+		const ping = () => {
+			if (stopped || document.visibilityState !== 'visible') return;
+			void fetch('/api/creativos/presence', { method: 'POST', headers: { authorization: `Bearer ${token}` } }).catch(() => undefined);
+		};
+		ping();
+		const interval = window.setInterval(ping, 60_000);
+		window.addEventListener('focus', ping);
+		document.addEventListener('visibilitychange', ping);
+		return () => {
+			stopped = true;
+			window.clearInterval(interval);
+			window.removeEventListener('focus', ping);
+			document.removeEventListener('visibilitychange', ping);
+		};
+	}, [session]);
 	const [view, setView] = useState<View>(() => {
 		if (typeof window === 'undefined') return 'home';
 		const params = new URLSearchParams(window.location.search);
@@ -660,7 +605,8 @@ export default function CreativeApp() {
 	const [reuseSeed, setReuseSeed] = useState<Generation | null>(null);
 	const [history, setHistory] = useState<Generation[]>([]);
 	const [activeBatch, setActiveBatch] = useState<ActiveBatch | null>(null);
-	const [lightbox, setLightbox] = useState<Generation | null>(null);
+	const [lightbox, setLightbox] = useState<LightboxState | null>(null);
+	const openLightbox = (item: Generation, slides?: Generation[]) => setLightbox({ item, slides });
 
 	// Bloquear el scroll del fondo cuando hay un modal abierto
 	useEffect(() => {
@@ -1388,14 +1334,15 @@ export default function CreativeApp() {
 		<div className={`creative-app-shell ${sidebarMinimized ? 'sidebar-minimized' : ''}`}>
 			{toast && <div className="studio-toast"><span><Icon name="check" size={16}/></span>{toast}</div>}
 			{lightbox && <ImageLightbox
-				item={lightbox}
+				item={lightbox.item}
+				slides={lightbox.slides}
 				session={session}
 				onClose={() => setLightbox(null)}
 				onStarted={startBatchTracking}
 				onGenerationRequested={() => { setLightbox(null); setView('history'); }}
 				products={products}
 				onProductsChanged={refreshProducts}
-				isReferenceLiked={Boolean(lightbox.referencePath && likedScrapedPaths.has(lightbox.referencePath))}
+				isReferenceLiked={Boolean(lightbox.item.referencePath && likedScrapedPaths.has(lightbox.item.referencePath))}
 				onToggleReferenceLike={toggleLikedScraped}
 				onUseReference={(path) => {
 					setLightbox(null);
@@ -1612,7 +1559,7 @@ export default function CreativeApp() {
 							likedWinners={likedWinners}
 							likedScrapedPaths={likedScrapedPaths}
 							onToggleLikedScraped={toggleLikedScraped}
-							onExpand={setLightbox}
+							onExpand={openLightbox}
 							onUseScrapedWinner={(path) => {
 								setPreselectedWinnerPath(path);
 								setOpenedFromView('home');
@@ -1664,7 +1611,7 @@ export default function CreativeApp() {
 								setOpenedFromView('saved');
 								navigateTo('winners');
 							}}
-							onExpand={setLightbox}
+							onExpand={openLightbox}
 							onReuse={reuseGeneration}
 						/>
 					)}
@@ -1673,7 +1620,7 @@ export default function CreativeApp() {
 						<GenerationView
 							batch={activeBatch}
 							onBack={() => { goBack(); if (activeBatch.status !== 'processing') setActiveBatch(null); }}
-							onReuse={(generation) => setLightbox(generation)}
+							onReuse={(generation) => openLightbox(generation)}
 							onHistory={() => { setActiveBatch(null); navigateTo('history'); }}
 						/>
 					)}
@@ -1692,7 +1639,7 @@ export default function CreativeApp() {
 							history={history} 
 							onCreate={() => navigateTo('winners')} 
 							onReuse={reuseGeneration} 
-							onExpand={setLightbox} 
+							onExpand={openLightbox}
 							// Sin tarjetas sintéticas: las filas en 'processing' de la base ya
 							// se dibujan como placeholder, con su id real y sobreviven a un
 							// refresh. Pasar las dos cosas mostraba cada imagen dos veces.
@@ -2167,7 +2114,7 @@ function Dashboard({
 	likedScrapedPaths: Set<string>;
 	onToggleLikedScraped: (path: string) => void;
 	onUseScrapedWinner: (path: string) => void;
-	onExpand?: (generation: Generation) => void;
+	onExpand?: (generation: Generation, slides?: Generation[]) => void;
 	onBatchCreated?: (generations: any[], batchId: string) => void;
 	onGenerationRequested?: () => void;
 	// URL de producto que quedó pendiente de la landing (sobrevive a la
@@ -3012,7 +2959,7 @@ function History({
 	history: Generation[]; 
 	onCreate: () => void; 
 	onReuse: (item: Generation) => void; 
-	onExpand?: (item: Generation) => void; 
+	onExpand?: (item: Generation, slides?: Generation[]) => void;
 	pending?: { count: number; title: string; referenceUrl?: string; startedAt?: number } | null; 
 	onViewProgress?: () => void;
 	likedImageIds?: string[];
@@ -3282,7 +3229,7 @@ function GenerationCard({
 	/** Cuando el creativo es un carrusel: todas sus páginas, ordenadas. La tarjeta pagina entre ellas como un solo creativo. */
 	slides?: Generation[];
 	onReuse?: (gen: Generation) => void;
-	onExpand?: (gen: Generation) => void;
+	onExpand?: (gen: Generation, slides?: Generation[]) => void;
 	isLiked?: boolean;
 	onToggleLike?: () => void;
 	likedReferencePaths?: Set<string>;
@@ -3349,7 +3296,7 @@ function GenerationCard({
 			}}
 			style={{ position: 'relative', outline: selectMode && selected ? '3px solid #744bde' : undefined, borderRadius: selectMode && selected ? '14px' : undefined }}
 		>
-			<div style={{ cursor: selectMode ? 'pointer' : onExpand ? 'zoom-in' : 'default', position: 'relative' }} onClick={selectMode ? onToggleSelect : (onExpand ? () => onExpand(active) : undefined)}>
+							<div style={{ cursor: selectMode ? 'pointer' : onExpand ? 'zoom-in' : 'default', position: 'relative' }} onClick={selectMode ? onToggleSelect : (onExpand ? () => onExpand(active, slides) : undefined)}>
 				{selectMode ? (
 					<div
 						style={{
@@ -3654,8 +3601,9 @@ function GenerationCard({
 	);
 }
 
-function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequested, products, onProductsChanged, isReferenceLiked, onToggleReferenceLike, onUseReference }: {
+function ImageLightbox({ item, slides, session, onClose, onStarted, onGenerationRequested, products, onProductsChanged, isReferenceLiked, onToggleReferenceLike, onUseReference }: {
 	item: Generation;
+	slides?: Generation[];
 	session: AppSession;
 	onClose: () => void;
 	onStarted: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void;
@@ -3666,6 +3614,31 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 	onToggleReferenceLike?: (path: string) => void;
 	onUseReference?: (path: string) => void;
 }) {
+	const carouselSlides = slides && slides.length > 1 ? slides : [item];
+	const [slideIndex, setSlideIndex] = useState(0);
+	const activeItem = carouselSlides[Math.min(slideIndex, carouselSlides.length - 1)] || item;
+	const isCarousel = carouselSlides.length > 1;
+	const goToSlide = (delta: number) => setSlideIndex((previous) => (previous + delta + carouselSlides.length) % carouselSlides.length);
+	const touchStartX = useRef<number | null>(null);
+	useEffect(() => {
+		if (!isCarousel) return;
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === 'ArrowLeft') goToSlide(-1);
+			if (event.key === 'ArrowRight') goToSlide(1);
+		};
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
+	}, [isCarousel]);
+	const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+		touchStartX.current = event.touches[0]?.clientX ?? null;
+	};
+	const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+		const start = touchStartX.current;
+		touchStartX.current = null;
+		const end = event.changedTouches[0]?.clientX;
+		if (!isCarousel || start == null || end == null || Math.abs(end - start) < 45) return;
+		goToSlide(end < start ? 1 : -1);
+	};
 	const [revision, setRevision] = useState('');
 	const [starting, setStarting] = useState(false);
 	const [error, setError] = useState('');
@@ -3788,8 +3761,13 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 		<div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(12,10,16,0.78)', backdropFilter: 'blur(6px)', display: 'grid', placeItems: 'center', padding: '24px' }}>
 			<div className="studio-lightbox-panel" onClick={(event) => event.stopPropagation()} style={{ position: 'relative', display: 'flex', gap: '22px', alignItems: 'stretch', maxWidth: '1100px', width: '100%', maxHeight: '90vh' }}>
 				<button onClick={onClose} aria-label="Cerrar" style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 8, border: 0, background: 'rgba(255,255,255,0.94)', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', color: '#19171d', fontSize: '16px', fontWeight: 700, boxShadow: '0 4px 14px rgba(0,0,0,0.22)' }}>✕</button>
-				<div style={{ flex: '1 1 auto', display: 'grid', placeItems: 'center', minWidth: 0, position: 'relative' }}>
-					<img src={showReference && item.referenceUrl ? item.referenceUrl : item.imageUrl} alt={item.title} style={{ maxWidth: '100%', maxHeight: '86vh', borderRadius: '14px', boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }} />
+				<div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ flex: '1 1 auto', display: 'grid', placeItems: 'center', minWidth: 0, position: 'relative', touchAction: isCarousel ? 'pan-y' : 'auto' }}>
+					<img src={showReference && activeItem.referenceUrl ? activeItem.referenceUrl : activeItem.imageUrl} alt={activeItem.title} style={{ maxWidth: '100%', maxHeight: '86vh', borderRadius: '14px', boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }} />
+					{isCarousel && !showReference && <>
+						<button type="button" aria-label="Página anterior" onClick={() => goToSlide(-1)} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '40px', height: '40px', border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#19171d', fontSize: '25px', cursor: 'pointer', boxShadow: '0 6px 18px rgba(0,0,0,.25)' }}>‹</button>
+						<button type="button" aria-label="Página siguiente" onClick={() => goToSlide(1)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', width: '40px', height: '40px', border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#19171d', fontSize: '25px', cursor: 'pointer', boxShadow: '0 6px 18px rgba(0,0,0,.25)' }}>›</button>
+						<span style={{ position: 'absolute', bottom: '14px', left: '50%', transform: 'translateX(-50%)', padding: '5px 10px', borderRadius: '999px', background: 'rgba(25,23,29,.78)', color: '#fff', fontSize: '12px', fontWeight: 800 }}>{slideIndex + 1} / {carouselSlides.length}</span>
+					</>}
 					{showReference && (
 						<button onClick={() => setShowReference(false)} style={{ position: 'absolute', top: '14px', left: '50%', transform: 'translateX(-50%)', padding: '9px 18px', borderRadius: '999px', border: 0, background: 'rgba(12,10,16,0.85)', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', backdropFilter: 'blur(6px)' }}>
 							Viendo el anuncio ganador — Volver a tu imagen
@@ -3803,10 +3781,10 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 					</div>
 
 					{/* De qué anuncio ganador salió esta imagen */}
-					{item.referencePath && (
+					{activeItem.referencePath && (
 						<button
 							type="button"
-							onClick={() => setLightboxRef({ path: item.referencePath!, name: item.referenceName || '' })}
+							onClick={() => setLightboxRef({ path: activeItem.referencePath!, name: activeItem.referenceName || '' })}
 							style={{
 								width: '100%', font: 'inherit', cursor: 'pointer',
 								display: 'flex', alignItems: 'center', gap: '10px', padding: '9px',
@@ -3816,7 +3794,7 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 							title="Ver el anuncio ganador original"
 						>
 							<img
-								src={`${REFERENCES_PUBLIC_BASE}/${item.referencePath}`}
+								src={`${REFERENCES_PUBLIC_BASE}/${activeItem.referencePath}`}
 								alt=""
 								loading="lazy"
 								style={{ width: '46px', height: '46px', borderRadius: '9px', objectFit: 'cover', flex: '0 0 auto' }}
@@ -3831,10 +3809,10 @@ function ImageLightbox({ item, session, onClose, onStarted, onGenerationRequeste
 							</span>
 						</button>
 					)}
-					<button onClick={() => void downloadImage(item.imageUrl, `creattia-${item.id}.png`)} style={{ width: '100%', height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>Descargar imagen</button>
-					{item.referenceUrl && (
+					<button onClick={() => void downloadImage(activeItem.imageUrl, `creattia-${activeItem.id}.png`)} style={{ width: '100%', height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>Descargar imagen</button>
+					{activeItem.referenceUrl && (
 						<button onClick={() => setShowReference(!showReference)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: showReference ? '#eceaef' : '#f8f6fb', border: showReference ? '1px solid #cfc9d8' : '1px solid transparent', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>
-							<img src={item.referenceUrl} alt="Anuncio ganador usado" style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '8px' }} />
+							<img src={activeItem.referenceUrl} alt="Anuncio ganador usado" style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '8px' }} />
 							<div>
 								<strong style={{ display: 'block', fontSize: '12px', color: '#19171d' }}>Anuncio ganador usado</strong>
 								<span style={{ fontSize: '11.5px', color: '#8b8490' }}>{showReference ? 'Tocá para volver a tu imagen.' : 'Tocá para verlo grande.'}</span>
@@ -4677,7 +4655,7 @@ function SavedAds({
 	likedScrapedPaths: Set<string>; 
 	toggleLikedScraped: (path: string) => void; 
 	onUseScrapedWinner: (path: string) => void;
-	onExpand?: (item: Generation) => void;
+	onExpand?: (item: Generation, slides?: Generation[]) => void;
 	onReuse?: (item: Generation) => void;
 }) {
 	const likedGenerations = history.filter(item => likedImageIds.includes(item.id));

@@ -27,6 +27,8 @@ export type ScannedSource = {
 	metadata: Record<string, unknown>;
 };
 
+const PRODUCT_IMAGE_LIMIT = 24;
+
 function compact(value: unknown, max = 1500) {
 	return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
@@ -346,7 +348,7 @@ export async function scanWebsite(rawUrl: string): Promise<ScannedSource> {
 	const currentProduct = products.find((product) => product.productUrl && samePageUrl(product.productUrl, canonical || url))
 		|| (products.length === 1 ? products[0] : undefined);
 	if (currentProduct && gallery.length) {
-		currentProduct.imageUrls = [...new Set([...(currentProduct.imageUrls || []), ...gallery])].slice(0, 6);
+		currentProduct.imageUrls = [...new Set([...(currentProduct.imageUrls || []), ...gallery])].slice(0, PRODUCT_IMAGE_LIMIT);
 		currentProduct.imageUrl = currentProduct.imageUrls[0] || currentProduct.imageUrl;
 	}
 
@@ -500,33 +502,57 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 		const className = node?.attribs?.class || '';
 		return relatedContainer.test(`${id} ${className}`);
 	});
+	const bestImageSource = (element: any) => {
+		const image = $(element);
+		const srcset = image.attr('data-srcset') || image.attr('srcset') || '';
+		const candidates = srcset
+			.split(',')
+			.map((part: string) => part.trim().split(/\s+/)[0])
+			.filter(Boolean);
+		return candidates[candidates.length - 1]
+			|| image.attr('data-src')
+			|| image.attr('data-lazy-src')
+			|| image.attr('data-original')
+			|| image.attr('src')
+			|| '';
+	};
 	const addGalleryImage = (element: any) => {
 		if (isLikelyRelatedImage(element)) return;
-		const src = $(element).attr('src') || $(element).attr('data-src') || $(element).attr('data-lazy-src') || $(element).attr('data-original');
+		const src = bestImageSource(element);
 		const abs = absoluteUrl(src, base);
 		if (abs && !galleryImages.includes(abs) && looksLikeProductPhoto(abs)) galleryImages.push(upgradeImageSize(abs));
 	};
 	addImage($('meta[property="og:image"]').attr('content'));
 	addImage($('meta[name="twitter:image"]').attr('content'));
-	// Check JSON-LD for product images
+	// Check JSON-LD only for the product represented by this URL. Product pages
+	// often publish the main product plus every recommendation as Product nodes;
+	// walking all of them is what previously mixed related products into the
+	// selected product gallery.
+	const structuredProducts: any[] = [];
 	$('script[type="application/ld+json"]').each((_i, el) => {
 		try {
 			const data = JSON.parse($(el).text());
-			const walk = (node: any) => {
+			const collectProducts = (node: any) => {
 				if (!node || typeof node !== 'object') return;
-				if (Array.isArray(node)) { node.forEach(walk); return; }
-				if (node['@type'] && String(node['@type']).toLowerCase() === 'product') {
-					const imgs = imageUrls([node.image], base, 24);
-					imgs.forEach(addImage);
-				}
-				Object.values(node).forEach(walk);
+				if (Array.isArray(node)) { node.forEach(collectProducts); return; }
+				const types = Array.isArray(node['@type']) ? node['@type'] : [node['@type']];
+				if (types.some((type: unknown) => String(type).toLowerCase() === 'product')) structuredProducts.push(node);
+				Object.values(node).forEach(collectProducts);
 			};
-			walk(data);
+			collectProducts(data);
 		} catch { /* malformed */ }
 	});
+	const normalizedPageTitle = pageTitle.toLowerCase();
+	const currentStructuredProduct = structuredProducts.find((product) => {
+		const productUrl = absoluteUrl(product.url || product['@id'] || product.offers?.url, base);
+		const productName = compact(product.name, 180).toLowerCase();
+		return (productUrl && samePageUrl(productUrl, base))
+			|| (productName && (normalizedPageTitle.includes(productName) || productName.includes(normalizedPageTitle)));
+	}) || structuredProducts[0];
+	if (currentStructuredProduct) imageUrls([currentStructuredProduct.image], base, PRODUCT_IMAGE_LIMIT).forEach(addImage);
 	// Explicit gallery/media selectors are much more reliable than every image
 	// inside <main>, which often also contains “productos relacionados”.
-	('[data-product-media] img, [data-gallery] img, [class*="product-gallery"] img, [class*="product__media"] img, [class*="product-media"] img, [class*="product-detail"] img, main [class*="gallery"] img, main [class*="swiper"] img, main [class*="slider"] img, [id*="product-gallery"] img').split(',').forEach((selector) => {
+	('.product-images-slider img, .product-images-thumbs img, [class*="product-images"] img, [data-product-media] img, [data-gallery] img, [class*="product-gallery"] img, [class*="product__media"] img, [class*="product-media"] img, [class*="product-detail"] img, main [class*="gallery"] img, main [class*="swiper"] img, main [class*="slider"] img, [id*="product-gallery"] img').split(',').forEach((selector) => {
 		$(selector.trim()).each((_i, el) => addGalleryImage(el));
 	});
 	// Fallback for shops without named gallery containers: still exclude the
@@ -542,7 +568,7 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 		...productImages,
 		...galleryImages,
 		...(productImages.length || galleryImages.length ? [] : imagesFromEmbeddedJson(html, base, 6)),
-	])].slice(0, 6);
+	])].slice(0, PRODUCT_IMAGE_LIMIT);
 
 	// Videos suelen vivir como <video><source>, en reproductores embebidos o en
 	// JSON de hidrataciÃ³n. No se mandan al modelo como referencia visual, pero sÃ­

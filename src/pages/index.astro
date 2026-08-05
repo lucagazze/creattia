@@ -1,6 +1,7 @@
 ---
 export const prerender = true;
 import Layout from '../layouts/Layout.astro';
+import { subscriptionPlans } from '../lib/creattia/subscription-plans';
 
 
 // Data matching the new cloned layout translated to Spanish
@@ -83,12 +84,12 @@ const landingFreeLibraryImages = [
 const landingShowcase = landingFreeLibraryImages;
 const landingCylinderImages = landingFreeLibraryImages.map((item) => item.src);
 
-const plans = [
-	{ name: 'Gratis / Pago por uso', price: '0', description: 'Probá gratis y comprá packs sueltos por imagen.', cta: 'Pagar por imagen', href: '/app/?plan=free', features: ['3 créditos de regalo al registrarte', 'Págs de destino y biblioteca de ganadores', 'Comprá packs individuales por imagen', '1 marca activa', 'Soporte por email estándar'] },
-	{ name: 'Starter', price: '29', description: 'Para creadores de contenido que recién empiezan.', cta: 'Elegir Starter', href: '/app/?plan=creator', features: ['40 imágenes al mes', '≈ $0.72 por imagen', 'Hasta 2 generaciones simultáneas', '1 marca activa', 'Soporte estándar por email'] },
-	{ name: 'Pro', price: '59', description: 'Para marcas en crecimiento y e-commerce activos.', cta: 'Elegir Pro', href: '/app/?plan=pro', features: ['120 imágenes al mes', '≈ $0.49 por imagen — el más elegido', 'Hasta 6 generaciones simultáneas', 'Hasta 3 marcas activas', 'Soporte prioritario por email'], featured: true },
-	{ name: 'Scale', price: '99', description: 'Para agencias y equipos que escalan contenido.', cta: 'Elegir Scale', href: '/app/?plan=scale', features: ['300 imágenes al mes', '≈ $0.33 por imagen — menor costo', 'Generaciones simultáneas ilimitadas', 'Hasta 5 marcas activas', 'Soporte prioritario y acceso anticipado'] }
-];
+const plans = subscriptionPlans.map((plan) => ({
+	...plan,
+	priceLabel: plan.price.toFixed(2),
+	cta: plan.code === 'free' ? 'Explorar gratis' : `Elegir ${plan.name}`,
+	href: `/app/?plan=${plan.code}`,
+}));
 
 
 const testimonials = [
@@ -162,7 +163,7 @@ const faqs = [
 							<span class="hero-badge-text">IA PARA MARKETING</span>
 						</div>
 					</div>
-					<h1 class="hero-title"><span>Convertí ideas ganadoras</span><span>en anuncios que venden.</span></h1>
+					<h1 class="hero-title" aria-label="Más de 3000 anuncios ganadores para tu negocio"><span>+3000 anuncios ganadores</span><span>para tu negocio</span></h1>
 					<p class="hero-subtitle">Elegí un anuncio que ya está funcionando y Creattia lo recrea con tu producto: creativos de alto rendimiento, listos para publicar en minutos.</p>
 					<a class="gradient-cta hero-primary-cta" href="/app/">
 						<span>Empezar gratis</span>
@@ -666,8 +667,8 @@ const faqs = [
 		<section class="pricing-section" id="precios">
 			<div class="section-header max-w-[800px] margin-auto">
 				<span class="section-tag">PLANES</span>
-				<h2>Elegí cuántas imágenes querés crear.</h2>
-				<p class="section-desc">Todos los planes incluyen las mismas herramientas. Solo cambia la cantidad mensual.</p>
+				<h2>Elegí tu plan para crear imágenes que venden.</h2>
+				<p class="section-desc">Todos los planes pagos incluyen la biblioteca completa. Elegí el volumen de tokens mensuales que necesitás.</p>
 			</div>
 
 			<div class="plans-grid">
@@ -679,8 +680,8 @@ const faqs = [
 						
 						<div class="plan-price">
 							<span class="currency">$</span>
-							<b class="amount">{plan.price}</b>
-							{plan.price !== '0' && <span class="period">/mes</span>}
+							<b class="amount">{plan.priceLabel}</b>
+							{plan.price > 0 && <span class="period">/mes</span>}
 						</div>
 
 						<a href={plan.href} class="plan-cta">
@@ -689,7 +690,7 @@ const faqs = [
 
 						<ul class="plan-features">
 							{plan.features.map((feature) => (
-								<li><i>✓</i> {feature}</li>
+								<li><i>✓</i> {feature.name}</li>
 							))}
 						</ul>
 					</article>
@@ -3565,6 +3566,13 @@ const faqs = [
 		gap: 24px;
 		max-width: 1200px;
 		margin: 86px auto 0;
+	}
+
+	@media (min-width: 1320px) {
+		.plans-grid {
+			grid-template-columns: repeat(5, minmax(0, 1fr));
+			max-width: 1320px;
+		}
 	}
 
 	.plan-card {

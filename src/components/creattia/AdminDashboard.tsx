@@ -40,6 +40,10 @@ function shortNumber(value: number) {
 	return new Intl.NumberFormat('es-AR', { notation: 'compact', maximumFractionDigits: 1 }).format(value || 0);
 }
 
+function isRecentlyActive(value?: string | null) {
+	return Boolean(value && Date.now() - new Date(value).getTime() <= 10 * 60 * 1000);
+}
+
 function planPrice(code?: string | null) {
 	return planOptions.find((item) => item.code === code)?.price || 0;
 }
@@ -76,7 +80,11 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 		}
 	};
 
-	useEffect(() => { void loadOverview(); }, []);
+	useEffect(() => {
+		void loadOverview();
+		const interval = window.setInterval(() => void loadOverview(true), 60_000);
+		return () => window.clearInterval(interval);
+	}, []);
 
 	const openUser = async (userId: string) => {
 		const switchingUser = selectedUserId !== userId;
@@ -115,15 +123,6 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 
 	return (
 		<section className="admin-center">
-			<header className="admin-hero">
-				<div>
-					<div className="admin-eyebrow"><span className="admin-live-dot" /> CONTROL CENTER · PRIVADO</div>
-					<h1>Todo Creattia, en una sola vista.</h1>
-					<p>Usuarios, ingresos, suscripciones y actividad real. Tomá decisiones rápido y mantené cada cambio bajo control.</p>
-				</div>
-				<div className="admin-hero-meta"><strong>ADMIN</strong><span>algoritmiadesarrollos@gmail.com</span><small>Actualizado {dateLabel(overview?.generatedAt)}</small></div>
-			</header>
-
 			<nav className="admin-tabs" aria-label="Secciones del centro admin">
 				{([['overview', 'Resumen'], ['users', 'Usuarios'], ['payments', 'Pagos'], ['activity', 'Actividad']] as Array<[Section, string]>).map(([id, label]) => <button key={id} className={section === id ? 'active' : ''} onClick={() => setSection(id)}>{label}</button>)}
 				<button className="admin-refresh" onClick={() => void loadOverview()} disabled={loading}>↻ Actualizar</button>
@@ -135,9 +134,10 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 				<>
 					<div className="admin-metric-grid">
 						<Metric label="Usuarios registrados" value={shortNumber(metrics.users)} hint={`+${metrics.newUsers7d || 0} esta semana`} tone="blue" />
+						<Metric label="Personas activas ahora" value={shortNumber(metrics.activeUsers)} hint="Últimos 10 minutos" tone="green" live />
 						<Metric label="Suscripciones activas" value={shortNumber(metrics.activeSubscriptions)} hint={`${metrics.activeToday || 0} activos hoy`} tone="violet" />
 						<Metric label="MRR estimado" value={money(metrics.mrr)} hint="Planes autorizados" tone="orange" />
-						<Metric label="Creativos generados" value={shortNumber(metrics.completedGenerations)} hint={`${metrics.generations || 0} trabajos totales`} tone="green" />
+						<Metric label="Creativos generados" value={shortNumber(metrics.completedGenerations)} hint={`${metrics.generations || 0} trabajos totales`} tone="blue" />
 					</div>
 
 					{section === 'overview' && <OverviewSection overview={overview} onOpenUser={openUser} />}
@@ -152,13 +152,19 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 	);
 }
 
-function Metric({ label, value, hint, tone }: { label: string; value: string; hint: string; tone: string }) {
-	return <article className={`admin-metric ${tone}`}><span>{label}</span><strong>{value}</strong><small>{hint}</small><i /></article>;
+function Metric({ label, value, hint, tone, live = false }: { label: string; value: string; hint: string; tone: string; live?: boolean }) {
+	return <article className={`admin-metric ${tone}`}>{live && <span className="admin-metric-live"><i /> EN VIVO</span>}<span>{label}</span><strong>{value}</strong><small>{hint}</small><i /></article>;
+}
+
+function ActiveUsersPanel({ users, onOpenUser }: { users: any[]; onOpenUser: (id: string) => void }) {
+	const activeUsers = users.filter((user) => user.activeNow || isRecentlyActive(user.lastActivityAt)).slice(0, 8);
+	return <section className="admin-panel admin-active-panel"><PanelHeading kicker="PRESENCIA EN TIEMPO REAL" title="Personas activas ahora" action="Se actualiza cada minuto" /><div className="admin-active-users">{activeUsers.length ? activeUsers.map((user) => <button type="button" key={user.id} onClick={() => onOpenUser(user.id)}><span className="admin-avatar">{(user.fullName || user.email || '?').slice(0, 1).toUpperCase()}</span><span><strong>{user.fullName || user.email}</strong><small>{user.email}</small></span><i className="admin-presence-dot online" title="Online ahora" /></button>) : <EmptyState label="No hay personas activas en los últimos 10 minutos." />}</div></section>;
 }
 
 function OverviewSection({ overview, onOpenUser }: { overview: any; onOpenUser: (id: string) => void }) {
 	const topUsers = [...(overview.users || [])].sort((a: any, b: any) => (b.generationCount || 0) - (a.generationCount || 0)).slice(0, 6);
 	return <div className="admin-overview-grid">
+		<ActiveUsersPanel users={overview.users || []} onOpenUser={onOpenUser} />
 		<section className="admin-panel admin-funnel-panel"><PanelHeading kicker="LECTURA RÁPIDA" title="La salud del producto" /><div className="admin-funnel"><FunnelStep number="01" label="Cuentas creadas" value={overview.metrics.users} /><FunnelStep number="02" label="Suscripciones activas" value={overview.metrics.activeSubscriptions} /><FunnelStep number="03" label="Creativos terminados" value={overview.metrics.completedGenerations} /></div><div className="admin-mini-stat-row"><span><b>{overview.metrics.newUsers30d || 0}</b> altas en 30 días</span><span><b>{overview.metrics.totalPurchasedCredits || 0}</b> tokens vendidos</span><span><b>{overview.metrics.videos || 0}</b> videos creados</span></div></section>
 		<section className="admin-panel"><PanelHeading kicker="USO INTENSIVO" title="Usuarios más activos" action="Ver usuarios" /><div className="admin-rank-list">{topUsers.length ? topUsers.map((user: any, index: number) => <button key={user.id} onClick={() => onOpenUser(user.id)}><span className="admin-rank-number">0{index + 1}</span><span className="admin-avatar">{(user.fullName || user.email || '?').slice(0, 1).toUpperCase()}</span><span className="admin-rank-copy"><strong>{user.fullName || user.email}</strong><small>{user.email}</small></span><b>{user.generationCount || 0}<em> creativos</em></b></button>) : <EmptyState label="Todavía no hay actividad de usuarios." />}</div></section>
 		<section className="admin-panel admin-wide-panel"><PanelHeading kicker="ÚLTIMOS MOVIMIENTOS" title="Qué está pasando ahora" /><ActivityList activity={(overview.activity || []).slice(0, 8)} onOpenUser={onOpenUser} /></section>
@@ -173,7 +179,7 @@ function UsersSection({ users, selectedUserId, onOpenUser, onQuickAction, onNoti
 	const filteredUsers = useMemo(() => {
 		const result = users.filter((user: any) => {
 			const matchesSearch = !query || `${user.email} ${user.fullName} ${user.brandName} ${user.planLabel}`.toLowerCase().includes(query);
-			const matchesFilter = filter === 'all' || (filter === 'active' && user.subscriptionStatus === 'authorized') || (filter === 'trial' && user.subscriptionStatus === 'trial') || (filter === 'override' && Boolean(user.override)) || (filter === 'unconfirmed' && !user.emailConfirmed);
+			const matchesFilter = filter === 'all' || (filter === 'active' && (user.activeNow || isRecentlyActive(user.lastActivityAt))) || (filter === 'trial' && user.subscriptionStatus === 'trial') || (filter === 'override' && Boolean(user.override)) || (filter === 'unconfirmed' && !user.emailConfirmed);
 			return matchesSearch && matchesFilter;
 		});
 		return [...result].sort((left: any, right: any) => {
@@ -187,11 +193,11 @@ function UsersSection({ users, selectedUserId, onOpenUser, onQuickAction, onNoti
 	}, [users, query, filter, sort]);
 	const counts = {
 		all: users.length,
-		active: users.filter((user: any) => user.subscriptionStatus === 'authorized').length,
+		active: users.filter((user: any) => user.activeNow || isRecentlyActive(user.lastActivityAt)).length,
 		trial: users.filter((user: any) => user.subscriptionStatus === 'trial').length,
 		override: users.filter((user: any) => user.override).length,
 	};
-	return <section className="admin-panel admin-table-panel"><div className="admin-table-toolbar admin-users-toolbar"><div><PanelHeading kicker="CUENTAS Y ACCESOS" title={`${filteredUsers.length} usuarios visibles`} /><p className="admin-table-hint">Clic derecho sobre cualquier usuario para administrar su acceso rápidamente.</p></div><div className="admin-table-controls"><label className="admin-search"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar email, nombre o plan…" /></label><select value={filter} onChange={(event) => setFilter(event.target.value as UserFilter)} aria-label="Filtrar usuarios"><option value="all">Todos ({counts.all})</option><option value="active">Activos ({counts.active})</option><option value="trial">En prueba ({counts.trial})</option><option value="override">Con override ({counts.override})</option><option value="unconfirmed">Email pendiente</option></select><select value={sort} onChange={(event) => setSort(event.target.value as UserSort)} aria-label="Ordenar usuarios"><option value="recent">Último acceso</option><option value="created">Más nuevos</option><option value="usage">Más uso</option><option value="payments">Más ingresos</option><option value="credits">Más tokens</option></select></div></div><UserTable users={filteredUsers} selectedUserId={selectedUserId} onOpenUser={onOpenUser} onQuickAction={onQuickAction} onNotice={onNotice} /></section>;
+	return <section className="admin-panel admin-table-panel"><div className="admin-table-toolbar admin-users-toolbar"><div><PanelHeading kicker="CUENTAS Y ACCESOS" title={`${filteredUsers.length} usuarios visibles`} /><p className="admin-table-hint"><span className="admin-live-legend"><i /> Online ahora: {counts.active}</span> · clic derecho para administrar el acceso.</p></div><div className="admin-table-controls"><label className="admin-search"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar email, nombre o plan…" /></label><select value={filter} onChange={(event) => setFilter(event.target.value as UserFilter)} aria-label="Filtrar usuarios"><option value="all">Todos ({counts.all})</option><option value="active">Online ahora ({counts.active})</option><option value="trial">En prueba ({counts.trial})</option><option value="override">Con override ({counts.override})</option><option value="unconfirmed">Email pendiente</option></select><select value={sort} onChange={(event) => setSort(event.target.value as UserSort)} aria-label="Ordenar usuarios"><option value="recent">Último acceso</option><option value="created">Más nuevos</option><option value="usage">Más uso</option><option value="payments">Más ingresos</option><option value="credits">Más tokens</option></select></div></div><UserTable users={filteredUsers} selectedUserId={selectedUserId} onOpenUser={onOpenUser} onQuickAction={onQuickAction} onNotice={onNotice} /></section>;
 }
 
 function UserTable({ users, selectedUserId, onOpenUser, onQuickAction, onNotice }: { users: any[]; selectedUserId: string; onOpenUser: (id: string) => void; onQuickAction: (userId: string, action: string, extra?: Record<string, unknown>) => Promise<void>; onNotice: (message: string) => void }) {
@@ -285,8 +291,23 @@ function formatDetailValue(row: any, column: string) {
 	return String(value);
 }
 
-function DetailTable({ title, rows, columns }: { title: string; rows: any[]; columns: string[] }) {
+function LegacyDetailTableOriginal({ title, rows, columns }: { title: string; rows: any[]; columns: string[] }) {
 	return <section className="admin-detail-table"><h3>{title} <small>{rows.length}</small></h3>{rows.slice(0, 8).map((row: any, index: number) => <div key={row.id || row.payment_id || index}><span>{compactDate(row[columns[0]])}</span><strong>{formatDetailValue(row, columns[1])}</strong><em>{formatDetailValue(row, columns[2])}{columns[3] ? ` · ${formatDetailValue(row, columns[3])}` : ''}</em></div>)}{!rows.length && <p>Sin registros todavia.</p>}</section>;
+}
+
+function DetailTable({ title, rows, columns }: { title: string; rows: any[]; columns: string[] }) {
+	return <section className="admin-detail-table"><h3>{title} <small>{rows.length}</small></h3>{rows.slice(0, 8).map((row: any, index: number) => <div key={row.id || row.payment_id || index} className={row.image_url ? 'admin-detail-row-with-image' : ''}>{row.image_url && <AdminImagePreview url={row.image_url} title={row.title || 'Imagen generada'} />}<span>{compactDate(row[columns[0]])}</span><strong>{formatDetailValue(row, columns[1])}</strong><em>{formatDetailValue(row, columns[2])}{columns[3] ? ` · ${formatDetailValue(row, columns[3])}` : ''}</em></div>)}{!rows.length && <p>Sin registros todavía.</p>}</section>;
+}
+
+function AdminImagePreview({ url, title }: { url: string; title: string }) {
+	const [open, setOpen] = useState(false);
+	useEffect(() => {
+		if (!open) return undefined;
+		const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+		document.addEventListener('keydown', closeOnEscape);
+		return () => document.removeEventListener('keydown', closeOnEscape);
+	}, [open]);
+	return <><button type="button" className="admin-generated-thumb" onClick={() => setOpen(true)} aria-label={`Ver ${title}`}><img src={url} alt={title} loading="lazy" /></button>{open && <div className="admin-image-lightbox" role="dialog" aria-modal="true" aria-label={title} onClick={() => setOpen(false)}><button type="button" className="admin-image-lightbox-close" onClick={() => setOpen(false)} aria-label="Cerrar vista previa"><X size={18} /></button><img src={url} alt={title} onClick={(event) => event.stopPropagation()} /></div>}</>;
 }
 
 function LegacyDetailTable({ title, rows, columns }: { title: string; rows: any[]; columns: string[] }) {
@@ -295,6 +316,7 @@ function LegacyDetailTable({ title, rows, columns }: { title: string; rows: any[
 
 void LegacyUserDrawer;
 void LegacyDetailTable;
+void LegacyDetailTableOriginal;
 
 function PanelHeading({ kicker, title, action }: { kicker: string; title: string; action?: string }) {
 	return <header className="admin-panel-heading"><div><span>{kicker}</span><h2>{title}</h2></div>{action && <small>{action} ↗</small>}</header>;

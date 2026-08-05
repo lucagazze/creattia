@@ -29,6 +29,14 @@ export const POST: APIRoute = async ({ request }) => {
 	try {
 		const form = await request.formData();
 		const referencePath = clean(form.get('referencePath'), 300);
+		let referencePaths: string[] = [referencePath];
+		try {
+			const rawReferencePaths = clean(form.get('referencePaths'), 5000);
+			if (rawReferencePaths) {
+				const parsedPaths = JSON.parse(rawReferencePaths);
+				if (Array.isArray(parsedPaths)) referencePaths = [...new Set(parsedPaths.map((path) => String(path || '').trim()).filter(Boolean))].slice(0, 12);
+			}
+		} catch { /* use the individual reference */ }
 		const productId = clean(form.get('productId'), 60);
 		const requestedLanguage = clean(form.get('language'), 5);
 		const supportedLanguages = new Set(['es', 'en', 'pt', 'it', 'fr', 'de']);
@@ -36,15 +44,20 @@ export const POST: APIRoute = async ({ request }) => {
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		const brandSource = ['url', 'mine', 'none'].includes(brandSourceParam) ? brandSourceParam : 'mine';
 
-		if (!referencePath || !/^[0-9]+\/[a-f0-9]{8,}\.(png|jpe?g|webp|avif)$/i.test(referencePath)) {
+		if (!referencePath || !referencePaths.length || !referencePaths.every((path) => /^[0-9]+\/[a-f0-9]{8,}\.(png|jpe?g|webp|avif)$/i.test(path))) {
 			return json({ error: 'Elegí un anuncio ganador válido.' }, 400);
 		}
 
-		// Referencia
-		const { data: referenceBlob, error: referenceError } = await admin.storage.from('creative-references').download(referencePath);
-		if (referenceError || !referenceBlob) return json({ error: 'No se pudo cargar el anuncio de referencia.' }, 404);
-		const normalizedReference = await normalizeImageInput(Buffer.from(await referenceBlob.arrayBuffer()));
-		if (!normalizedReference) return json({ error: 'La referencia no se pudo procesar.' }, 422);
+		// Referencia individual o todas las páginas del carrusel.
+		const normalizedReferences: Array<{ buffer: Buffer; type: string }> = [];
+		for (const path of referencePaths) {
+			const { data: referenceBlob, error: referenceError } = await admin.storage.from('creative-references').download(path);
+			if (referenceError || !referenceBlob) return json({ error: 'No se pudo cargar una página del anuncio de referencia.' }, 404);
+			const normalized = await normalizeImageInput(Buffer.from(await referenceBlob.arrayBuffer()));
+			if (!normalized) return json({ error: 'Una página de la referencia no se pudo procesar.' }, 422);
+			normalizedReferences.push(normalized);
+		}
+		const normalizedReference = normalizedReferences[0];
 
 		// Dimensiones reales para el formato "original"
 		let originalRatio = '1:1';
@@ -113,6 +126,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const analysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
 			referenceB64: normalizedReference.buffer.toString('base64'),
 			referenceMime: normalizedReference.type,
+			referenceSlides: normalizedReferences.map((reference) => ({ b64: reference.buffer.toString('base64'), mime: reference.type })),
 			productB64,
 			productMime,
 			productImages,

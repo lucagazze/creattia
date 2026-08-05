@@ -1,13 +1,16 @@
 import OpenAI from 'openai';
 import { normalizeAdCopy, stripWebReferences, type AdaptedAdCopy } from './ad-copy';
 
+const TEXT_RENDERING_RULE = `
+TEXT RENDERING QUALITY (CRITICAL) — Treat publication text as clean, flat graphic typography, not as a glowing object. Use opaque, solid letterforms with crisp vector-like edges, correct kerning and even anti-aliasing. Do not add a white halo, white ghost copy, blurred outline, glow, bevel, extrusion, duplicated offset, feathering or fuzzy bloom behind any letter. Do not invent a text shadow; preserve a shadow only when it is clearly present in the winning reference and reproduce it subtly, with the same colour and direction. Keep every line fully inside its original zone and never sacrifice legibility for a decorative effect.`;
+
 // ── Compartido entre /api/creativos/plan y /api/creativos/generate ──────────
 
 export type LayoutAnalysis = {
 	/** Analysis used to adapt the winning message and render it in the generated image. */
 	messageStrategy?: string;
 	adCopy?: AdaptedAdCopy;
-	textZones?: Array<{ where?: string; onProduct?: boolean; original?: string; messageRole?: string; replacement?: string }>;
+	textZones?: Array<{ slide?: number; where?: string; onProduct?: boolean; original?: string; messageRole?: string; replacement?: string }>;
 	productHasPackaging?: boolean;
 	referenceHasProduct?: boolean;
 	templateHasLogoSlot?: boolean;
@@ -64,10 +67,11 @@ export type LayoutAnalysis = {
 	creativeOptions?: string[];
 	language?: string;
 	// Personas visibles en el anuncio (el usuario puede indicar cómo se reconstruyen).
-	people?: Array<{ where?: string; description?: string; role?: string; directive?: string }>;
+	people?: Array<{ slide?: number; where?: string; description?: string; role?: string; directive?: string }>;
 	// Decisiones contextuales que pueden mejorar la fidelidad sin limitarse a
 	// comparaciones: personas, escenas, objetos secundarios, styling, etc.
 	creativeDecisions?: Array<{
+		slide?: number;
 		type?: 'person' | 'scene' | 'styling' | 'object' | 'comparison' | 'product-handling' | 'other';
 		title?: string;
 		where?: string;
@@ -89,7 +93,7 @@ export type LayoutAnalysis = {
 		userGuidance?: string;
 	};
 	// Elementos de comparación que NO son el producto héroe (ej: barritas de la competencia).
-	comparisonItems?: Array<{ where?: string; description?: string; role?: string; directive?: string }>;
+	comparisonItems?: Array<{ slide?: number; where?: string; description?: string; role?: string; directive?: string }>;
 };
 
 export const LANGUAGE_NAMES: Record<string, string> = {
@@ -128,6 +132,8 @@ export async function normalizeImageInput(buffer: Buffer): Promise<{ buffer: Buf
 export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleKey?: string }, input: {
 	referenceB64: string;
 	referenceMime: string;
+	/** All pages of a carousel reference. The first page is also sent as referenceB64. */
+	referenceSlides?: Array<{ b64: string; mime: string }>;
 	productB64?: string;
 	productMime?: string;
 	/** Additional views of the SAME real product/SKU, usually uploaded manually. */
@@ -137,6 +143,8 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	brandName: string;
 	language?: string;
 }): Promise<LayoutAnalysis | null> {
+	const referenceInputs = (input.referenceSlides?.length ? input.referenceSlides : [{ b64: input.referenceB64, mime: input.referenceMime }]).slice(0, 12);
+	const isCarouselReference = referenceInputs.length > 1;
 	const productInputs = [
 		...(input.productB64 ? [{ b64: input.productB64, mime: input.productMime }] : []),
 		...(input.productImages || []),
@@ -145,7 +153,7 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	const languageRule = input.language && LANGUAGE_NAMES[input.language]
 		? `Write the internal replacement suggestions in ${LANGUAGE_NAMES[input.language]} and set "language" to "${input.language}".`
 		: 'Detect the language used by the winning ad, set "language" to "es", "en", "fr", "it", "pt" or "de", and write replacement suggestions in that language.';
-	const systemPrompt = `You are a senior performance ad designer. You receive: (1) a winning static ad TEMPLATE image${hasProductImages ? ', (2) one or more photos of the SAME real product/SKU from different views' : ''}, and verified product facts.
+	const systemPrompt = `You are a senior performance ad designer. You receive: (1) ${isCarouselReference ? 'multiple pages of one winning carousel, in order' : 'one winning static ad TEMPLATE image'}${hasProductImages ? ', (2) one or more photos of the SAME real product/SKU from different views' : ''}, and verified product facts.
 
 Return STRICT JSON:
 {
@@ -157,7 +165,7 @@ Return STRICT JSON:
     "cta": "short adapted action, maximum 30 characters"
   },
   "textZones": [
-    { "where": "short position description", "onProduct": true|false, "original": "exact text visibly present in the winning image", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product, similar length" }
+    { "slide": 1, "where": "short position description", "onProduct": true|false, "original": "exact text visibly present in the winning image", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product, similar length" }
   ],
   "referenceHasProduct": true|false,
   "templateHasLogoSlot": true|false — does the template visibly display a brand logo or brand wordmark (a natural spot where the advertiser brand belongs)?,
@@ -180,7 +188,7 @@ Return STRICT JSON:
       "replaceWith": "what that SAME area must depict for the target product — a concrete, photographable scene tied to the product, its user, its making, its use or its result. Keep the same shot type, crop, angle and mood as the original so the composition still works. Never keep the template's original subject." }
   ],
   "people": [
-    { "where": "where the person appears (e.g. 'right half, holding the product')",
+    { "slide": 1, "where": "where the person appears (e.g. 'right half, holding the product')",
       "role": "their job in the ad (e.g. 'testimonial author', 'lifestyle model', 'before/after subject')",
       "description": "what they look like now in Argentine Spanish (apparent gender, age range, hair, expression, setting) so the user can decide how to reconstruct them" }
   ],
@@ -194,12 +202,12 @@ Return STRICT JSON:
     "userGuidance": "cadena vacía"
   },
   "comparisonItems": [
-    { "where": "position of a NON-hero item that the ad compares AGAINST the product (e.g. 'left and right columns/products in a 3-way comparison')",
+    { "slide": 1, "where": "position of a NON-hero item that the ad compares AGAINST the product (e.g. 'left and right columns/products in a 3-way comparison')",
       "role": "what it represents (e.g. 'competitor bar', 'the old way', 'other brand')",
       "description": "short Argentine-Spanish description of that comparison item so the user can decide what to put there" }
   ],
   "creativeDecisions": [
-    { "type": "person|scene|styling|object|comparison|product-handling|other",
+    { "slide": 1, "type": "person|scene|styling|object|comparison|product-handling|other",
       "title": "título corto y claro para la decisión",
       "where": "dónde aparece el elemento",
       "description": "qué detectaste y por qué puede cambiar la generación",
@@ -230,6 +238,7 @@ Rules:
 - "messageStrategy" must explain why the original copy works, not merely describe what it says. Keep the same emotional mechanism and rhetorical device in the internal replacements.
 - "adCopy" is the adapted publication copy and "textZones" are the exact visible text areas used by the generator. The text-zone replacements MUST be rendered inside the final image in the same positions and hierarchy; do not remove the winner's visible message. Text physically printed on the supplied product or inside its official logo must remain faithful to those supplied assets.
 - ${languageRule}
+- ${isCarouselReference ? 'CAROUSEL ANALYSIS: Analyze EVERY supplied page, not only the first. Read all publication copy and visible text zones page by page, preserve each page\'s persuasion and composition, and include the page number in every text zone, person, comparison item and contextual decision. Return one coherent aggregate analysis: comparison/people/objects may reference the relevant page in "where". Do not treat pages from the same carousel as unrelated ads.' : 'For a static reference, analyze the complete supplied image.'}
 - "referenceHasProduct": true only if the TEMPLATE visibly features a physical product shot (box, bottle, object). Lifestyle/person-only or pure-text ads → false.
 - "productInstances" (CRITICAL): list EVERY separate place where the TEMPLATE'S OWN product is visible — not just the hero shot. Count the product worn by a model, on someone's feet, held in a hand, repeated as colour variants, shown again small in a corner, or duplicated across a grid. If the same product appears 6 times in a circle, that is 6 instances (or one instance describing the whole arrangement, but say so explicitly). Missing one means it survives into the final ad and the ad ends up selling two different products at once.
 - "productOnBody": true if ANY instance is worn on / used on a human body (garment, underwear, shoes, jewellery, a patch on skin). This decides whether the layout can host a product that cannot be worn.
@@ -268,7 +277,14 @@ Rules:
 			} else {
 				parsed.comparison = { detected: false, confidence: 'high', type: 'other', summary: '', question: '', defaultStrategy: '' };
 			}
-			parsed.comparisonItems = Array.isArray(parsed.comparisonItems) ? parsed.comparisonItems : [];
+			parsed.people = Array.isArray(parsed.people) ? parsed.people.map((person: any) => ({
+				...person,
+				slide: Number.isInteger(Number(person?.slide)) && Number(person.slide) >= 1 ? Number(person.slide) : undefined,
+			})) : [];
+			parsed.comparisonItems = Array.isArray(parsed.comparisonItems) ? parsed.comparisonItems.map((item: any) => ({
+				...item,
+				slide: Number.isInteger(Number(item?.slide)) && Number(item.slide) >= 1 ? Number(item.slide) : undefined,
+			})) : [];
 			parsed.creativeDecisions = Array.isArray(parsed.creativeDecisions)
 				? parsed.creativeDecisions.slice(0, 5).map((decision: any) => ({
 					type: ['person', 'scene', 'styling', 'object', 'comparison', 'product-handling', 'other'].includes(decision?.type) ? decision.type : 'other',
@@ -284,7 +300,12 @@ Rules:
 			parsed.language = typeof parsed.language === 'string' && LANGUAGE_NAMES[parsed.language] ? parsed.language : (input.language || 'es');
 			parsed.textZones = parsed.textZones.map((zone: any) => ({
 				...zone,
+				slide: Number.isInteger(Number(zone?.slide)) && Number(zone.slide) >= 1 ? Number(zone.slide) : undefined,
 				replacement: stripWebReferences(zone?.replacement),
+			}));
+			parsed.creativeDecisions = parsed.creativeDecisions.map((decision: any) => ({
+				...decision,
+				slide: Number.isInteger(Number(decision?.slide)) && Number(decision.slide) >= 1 ? Number(decision.slide) : undefined,
 			}));
 			return parsed as LayoutAnalysis;
 		} catch { return null; }
@@ -293,10 +314,11 @@ Rules:
 	if (keys.googleKey) {
 		try {
 			const model = (typeof import.meta.env !== 'undefined' && import.meta.env.GEMINI_ANALYSIS_MODEL) || process.env.GEMINI_ANALYSIS_MODEL || 'gemini-2.5-flash';
-			const parts: any[] = [
-				{ text: `${systemPrompt}\n\n${userText}\n\nThe first image is the TEMPLATE${hasProductImages ? `. The next ${productInputs.length} images are REAL PRODUCT PHOTOS of the SAME SKU, in different views; reconcile them instead of blending or averaging them.` : ''}` },
-				{ inline_data: { mime_type: input.referenceMime, data: input.referenceB64 } },
-			];
+			const parts: any[] = [{ text: `${systemPrompt}\n\n${userText}\n\n${isCarouselReference ? `The next ${referenceInputs.length} images are CAROUSEL PAGES in order. Analyze every page and use the page number in each text zone and decision.` : 'The first image is the TEMPLATE.'}${hasProductImages ? ` The next ${productInputs.length} images after the reference${isCarouselReference ? ' pages' : ''} are REAL PRODUCT PHOTOS of the SAME SKU, in different views; reconcile them instead of blending or averaging them.` : ''}` }];
+		referenceInputs.forEach((reference, index) => {
+			parts.push({ text: isCarouselReference ? `CAROUSEL PAGE ${index + 1} OF ${referenceInputs.length}:` : 'TEMPLATE:' });
+			parts.push({ inline_data: { mime_type: reference.mime, data: reference.b64 } });
+		});
 			productInputs.forEach((photo, index) => {
 				parts.push({ text: `REAL PRODUCT PHOTO ${index + 1} OF THE SAME SKU:` });
 				parts.push({ inline_data: { mime_type: photo.mime || 'image/jpeg', data: photo.b64 } });
@@ -326,11 +348,11 @@ Rules:
 		try {
 			const openai = new OpenAI({ apiKey: keys.openAIKey });
 			const model = (typeof import.meta.env !== 'undefined' && import.meta.env.OPENAI_ANALYSIS_MODEL) || process.env.OPENAI_ANALYSIS_MODEL || 'gpt-4o';
-			const content: any[] = [
-				{ type: 'text', text: userText },
-				{ type: 'text', text: 'TEMPLATE:' },
-				{ type: 'image_url', image_url: { url: `data:${input.referenceMime};base64,${input.referenceB64}` } },
-			];
+			const content: any[] = [{ type: 'text', text: `${userText}\n${isCarouselReference ? `Analyze all ${referenceInputs.length} carousel pages in order and include the page number in every text zone and contextual decision.` : 'Analyze the supplied template.'}` }];
+			referenceInputs.forEach((reference, index) => {
+				content.push({ type: 'text', text: isCarouselReference ? `CAROUSEL PAGE ${index + 1} OF ${referenceInputs.length}:` : 'TEMPLATE:' });
+				content.push({ type: 'image_url', image_url: { url: `data:${reference.mime};base64,${reference.b64}` } });
+			});
 			productInputs.forEach((photo, index) => {
 				content.push({ type: 'text', text: `REAL PRODUCT PHOTO ${index + 1} OF THE SAME SKU:` });
 				content.push({ type: 'image_url', image_url: { url: `data:${photo.mime || 'image/jpeg'};base64,${photo.b64}` } });
@@ -546,7 +568,7 @@ ${strategyBlock}${creativeBlock}${imageSlotBlock}
 WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website. Render exactly "${input.displayWebsite}" ONCE in an existing URL or footer slot.` : 'Do not render any URL, domain, web address, social handle or QR code. Remove any website from the winning template and leave that space clean.'}
 
 4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
-${qualityRule}
+${qualityRule}${TEXT_RENDERING_RULE}
 ${logoDecision}
 ${peopleBlock}${comparisonBlock}${comparisonContext}${creativeDecisionBlock}
 

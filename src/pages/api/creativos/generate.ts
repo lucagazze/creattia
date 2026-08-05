@@ -150,6 +150,7 @@ ${input.imageType === 'catalog' ? '- Use a clean ecommerce catalog treatment: co
 ${input.imageType === 'promotion' ? '- Prioritize the verified offer and brand message. Do not invent a product-specific claim.' : ''}
 ${input.hasLogo ? '- LOGO PERMISSION: the user selected INCLUDE LOGO. Use the image identified as the brand logo in the input map, preserve it accurately and place it once with comfortable clear space.' : '- LOGO PERMISSION: the user selected NO ADDED LOGO. Do not add any separate logo, wordmark, emblem, monogram, badge, seal, watermark or invented brand symbol to the layout. Preserve only branding physically printed on the real product packaging.'}
 - Render the supplied winning-ad copy inside the same visible text zones when copy is provided above. If no copy is provided, keep text minimal and only use verified facts.
+- TEXT RENDERING QUALITY: use opaque, flat and crisp letterforms with clean anti-aliasing. Do not add a white halo, ghost copy, blurred outline, glow, bevel, extrusion, duplicated offset, feathering or fuzzy bloom behind text. Do not invent a text shadow; preserve one only when it is clearly present in the winning reference, subtly and with the same direction and colour.
 - Do not add URLs, domains, social handles or QR codes. Preserve text physically printed on the supplied product packaging or the official logo exactly.
 - Do not invent prices, percentages, reviews, certifications, deadlines, product features or legal claims.
 - Do not include platform UI, watermarks, mock browser chrome or explanatory labels.

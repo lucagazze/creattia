@@ -90,7 +90,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [includeLogo, setIncludeLogo] = useState(false);
 	// Carrusel completo: en cuáles páginas va el logo. Vacío = en ninguna.
 	const [logoCarouselPages, setLogoCarouselPages] = useState<Set<number>>(new Set());
-	const count = 1;
+	const count = wantsFullCarousel ? carouselSlides.length : 1;
 	const [manualProductName, setManualProductName] = useState('');
 	const [manualProductFacts, setManualProductFacts] = useState('');
 
@@ -216,6 +216,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			}
 			const form = new FormData();
 			form.set('referencePath', effectiveReferencePath);
+			if (wantsFullCarousel) form.set('referencePaths', JSON.stringify(carouselSlides));
 			form.set('language', language);
 			form.set('brandSource', brandSource);
 			if (productMode === 'url' && productIds.length) {
@@ -329,6 +330,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	// los productos (uno o uno por página) y se arrancan todas las páginas juntas,
 	// agrupadas bajo el mismo batch_id que ya sabe trackear "Mis imágenes".
 	async function approveAndGenerateCarousel() {
+		if (!plan) {
+			await requestPlan();
+			return;
+		}
 		setCarouselStarting(true); setError('');
 		onGenerationRequested?.();
 		try {
@@ -376,6 +381,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					productIds,
 					format, language, colorMode, typoMode, brandSource,
 					logoSlideIndexes: [...logoCarouselPages],
+					approvedPlan: { ...plan, textZones: zones, people, comparisonItems: comparisons, creativeDecisions, comparison: { ...(plan?.comparison || {}), userGuidance: comparisonGuidance.trim() } },
 				}),
 			});
 			const payload = await response.json();
@@ -396,6 +402,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		} finally {
 			setCarouselStarting(false);
 		}
+	}
+
+	async function approveReviewedGeneration() {
+		if (wantsFullCarousel) await approveAndGenerateCarousel();
+		else await approveAndGenerate();
 	}
 
 	return (
@@ -429,7 +440,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					)}
 				</aside>
 
-				<section>
+				<section className="creation-flow-main">
 					<h1 style={{ margin: '0 0 5px', fontSize: '23px', color: '#19171d', letterSpacing: '-.02em' }}>Crear con este diseño</h1>
 					<p style={{ margin: '0 0 18px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>
 						{wantsFullCarousel
@@ -624,7 +635,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 						{/* 3 · Estilo (idioma, de quién es el anuncio, colores, tipografía, cantidad) */}
 					<div className="wiz-step" hidden={formStep !== 3}>
 						<div className="wiz-body">
-							<BatchSelect label="Idioma del anuncio" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+							<div className="creation-language-select">
+								<BatchSelect label="Idioma del anuncio" value={language} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+							</div>
 							<div className="batch-brand-block">
 									<span className="picker-label">¿Qué identidad querés usar?</span>
 									<p className="batch-detail-help">Elegí de dónde tomar el nombre y el logo. Los colores y la tipografía se eligen por separado.</p>
@@ -742,7 +755,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 										<button
 											type="button"
 											onClick={() => { if (!step1Ready) { setError('Completá los productos antes de generar.'); setFormStep(1); return; } void approveAndGenerateCarousel(); }}
-											disabled={carouselStarting}
+											disabled={phase === 'planning'}
 											className="url-batch-submit-btn"
 										>
 											{carouselStarting ? <><span className="studio-spinner small" aria-hidden="true" /> Preparando carrusel…</> : `Generar ${carouselSlides.length} imágenes`}
@@ -792,7 +805,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							</div>
 						)}
 
-						<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
+						<div className="detected-copy-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
 							<strong style={{ ...label, marginBottom: 0 }}>Textos detectados del anuncio</strong>
 							<div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
 								{zones.length > 0 && <button type="button" onClick={regenerateAllCopies} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>✨ Rehacer todos</button>}
@@ -802,9 +815,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 						</div>
 
 						{zones.length > 0 ? (
-							<div style={{ background: '#fff', border: '1px solid #eee9f2', borderRadius: '12px', marginBottom: '22px', overflow: 'hidden' }}>
+							<div className="detected-copy-table" style={{ background: '#fff', border: '1px solid #eee9f2', borderRadius: '12px', marginBottom: '22px', overflow: 'hidden' }}>
 								{zones.map((zone, index) => (
-									<div key={index} title={`${zone.where || ''}${zone.messageRole ? ` · ${zone.messageRole}` : ''}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, .8fr) minmax(220px, 1.2fr)', gap: '12px', alignItems: 'center', padding: '12px 14px', borderBottom: index < zones.length - 1 ? '1px solid #f4f0f8' : 'none' }}>
+									<div className="detected-copy-row" key={index} title={`${zone.where || ''}${zone.messageRole ? ` · ${zone.messageRole}` : ''}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, .8fr) minmax(220px, 1.2fr)', gap: '12px', alignItems: 'center', padding: '12px 14px', borderBottom: index < zones.length - 1 ? '1px solid #f4f0f8' : 'none' }}>
 										<div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
 											<span style={{ fontSize: '12px', fontWeight: 600, color: '#8b8490', lineHeight: 1.35, fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>“{zone.original || 'Texto detectado'}”</span>
 											{zone.messageRole && <span style={{ fontSize: '9.5px', color: '#744bde', fontWeight: 700 }}>{zone.messageRole}</span>}
@@ -921,7 +934,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							<button type="button" className="wiz-back" onClick={() => { setPhase('setup'); setFormStep(3); }} disabled={phase === 'starting'}>← Ajustes</button>
 							<button
 								type="button"
-								onClick={() => void approveAndGenerate()}
+								onClick={() => void approveReviewedGeneration()}
 								disabled={phase === 'starting'}
 								className="url-batch-submit-btn"
 							>

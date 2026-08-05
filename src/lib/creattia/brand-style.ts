@@ -33,15 +33,25 @@ async function fetchHtml(url: string, maxBytes = 3_000_000) {
 
 function extractColorsFromCss(css: string) {
 	const counts = new Map<string, number>();
-	for (const match of css.matchAll(/#([0-9a-f]{6}|[0-9a-f]{3})\b/gi)) {
-		let hex = match[1].toLowerCase();
+	const add = (value: string, weight = 1) => {
+		let hex = value.toLowerCase();
 		if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
-		// Descartar casi-blancos y casi-negros: son fondo/texto, no identidad.
 		const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+		if ([r, g, b].some((channel) => Number.isNaN(channel))) return;
 		const luminance = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
-		if (luminance > 0.93 || luminance < 0.05) continue;
-		counts.set(`#${hex}`, (counts.get(`#${hex}`) || 0) + 1);
+		if (luminance > 0.96 || luminance < 0.035) return;
+		counts.set(`#${hex}`, (counts.get(`#${hex}`) || 0) + weight);
+	};
+	for (const match of css.matchAll(/#([0-9a-f]{6}|[0-9a-f]{3})\b/gi)) {
+		add(match[1], 1);
 	}
+	for (const match of css.matchAll(/rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/gi)) {
+		const hex = [match[1], match[2], match[3]].map((channel) => Math.max(0, Math.min(255, Number(channel))).toString(16).padStart(2, '0')).join('');
+		add(hex, 1);
+	}
+	// Las identidades modernas suelen vivir en variables CSS: darle más peso a
+	// las variables declaradas que a los colores de componentes secundarios.
+	for (const match of css.matchAll(/--(?:brand|primary|secondary|accent|color)[\w-]*\s*:\s*#([0-9a-f]{6}|[0-9a-f]{3})\b/gi)) add(match[1], 4);
 	return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([hex]) => hex);
 }
 
@@ -67,21 +77,33 @@ function extractGoogleFonts($: cheerio.CheerioAPI) {
 }
 
 function findLogoUrl($: cheerio.CheerioAPI, base: string) {
-	const candidates = [
-		$('img[class*="logo" i]').attr('src'),
-		$('a[class*="logo" i] img').attr('src'),
-		$('[class*="brand" i] img').first().attr('src'),
-		$('header img').first().attr('src'),
-		$('img[alt*="logo" i]').attr('src'),
-		$('meta[property="og:logo"]').attr('content'),
-		$('link[rel="apple-touch-icon"]').attr('href'),
-		$('link[rel="icon"]').attr('href'),
-	];
-	for (const candidate of candidates) {
-		const url = absoluteUrl(candidate, base);
-		if (url) return url;
-	}
-	return '';
+	const candidates: Array<{ value: string; score: number }> = [];
+	const sourceOf = (el: any) => {
+		const node = $(el);
+		const srcset = String(node.attr('srcset') || node.attr('data-srcset') || '').split(',')[0]?.trim().split(/\s+/)[0];
+		return String(node.attr('src') || node.attr('data-src') || node.attr('data-lazy-src') || srcset || '');
+	};
+	const add = (value: unknown, score: number) => {
+		const url = absoluteUrl(value, base);
+		if (!url || /data:image|tracking|pixel|placeholder|spacer/i.test(url)) return;
+		candidates.push({ value: url, score });
+	};
+	$('meta[property="og:logo"], meta[name="logo"], meta[itemprop="logo"]').each((_i, el) => add($(el).attr('content'), 120));
+	$('header a[href], nav a[href], [role="banner"] a[href]').each((_i, el) => {
+		const href = String($(el).attr('href') || '');
+		let isHomeLink = /^\/?(home)?(?:[?#].*)?$/i.test(href);
+		try {
+			const target = new URL(href, base);
+			isHomeLink = isHomeLink || (target.origin === new URL(base).origin && target.pathname.replace(/\/+$/, '') === '');
+		} catch { /* href relativo invÃ¡lido: se evalÃºa por la expresiÃ³n anterior */ }
+		$(el).find('img, source').each((_j, image) => add(sourceOf(image), isHomeLink ? 115 : 90));
+	});
+	$('[data-logo], img[class*="logo" i], img[id*="logo" i], img[alt*="logo" i], [class*="brand" i] img').each((_i, el) => add(sourceOf(el), 110));
+	$('header img, nav img, [role="banner"] img').each((_i, el) => add(sourceOf(el), 95));
+	$('link[rel~="apple-touch-icon" i], link[rel~="mask-icon" i], link[rel~="icon" i], link[rel="shortcut icon" i]').each((_i, el) => add($(el).attr('href'), 75));
+	// El favicon es el último recurso: nunca debe ganar frente al logo del navbar.
+	$('link[href*="favicon" i]').each((_i, el) => add($(el).attr('href'), 65));
+	return [...new Map(candidates.sort((a, b) => b.score - a.score).map((item) => [item.value, item])).values()][0]?.value || '';
 }
 
 // Junta señales crudas del sitio: home + hasta 3 páginas internas + CSS.
@@ -163,7 +185,10 @@ export async function analyzeBrandStyle(websiteUrl: string, keys?: string | { op
 	if (!openAIKey && !googleKey) return fallback;
 
 	const parseResult = (parsed: any): BrandStyle => ({
-		colors: Array.isArray(parsed.colors) && parsed.colors.length ? parsed.colors.slice(0, 5) : fallback.colors,
+		// Las señales directas del CSS/tema son la fuente de verdad para la paleta;
+		// el modelo puede describir el estilo, pero no debe reemplazar los hex reales
+		// por una paleta inventada a partir de una lectura visual incompleta.
+		colors: [...new Set([...fallback.colors, ...(Array.isArray(parsed.colors) ? parsed.colors : [])])].slice(0, 5),
 		typography: {
 			headings: compact(parsed.typography?.headings, 80) || fallback.typography.headings,
 			body: compact(parsed.typography?.body, 80) || fallback.typography.body,

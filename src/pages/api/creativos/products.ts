@@ -83,7 +83,7 @@ async function listProducts(userId: string) {
 		// Mirrored rows are the curated gallery. The old metadata fallback could
 		// expose every image found on the page, including related products.
 		if (!rows.some((row) => row.media_type !== 'video' && row.metadata?.mediaType !== 'video')) {
-			const sourceImageUrls = Array.isArray(metadata.sourceImageUrls) ? metadata.sourceImageUrls.slice(0, 6) : [];
+			const sourceImageUrls = Array.isArray(metadata.sourceImageUrls) ? metadata.sourceImageUrls.slice(0, 24) : [];
 			sourceImageUrls.forEach((url: unknown) => addMedia({ url: String(url || ''), type: 'image', sourceUrl: String(url || '') }));
 		}
 		const sourceVideoUrls = Array.isArray(metadata.sourceVideoUrls) ? metadata.sourceVideoUrls : [];

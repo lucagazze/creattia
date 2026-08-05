@@ -6,9 +6,14 @@ export const prerender = false;
 
 const PLAN_PRICES: Record<string, number> = { creator: 9.99, pro: 24.99, scale: 49.99, agency: 97.70 };
 const DAY = 24 * 60 * 60 * 1000;
+const ACTIVE_WINDOW_MS = 10 * 60 * 1000;
 
 function withinDays(value: string | null | undefined, days: number) {
 	return Boolean(value && Date.now() - new Date(value).getTime() <= days * DAY);
+}
+
+function isRecentlyActive(value: string | null | undefined) {
+	return Boolean(value && Date.now() - new Date(value).getTime() <= ACTIVE_WINDOW_MS);
 }
 
 async function listAllUsers(admin: NonNullable<ReturnType<typeof getAdminClient>>) {
@@ -22,6 +27,15 @@ async function listAllUsers(admin: NonNullable<ReturnType<typeof getAdminClient>
 	return users;
 }
 
+async function listProfiles(admin: NonNullable<ReturnType<typeof getAdminClient>>) {
+	const baseFields = 'user_id,full_name,brand_name,credits_remaining,credits_monthly,subscription_status,plan_code,subscription_period_end,created_at,updated_at';
+	const withPresence = await admin.from('creative_profiles').select(`${baseFields},last_activity_at`);
+	if (!withPresence.error || withPresence.error.code !== '42703') return withPresence;
+	// Permite que el panel siga funcionando durante el pequeño intervalo entre
+	// publicar la app y aplicar la migración de presencia en Supabase.
+	return admin.from('creative_profiles').select(baseFields);
+}
+
 export const GET: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error || 'Sesión requerida.' }, 401);
@@ -33,7 +47,7 @@ export const GET: APIRoute = async ({ request }) => {
 	try {
 		const [users, profilesResult, subscriptionsResult, purchasesResult, subscriptionPaymentsResult, generationsResult, videosResult, overridesResult] = await Promise.all([
 			listAllUsers(admin),
-			admin.from('creative_profiles').select('user_id,full_name,brand_name,credits_remaining,credits_monthly,subscription_status,plan_code,subscription_period_end,created_at,updated_at'),
+			listProfiles(admin),
 			admin.from('creative_subscriptions').select('user_id,provider_subscription_id,plan_code,status,monthly_credits,current_period_end,last_event_id,created_at,updated_at').order('created_at', { ascending: false }),
 			admin.from('creative_credit_purchases').select('payment_id,user_id,credits,amount,currency,created_at').order('created_at', { ascending: false }).limit(5000),
 			admin.from('creative_subscription_payments').select('payment_id,user_id,provider_subscription_id,plan_code,status,amount,currency,paid_at,created_at').order('paid_at', { ascending: false }).limit(5000),
@@ -84,6 +98,8 @@ export const GET: APIRoute = async ({ request }) => {
 				brandName: profile.brand_name || '',
 				createdAt: user.created_at,
 				lastSignInAt: user.last_sign_in_at,
+				lastActivityAt: profile.last_activity_at || user.last_sign_in_at,
+				activeNow: isRecentlyActive(profile.last_activity_at),
 				confirmedAt: user.email_confirmed_at,
 				emailConfirmed: Boolean(user.email_confirmed_at),
 				planCode: effectivePlan,
@@ -127,6 +143,7 @@ export const GET: APIRoute = async ({ request }) => {
 				newUsers7d: users.filter((user: any) => withinDays(user.created_at, 7)).length,
 				newUsers30d: users.filter((user: any) => withinDays(user.created_at, 30)).length,
 				activeToday: users.filter((user: any) => withinDays(user.last_sign_in_at, 1)).length,
+				activeUsers: userRows.filter((user: any) => user.activeNow).length,
 				activeSubscriptions: activeSubscriptions.length,
 				mrr,
 				totalPaid,
