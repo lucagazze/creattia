@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { Activity, CalendarDays, CircleDollarSign, CreditCard, FileText, MailCheck, ReceiptText, ShieldCheck, UserRound, WalletCards, X } from 'lucide-react';
 import './admin-dashboard.css';
 
 type AdminDashboardProps = { session: any };
@@ -78,7 +79,9 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 	useEffect(() => { void loadOverview(); }, []);
 
 	const openUser = async (userId: string) => {
+		const switchingUser = selectedUserId !== userId;
 		setSelectedUserId(userId);
+		if (switchingUser) setDetail(null);
 		setDetailLoading(true);
 		setError('');
 		try {
@@ -96,10 +99,10 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 		if (!userId) return;
 		setSaving(true); setError(''); setNotice('');
 		try {
-			await request('/api/admin/users', { method: 'PATCH', body: JSON.stringify({ userId, action, ...extra }) });
+			const result = await request('/api/admin/users', { method: 'PATCH', body: JSON.stringify({ userId, action, ...extra }) });
 			await loadOverview(true);
 			if (selectedUserId === userId) await openUser(userId);
-			setNotice('Cambio aplicado y registrado en la auditoría.');
+			setNotice(result.planCode ? `Plan ${result.planCode} asignado. El usuario y la ficha se actualizaron automáticamente.` : 'Cambio aplicado y registrado en la auditoría.');
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo aplicar el cambio.');
 		} finally {
@@ -240,6 +243,29 @@ function ActivityList({ activity, onOpenUser, large = false }: { activity: any[]
 
 function UserDrawer({ detail, loading, saving, creditsDraft, setCreditsDraft, onClose, onAction }: { detail: any; loading: boolean; saving: boolean; creditsDraft: string; setCreditsDraft: (value: string) => void; onClose: () => void; onAction: (action: string, extra?: Record<string, unknown>) => Promise<void> }) {
 	const [plan, setPlan] = useState('creator');
+	const [tab, setTab] = useState<'summary' | 'payments' | 'activity'>('summary');
+	useEffect(() => {
+		if (!detail?.user?.id) return;
+		const nextPlan = detail.override?.plan_code && detail.override.plan_code !== 'admin' ? detail.override.plan_code : detail.profile?.plan_code && detail.profile.plan_code !== 'trial' ? detail.profile.plan_code : 'creator';
+		setPlan(nextPlan);
+		setTab('summary');
+	}, [detail?.user?.id]);
+	if (loading && !detail) return <aside className="admin-drawer" aria-busy="true"><button className="admin-drawer-close" onClick={onClose} aria-label="Cerrar ficha"><X size={17} /></button><div className="admin-loading"><span /> Cargando usuario...</div></aside>;
+	const user = detail?.user;
+	const profile = detail?.profile || {};
+	const override = detail?.override;
+	const isUnlimited = override?.access_mode === 'unlimited' || profile.plan_code === 'admin';
+	const planCode = isUnlimited ? 'admin' : override?.plan_code || profile.plan_code || 'trial';
+	const planLabel = isUnlimited ? 'Admin infinito' : planOptions.find((item) => item.code === planCode)?.label || (planCode === 'trial' ? 'Gratis' : planCode);
+	const allPayments = [...(detail?.purchases || []).map((row: any) => ({ ...row, paymentType: 'credits', paidAt: row.created_at })), ...(detail?.subscriptionPayments || []).map((row: any) => ({ ...row, paymentType: 'subscription', paidAt: row.paid_at || row.created_at }))].sort((left: any, right: any) => new Date(right.paidAt).getTime() - new Date(left.paidAt).getTime());
+	const totalPaid = allPayments.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
+	const provider = user?.app_metadata?.provider || user?.identities?.[0]?.provider || 'email';
+	const displayName = profile.full_name || user?.user_metadata?.full_name || user?.email || 'Usuario';
+	return <aside className="admin-drawer" aria-label={`Ficha de ${displayName}`}><div className="admin-drawer-head"><div><span className="admin-eyebrow"><UserRound size={12} /> PERFIL COMPLETO</span><h2>{displayName}</h2><p>{user?.email || 'Sin email'}</p></div><button className="admin-drawer-close" onClick={onClose} aria-label="Cerrar ficha"><X size={17} /></button></div><div className="admin-drawer-scroll"><div className="admin-drawer-status"><span className={`admin-plan-pill ${isUnlimited ? 'admin' : planCode}`}>{planLabel}</span><span>{override ? 'Acceso administrado manualmente' : profile.subscription_status || 'trial'}</span>{loading && <span className="admin-drawer-sync">Actualizando...</span>}</div><div className="admin-drawer-tabs" role="tablist" aria-label="Informacion del usuario"><button className={tab === 'summary' ? 'active' : ''} onClick={() => setTab('summary')} role="tab" aria-selected={tab === 'summary'}><FileText size={14} /> Resumen</button><button className={tab === 'payments' ? 'active' : ''} onClick={() => setTab('payments')} role="tab" aria-selected={tab === 'payments'}><CreditCard size={14} /> Pagos <b>{allPayments.length}</b></button><button className={tab === 'activity' ? 'active' : ''} onClick={() => setTab('activity')} role="tab" aria-selected={tab === 'activity'}><Activity size={14} /> Actividad</button></div>{tab === 'summary' && <><div className="admin-detail-facts"><div><CalendarDays size={14} /><small>Se registro</small><b>{compactDate(user?.created_at)}</b></div><div><Activity size={14} /><small>Ultimo acceso</small><b>{compactDate(user?.last_sign_in_at)}</b></div><div><WalletCards size={14} /><small>Tokens actuales</small><b>{isUnlimited ? '∞' : profile.credits_remaining ?? 0}</b></div><div><MailCheck size={14} /><small>Email</small><b>{user?.email_confirmed_at ? 'Confirmado' : 'Pendiente'}</b></div></div><section className="admin-drawer-section"><h3><ShieldCheck size={15} /> Control de acceso</h3><div className="admin-access-actions"><div className="admin-control-row"><label>Asignar plan<select value={plan} onChange={(event) => setPlan(event.target.value)}>{planOptions.map((item) => <option key={item.code} value={item.code}>{item.label} · {item.credits} tokens/mes</option>)}</select></label><button onClick={() => void onAction('set_plan', { planCode: plan })} disabled={saving}>Asignar</button></div><button className="admin-unlimited-button" onClick={() => void onAction('set_unlimited')} disabled={saving}>∞ Dar acceso infinito</button><div className="admin-control-row"><label>Fijar tokens manualmente<input type="number" min="0" max="99999" value={creditsDraft} onChange={(event) => setCreditsDraft(event.target.value)} /></label><button onClick={() => void onAction('set_credits', { credits: Number(creditsDraft) })} disabled={saving}>Guardar</button></div>{override && <button className="admin-revoke-button" onClick={() => void onAction('revoke_override')} disabled={saving}>Quitar override y restaurar estado anterior</button>}</div></section><section className="admin-drawer-section"><h3><Activity size={15} /> Resumen de uso</h3><div className="admin-detail-counts"><span><b>{detail?.generations?.length || 0}</b> creativos</span><span><b>{detail?.videos?.length || 0}</b> videos</span><span><b>{detail?.purchases?.length || 0}</b> compras</span><span><b>{detail?.subscriptions?.length || 0}</b> suscripciones</span></div></section><section className="admin-drawer-section"><h3><FileText size={15} /> Datos de cuenta</h3><div className="admin-account-grid"><div><small>Proveedor</small><b>{provider === 'google' ? 'Google' : provider}</b></div><div><small>Marca</small><b>{profile.brand_name || 'Sin marca'}</b></div><div><small>ID de usuario</small><b title={user?.id}>{user?.id ? `${user.id.slice(0, 8)}...` : '—'}</b></div><div><small>Web</small><b>{profile.website_url || 'Sin URL'}</b></div></div></section></>}{tab === 'payments' && <><div className="admin-payment-summary"><div><CircleDollarSign size={15} /><small>Total registrado</small><b>{money(totalPaid)}</b></div><div><ReceiptText size={15} /><small>Movimientos</small><b>{allPayments.length}</b></div><div><CreditCard size={15} /><small>Ultimo pago</small><b>{allPayments[0] ? compactDate(allPayments[0].paidAt) : 'Sin pagos'}</b></div></div><DetailTable title="Compras de tokens" rows={detail?.purchases || []} columns={['created_at', 'amount', 'credits', 'payment_id']} /><DetailTable title="Pagos de suscripcion" rows={detail?.subscriptionPayments || []} columns={['paid_at', 'plan_code', 'amount', 'payment_id']} /><DetailTable title="Suscripciones" rows={detail?.subscriptions || []} columns={['created_at', 'plan_code', 'status', 'current_period_end']} /></>}{tab === 'activity' && <><DetailTable title="Ultimos creativos" rows={detail?.generations || []} columns={['created_at', 'title', 'status']} /><DetailTable title="Videos" rows={detail?.videos || []} columns={['created_at', 'title', 'status']} /><DetailTable title="Auditoria admin" rows={detail?.audit || []} columns={['created_at', 'action']} /></>}</div></aside>;
+}
+
+function LegacyUserDrawer({ detail, loading, saving, creditsDraft, setCreditsDraft, onClose, onAction }: { detail: any; loading: boolean; saving: boolean; creditsDraft: string; setCreditsDraft: (value: string) => void; onClose: () => void; onAction: (action: string, extra?: Record<string, unknown>) => Promise<void> }) {
+	const [plan, setPlan] = useState('creator');
 	useEffect(() => { if (detail?.override?.plan_code && detail.override.plan_code !== 'admin') setPlan(detail.override.plan_code); }, [detail]);
 	if (loading && !detail) return <aside className="admin-drawer"><button className="admin-drawer-close" onClick={onClose}>×</button><div className="admin-loading"><span /> Cargando usuario…</div></aside>;
 	const user = detail?.user;
@@ -248,9 +274,27 @@ function UserDrawer({ detail, loading, saving, creditsDraft, setCreditsDraft, on
 	return <aside className="admin-drawer"><div className="admin-drawer-head"><div><span className="admin-eyebrow">PERFIL COMPLETO</span><h2>{profile?.full_name || user?.email || 'Usuario'}</h2><p>{user?.email}</p></div><button className="admin-drawer-close" onClick={onClose}>×</button></div><div className="admin-drawer-scroll"><div className="admin-drawer-status"><span className={`admin-plan-pill ${override?.access_mode === 'unlimited' ? 'admin' : (override?.plan_code || profile?.plan_code || 'trial')}`}>{override?.access_mode === 'unlimited' ? 'Admin infinito' : override?.plan_code || profile?.plan_code || 'Gratis'}</span><span>{override ? 'Acceso administrado manualmente' : profile?.subscription_status || 'trial'}</span></div><div className="admin-detail-facts"><div><small>Se registró</small><b>{dateLabel(user?.created_at)}</b></div><div><small>Último acceso</small><b>{dateLabel(user?.last_sign_in_at)}</b></div><div><small>Tokens actuales</small><b>{override?.access_mode === 'unlimited' ? '∞' : profile?.credits_remaining ?? 0}</b></div><div><small>Email confirmado</small><b>{user?.email_confirmed_at ? 'Sí' : 'Pendiente'}</b></div></div><section className="admin-drawer-section"><h3>Control de acceso</h3><div className="admin-access-actions"><div className="admin-control-row"><label>Dar un plan<select value={plan} onChange={(event) => setPlan(event.target.value)}>{planOptions.map((item) => <option key={item.code} value={item.code}>{item.label} · {item.credits} tokens/mes</option>)}</select></label><button onClick={() => void onAction('set_plan', { planCode: plan })} disabled={saving}>Asignar</button></div><button className="admin-unlimited-button" onClick={() => void onAction('set_unlimited')} disabled={saving}>∞ Dar acceso infinito</button><div className="admin-control-row"><label>Fijar tokens manualmente<input type="number" min="0" max="99999" value={creditsDraft} onChange={(event) => setCreditsDraft(event.target.value)} /></label><button onClick={() => void onAction('set_credits', { credits: Number(creditsDraft) })} disabled={saving}>Guardar</button></div>{override && <button className="admin-revoke-button" onClick={() => void onAction('revoke_override')} disabled={saving}>Quitar override y restaurar estado anterior</button>}</div></section><section className="admin-drawer-section"><h3>Resumen de uso</h3><div className="admin-detail-counts"><span><b>{detail?.generations?.length || 0}</b> creativos</span><span><b>{detail?.videos?.length || 0}</b> videos</span><span><b>{detail?.purchases?.length || 0}</b> compras</span><span><b>{detail?.subscriptions?.length || 0}</b> suscripciones</span></div></section><DetailTable title="Pagos" rows={detail?.purchases || []} columns={['created_at', 'amount', 'credits', 'payment_id']} /><DetailTable title="Pagos de suscripción" rows={detail?.subscriptionPayments || []} columns={['paid_at', 'plan_code', 'amount', 'payment_id']} /><DetailTable title="Suscripciones" rows={detail?.subscriptions || []} columns={['created_at', 'plan_code', 'status', 'current_period_end']} /><DetailTable title="Últimos creativos" rows={detail?.generations || []} columns={['created_at', 'title', 'status']} /><DetailTable title="Auditoría admin" rows={detail?.audit || []} columns={['created_at', 'action']} /></div></aside>;
 }
 
+function formatDetailValue(row: any, column: string) {
+	const value = row?.[column];
+	if (value === null || value === undefined || value === '') return '—';
+	if (column === 'amount') return money(Number(value), row.currency || 'USD');
+	if (column === 'credits') return `${value} tokens`;
+	if (column === 'plan_code') return planOptions.find((item) => item.code === value)?.label || value;
+	if (column === 'current_period_end') return compactDate(value);
+	if (column === 'payment_id') return `ID ${String(value).slice(0, 12)}...`;
+	return String(value);
+}
+
 function DetailTable({ title, rows, columns }: { title: string; rows: any[]; columns: string[] }) {
+	return <section className="admin-detail-table"><h3>{title} <small>{rows.length}</small></h3>{rows.slice(0, 8).map((row: any, index: number) => <div key={row.id || row.payment_id || index}><span>{compactDate(row[columns[0]])}</span><strong>{formatDetailValue(row, columns[1])}</strong><em>{formatDetailValue(row, columns[2])}{columns[3] ? ` · ${formatDetailValue(row, columns[3])}` : ''}</em></div>)}{!rows.length && <p>Sin registros todavia.</p>}</section>;
+}
+
+function LegacyDetailTable({ title, rows, columns }: { title: string; rows: any[]; columns: string[] }) {
 	return <section className="admin-detail-table"><h3>{title} <small>{rows.length}</small></h3>{rows.slice(0, 8).map((row: any, index: number) => <div key={row.id || row.payment_id || index}><span>{compactDate(row[columns[0]])}</span><strong>{row[columns[1]] || '—'}</strong><em>{row[columns[2]] || '—'}</em></div>)}{!rows.length && <p>Sin registros todavía.</p>}</section>;
 }
+
+void LegacyUserDrawer;
+void LegacyDetailTable;
 
 function PanelHeading({ kicker, title, action }: { kicker: string; title: string; action?: string }) {
 	return <header className="admin-panel-heading"><div><span>{kicker}</span><h2>{title}</h2></div>{action && <small>{action} ↗</small>}</header>;

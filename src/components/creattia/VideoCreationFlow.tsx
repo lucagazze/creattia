@@ -6,7 +6,6 @@ import { fallbackVideoSetupSuggestions, normalizeVideoDuration, type VideoAudien
 import { isAdminEmail } from '../../lib/creattia/admin';
 import { normalizeVideoProductName } from '../../lib/creattia/video-copy';
 import { normalizeDisplayWebsite, type AdaptedAdCopy } from '../../lib/creattia/ad-copy';
-import AdCopyPanel from './AdCopyPanel';
 
 type VideoReference = {
 	name: string;
@@ -483,12 +482,6 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 						<div className="video-reference-badges"><span>▶ Video ganador</span><span>≈ {Math.round(referenceDuration)} s</span></div>
 					</div>
 					<p className="video-reference-title">Anuncio ganador: <b>{reference.name}</b></p>
-					{reference.promptNotes && (
-						<div className="creation-reference-copy video-reference-copy">
-							<span>Copy del anuncio</span>
-							<p>{reference.promptNotes}</p>
-						</div>
-					)}
 				</aside>
 
 				<section className="video-creation-form-panel video-image-flow-panel">
@@ -581,7 +574,6 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 						<div className="video-review-section"><header><span>🎬</span><div><strong>Escenas y tiempos</strong><small>Acción, cámara, producto, texto y audio de cada momento.</small></div><button type="button" onClick={() => updatePlan('scenes', [...(plan.scenes || []), 'Nueva escena: tiempo, acción, cámara, producto, texto y audio.'])}>＋ Agregar</button></header><div className="video-scenes-list">{(plan.scenes || []).map((scene, index) => <div className="video-scene-editor" key={`${index}-${scene.slice(0, 12)}`}><span>{String(index + 1).padStart(2, '0')}</span><textarea value={scene} onChange={(event) => updatePlan('scenes', (plan.scenes || []).map((item, itemIndex) => itemIndex === index ? event.target.value : item))} rows={3} /><button type="button" onClick={() => updatePlan('scenes', (plan.scenes || []).filter((_, itemIndex) => itemIndex !== index))} aria-label="Eliminar escena">×</button></div>)}</div></div>
 						{speechMode !== 'none' && <div className="video-review-section video-script-review"><header><span>💬</span><div><strong>Guion hablado</strong><small>Estas son las palabras exactas para tu marca y producto.</small></div><button type="button" onClick={() => setPlan((current) => ({ ...(current || {}), hasSpokenDialogue: true, dialogueLines: [...(current?.dialogueLines || []), { start: 0, end: 3, speaker: castingMode === 'man' ? 'Creador' : 'Creadora', line: '', delivery: 'Natural y mirando a cámara' }] }))}>＋ Frase</button></header><div className="video-dialogue-list">{(plan.dialogueLines || []).map((dialogue, index) => <article key={`dialogue-${index}`}><div className="video-dialogue-time"><input type="number" min="0" max={duration} step="0.5" value={dialogue.start} onChange={(event) => updateDialogue(index, { start: Number(event.target.value) })} aria-label={`Inicio diálogo ${index + 1}`} /><span>—</span><input type="number" min="0" max={duration} step="0.5" value={dialogue.end} onChange={(event) => updateDialogue(index, { end: Number(event.target.value) })} aria-label={`Fin diálogo ${index + 1}`} /><b>s</b></div><div className="video-dialogue-copy"><input value={dialogue.speaker} onChange={(event) => updateDialogue(index, { speaker: event.target.value })} aria-label={`Persona diálogo ${index + 1}`} /><textarea value={dialogue.line} onChange={(event) => updateDialogue(index, { line: event.target.value })} rows={2} aria-label={`Diálogo ${index + 1}`} /><input value={dialogue.delivery} onChange={(event) => updateDialogue(index, { delivery: event.target.value })} placeholder="Cómo debe decirlo" aria-label={`Actuación diálogo ${index + 1}`} /></div><button type="button" onClick={() => setPlan((current) => ({ ...(current || {}), dialogueLines: (current?.dialogueLines || []).filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Eliminar diálogo">×</button></article>)}</div><div className="video-script-check">✓ Revisá que marca, beneficio, oferta y CTA sean correctos. La persona moverá los labios siguiendo este texto.</div></div>}
 						<div className="video-review-section"><header><span>🔊</span><div><strong>Audio, textos y cierre</strong><small>La capa final que acompaña las escenas.</small></div></header><div className="video-form-row"><div className="video-wizard-fields"><label>Voz en off final</label><textarea value={plan.voiceover || ''} onChange={(event) => updatePlan('voiceover', event.target.value)} rows={3} /></div><div className="video-wizard-fields"><label>Música y sonido</label><textarea value={plan.audio || ''} onChange={(event) => updatePlan('audio', event.target.value)} rows={3} /></div></div><div className="video-form-row"><div className="video-wizard-fields"><label>Textos en pantalla</label><textarea value={plan.captions || ''} onChange={(event) => updatePlan('captions', event.target.value)} rows={3} /></div><div className="video-wizard-fields"><label>CTA final</label><input value={plan.cta || ''} onChange={(event) => updatePlan('cta', event.target.value)} /></div></div></div>
-						{plan.adCopy && <AdCopyPanel copy={plan.adCopy} onChange={(adCopy) => updatePlan('adCopy', adCopy)} title="Copy adaptado para publicar el video" />}
 						<div className="video-wizard-fields"><label>Última indicación para la IA (opcional)</label><textarea value={brief} onChange={(event) => setBrief(event.target.value)} rows={3} placeholder="Ej.: que el producto se vea igual a las fotos y que el tono sea cotidiano, no publicitario" /></div>
 					</div>}
 
@@ -594,7 +586,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 				</section>
 			</div>
 
-			{videoUrl && <section className="video-result-panel"><span className="studio-kicker">VIDEO LISTO</span><h2>Tu versión está lista para publicar.</h2><p>Se generó usando el plan, el producto y la identidad que revisaste.</p><video src={videoUrl} controls playsInline className="video-result-player" />{plan?.adCopy && <AdCopyPanel copy={plan.adCopy} title="Copy para publicar este video" />}<a className="video-download-button" href={videoUrl} download>Descargar MP4 ↓</a></section>}
+			{videoUrl && <section className="video-result-panel"><span className="studio-kicker">VIDEO LISTO</span><h2>Tu versión está lista para publicar.</h2><p>Se generó usando el plan, el producto y la identidad que revisaste.</p><video src={videoUrl} controls playsInline className="video-result-player" /><a className="video-download-button" href={videoUrl} download>Descargar MP4 ↓</a></section>}
 		</div>
 	);
 }

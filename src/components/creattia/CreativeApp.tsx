@@ -265,8 +265,8 @@ function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number;
 
 function Moki({ className = '', label = 'Moki, el asistente creativo de Creattia' }: { className?: string; label?: string }) {
 	return <span className={`moki-character ${className}`} role="img" aria-label={label}>
-		<img className="moki-character-open" src="/images/creattia/moki-mascot.webp" alt="" aria-hidden="true"/>
-		<img className="moki-character-blink" src="/images/creattia/moki-mascot-blink.webp" alt="" aria-hidden="true"/>
+		<img className="moki-character-open" src="/images/creattia/avatar-nobg.webp" alt="" aria-hidden="true"/>
+		<img className="moki-character-blink" src="/images/creattia/avatar-nobg.webp" alt="" aria-hidden="true"/>
 	</span>;
 }
 
@@ -302,6 +302,13 @@ function planLabel(profile: AppProfile) {
 	if (profile.subscriptionStatus === 'paused') return 'Plan pausado';
 	if (profile.subscriptionStatus === 'cancelled') return 'Plan cancelado';
 	return 'Plan Gratis';
+}
+
+const planOrder: Record<string, number> = { free: 0, creator: 1, pro: 2, scale: 3, agency: 4 };
+const paidSubscriptionStatuses = ['authorized', 'pending', 'paused'];
+
+function planRank(planCode: string) {
+	return planOrder[planCode] ?? 0;
 }
 
 function conciseText(value: string, maxLength = 105) {
@@ -1428,7 +1435,7 @@ export default function CreativeApp() {
 						aria-label="Volver a Inicio" 
 						style={{ marginBottom: 0, border: 0, background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit' }}
 					>
-						<span><img src="/images/creattia/moki-mascot.webp" alt=""/></span>
+						<span><img src="/images/creattia/avatar-nobg.webp" alt=""/></span>
 						{!sidebarMinimized && <div><strong>Creattia</strong></div>}
 					</button>
 					<button 
@@ -1543,7 +1550,7 @@ export default function CreativeApp() {
 			<main className="studio-main">
 				<header className="studio-topbar">
 					<button className="studio-menu-button" onClick={() => setMobileMenu(true)} aria-label="Abrir menú"><Icon name="menu"/></button>
-					<div className="studio-top-brand"><img src="/images/creattia/moki-mascot.webp" alt=""/><strong>Creattia</strong></div>
+					<div className="studio-top-brand"><img src="/images/creattia/avatar-nobg.webp" alt=""/><strong>Creattia</strong></div>
 					{!isSupabaseConfigured && <div className="studio-mode-badge"><span />Demo local</div>}
 					<button className="studio-credit-pill" onClick={() => setView('plans')}><Icon name="spark" size={16}/><b>{profile.credits}</b><span>{profile.credits === 1 ? 'crédito' : 'créditos'}</span></button>
 				</header>
@@ -1714,8 +1721,9 @@ export default function CreativeApp() {
 }
 
 function authRedirectUrl() {
-	const productionSite = import.meta.env.PROD ? String(import.meta.env.PUBLIC_SITE_URL || '').trim() : '';
-	return new URL('/app/', productionSite || window.location.origin).toString();
+	// Mantener el mismo host desde el que inició sesión evita enviar al usuario
+	// a un dominio alternativo que no tenga la ruta de la aplicación autorizada.
+	return new URL('/app/', window.location.origin).toString();
 }
 
 function AuthScreen({ onSession }: { onSession: (session: AppSession) => void }) {
@@ -1797,7 +1805,7 @@ function AuthScreen({ onSession }: { onSession: (session: AppSession) => void })
 
 	return (
 		<div className="studio-auth">
-			<a href="/" className="studio-auth-logo"><span><img src="/images/creattia/moki-mascot.webp" alt=""/></span><strong>Creattia</strong></a>
+			<a href="/" className="studio-auth-logo"><span><img src="/images/creattia/avatar-nobg.webp" alt=""/></span><strong>Creattia</strong></a>
 			<section className="studio-auth-panel">
 				<div className="studio-auth-card">
 					<div className="studio-auth-heading">
@@ -1817,7 +1825,7 @@ function AuthScreen({ onSession }: { onSession: (session: AppSession) => void })
 				</div>
 				<p className="studio-auth-switch">{mode === 'signup' ? '¿Ya tenés una cuenta?' : '¿Todavía no tenés cuenta?'} <button onClick={() => changeMode(mode === 'signup' ? 'login' : 'signup')}>{mode === 'signup' ? 'Ingresar' : 'Crear cuenta gratis'}</button></p>
 			</section>
-			<div className="studio-auth-moki" aria-hidden="true"><span>Te guío paso a paso.</span><img src="/images/creattia/moki-mascot.webp" alt=""/></div>
+			<div className="studio-auth-moki" aria-hidden="true"><span>Te guío paso a paso.</span><img src="/images/creattia/avatar-nobg.webp" alt=""/></div>
 		</div>
 	);
 }
@@ -1825,7 +1833,7 @@ function AuthScreen({ onSession }: { onSession: (session: AppSession) => void })
 function AccountSetupError({ message, onRetry, onLogout }: { message: string; onRetry: () => void; onLogout: () => void }) {
 	const missingSchema = /creative_|schema cache|does not exist|relation/i.test(message);
 	return <div className="studio-account-error">
-		<a href="/" className="studio-auth-logo"><span><img src="/images/creattia/moki-mascot.webp" alt=""/></span><strong>Creattia</strong></a>
+		<a href="/" className="studio-auth-logo"><span><img src="/images/creattia/avatar-nobg.webp" alt=""/></span><strong>Creattia</strong></a>
 		<section>
 			<Moki className="studio-account-error-moki" label="Moki esperando que el espacio esté listo"/>
 			<span><Icon name="spark" size={18}/></span>
@@ -3287,7 +3295,7 @@ function GenerationCard({
 	onUseReference?: (path: string) => void;
 	folders?: Array<{ id: string; name: string; imageIds: string[] }>;
 	onToggleFolder?: (folderId: string) => void;
-	onDeleteImage?: (imgId: string) => void;
+	onDeleteImage?: (imgIds: string | string[]) => void;
 	/** Cierra una generación que quedó colgada y devuelve el crédito. */
 	onCancel?: () => void;
 	/** Selección múltiple para borrado masivo: al estar activa, tocar la tarjeta selecciona en vez de abrir. */
@@ -3302,6 +3310,7 @@ function GenerationCard({
 	const [slideIndex, setSlideIndex] = useState(0);
 	const isCarousel = Boolean(slides && slides.length > 1);
 	const active = isCarousel ? slides![Math.min(slideIndex, slides!.length - 1)] : item;
+	const deleteIds = isCarousel ? slides!.map((slide) => slide.id) : active.id;
 	// Precarga el resto de las páginas del carrusel apenas se ve la tarjeta:
 	// sin esto, cada vez que tocás la flecha se descargaba la imagen recién
 	// en ese momento y se sentía trabado en vez de pasar al toque.
@@ -3526,7 +3535,7 @@ function GenerationCard({
 							<button
 								type="button"
 								className="studio-card-delete"
-								onClick={(event) => { event.preventDefault(); event.stopPropagation(); onDeleteImage(active.id); }}
+								onClick={(event) => { event.preventDefault(); event.stopPropagation(); onDeleteImage(deleteIds); }}
 								aria-label={`Eliminar ${item.title}`}
 								title={isCarousel ? 'Eliminar carrusel' : 'Eliminar imagen'}
 							>
@@ -3631,7 +3640,7 @@ function GenerationCard({
 						<button
 							type="button"
 							onClick={() => {
-								onDeleteImage(item.id);
+								onDeleteImage(deleteIds);
 								setContextMenu(null);
 							}}
 							style={{
@@ -3641,7 +3650,7 @@ function GenerationCard({
 								marginTop: '4px', fontFamily: 'inherit'
 							}}
 						>
-							🗑️ Eliminar imagen
+							🗑️ {isCarousel ? 'Eliminar carrusel' : 'Eliminar imagen'}
 						</button>
 					)}
 				</div>
@@ -4129,6 +4138,13 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
 	const billingCycle = 'monthly';
+	async function changePlan(planCode: string, direction: 'up' | 'down') {
+		const targetPlan = subscriptionPlans.find((plan) => plan.code === planCode);
+		if (!targetPlan) return;
+		const verb = direction === 'up' ? 'subir' : 'bajar';
+		if (!window.confirm(`Â¿QuerÃ©s ${verb} al plan ${targetPlan.name}? Se actualizarÃ¡ tu suscripciÃ³n actual sin crear un segundo cobro.`)) return;
+		await subscribe(planCode, true);
+	}
 	const returnedFromCheckout = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('subscription') === 'return';
 
 	useEffect(() => {
@@ -4137,10 +4153,10 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 		window.history.replaceState({}, '', `${window.location.pathname}?plan=1`);
 	}, [returnedFromCheckout]);
 
-	async function subscribe(planCode: string) {
+	async function subscribe(planCode: string, changeCurrent = false) {
 		if (!isSupabaseConfigured || !supabase) { setError('Para activar pagos faltan las credenciales de Supabase y Mercado Pago.'); return; }
-		if (['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus)) {
-			setError('Primero cancelá la renovación actual. Después vas a poder elegir otro plan sin riesgo de duplicar el cobro.');
+		if (paidSubscriptionStatuses.includes(profile.subscriptionStatus) && !changeCurrent) {
+			setError('Elegí “Subir de plan” o “Bajar de plan” para modificar tu suscripción sin duplicar el cobro.');
 			return;
 		}
 		setBilling(planCode); setError('');
@@ -4148,9 +4164,15 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 			const response = await fetch('/api/creativos/subscribe', {
 				method: 'POST',
 				headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
-				body: JSON.stringify({ planCode, billingCycle }),
+				body: JSON.stringify({ planCode, billingCycle, changeCurrent }),
 			});
 			const payload = await response.json();
+			if (payload.changed) {
+				setNotice(`Listo: tu suscripciÃ³n ahora es ${subscriptionPlans.find((plan) => plan.code === planCode)?.name || planCode}. No se creÃ³ un segundo cobro.`);
+				setBilling('');
+				window.setTimeout(() => window.location.reload(), 800);
+				return;
+			}
 			if (!response.ok) throw new Error(payload.error || 'No se pudo iniciar la suscripción.');
 			if (typeof payload.checkoutUrl !== 'string' || !payload.checkoutUrl) throw new Error('Mercado Pago no devolvió un enlace de checkout válido.');
 			window.location.assign(payload.checkoutUrl);
@@ -4181,24 +4203,56 @@ function Plans({ profile, session }: { profile: AppProfile; session: AppSession 
 		{notice && <p className="studio-form-notice">{notice}</p>}
 		<div className="studio-plans-grid">{subscriptionPlans.map((plan) => {
 			const isFreePlan = plan.code === 'free';
-			const currentPlan = isFreePlan 
-				? (!profile.planCode || profile.planCode === 'trial' || profile.planCode === 'free') && !['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus)
-				: ['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && profile.planCode === plan.code; 
+			const hasPaidSubscription = paidSubscriptionStatuses.includes(profile.subscriptionStatus);
+			const currentPlan = isFreePlan
+				? (!hasPaidSubscription && (!profile.planCode || profile.planCode === 'trial' || profile.planCode === 'free'))
+				: hasPaidSubscription && profile.planCode === plan.code;
+			const isPlanChange = hasPaidSubscription && !currentPlan;
+			const direction = planRank(plan.code) > planRank(profile.planCode) ? 'up' : 'down';
 			const price = isFreePlan ? '0.00' : plan.price.toFixed(2);
 			const frequencyText = isFreePlan ? '' : '/mes';
-			const showOldPrice = false;
-			const savingLabel = '';
 
 			const handleButtonClick = () => {
 				if (isFreePlan) {
-					const el = document.getElementById('buy-credits-section');
-					if (el) el.scrollIntoView({ behavior: 'smooth' });
+					if (hasPaidSubscription) void cancelSubscription();
+					else {
+						const el = document.getElementById('buy-credits-section');
+						if (el) el.scrollIntoView({ behavior: 'smooth' });
+					}
+				} else if (isPlanChange) {
+					void changePlan(plan.code, direction);
 				} else {
 					subscribe(plan.code);
 				}
 			};
 
-			return <article key={plan.code} className={plan.featured ? 'featured' : ''}>{plan.featured && <span className="most-popular-badge">MÁS ELEGIDO</span>}<h3>{plan.name}</h3><small className="plan-description">{plan.description}</small><div className="plan-price-row">{showOldPrice && <span className="plan-old-price">${plan.price}</span>}<span className="plan-price-val"><b>$</b>{price}</span><span className="plan-price-freq">{frequencyText}</span>{savingLabel && <span className="plan-save-badge">{savingLabel}</span>}</div><button className="plan-subscribe-btn" style={{ background: plan.featured ? 'linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%)' : '#744bde' }} onClick={handleButtonClick} disabled={Boolean(billing) || currentPlan}>{currentPlan ? (isFreePlan ? 'Plan actual' : (profile.subscriptionStatus === 'authorized' ? 'Plan actual' : planLabel(profile))) : (isFreePlan ? 'Explorar gratis' : (billing === plan.code ? 'Abriendo pago…' : `Elegir ${plan.name}`))}</button><ul>{plan.features.map((f, i) => <li key={i} className={f.active ? 'active-feature' : 'inactive-feature'}>{f.active ? <Icon name="check" size={14}/> : <Icon name="close" size={14}/>}{f.name}</li>)}</ul></article>;
+			const actionLabel = currentPlan
+				? 'Plan actual'
+				: isFreePlan
+					? (hasPaidSubscription ? 'Bajar a Gratis' : 'Explorar gratis')
+					: hasPaidSubscription
+						? (direction === 'up' ? 'Subir a ' : 'Bajar a ') + plan.name
+						: (billing === plan.code ? 'Abriendo pago…' : 'Elegir ' + plan.name);
+
+			if (actionLabel) return <article key={plan.code} className={plan.featured ? 'featured' : ''}>
+				{plan.featured && <span className="most-popular-badge">MÁS ELEGIDO</span>}
+				<h3>{plan.name}</h3>
+				<small className="plan-description">{plan.description}</small>
+				<div className="plan-price-row">
+					<span className="plan-price-val"><b>$</b>{price}</span>
+					<span className="plan-price-freq">{frequencyText}</span>
+				</div>
+				<button
+					className="plan-subscribe-btn"
+					style={{ background: plan.featured ? 'linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%)' : '#744bde' }}
+					onClick={handleButtonClick}
+					disabled={Boolean(billing) || Boolean(cancelling) || currentPlan}
+				>
+					{actionLabel}
+				</button>
+				<ul>{plan.features.map((f, i) => <li key={i} className={f.active ? 'active-feature' : 'inactive-feature'}>{f.active ? <Icon name="check" size={14}/> : <Icon name="close" size={14}/>} {f.name}</li>)}</ul>
+			</article>;
+
 		})}</div>
 		<p className="studio-plan-note">Pago seguro con Mercado Pago. Los tokens de tu plan se renuevan cada mes y podés cancelar cuando quieras.</p>
 		{['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && <button className="studio-cancel-subscription" onClick={() => void cancelSubscription()} disabled={cancelling}>{cancelling ? <><span className="studio-spinner small" aria-hidden="true" /> Cancelando…</> : 'Cancelar renovación'}</button>}

@@ -1,0 +1,24 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+export const prerender = false;
+---
+
+<Layout title="Conectando con Creattia" noindex>
+  <main class="auth-callback-page">
+    <img src="/images/creattia/avatar-nobg.webp" alt="Creattia" />
+    <p>Conectando tu cuenta…</p>
+  </main>
+</Layout>
+
+<script is:inline>
+  const destination = new URL('/app/', window.location.origin);
+  destination.search = window.location.search;
+  destination.hash = window.location.hash;
+  window.location.replace(destination.toString());
+</script>
+
+<style>
+  .auth-callback-page { min-height: 100svh; display: grid; place-items: center; align-content: center; gap: 14px; background: #faf9fb; color: #716d79; font: 600 14px/1.4 'Inter Variable', Inter, sans-serif; }
+  .auth-callback-page img { width: 88px; height: 88px; object-fit: contain; filter: drop-shadow(0 12px 20px rgba(63,43,88,.16)); }
+</style>

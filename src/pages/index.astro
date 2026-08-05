@@ -124,7 +124,7 @@ const faqs = [
 	<!-- Header de Navegación -->
 	<header class="floating-header" aria-label="Navegación principal">
 		<a class="logo-bubble" href="#inicio" aria-label="Creattia, volver al inicio">
-			<img src="/images/creattia/moki-mascot.webp" alt="Creattia Logo" width="1254" height="1254" decoding="async"/>
+			<img src="/images/creattia/avatar-nobg.webp" alt="Creattia Logo" width="1254" height="1254" decoding="async"/>
 		</a>
 		<nav class="nav-links">
 			<a href="#como-funciona">Cómo funciona</a>
@@ -199,10 +199,14 @@ const faqs = [
 					<h2 class="banner-heading">Probablemente ya viste nuestro trabajo.<br/>Solo que no sabías que era IA.</h2>
 				</div>
 
-				<div class="showcase-marquee" aria-label="Ejemplos de la biblioteca de Creattia">
+				<div class="showcase-marquee" aria-label="Ejemplos de la biblioteca de Creattia" aria-roledescription="carrusel" tabindex="0">
 					<div class="showcase-track">
-						{landingShowcase.map((item) => (
-							<div class="showcase-card">
+						{[...landingShowcase, ...landingShowcase, ...landingShowcase].map((item, index) => (
+							<div
+								class="showcase-card"
+								data-showcase-index={index}
+								aria-hidden={index < landingShowcase.length || index >= landingShowcase.length * 2 ? 'true' : undefined}
+							>
 								<img src={item.src} alt={`Ejemplo de ${item.label}`} decoding="async" loading="lazy"/>
 							</div>
 						))}
@@ -442,7 +446,7 @@ const faqs = [
 					<h2>Llená tu calendario de anuncios en minutos.</h2>
 					<p>Vos descansás, Creattia no. Nuestra IA genera constantemente ideas visuales en segundo plano basadas en tu catálogo. Deslizá por la mañana, guardá lo que te gusta y publicá antes de comer.</p>
 					<div class="moki-tip-bubble">
-						<img src="/images/creattia/moki-mascot.webp" alt="Moki" decoding="async"/>
+						<img src="/images/creattia/avatar-nobg.webp" alt="Creattia" decoding="async"/>
 						<p>"Como deslizar ideas en Tinder, pero para multiplicar tus ventas."</p>
 					</div>
 				</div>
@@ -743,7 +747,7 @@ const faqs = [
 	<footer class="main-footer">
 		<div class="footer-brand">
 			<a href="#inicio" class="footer-logo">
-				<img src="/images/creattia/moki-mascot.webp" alt="Creattia Logo" decoding="async"/>
+				<img src="/images/creattia/avatar-nobg.webp" alt="Creattia Logo" decoding="async"/>
 				<strong>Creattia</strong>
 			</a>
 			<p>Imágenes y creativos publicitarios que aceleran las ventas de tu negocio.</p>
@@ -840,10 +844,10 @@ const faqs = [
 	}
 
 	// Lógica de Scroll de Showcase Carousel (Auto-scroll + Manual + Drag)
-	const track = document.querySelector('.showcase-marquee') as HTMLElement | null;
+	/* const track = document.querySelector('.showcase-marquee') as HTMLElement | null;
 	const prevBtn = document.querySelector('.prev-btn');
 	const nextBtn = document.querySelector('.next-btn');
-	if (track && prevBtn && nextBtn) {
+	if (false && track && prevBtn && nextBtn) {
 		const cardWidth = 300; // 280px card + 20px gap
 		
 		const scrollNext = () => {
@@ -949,6 +953,154 @@ const faqs = [
 	}
 
 	// Lógica de Rotación 3D del Cylinder Carousel (All-in-One)
+	// Showcase carousel: una página por gesto, navegación con snap y autoplay suave.
+	*/
+	const showcaseTrack = document.querySelector('.showcase-marquee') as HTMLElement | null;
+	const showcasePrev = document.querySelector('.prev-btn') as HTMLButtonElement | null;
+	const showcaseNext = document.querySelector('.next-btn') as HTMLButtonElement | null;
+	if (showcaseTrack && showcasePrev && showcaseNext) {
+		const showcaseCards = Array.from(showcaseTrack.querySelectorAll<HTMLElement>('.showcase-card'));
+		const originalCount = Math.floor(showcaseCards.length / 3);
+		let currentIndex = originalCount;
+		let autoScrollTimer: number | undefined;
+		let settleTimer: number | undefined;
+		let pointerId: number | null = null;
+		let startX = 0;
+		let startY = 0;
+		let startScrollLeft = 0;
+		let startIndex = currentIndex;
+		let lastX = 0;
+		let lastMoveAt = 0;
+		let isDragging = false;
+		let isPointerOver = false;
+
+		const clampIndex = (index: number) => Math.max(0, Math.min(showcaseCards.length - 1, index));
+		const leftForIndex = (index: number) => {
+			const card = showcaseCards[clampIndex(index)];
+			const maxScrollLeft = Math.max(0, showcaseTrack.scrollWidth - showcaseTrack.clientWidth);
+			return Math.min(maxScrollLeft, Math.max(0, card?.offsetLeft ?? 0));
+		};
+		const nearestIndex = () => {
+			let nearest = currentIndex;
+			let nearestDistance = Number.POSITIVE_INFINITY;
+			showcaseCards.forEach((card, index) => {
+				const distance = Math.abs(card.offsetLeft - showcaseTrack.scrollLeft);
+				if (distance < nearestDistance) {
+					nearest = index;
+					nearestDistance = distance;
+				}
+			});
+			return nearest;
+		};
+		const normalizeLoopPosition = () => {
+			if (currentIndex >= originalCount * 2) currentIndex -= originalCount;
+			if (currentIndex < originalCount) currentIndex += originalCount;
+			showcaseTrack.scrollTo({ left: leftForIndex(currentIndex), behavior: 'auto' });
+		};
+		const scheduleLoopNormalization = () => {
+			window.clearTimeout(settleTimer);
+			settleTimer = window.setTimeout(normalizeLoopPosition, 720);
+		};
+		const goTo = (requestedIndex: number) => {
+			if (!originalCount) return;
+			let targetIndex = requestedIndex;
+			if (targetIndex < originalCount) targetIndex += originalCount;
+			currentIndex = clampIndex(targetIndex);
+			showcaseTrack.scrollTo({ left: leftForIndex(currentIndex), behavior: 'smooth' });
+			scheduleLoopNormalization();
+		};
+		const scrollNext = () => goTo(currentIndex + 1);
+		const scrollPrev = () => goTo(currentIndex - 1);
+		const clearAutoScroll = () => {
+			window.clearInterval(autoScrollTimer);
+			autoScrollTimer = undefined;
+		};
+		const startAutoScroll = () => {
+			clearAutoScroll();
+			if (document.hidden || isPointerOver || isDragging) return;
+			autoScrollTimer = window.setInterval(scrollNext, 4500);
+		};
+		const resetAutoScroll = () => {
+			clearAutoScroll();
+			window.setTimeout(startAutoScroll, 900);
+		};
+		const releasePointer = () => {
+			if (pointerId !== null && showcaseTrack.hasPointerCapture(pointerId)) showcaseTrack.releasePointerCapture(pointerId);
+			pointerId = null;
+			showcaseTrack.classList.remove('is-dragging');
+			showcaseTrack.style.userSelect = '';
+			showcaseTrack.style.scrollBehavior = '';
+		};
+		const endPointerGesture = (event: PointerEvent) => {
+			if (pointerId !== event.pointerId) return;
+			const deltaX = event.clientX - startX;
+			const elapsed = Math.max(1, performance.now() - lastMoveAt);
+			const velocity = (event.clientX - lastX) / elapsed;
+			const shouldAdvance = Math.abs(deltaX) > Math.max(42, showcaseTrack.clientWidth * 0.1) || Math.abs(velocity) > 0.45;
+			if (isDragging) {
+				const direction = deltaX < 0 ? 1 : -1;
+				goTo(shouldAdvance ? startIndex + direction : nearestIndex());
+			}
+			isDragging = false;
+			releasePointer();
+			resetAutoScroll();
+		};
+
+		requestAnimationFrame(() => {
+			showcaseTrack.scrollTo({ left: leftForIndex(currentIndex), behavior: 'auto' });
+		});
+		showcasePrev.addEventListener('click', () => { scrollPrev(); resetAutoScroll(); });
+		showcaseNext.addEventListener('click', () => { scrollNext(); resetAutoScroll(); });
+		showcaseTrack.addEventListener('mouseenter', () => { isPointerOver = true; clearAutoScroll(); });
+		showcaseTrack.addEventListener('mouseleave', () => { isPointerOver = false; startAutoScroll(); });
+		showcaseTrack.addEventListener('focusin', clearAutoScroll);
+		showcaseTrack.addEventListener('focusout', startAutoScroll);
+		showcaseTrack.addEventListener('pointerdown', (event: PointerEvent) => {
+			if (event.pointerType === 'mouse' && event.button !== 0) return;
+			pointerId = event.pointerId;
+			startX = event.clientX;
+			startY = event.clientY;
+			lastX = startX;
+			lastMoveAt = performance.now();
+			startScrollLeft = showcaseTrack.scrollLeft;
+			startIndex = nearestIndex();
+			isDragging = false;
+			clearAutoScroll();
+			showcaseTrack.setPointerCapture(event.pointerId);
+		});
+		showcaseTrack.addEventListener('pointermove', (event: PointerEvent) => {
+			if (pointerId !== event.pointerId) return;
+			const deltaX = event.clientX - startX;
+			const deltaY = event.clientY - startY;
+			if (!isDragging) {
+				if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 8) return;
+				if (Math.abs(deltaY) > Math.abs(deltaX)) {
+					releasePointer();
+					startAutoScroll();
+					return;
+				}
+				isDragging = true;
+				showcaseTrack.classList.add('is-dragging');
+				showcaseTrack.style.scrollBehavior = 'auto';
+				showcaseTrack.style.userSelect = 'none';
+			}
+			if (isDragging) {
+				event.preventDefault();
+				showcaseTrack.scrollLeft = startScrollLeft - deltaX;
+				lastX = event.clientX;
+				lastMoveAt = performance.now();
+			}
+		});
+		showcaseTrack.addEventListener('pointerup', endPointerGesture);
+		showcaseTrack.addEventListener('pointercancel', endPointerGesture);
+		showcaseTrack.addEventListener('keydown', (event: KeyboardEvent) => {
+			if (event.key === 'ArrowLeft') { event.preventDefault(); scrollPrev(); resetAutoScroll(); }
+			if (event.key === 'ArrowRight') { event.preventDefault(); scrollNext(); resetAutoScroll(); }
+		});
+		document.addEventListener('visibilitychange', () => document.hidden ? clearAutoScroll() : startAutoScroll());
+		startAutoScroll();
+	}
+
 	const cylinder = document.querySelector('.carousel-cylinder') as HTMLElement | null;
 	if (cylinder) {
 		let angle = 0;
@@ -1630,9 +1782,24 @@ const faqs = [
 		width: 100%;
 		overflow-x: auto;
 		scroll-behavior: smooth;
+		scroll-snap-type: x mandatory;
+		touch-action: pan-y;
+		overscroll-behavior-x: contain;
 		-webkit-overflow-scrolling: touch;
 		scrollbar-width: none; /* Hide scrollbar Firefox */
 		padding: 20px 0;
+		cursor: grab;
+		outline: none;
+	}
+
+	.showcase-marquee:focus-visible {
+		box-shadow: 0 0 0 3px rgba(116, 75, 222, 0.22);
+		border-radius: 16px;
+	}
+
+	.showcase-marquee.is-dragging {
+		cursor: grabbing;
+		scroll-snap-type: none;
 	}
 
 	.showcase-marquee::-webkit-scrollbar {
@@ -1646,8 +1813,10 @@ const faqs = [
 	}
 
 	.showcase-card {
+		flex: 0 0 280px;
 		width: 280px;
 		aspect-ratio: 9/16;
+		scroll-snap-align: start;
 		border-radius: 24px;
 		overflow: hidden;
 		background: #ffffff;
@@ -1945,7 +2114,10 @@ const faqs = [
 		height: var(--carousel-card-h);
 		left: calc(var(--carousel-card-w) / -2);
 		top: calc(var(--carousel-card-h) / -2);
-		backface-visibility: visible;
+		-webkit-backface-visibility: hidden;
+		backface-visibility: hidden;
+		transform-style: flat;
+		clip-path: inset(0 round 20px);
 		transition: transform 0.1s ease-out;
 	}
 
@@ -1953,6 +2125,8 @@ const faqs = [
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+		max-width: 100%;
+		max-height: 100%;
 		display: block;
 	}
 

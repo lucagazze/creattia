@@ -82,7 +82,8 @@ export const PATCH: APIRoute = async ({ request }) => {
 			const deleteResult = await admin.from('creative_admin_access_overrides').delete().eq('user_id', userId);
 			if (deleteResult.error) throw deleteResult.error;
 			if (previousProfile) {
-				const restoreResult = await admin.from('creative_profiles').update({
+				const restoreResult = await admin.from('creative_profiles').upsert({
+					user_id: userId,
 					credits_remaining: previousProfile.credits_remaining ?? 0,
 					credits_monthly: previousProfile.credits_monthly ?? 0,
 					subscription_status: previousProfile.subscription_status || 'trial',
@@ -99,7 +100,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 		if (action === 'set_credits') {
 			const credits = Number(body.credits);
 			if (!Number.isInteger(credits) || credits < 0 || credits > 99999) return json({ error: 'Los créditos deben ser un entero entre 0 y 99.999.' }, 400);
-			const profileUpdate = await admin.from('creative_profiles').update({ credits_remaining: credits, updated_at: now }).eq('user_id', userId);
+			const profileUpdate = await admin.from('creative_profiles').upsert({ user_id: userId, credits_remaining: credits, updated_at: now }, { onConflict: 'user_id' });
 			if (profileUpdate.error) throw profileUpdate.error;
 			const accessMode = existing?.access_mode === 'unlimited' ? 'plan' : (existing?.access_mode || 'standard');
 			const planCode = existing?.plan_code === 'admin' ? 'creator' : (existing?.plan_code || null);
@@ -109,7 +110,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 		}
 
 		if (action === 'set_unlimited') {
-			const profileUpdate = await admin.from('creative_profiles').update({ credits_remaining: 99999, credits_monthly: 99999, subscription_status: 'authorized', plan_code: 'admin', updated_at: now }).eq('user_id', userId);
+			const profileUpdate = await admin.from('creative_profiles').upsert({ user_id: userId, credits_remaining: 99999, credits_monthly: 99999, subscription_status: 'authorized', plan_code: 'admin', updated_at: now }, { onConflict: 'user_id' });
 			if (profileUpdate.error) throw profileUpdate.error;
 			await upsertOverride(admin, { userId, accessMode: 'unlimited', planCode: 'admin', creditsOverride: 99999, previousProfile, grantedBy: adminUser.id, note: String(body.note || '').slice(0, 500), now });
 			await writeAudit(admin, adminUser.id, userId, action, { note: body.note || null });
@@ -121,7 +122,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 			if (!ADMIN_PLAN_CODES.has(planCode)) return json({ error: 'Plan inválido.' }, 400);
 			const credits = Number.isInteger(Number(body.credits)) ? Number(body.credits) : ADMIN_PLAN_CREDITS[planCode];
 			if (credits < 0 || credits > 99999) return json({ error: 'Cantidad de créditos inválida.' }, 400);
-			const profileUpdate = await admin.from('creative_profiles').update({ credits_remaining: credits, credits_monthly: credits, subscription_status: 'authorized', plan_code: planCode, updated_at: now }).eq('user_id', userId);
+			const profileUpdate = await admin.from('creative_profiles').upsert({ user_id: userId, credits_remaining: credits, credits_monthly: credits, subscription_status: 'authorized', plan_code: planCode, updated_at: now }, { onConflict: 'user_id' });
 			if (profileUpdate.error) throw profileUpdate.error;
 			await upsertOverride(admin, { userId, accessMode: 'plan', planCode, creditsOverride: credits, previousProfile, grantedBy: adminUser.id, note: String(body.note || '').slice(0, 500), now });
 			await writeAudit(admin, adminUser.id, userId, action, { planCode, credits, note: body.note || null });

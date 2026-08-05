@@ -955,14 +955,17 @@ export default function WinnersLibrary({
 	}, [activeAd, hasMoreItems, loadMore]);
 
 	// Delete winner handler
-	const handleDelete = async (imagePath: string) => {
+	const handleDelete = async (imagePath: string, relatedPaths: string[] = []) => {
 		if (!window.confirm('¿Seguro que querés eliminar este anuncio de la biblioteca de ganadores?')) return;
 		try {
-			const res = await fetch(`/api/creativos/references?imagePath=${encodeURIComponent(imagePath)}`, {
+			const imagePaths = [...new Set([imagePath, ...relatedPaths].filter(Boolean))];
+			const res = await fetch('/api/creativos/references', {
 				method: 'DELETE',
 				headers: {
-					'Authorization': `Bearer ${session?.access_token || ''}`
-				}
+					'Authorization': `Bearer ${session?.access_token || ''}`,
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ imagePaths }),
 			});
 			const payload = await res.json();
 			if (!res.ok) throw new Error(payload.error || 'Error al eliminar.');
@@ -1008,7 +1011,7 @@ export default function WinnersLibrary({
 
 	const handleDeleteItem = (item: WinnerItem) => {
 		if (item.metadata?.mediaType === 'video') void handleDeleteVideo(item);
-		else void handleDelete(item.imagePath);
+		else void handleDelete(item.imagePath, item.metadata?.mediaType === 'carousel' && Array.isArray(item.metadata.carouselImages) ? item.metadata.carouselImages : []);
 	};
 
 	// Bulk delete winner handler for admin
@@ -1018,7 +1021,7 @@ export default function WinnersLibrary({
 
 		try {
 			const selectedItems = items.filter((item) => selectedImagePaths.includes(item.imagePath));
-			const staticPaths = selectedItems.filter((item) => item.metadata?.mediaType !== 'video').map((item) => item.imagePath);
+			const staticPaths = selectedItems.filter((item) => item.metadata?.mediaType !== 'video').flatMap((item) => [item.imagePath, ...(item.metadata?.mediaType === 'carousel' && Array.isArray(item.metadata.carouselImages) ? item.metadata.carouselImages : [])]);
 			const videoItems = selectedItems.filter((item) => item.metadata?.mediaType === 'video');
 			let deletedCount = 0;
 
