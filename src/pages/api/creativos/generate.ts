@@ -11,7 +11,7 @@ import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
-import { buildClonePrompt, mergePaletteOverride, parsePaletteOverride } from '../../../lib/creattia/generation-pipeline';
+import { buildClonePrompt, mergePaletteOverride, parseBrandOverride, parsePaletteOverride } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 
 export const prerender = false;
@@ -207,6 +207,9 @@ export const POST: APIRoute = async ({ request }) => {
 		// 'mine' → la que el usuario tiene guardada en Mi marca
 		// 'none' → ninguna: el anuncio habla solo del producto
 		const brandSource = ['url', 'mine', 'none'].includes(brandSourceParam) ? brandSourceParam : 'none';
+		// Identidad tomada de una URL que el usuario pegó al regenerar: pisa el
+		// nombre, el logo, los colores y la tipografía de la fuente elegida.
+		const brandOverride = parseBrandOverride(clean(form.get('brandOverride'), 1200));
 		const requestedVariationStrength = clean(form.get('variationStrength'), 20) || 'exact';
 		const variationStrength = variationStrengths.has(requestedVariationStrength) ? requestedVariationStrength : 'exact';
 		const requestedLanguage = clean(form.get('language'), 5);
@@ -290,22 +293,22 @@ export const POST: APIRoute = async ({ request }) => {
 				storedProducts = [{ id: 'manual', name: serviceName, description: serviceFacts, price_text: '', currency: '', image_path: null, source_image_url: null, analysis: { category: '' } }];
 			}
 		}
-		const effectiveBrandName = brandSource === 'mine' ? (profile?.brand_name || '') : brandSource === 'url' ? (urlBrand?.name || '') : '';
+		const effectiveBrandName = brandOverride?.name || (brandSource === 'mine' ? (profile?.brand_name || '') : brandSource === 'url' ? (urlBrand?.name || '') : '');
 		const myBrandColors = Array.isArray(profile?.brand_colors) ? profile.brand_colors : [];
 		const urlBrandColors = Array.isArray(urlBrand?.colors) ? urlBrand.colors : [];
 		const effectiveBrandColors = colorMode === 'brand' ? myBrandColors : colorMode === 'url' ? urlBrandColors : [];
 		const detectedPalette = colorMode === 'url' ? urlBrand?.palette : colorMode === 'brand' ? brandStyle?.palette : undefined;
 		// La detección de colores se puede equivocar: el usuario corrige y su
 		// corrección pisa lo detectado.
-		const effectiveBrandPalette = mergePaletteOverride(detectedPalette, parsePaletteOverride(clean(form.get('paletteOverride'), 400)));
+		const effectiveBrandPalette = mergePaletteOverride(brandOverride?.palette || detectedPalette, parsePaletteOverride(clean(form.get('paletteOverride'), 400)));
 		const myBrandTypography = brandStyle?.typography;
 		const urlBrandTypography = urlBrand?.typography || undefined;
-		const effectiveBrandTypography = typoMode === 'brand' ? myBrandTypography : typoMode === 'url' ? urlBrandTypography : undefined;
+		const effectiveBrandTypography = brandOverride?.typography || (typoMode === 'brand' ? myBrandTypography : typoMode === 'url' ? urlBrandTypography : undefined);
 		const effectiveBrandSummary = brandSource === 'mine' ? (profile?.brand_summary || '') : brandSource === 'url' ? (urlBrand?.styleSummary || '') : '';
 		const effectiveBrandVoice = brandSource === 'mine' ? (profile?.brand_voice || '') : '';
 		const effectiveStyleSummary = brandSource === 'mine' ? (brandStyle?.styleSummary || '') : brandSource === 'url' ? (urlBrand?.styleSummary || '') : '';
 		const effectiveBrandPersonality = brandSource === 'mine' ? (brandStyle?.brandPersonality || '') : '';
-		const urlLogoUrl = brandSource === 'url' ? (urlBrand?.logoUrl || '') : '';
+		const urlLogoUrl = brandOverride?.logoUrl || (brandSource === 'url' ? (urlBrand?.logoUrl || '') : '');
 
 		// Allow generation without product when a reference image is provided (winner library mode)
 		const hasReferenceOrSource = !!(referencePath || sourceGenerationId);
@@ -536,7 +539,7 @@ export const POST: APIRoute = async ({ request }) => {
 				await pushInput(normalized.buffer, normalized.type, 'logo.png', 'the official brand logo; reproduce it accurately once');
 				hasLogo = true;
 			}
-		} else if (brandSource === 'url' && urlLogoUrl) {
+		} else if (urlLogoUrl && (brandOverride?.logoUrl || brandSource === 'url')) {
 			// El logo del sitio viene como URL sacada del HTML de un sitio que
 			// elige el usuario: es una URL hostil por definición. Va por
 			// safeExternalFetch, que bloquea redes privadas y metadata de la

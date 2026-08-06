@@ -240,3 +240,49 @@ export function detectImageType(buffer: Buffer) {
 	const isPng = buffer.length > 4 && buffer[0] === 0x89 && buffer[1] === 0x50;
 	return { extension: isPng ? 'png' : 'jpg', contentType: isPng ? 'image/png' : 'image/jpeg' };
 }
+
+/** Identidad tomada de una URL que el usuario pega al regenerar. */
+export type BrandOverride = {
+	name?: string;
+	logoUrl?: string;
+	palette?: BrandPalette;
+	typography?: { headings?: string; body?: string };
+};
+
+/**
+ * Valida la identidad que manda el cliente al regenerar.
+ *
+ * Todo esto entra al prompt y el logo se descarga, así que no se confía en el
+ * cliente: los colores tienen que ser hexadecimales, la URL del logo tiene que
+ * ser http(s) —la descarga la hace safeExternalFetch, que bloquea redes
+ * privadas— y los textos se recortan.
+ */
+export function parseBrandOverride(raw: unknown): BrandOverride | null {
+	if (!raw) return null;
+	try {
+		const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+		if (!parsed || typeof parsed !== 'object') return null;
+		const source = parsed as Record<string, any>;
+		const override: BrandOverride = {};
+
+		if (typeof source.name === 'string' && source.name.trim()) override.name = source.name.trim().slice(0, 80);
+		if (typeof source.logoUrl === 'string') {
+			try {
+				const url = new URL(source.logoUrl.trim());
+				if ((url.protocol === 'http:' || url.protocol === 'https:') && !url.username && !url.password) {
+					override.logoUrl = url.toString();
+				}
+			} catch { /* URL inválida: se ignora el logo */ }
+		}
+		const palette = parsePaletteOverride(source.palette);
+		if (palette) override.palette = palette as BrandPalette;
+		if (source.typography && typeof source.typography === 'object') {
+			const headings = typeof source.typography.headings === 'string' ? source.typography.headings.trim().slice(0, 60) : '';
+			const body = typeof source.typography.body === 'string' ? source.typography.body.trim().slice(0, 60) : '';
+			if (headings || body) override.typography = { headings, body };
+		}
+		return Object.keys(override).length ? override : null;
+	} catch {
+		return null;
+	}
+}

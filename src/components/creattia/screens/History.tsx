@@ -709,6 +709,35 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 	const [revisionFormat, setRevisionFormat] = useState<string>(item.format || 'original');
 	// Nunca se agrega el logo solo: el usuario lo pide a propósito, tocando este botón.
 	const [includeLogo, setIncludeLogo] = useState(false);
+	/**
+	 * De dónde sale la identidad al regenerar. Antes estaba clavado en "Mi
+	 * marca": no había forma de usar el logo de otra web sin volver a empezar.
+	 */
+	const [logoSource, setLogoSource] = useState<'mine' | 'url'>('mine');
+	const [brandUrl, setBrandUrl] = useState('');
+	const [brandPreview, setBrandPreview] = useState<any>(null);
+	const [brandLoading, setBrandLoading] = useState(false);
+	const [brandError, setBrandError] = useState('');
+	/** Si además de la marca se toman los colores y la tipografía de esa web. */
+	const [applyBrandStyle, setApplyBrandStyle] = useState(true);
+
+	async function loadBrandFromUrl() {
+		const url = brandUrl.trim();
+		if (!url) return;
+		setBrandLoading(true); setBrandError(''); setBrandPreview(null);
+		try {
+			const response = await fetch('/api/creativos/brand-preview', {
+				method: 'POST',
+				headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
+				body: JSON.stringify({ url }),
+			});
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.error || 'No pudimos leer esa página.');
+			setBrandPreview(payload.brand);
+		} catch (cause) {
+			setBrandError(cause instanceof Error ? cause.message : 'No pudimos leer esa página.');
+		} finally { setBrandLoading(false); }
+	}
 
 	// Product overrides
 	const originalProductId = item.productId || item.productIds?.[0] || '';
@@ -779,7 +808,17 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 			form.set('count', '1');
 			form.set('brief', revision.trim());
 			form.set('includeLogo', includeLogo ? '1' : '0');
-			form.set('brandSource', includeLogo ? 'mine' : 'none');
+			form.set('brandSource', includeLogo ? (logoSource === 'url' ? 'url' : 'mine') : 'none');
+			// Identidad de otra web: el logo siempre, y los colores y la tipografía
+			// solo si se pidió reemplazarlos también.
+			if (includeLogo && logoSource === 'url' && brandPreview) {
+				form.set('brandOverride', JSON.stringify({
+					name: brandPreview.name,
+					logoUrl: brandPreview.logoUrl,
+					...(applyBrandStyle ? { palette: brandPreview.palette, typography: brandPreview.typography } : {}),
+				}));
+				if (applyBrandStyle) { form.set('colorMode', 'url'); form.set('typoMode', 'url'); }
+			}
 
 			// Handle product override based on selected mode
 			if (productMode === 'catalog') {
@@ -1022,9 +1061,53 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 									style={{ flex: 1, padding: '8px 0', borderRadius: '9px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 700,
 										border: includeLogo ? '2px solid #19171d' : '1px solid #e2dde9',
 										background: includeLogo ? '#f4f2f6' : '#fff', color: includeLogo ? '#19171d' : '#6f6a77' }}>
-									Con mi logo
+									Con logo
 								</button>
 							</div>
+							{includeLogo && (
+								<div className="regen-brand">
+									<div className="regen-brand-tabs">
+										<button type="button" className={logoSource === 'mine' ? 'active' : ''} onClick={() => setLogoSource('mine')}>Mi marca</button>
+										<button type="button" className={logoSource === 'url' ? 'active' : ''} onClick={() => setLogoSource('url')}>De una URL</button>
+									</div>
+									{logoSource === 'url' && (
+										<>
+											<div className="regen-brand-row">
+												<input
+													type="url"
+													value={brandUrl}
+													onChange={(event) => { setBrandUrl(event.target.value); setBrandPreview(null); }}
+													placeholder="https://lamarca.com"
+													aria-label="URL de la marca"
+												/>
+												<button type="button" onClick={() => void loadBrandFromUrl()} disabled={brandLoading || !brandUrl.trim()}>
+													{brandLoading ? 'Leyendo…' : 'Leer'}
+												</button>
+											</div>
+											{brandError && <small className="regen-brand-error">{brandError}</small>}
+											{brandPreview && (
+												<div className="regen-brand-found">
+													{brandPreview.logoUrl
+														? <img src={brandPreview.logoUrl} alt="" />
+														: <span className="regen-brand-nologo">Sin logo</span>}
+													<div>
+														<strong>{brandPreview.name}</strong>
+														<span className="regen-brand-colors">
+															{(brandPreview.colors || []).slice(0, 4).map((color: string) => (
+																<i key={color} style={{ background: color }} title={color} />
+															))}
+														</span>
+													</div>
+													<label className="regen-brand-apply">
+														<input type="checkbox" checked={applyBrandStyle} onChange={(event) => setApplyBrandStyle(event.target.checked)} />
+														Usar también sus colores y tipografía
+													</label>
+												</div>
+											)}
+										</>
+									)}
+								</div>
+							)}
 						</div>
 						<textarea
 							ref={textareaRef}

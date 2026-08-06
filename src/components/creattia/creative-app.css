@@ -5799,3 +5799,42 @@
 	.asset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 	.asset-review-head h2 { font-size: 15px; }
 }
+
+/* ── Identidad al regenerar ────────────────────────────────────────────────
+   Antes el logo salía siempre de "Mi marca". Acá se puede leer la identidad de
+   cualquier web y decidir si se toman también sus colores y su tipografía. */
+.regen-brand { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.regen-brand-tabs { display: flex; gap: 6px; }
+.regen-brand-tabs button {
+	flex: 1; padding: 6px 0; border-radius: 8px; border: 1px solid #e2dde9; background: #fff;
+	cursor: pointer; font-family: inherit; font-size: 11.5px; font-weight: 700; color: #6f6a77;
+}
+.regen-brand-tabs button.active { border-color: #19171d; border-width: 2px; background: #f4f2f6; color: #19171d; }
+.regen-brand-row { display: flex; gap: 6px; }
+.regen-brand-row input {
+	flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 8px;
+	border: 1px solid #e2dde9; background: #fff; font-family: inherit; font-size: 12px; color: #19171d;
+}
+.regen-brand-row input:focus { outline: 2px solid #cbb8f0; outline-offset: -1px; }
+.regen-brand-row button {
+	flex: 0 0 auto; padding: 0 12px; height: 34px; border-radius: 8px; border: 0; cursor: pointer;
+	background: #19171d; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 700;
+}
+.regen-brand-row button:disabled { opacity: .5; cursor: default; }
+.regen-brand-error { color: #b9453f; font-size: 11px; }
+.regen-brand-found {
+	display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+	padding: 8px; border: 1px solid #ece7f2; border-radius: 10px; background: #fbfafd;
+}
+.regen-brand-found img { width: 34px; height: 34px; object-fit: contain; border-radius: 7px; background: #fff; }
+.regen-brand-nologo {
+	width: 34px; height: 34px; display: grid; place-items: center; border-radius: 7px;
+	background: #f1edf7; color: #948b9e; font-size: 8.5px; font-weight: 700; text-align: center;
+}
+.regen-brand-found strong { display: block; font-size: 12px; color: #29242f; }
+.regen-brand-colors { display: inline-flex; gap: 4px; margin-top: 3px; }
+.regen-brand-colors i { width: 13px; height: 13px; border-radius: 4px; border: 1px solid rgba(0,0,0,.08); }
+.regen-brand-apply {
+	flex: 1 0 100%; display: flex; align-items: center; gap: 6px;
+	color: #6f6a77; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
