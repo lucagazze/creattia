@@ -188,11 +188,28 @@ export function History({
 					))}
 				</div>
 			) : (
-				<div className="studio-empty large">
-					<span>📁</span>
-					<h3>Carpeta vacía</h3>
-					<p>Asigná tus creaciones a esta carpeta usando el icono 📁 en cada imagen.</p>
-				</div>
+				// El vacío depende del filtro: "Carpeta vacía" con "Todas" seleccionada
+				// mandaba a asignar imágenes a una carpeta cuando lo que faltaba era
+				// haber creado la primera.
+				currentFolderId === 'all' ? (
+					<div className="studio-empty large">
+						<span>🎨</span>
+						<h3>Todavía no creaste ninguna imagen</h3>
+						<p>Cuando generes tu primera, va a aparecer acá con todo lo que hagas después.</p>
+					</div>
+				) : currentFolderId === 'liked' ? (
+					<div className="studio-empty large">
+						<span>❤️</span>
+						<h3>No marcaste ninguna favorita</h3>
+						<p>Tocá el corazón en cualquier creación para tenerla siempre a mano.</p>
+					</div>
+				) : (
+					<div className="studio-empty large">
+						<span>📁</span>
+						<h3>Carpeta vacía</h3>
+						<p>Asigná tus creaciones a esta carpeta usando el icono 📁 en cada imagen.</p>
+					</div>
+				)
 			)}
 		</>
 	);
