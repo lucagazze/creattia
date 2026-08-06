@@ -5958,3 +5958,10 @@
 .regen-subject-options button:hover { border-color: #b9a3e0; }
 .regen-subject-options button.active { border-color: #7c4dff; background: #f4efff; color: #5b32c9; }
 .regen-subject > small { color: #7d7488; font-size: 11.5px; line-height: 1.45; }
+
+
+/* Hueco mientras baja una pantalla que se carga aparte. */
+.studio-screen-loading {
+	display: grid; place-items: center; gap: 12px; min-height: 55vh; color: #8b8490;
+}
+.studio-screen-loading p { margin: 0; font-size: 13px; font-weight: 600; }

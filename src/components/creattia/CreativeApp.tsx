@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, lazy, Suspense } from 'react';
 import { creativeCatalog, mapTemplateRecord, ringMeta } from '../../lib/creattia/catalog';
 import { isSupabaseConfigured, supabase } from '../../lib/creattia/supabase-browser';
 import { isAdminEmail } from '../../lib/creattia/admin';
 import { canAccessVideoFeature } from '../../lib/creattia/video-access';
 import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
-import WinnersLibrary from './WinnersLibrary';
-import AvatarManager from './AvatarManager';
+
+
 import { driveBatchWorkers } from './UrlBatchSection';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
-import AdminDashboard from './AdminDashboard';
+
 import { fetchLibraryItems, fetchReferenceUrls, useReferenceUrl, useReferenceUrls } from '../../lib/creattia/reference-urls';
 import type { ActiveBatch, AppProfile, AppSession, DemoSession, Generation, LightboxState, Product, View } from './app-types';
 import { ACTIVE_BATCH_KEY, FAVORITES_KEY, HISTORY_KEY, PRODUCTS_KEY, PROFILE_KEY, SESSION_KEY, defaultProfile, loadLocal, saveLocal, scopedKey } from './app-storage';
@@ -17,13 +17,39 @@ import { firstName, getSessionEmail, getSessionId, getSessionToken, planLabel } 
 import { fileAsDataUrl, mapProduct } from './app-products';
 import { demoProducts } from './demo-mode';
 import { Icon } from './Icon';
-import { AccountSetupError, AuthScreen } from './screens/AuthScreen';
-import { BrandsManager } from './screens/Brands';
-import { Dashboard } from './screens/Dashboard';
+// Discover ya viaja con el panel de inicio: cargarlo aparte no ahorra nada.
 import { DiscoverPage } from './screens/Discover';
+
+/**
+ * Pantallas que se cargan al abrirlas, no al arrancar.
+ *
+ * Estaban todas importadas de una: la biblioteca de ganadores sola son 1.700
+ * líneas, y entraban al arranque aunque el usuario nunca las abriera. Lo que se
+ * necesita para ver la primera pantalla —el panel, el Studio, el historial y el
+ * visor— sigue siendo estático, así que no aparece ningún salto al entrar.
+ */
+const WinnersLibrary = lazy(() => import('./WinnersLibrary'));
+const AvatarManager = lazy(() => import('./AvatarManager'));
+const AdminDashboard = lazy(() => import('./AdminDashboard'));
+const BrandsManager = lazy(() => import('./screens/Brands').then((m) => ({ default: m.BrandsManager })));
+const Plans = lazy(() => import('./screens/Plans').then((m) => ({ default: m.Plans })));
+
+/** Mientras baja el trozo de la pantalla: ocupa el mismo lugar, sin saltos. */
+function CargandoPantalla() {
+	return (
+		<div className="studio-screen-loading" role="status" aria-live="polite">
+			<span className="studio-spinner" aria-hidden="true" />
+			<p>Cargando…</p>
+		</div>
+	);
+}
+import { AccountSetupError, AuthScreen } from './screens/AuthScreen';
+
+import { Dashboard } from './screens/Dashboard';
+
 import { ImageLightbox } from './screens/History';
 import { Library } from './screens/Library';
-import { Plans } from './screens/Plans';
+
 import { SavedAds } from './screens/SavedAds';
 import { GenerationView, Studio } from './screens/Studio';
 import { History } from './screens/History';
@@ -1160,6 +1186,9 @@ export default function CreativeApp() {
 				</header>
 
 				<div className="studio-content">
+					{/* Las pantallas pesadas llegan por separado: mientras baja el trozo
+					    se muestra el mismo hueco, sin que salte el contenido. */}
+					<Suspense fallback={<CargandoPantalla />}>
 					{view === 'home' && (
 						<Dashboard
 							profile={profile}
@@ -1317,6 +1346,7 @@ export default function CreativeApp() {
 						</div>
 					)}
 					{view === 'admin' && isAdminEmail(getSessionEmail(session)) && <AdminDashboard session={session} />}
+					</Suspense>
 				</div>
 			</main>
 		</div>
