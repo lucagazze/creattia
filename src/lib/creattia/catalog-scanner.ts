@@ -526,10 +526,22 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 	 * la promesa que la marca eligió mostrar se perdía. Se toman también los H2
 	 * porque muchas tiendas ponen ahí la promoción y dejan el H1 con el nombre.
 	 */
+	// Los encabezados del carrito, el menú y el pie no dicen nada del producto y
+	// ensucian el análisis: una tienda Shopify sin H1 en el HTML deja
+	// "Your cart is empty" como primer encabezado.
+	// Los encabezados del carrito, el menú y el pie no dicen nada del producto y
+	// ensucian el análisis: una tienda Shopify sin H1 en el HTML deja
+	// "Your cart is empty" como primer encabezado.
+	//
+	// El patrón exige coincidencia COMPLETA, no por prefijo: "Envíos" suelto es
+	// un ítem de menú, pero "Envío gratis desde $50.000" es justamente la oferta
+	// que se está buscando, y un filtro por prefijo la tiraba a la basura.
+	const CHROME = /^(?:(?:tu|your|mi|my|el|la)\s+)?(?:carrito|cart(?:\s+is\s+empty)?|carro|bolsa|bag|men[úu]|buscar|search|newsletter|suscribirse|subscribe|iniciar\s+sesi[óo]n|log\s?in|sign\s?in|crear\s+cuenta|cuenta|account|idioma|language|moneda|currency|filtros?|filters?|ordenar\s+por|sort\s+by|compartir|share|seguinos|s[íi]guenos|follow\s+us|contacto|cont[áa]ctanos|contact\s+us|ayuda|help|preguntas\s+frecuentes|faq|env[íi]os?\s+y\s+devoluciones|shipping\s+(?:and|&)\s+returns|devoluciones|returns|pol[íi]tica\s+de\s+\w+|privacy\s+policy|t[ée]rminos\s+(?:y|and)\s+\w+|terms\s+of\s+\w+|(?:estimated\s+)?(?:sub)?total|men[úu]\s+principal|main\s+menu|redes\s+sociales|footer|nav)\s*[:.]?$/i;
+	const utilHeading = (value: string) => value.length >= 3 && value.length <= 200 && !CHROME.test(value.trim());
 	const headings = [
 		...$('h1').map((_: number, element: any) => compact($(element).text(), 200)).toArray(),
-		...$('h2').slice(0, 6).map((_: number, element: any) => compact($(element).text(), 200)).toArray(),
-	].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).slice(0, 8);
+		...$('h2').slice(0, 10).map((_: number, element: any) => compact($(element).text(), 200)).toArray(),
+	].filter(Boolean).filter(utilHeading).filter((value, index, all) => all.indexOf(value) === index).slice(0, 8);
 	const pageHeadline = headings[0] || '';
 
 	// 3. Collect product images. Structured data and an explicit product gallery
