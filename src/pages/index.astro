@@ -5,22 +5,6 @@ import { subscriptionPlans } from '../lib/creattia/subscription-plans';
 import { showcaseUrl } from '../lib/creattia/showcase';
 
 
-// Data matching the new cloned layout translated to Spanish
-const showcase = [
-	{ type: 'image', src: showcaseUrl('40/efd72e666983d8e7.webp'), label: 'Café' },
-	{ type: 'image', src: showcaseUrl('40/1b76d7e89d46ac25.webp'), label: 'Suplementos' },
-	{ type: 'image', src: showcaseUrl('40/f0e11445b9ff5bcf.webp'), label: 'Bienestar' },
-	{ type: 'image', src: showcaseUrl('40/95585757da7f44a8.webp'), label: 'Bebidas' },
-	{ type: 'image', src: showcaseUrl('40/1d58518c1d718dd4.webp'), label: 'Cuidado Personal' },
-	{ type: 'image', src: showcaseUrl('1/af32ca5ec7697330.webp'), label: 'Gourmet' },
-	{ type: 'image', src: showcaseUrl('40/dae50b9af9994bbc.webp'), label: 'Cosmética' },
-	{ type: 'image', src: showcaseUrl('1/dcaf28871a7a4904.webp'), label: 'Accesorios' },
-	{ type: 'image', src: showcaseUrl('40/ece227e7e0c07477.webp'), label: 'Moda' },
-	{ type: 'image', src: showcaseUrl('40/9c8d4a8001b24d29.webp'), label: 'Belleza' },
-	{ type: 'image', src: showcaseUrl('40/6115528cf8820436.webp'), label: 'Cuidado Piel' },
-	{ type: 'image', src: showcaseUrl('40/2712b3774b326865.webp'), label: 'Deporte' },
-	{ type: 'image', src: showcaseUrl('40/e00a8677f0d13e45.webp'), label: 'Estilo' }
-];
 
 const ideasRow1 = [
 	{ text: 'Nosotros vs Ellos', color: '#8b5cf6' },
@@ -49,20 +33,6 @@ const steps = [
 	{ number: '04', title: 'Descargá y publicá', copy: 'Lanzá 10x más contenido, 75% más rápido.', kind: 'publish' },
 ];
 
-const cylinderImages = [
-	showcaseUrl('40/efd72e666983d8e7.webp'),
-	showcaseUrl('40/1b76d7e89d46ac25.webp'),
-	showcaseUrl('40/f0e11445b9ff5bcf.webp'),
-	showcaseUrl('40/95585757da7f44a8.webp'),
-	showcaseUrl('40/1d58518c1d718dd4.webp'),
-	showcaseUrl('1/af32ca5ec7697330.webp'),
-	showcaseUrl('40/dae50b9af9994bbc.webp'),
-	showcaseUrl('1/dcaf28871a7a4904.webp'),
-	showcaseUrl('40/ece227e7e0c07477.webp'),
-	showcaseUrl('40/9c8d4a8001b24d29.webp'),
-	showcaseUrl('40/6115528cf8820436.webp'),
-	showcaseUrl('40/2712b3774b326865.webp')
-];
 
 // Selección pública de la biblioteca gratuita. Estas son las mismas rutas
 // que usa /api/creativos/library.ts para cuentas sin suscripción.
