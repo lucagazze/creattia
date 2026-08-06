@@ -36,13 +36,19 @@ function mediaFor(product: ProductReviewItem): ProductReviewMedia[] {
  * selecciona tocando la tarjeta entera. Se ve todo de un vistazo y las fotos
  * extra de un producto se abren solo si hacen falta.
  */
-export type SubjectChoice = 'catalog' | 'product' | 'service';
+export type SubjectChoice = 'general' | 'especifico';
 
-/** Las tres cosas de las que puede hablar un anuncio, con su explicación. */
+/**
+ * De qué habla el anuncio. Dos opciones, no tres.
+ *
+ * Antes se elegía entre "la tienda", "un producto" y "un servicio". Las dos
+ * primeras responden a la misma pregunta —¿de todo o de una cosa?— y la tercera
+ * responde a otra: si eso que se vende es un objeto o no. Eso último no hace
+ * falta preguntarlo, se sabe mirando si hay fotos. Queda una sola decisión.
+ */
 const SUBJECT_OPTIONS: Array<{ value: SubjectChoice; label: string; hint: string }> = [
-	{ value: 'catalog', label: 'La tienda', hint: 'Una selección de lo que vendés, sin un producto protagonista.' },
-	{ value: 'product', label: 'Un producto', hint: 'Se centra en el producto elegido, con sus datos y sus fotos.' },
-	{ value: 'service', label: 'Un servicio', hint: 'Un servicio, software o suscripción: no hace falta mostrar un objeto.' },
+	{ value: 'general', label: 'En general', hint: 'Habla del negocio completo: lo que ofrecés, para quién es y por qué elegirte.' },
+	{ value: 'especifico', label: 'De algo puntual', hint: 'Se centra en un producto o servicio concreto, con su nombre y sus datos.' },
 ];
 
 export default function ProductAssetReview({ products, selectedProductIds = [], onToggleProduct, isCatalog = false, storeName, detectionReason, subject, detectedSubject, onChangeSubject }: {
@@ -110,7 +116,7 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 				</div>
 				<div className="asset-subject-options" role="radiogroup" aria-label="De qué habla el anuncio">
 					{SUBJECT_OPTIONS.map((option) => {
-						const active = (subject || (isCatalog ? 'catalog' : 'product')) === option.value;
+						const active = (subject || (isCatalog ? 'general' : 'especifico')) === option.value;
 						return (
 							<button
 								key={option.value}

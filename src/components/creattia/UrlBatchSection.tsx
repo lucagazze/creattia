@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { subjectModeDesde, alcanceDesde, type Alcance } from '../../lib/creattia/generation-pipeline';
 import UrlInput from './UrlInput';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
 import { supabase } from '../../lib/creattia/supabase-browser';
@@ -230,7 +231,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	 * la revisión mostraba un solo producto sin opciones, así que no había forma
 	 * de decir "esto habla de la tienda" ni de corregir un color mal detectado.
 	 */
-	const [subjectOverride, setSubjectOverride] = useState<'catalog' | 'product' | 'service' | null>(null);
+	const [alcanceOverride, setAlcanceOverride] = useState<Alcance | null>(null);
 	const [paletteOverride, setPaletteOverride] = useState<Record<string, string>>({});
 	const [typoMode, setTypoMode] = useState('winner');
 	const [brandSource, setBrandSource] = useState('url');
@@ -262,9 +263,16 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	/** Los colores que se detectaron en la web de la marca, si los hubo. */
 	const paletaDetectada: Record<string, string> | null = (preview?.page?.store as any)?.palette || null;
 
-	/** De qué habla el lote: lo corregido a mano, o lo que detectó el escaneo. */
-	const sujeto: 'catalog' | 'product' | 'service' =
-		subjectOverride || (preview?.page?.pageType as any) || 'product';
+	/**
+	 * De qué habla el lote. La persona elige el alcance —todo el negocio o algo
+	 * puntual— y si eso se puede fotografiar lo deduce el sistema.
+	 */
+	const sujeto = (() => {
+		const detectado = (preview?.page?.pageType as any) || 'product';
+		if (!alcanceOverride) return detectado;
+		const conFotos = Boolean(preview?.product?.media?.length || preview?.page?.products?.length);
+		return subjectModeDesde(alcanceOverride, conFotos);
+	})();
 
 	/**
 	 * Lo que se muestra al revisar.
@@ -376,7 +384,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 
 			setPreview({ product: data.product, count: data.count, wearable: data.wearable, hasImage: data.hasImage, page: data.page || null });
 			// Lo detectado manda, pero se puede corregir en la revisión.
-			setSubjectOverride(null);
+			setAlcanceOverride(null);
 			setPaletteOverride({});
 			seenPathsRef.current = new Set<string>([
 				...(data.winners || []).map((w: WinnerRef) => w.imagePath),
@@ -844,8 +852,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 							isCatalog={sujeto === 'catalog'}
 							storeName={preview.page?.store?.name}
 							detectionReason={(preview.page?.store as any)?.evidence}
-							subject={sujeto}
-							detectedSubject={preview.page?.pageType}
+							subject={alcanceDesde(sujeto)}
+							detectedSubject={alcanceDesde(preview.page?.pageType)}
 						/>
 					)}
 
@@ -932,28 +940,25 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								<span className="picker-label">¿De qué habla?</span>
 								<div className="batch-style-options">
 									{([
-										{ value: 'catalog', label: 'La tienda' },
-										{ value: 'product', label: 'Un producto' },
-										{ value: 'service', label: 'Un servicio' },
+										{ value: 'general', label: 'En general' },
+										{ value: 'especifico', label: 'De algo puntual' },
 									] as const).map((option) => (
 										<button
 											key={option.value}
 											type="button"
-											className={sujeto === option.value ? 'active' : ''}
-											aria-pressed={sujeto === option.value}
-											onClick={() => setSubjectOverride(option.value)}
+											className={alcanceDesde(sujeto) === option.value ? 'active' : ''}
+											aria-pressed={alcanceDesde(sujeto) === option.value}
+											onClick={() => setAlcanceOverride(option.value)}
 										>
 											{option.label}
-											{preview?.page?.pageType === option.value && <em className="batch-detected-tag">detectado</em>}
+											{alcanceDesde(preview?.page?.pageType as any) === option.value && <em className="batch-detected-tag">detectado</em>}
 										</button>
 									))}
 								</div>
 								<small className="batch-brand-note">
-									{sujeto === 'catalog'
-										? 'Los textos hablan de la tienda y su variedad, sin poner un producto de protagonista.'
-										: sujeto === 'service'
-											? 'Los textos hablan del servicio y su resultado, sin describir un objeto físico.'
-											: 'Los textos hablan del producto, con su nombre y sus datos reales.'}
+									{alcanceDesde(sujeto) === 'general'
+										? 'Los textos hablan del negocio completo: lo que ofrecés, para quién es y por qué elegirte.'
+										: 'Los textos se centran en un producto o servicio concreto, con su nombre y sus datos.'}
 								</small>
 							</div>
 

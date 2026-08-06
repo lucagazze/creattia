@@ -35,6 +35,35 @@ export type SubjectMode = 'product' | 'service' | 'saas' | 'brand' | 'catalog';
  */
 export const SUBJECT_MODES: SubjectMode[] = ['product', 'service', 'saas', 'brand', 'catalog'];
 
+/**
+ * De qué habla el anuncio, en los términos en que lo piensa una persona.
+ *
+ * Antes se elegía entre tres: "la tienda", "un producto" y "un servicio". Las
+ * dos primeras responden a la misma pregunta —¿de todo o de una cosa?— y la
+ * tercera responde a otra distinta: si eso que se vende es un objeto o no. Eso
+ * último no hace falta preguntarlo: se sabe mirando si hay fotos de producto.
+ *
+ * Queda una sola decisión, que es la única que el usuario tiene que tomar.
+ */
+export type Alcance = 'general' | 'especifico';
+
+/**
+ * Traduce la elección de la persona al modo interno del generador.
+ *
+ * `conFotos` distingue lo que se puede mostrar de lo que no: un servicio o un
+ * software no tienen packaging, y pedirle al modelo que invente uno es lo que
+ * producía envases genéricos que no existen.
+ */
+export function subjectModeDesde(alcance: Alcance, conFotos: boolean): SubjectMode {
+	if (alcance === 'general') return conFotos ? 'catalog' : 'brand';
+	return conFotos ? 'product' : 'service';
+}
+
+/** El alcance que corresponde a un modo interno, para mostrarlo ya elegido. */
+export function alcanceDesde(mode: SubjectMode | null | undefined): Alcance {
+	return mode === 'catalog' || mode === 'brand' ? 'general' : 'especifico';
+}
+
 /** Ficha y catálogo se apoyan en fotos reales de productos; el resto no. */
 export function usesRealProductPhotos(mode: SubjectMode): boolean {
 	return mode === 'product' || mode === 'catalog';

@@ -1,4 +1,5 @@
 import { useReferenceUrls } from '../../lib/creattia/reference-urls';
+import { subjectModeDesde, alcanceDesde, type Alcance } from '../../lib/creattia/generation-pipeline';
 import UrlInput from './UrlInput';
 import React, { useState, useEffect, useRef } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
@@ -105,7 +106,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const [scannedOffering, setScannedOffering] = useState<'product' | 'service' | 'catalog'>('product');
 	/** Corrección manual: gana sobre lo detectado. */
-	const [subjectOverride, setSubjectOverride] = useState<'catalog' | 'product' | 'service' | null>(null);
+	/**
+	 * El alcance elegido a mano: general o algo puntual. Si el negocio vende un
+	 * objeto o no lo deduce el sistema mirando las fotos, así que no se pregunta.
+	 */
+	const [alcanceOverride, setAlcanceOverride] = useState<Alcance | null>(null);
 	const [urls, setUrls] = useState<string[]>(['']);
 	const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 	const [importedProducts, setImportedProducts] = useState<ProductReviewItem[]>([]);
@@ -122,7 +127,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		const desdeProductos = (elegidos.length ? elegidos : importedProducts)
 			.map((item: any) => item?.metadata?.pageType)
 			.find((tipo: string) => tipo === 'catalog' || tipo === 'service' || tipo === 'product');
-		return subjectOverride || (desdeProductos as any) || scannedOffering;
+		const detectado = (desdeProductos as any) || scannedOffering;
+		if (!alcanceOverride) return detectado;
+		// Con el alcance corregido a mano, el tipo se resuelve igual que siempre:
+		// hay fotos reales o no las hay.
+		const conFotos = importedProducts.some((item: any) => (item?.media?.length || item?.imageUrls?.length));
+		return subjectModeDesde(alcanceOverride, conFotos) as any;
 	})();
 	const isService = detectedOffering === 'service';
 	/** La URL era la home de la tienda o una categoría: el anuncio habla del negocio. */
@@ -967,9 +977,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								isCatalog={isCatalog}
 								storeName={(importedProducts[0] as any)?.metadata?.store?.name}
 								detectionReason={(importedProducts[0] as any)?.metadata?.store?.evidence}
-								subject={detectedOffering}
-								detectedSubject={(importedProducts[0] as any)?.metadata?.pageType}
-								onChangeSubject={setSubjectOverride}
+								subject={alcanceDesde(detectedOffering)}
+								detectedSubject={alcanceDesde((importedProducts[0] as any)?.metadata?.pageType)}
+								onChangeSubject={setAlcanceOverride}
 								selectedProductIds={selectedProductIds}
 								onToggleProduct={(productId) => setSelectedProductIds((current) => current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId])}
 							/>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'vitest';
-import { buildClonePrompt, SUBJECT_MODES, usesRealProductPhotos } from '../src/lib/creattia/generation-pipeline';
+import { alcanceDesde, buildClonePrompt, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos } from '../src/lib/creattia/generation-pipeline';
 
 /**
  * De qué habla el anuncio tiene que gobernar los TEXTOS, no solo la imagen.
@@ -19,6 +19,27 @@ const base = {
 	colorMode: 'winner' as const,
 	typoMode: 'winner' as const,
 };
+
+describe('dos opciones para la persona, cuatro modos por dentro', () => {
+	test('el alcance más las fotos definen el modo', () => {
+		// La persona elige una sola cosa: si el anuncio habla de todo o de algo
+		// puntual. Que eso se pueda fotografiar o no lo deduce el sistema, porque
+		// preguntarlo era pedirle al usuario que resolviera un detalle técnico.
+		assert.equal(subjectModeDesde('general', true), 'catalog');
+		assert.equal(subjectModeDesde('general', false), 'brand');
+		assert.equal(subjectModeDesde('especifico', true), 'product');
+		assert.equal(subjectModeDesde('especifico', false), 'service');
+	});
+
+	test('el modo interno vuelve al alcance que le corresponde', () => {
+		assert.equal(alcanceDesde('catalog'), 'general');
+		assert.equal(alcanceDesde('brand'), 'general');
+		assert.equal(alcanceDesde('product'), 'especifico');
+		assert.equal(alcanceDesde('service'), 'especifico');
+		// Sin dato, lo más seguro es asumir algo puntual: es lo que hacía antes.
+		assert.equal(alcanceDesde(null), 'especifico');
+	});
+});
 
 describe('el sujeto es único y compartido', () => {
 	test('catalog es un sujeto válido', () => {
