@@ -774,6 +774,47 @@ const faqs = [
 		</div>
 	</footer>
 <script is:inline>
+	// Mismo aviso que en la app: si el teléfono pide "sitio para computadora", el
+	// navegador ignora el viewport y dibuja a ~980px. Se ve todo diminuto y hay
+	// que arrastrar la pantalla de costado, pero no hay nada roto. Desde el
+	// código no se puede desactivar, así que al menos se explica qué pasa.
+	(function () {
+		var fisica = Math.min(screen.width || 0, screen.height || 0);
+		if (!(fisica > 0 && fisica <= 500 && window.innerWidth >= 900)) return;
+		try { if (localStorage.getItem('creattia-aviso-escritorio') === 'visto') return; } catch (e) {}
+		var caja = document.createElement('div');
+		caja.className = 'aviso-escritorio';
+		caja.setAttribute('role', 'status');
+		caja.innerHTML = '<div><strong>Estás viendo la versión de computadora</strong>'
+			+ '<span>Tu navegador tiene activado <b>“Sitio para computadora”</b>. Desactivalo y la página se acomoda a tu pantalla: en Chrome está en el menú <b>⋮</b>, en Safari en <b>aA</b> → “Solicitar sitio para móviles”.</span></div>'
+			+ '<button type="button">Entendido</button>';
+		caja.querySelector('button').addEventListener('click', function () {
+			try { localStorage.setItem('creattia-aviso-escritorio', 'visto'); } catch (e) {}
+			caja.remove();
+		});
+		document.body.appendChild(caja);
+	})();
+</script>
+
+<style is:global>
+	.aviso-escritorio {
+		position: fixed; z-index: 300; left: 12px; right: 12px; bottom: 12px;
+		display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+		padding: 14px 16px; border-radius: 14px;
+		background: #19171d; color: #fff; font-family: inherit;
+		box-shadow: 0 18px 45px rgba(15, 11, 18, .35);
+	}
+	.aviso-escritorio > div { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 4px; }
+	.aviso-escritorio strong { font-size: 14px; }
+	.aviso-escritorio span { font-size: 12.5px; line-height: 1.5; color: #cfc9d6; }
+	.aviso-escritorio b { color: #fff; font-weight: 700; }
+	.aviso-escritorio button {
+		flex: 0 0 auto; min-height: 38px; padding: 0 16px; border: 0; border-radius: 10px;
+		background: #fff; color: #19171d; font-size: 13px; font-weight: 800; cursor: pointer;
+	}
+</style>
+
+<script is:inline>
 	// Zoom desactivado en la landing.
 	//
 	// El meta viewport ya lleva user-scalable=no, pero iOS Safari lo ignora desde
@@ -1205,8 +1246,19 @@ const faqs = [
 		color: #1D1D1F;
 		font-family: 'Satoshi', 'Inter Variable', Inter, system-ui, sans-serif;
 		background-color: #FFF;
-		overflow-x: hidden;
 		margin: 0;
+	}
+
+	/* Nada puede ser más ancho que la pantalla.
+	   El overflow-x:hidden estaba solo en <body>, y así no alcanza: si el que
+	   scrollea es <html>, la página se sigue arrastrando de costado igual. Va en
+	   los dos, y con `clip` en vez de `hidden` porque `hidden` convierte al
+	   elemento en contenedor de scroll y rompe cualquier `position: sticky` de
+	   adentro. El desborde real se arregla en su origen; esto es la red. */
+	:global(html),
+	:global(body) {
+		max-width: 100%;
+		overflow-x: clip;
 	}
 
 	:global(body.menu-open) {
@@ -3594,6 +3646,15 @@ const faqs = [
 	.hero-title span {
 		display: block;
 		white-space: nowrap;
+	}
+
+	/* En pantallas angostas el título no puede seguir en una sola línea.
+	   "+3000 anuncios ganadores" a 28px mide 331px: en un teléfono de 320
+	   quedaba la última letra afuera y había que arrastrar toda la página de
+	   costado para leerla. Debajo de 400px se deja que corte solo. */
+	@media (max-width: 400px) {
+		.hero-title span { white-space: normal; }
+		.hero-title { font-size: clamp(26px, 7.5vw, 38px); }
 	}
 
 	.hero-primary-cta {

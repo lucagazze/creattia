@@ -16,6 +16,7 @@ import { firstName, getSessionEmail, getSessionId, getSessionToken, planLabel } 
 import { fileAsDataUrl, mapProduct } from './app-products';
 import { demoProducts } from './demo-mode';
 import { Icon } from './Icon';
+import { AvisoModoEscritorio } from './AvisoModoEscritorio';
 // Discover ya viaja con el panel de inicio: cargarlo aparte no ahorra nada.
 import { DiscoverPage } from './screens/Discover';
 
@@ -1093,6 +1094,7 @@ export default function CreativeApp() {
 
 	return (
 		<div className={`creative-app-shell ${sidebarMinimized ? 'sidebar-minimized' : ''}`}>
+			<AvisoModoEscritorio />
 			{toast && <div className="studio-toast"><span><Icon name="check" size={16}/></span>{toast}</div>}
 			{lightbox && <ImageLightbox
 				item={lightbox.item}
