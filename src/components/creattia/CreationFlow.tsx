@@ -1,4 +1,5 @@
 import { useReferenceUrls } from '../../lib/creattia/reference-urls';
+import UrlInput from './UrlInput';
 import React, { useState, useEffect } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
 import ProductAssetReview, { type ProductReviewItem } from './ProductAssetReview';
@@ -672,10 +673,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												{wantsFullCarousel && !carouselSameProduct && (
 													<span style={{ flexShrink: 0, width: '22px', fontSize: '12px', fontWeight: 800, color: '#8b8490', textAlign: 'center' }}>{i + 1}</span>
 												)}
-												<input value={u}
-													onChange={(e) => setUrls((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))}
+												<UrlInput
+													value={u}
+													onChange={(next) => setUrls((prev) => prev.map((x, j) => (j === i ? next : x)))}
 													placeholder={wantsFullCarousel && !carouselSameProduct ? `URL del producto de la página ${i + 1}` : 'Pegá la URL de tu producto o servicio a analizar'}
-													className="wiz-input"
+													ariaLabel={`URL ${i + 1}`}
 													style={{ flex: 1 }} />
 												{urls.length > 1 && (
 													<button type="button" aria-label="Quitar URL" onClick={() => setUrls((prev) => prev.filter((_, j) => j !== i))}

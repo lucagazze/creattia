@@ -1,4 +1,5 @@
 import type { Creativo } from '../../../data/creativos50';
+import UrlInput from '../UrlInput';
 import { creativeNumber, referencePresets, ringMeta } from '../../../lib/creattia/catalog';
 import { fetchLibraryItems, fetchReferenceUrls } from '../../../lib/creattia/reference-urls';
 import { isSupabaseConfigured, supabase } from '../../../lib/creattia/supabase-browser';
@@ -301,12 +302,14 @@ export function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed,
 						<strong style={{ fontSize: '11px', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}><Icon name="spark" size={13} /> ¿Querés crear con un producto nuevo?</strong>
 						<p style={{ margin: 0, fontSize: '9px', color: '#8b8490', lineHeight: 1.4 }}>Pegá la URL del producto de tu tienda. Analizaremos las imágenes y el estilo visual automáticamente para la generación.</p>
 						<div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-							<input 
-								type="text" 
-								placeholder="https://mitienda.com/productos/zapato-urban" 
+							<UrlInput
+								className="is-dark is-compact"
 								value={fastUrl}
-								onChange={(e) => setFastUrl(e.target.value)}
-								style={{ flex: 1, height: '36px', background: '#15121c', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#fff', padding: '0 10px', fontSize: '10.5px', outline: 'none' }}
+								onChange={setFastUrl}
+								placeholder="https://mitienda.com/productos/zapato-urban"
+								ariaLabel="URL del producto"
+								onEnter={() => { if (!fastImporting && fastUrl.trim()) handleFastImport(); }}
+								style={{ flex: 1 }}
 							/>
 							<button 
 								type="button"

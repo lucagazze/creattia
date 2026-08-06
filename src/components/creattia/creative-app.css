@@ -5810,12 +5810,8 @@
 	cursor: pointer; font-family: inherit; font-size: 11.5px; font-weight: 700; color: #6f6a77;
 }
 .regen-brand-tabs button.active { border-color: #19171d; border-width: 2px; background: #f4f2f6; color: #19171d; }
-.regen-brand-row { display: flex; gap: 6px; }
-.regen-brand-row input {
-	flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 8px;
-	border: 1px solid #e2dde9; background: #fff; font-family: inherit; font-size: 12px; color: #19171d;
-}
-.regen-brand-row input:focus { outline: 2px solid #cbb8f0; outline-offset: -1px; }
+.regen-brand-row { display: flex; gap: 6px; align-items: center; }
+.regen-brand-row .url-field { flex: 1; min-width: 0; }
 .regen-brand-row button {
 	flex: 0 0 auto; padding: 0 12px; height: 34px; border-radius: 8px; border: 0; cursor: pointer;
 	background: #19171d; color: #fff; font-family: inherit; font-size: 11.5px; font-weight: 700;
@@ -5875,4 +5871,55 @@
 	.asset-subject-options { grid-template-columns: 1fr; }
 	.asset-subject-options button small { display: none; }
 	.asset-subject-options button.active small { display: block; }
+}
+
+/* ─── Campo de URL con botón de pegar ───────────────────────────────
+   Todo el flujo empieza pegando un link. En el celular eso era mantener
+   apretado, esperar el menú y acertarle a "Pegar": el paso donde más gente se
+   caía. El botón vive dentro del campo para que se lea como parte de él. */
+.url-field { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 0; }
+.url-field-box {
+	display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0;
+	padding: 0 8px 0 12px; border-radius: 12px; border: 1px solid #e2dde9; background: #fff;
+	transition: border-color .15s ease, box-shadow .15s ease;
+}
+.url-field-box:focus-within { border-color: #744bde; box-shadow: 0 0 0 3px rgba(116, 75, 222, .13); }
+.url-field-icon { display: flex; flex-shrink: 0; color: #a79fb3; }
+.url-field-box:focus-within .url-field-icon { color: #744bde; }
+.url-field-input {
+	flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+	padding: 12px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #19171d;
+}
+.url-field-input::placeholder { color: #a79fb3; font-weight: 500; }
+.url-field-input:disabled { color: #8b8490; }
+.url-field-paste {
+	flex-shrink: 0; padding: 7px 13px; border-radius: 9px; border: 1px solid #e2dde9;
+	background: #f7f4fc; color: #5b3fc4; font-family: inherit; font-size: 12.5px; font-weight: 800;
+	cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.url-field-paste:hover { background: #ede5fb; border-color: #cbb8f0; }
+.url-field-paste.is-ok { background: #e7f7ee; border-color: #a8dcbf; color: #1c7a48; }
+.url-field-paste.is-empty { background: #fdf0ef; border-color: #f0c4c0; color: #b3453c; }
+
+/* Variante oscura, para el importador rápido del Studio (fondo #110d17). */
+.url-field.is-dark .url-field-box { background: #15121c; border-color: rgba(255, 255, 255, .09); }
+.url-field.is-dark .url-field-box:focus-within { border-color: #8a63e8; box-shadow: 0 0 0 3px rgba(138, 99, 232, .18); }
+.url-field.is-dark .url-field-input { color: #fff; }
+.url-field.is-dark .url-field-input::placeholder { color: #6f6878; }
+.url-field.is-dark .url-field-icon { color: #6f6878; }
+.url-field.is-dark .url-field-paste {
+	background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .1); color: #cbb8f0;
+}
+.url-field.is-dark .url-field-paste:hover { background: rgba(255, 255, 255, .13); }
+
+/* Variante chica, para el panel de regeneración donde el espacio es escaso. */
+.url-field.is-compact .url-field-box { padding-left: 10px; border-radius: 9px; }
+.url-field.is-compact .url-field-input { padding: 8px 0; font-size: 12.5px; }
+.url-field.is-compact .url-field-paste { padding: 5px 9px; font-size: 11px; border-radius: 7px; }
+
+@media (max-width: 640px) {
+	/* En el celular el campo es angosto: el botón se achica pero nunca se va,
+	   porque es justamente ahí donde más sirve. */
+	.url-field-input { font-size: 16px; padding: 11px 0; } /* 16px evita el zoom de iOS */
+	.url-field-paste { padding: 7px 10px; font-size: 12px; }
 }

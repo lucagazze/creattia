@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useReferenceUrls } from '../../../lib/creattia/reference-urls';
 import { Icon } from '../Icon';
 import type { Generation } from '../app-types';
@@ -30,7 +31,19 @@ export function SavedAds({
 	onReuse?: (item: Generation) => void;
 }) {
 	const likedGenerations = history.filter(item => likedImageIds.includes(item.id));
-	const likedScrapedItems = scrapedWinners.filter(winner => likedScrapedPaths.has(winner.imagePath));
+	// La lista se arma desde las rutas guardadas, NO filtrando el catálogo.
+	// Antes era al revés y por eso un "me gusta" podía no aparecer nunca: el
+	// catálogo que llega acá es una muestra, y si el anuncio guardado no estaba
+	// en ella se perdía. La ruta alcanza para mostrar la tarjeta —la imagen se
+	// resuelve por ruta— y la metadata se suma cuando está disponible.
+	const byPath = useMemo(
+		() => new Map(scrapedWinners.filter((winner) => winner?.imagePath).map((winner) => [winner.imagePath as string, winner])),
+		[scrapedWinners],
+	);
+	const likedScrapedItems = useMemo(
+		() => Array.from(likedScrapedPaths).map((path) => byPath.get(path) || { imagePath: path }),
+		[likedScrapedPaths, byPath],
+	);
 	const likedScrapedUrls = useReferenceUrls(likedScrapedItems.map((winner: any) => winner.imagePath));
 	const hasContent = likedGenerations.length > 0 || likedScrapedItems.length > 0;
 

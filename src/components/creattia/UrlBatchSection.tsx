@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import UrlInput from './UrlInput';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
 import { supabase } from '../../lib/creattia/supabase-browser';
 import ProductAssetReview, { type ProductReviewMedia } from './ProductAssetReview';
@@ -652,30 +653,12 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						</div>
 
 						{mode === 'url' && (
-							<div className="url-batch-input-wrap" style={{ background: '#ffffff', border: '2px solid #744bde', boxShadow: '0 4px 16px rgba(116, 75, 222, 0.08)' }}>
-								<span className="input-icon" style={{ fontSize: '20px' }}>🔗</span>
-								<input
-									type="url"
-									className="url-batch-input"
-									placeholder="Pegá acá el link de tu producto"
-									value={url}
-									onChange={(e) => setUrl(e.target.value)}
-									style={{ color: '#19171d', fontWeight: 600, fontSize: '15px' }}
-								/>
-								<button
-									type="button"
-									className="paste-btn"
-									onClick={async () => {
-										try {
-											const text = await navigator.clipboard.readText();
-											if (text.startsWith('http')) setUrl(text);
-										} catch { /* ignore */ }
-									}}
-									title="Pegar URL"
-								>
-									📋 Pegar
-								</button>
-							</div>
+							<UrlInput
+								value={url}
+								onChange={setUrl}
+								placeholder="Pegá acá el link de tu producto"
+								ariaLabel="Link del producto"
+							/>
 						)}
 
 						{mode === 'manual' && (

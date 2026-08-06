@@ -1,4 +1,5 @@
 import { useReferenceUrl } from '../../../lib/creattia/reference-urls';
+import UrlInput from '../UrlInput';
 import { Icon } from '../Icon';
 import { getSessionToken } from '../app-session';
 import type { ActiveBatch, AppSession, Generation, Product } from '../app-types';
@@ -1073,12 +1074,13 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 									{logoSource === 'url' && (
 										<>
 											<div className="regen-brand-row">
-												<input
-													type="url"
+												<UrlInput
+													className="is-compact"
 													value={brandUrl}
-													onChange={(event) => { setBrandUrl(event.target.value); setBrandPreview(null); }}
+													onChange={(next) => { setBrandUrl(next); setBrandPreview(null); }}
 													placeholder="https://lamarca.com"
-													aria-label="URL de la marca"
+													ariaLabel="URL de la marca"
+													onEnter={() => { if (!brandLoading && brandUrl.trim()) void loadBrandFromUrl(); }}
 												/>
 												<button type="button" onClick={() => void loadBrandFromUrl()} disabled={brandLoading || !brandUrl.trim()}>
 													{brandLoading ? 'Leyendo…' : 'Leer'}

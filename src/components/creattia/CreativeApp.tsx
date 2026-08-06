@@ -676,15 +676,41 @@ export default function CreativeApp() {
 		})();
 	};
 
+	// `scrapedWinners` es la muestra de descubrimiento: cuatro anuncios, uno por
+	// ángulo. Alcanza para el panel de inicio, pero no para los guardados, donde
+	// puede estar guardado cualquiera de los cientos del catálogo. Cuando hay algo
+	// guardado se trae el catálogo completo una sola vez, para poder mostrar el
+	// nombre y la categoría de cada uno.
+	const [winnerCatalog, setWinnerCatalog] = useState<any[]>([]);
+	const winnerCatalogRequested = useRef(false);
+	useEffect(() => {
+		if (!likedScrapedPaths.size || winnerCatalogRequested.current) return;
+		if (!isSupabaseConfigured || !supabase) return;
+		winnerCatalogRequested.current = true;
+		void (async () => {
+			const items = await fetchLibraryItems(supabase!);
+			if (items.length) setWinnerCatalog(items as any[]);
+		})();
+	}, [likedScrapedPaths.size]);
+
+	const winnerPool = useMemo(() => {
+		if (!winnerCatalog.length) return scrapedWinners;
+		const byPath = new Map<string, any>();
+		for (const item of [...scrapedWinners, ...winnerCatalog]) {
+			if (item?.imagePath && !byPath.has(item.imagePath)) byPath.set(item.imagePath, item);
+		}
+		return Array.from(byPath.values());
+	}, [scrapedWinners, winnerCatalog]);
+
 	const likedWinners = useMemo(() => {
 		const seen = new Set();
-		return scrapedWinners.filter(item => {
+		return winnerPool.filter(item => {
 			if (!item.imagePath || !likedScrapedPaths.has(item.imagePath)) return false;
 			if (seen.has(item.imagePath)) return false;
 			seen.add(item.imagePath);
 			return true;
 		});
-	}, [scrapedWinners, likedScrapedPaths]);
+	}, [winnerPool, likedScrapedPaths]);
 
 	async function logout() {
 		if (supabase) await supabase.auth.signOut();
@@ -1223,7 +1249,7 @@ export default function CreativeApp() {
 							toggleLike={toggleLike}
 							folders={folders}
 							toggleFolder={toggleFolder}
-							scrapedWinners={scrapedWinners}
+							scrapedWinners={winnerPool}
 							likedScrapedPaths={likedScrapedPaths}
 							toggleLikedScraped={toggleLikedScraped}
 							onUseScrapedWinner={(path) => {

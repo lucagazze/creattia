@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from '../../../lib/creattia/supabase-browser';
+import UrlInput from '../UrlInput';
 import { Icon } from '../Icon';
 import { fileAsDataUrl, normalizeProductUrlInput } from '../app-products';
 import { getSessionId, getSessionToken } from '../app-session';
@@ -115,7 +116,7 @@ export function ProductIntake({ session, products, onProductsChanged, onCreated,
 
 	return <section className={`product-intake ${compact ? 'compact' : ''}`}>
 		<header><div><small>AGREGAR PRODUCTO</small><strong>Elegí la forma más rápida.</strong></div><nav><button className={mode === 'url' ? 'active' : ''} onClick={() => { setMode('url'); setError(''); }}>Desde una URL</button><button className={mode === 'manual' ? 'active' : ''} onClick={() => { setMode('manual'); setError(''); }}>Con fotos</button></nav></header>
-		{mode === 'url' ? <div className="product-intake-url"><label>URL exacta del producto<input value={productUrl} onChange={(event) => setProductUrl(event.target.value)} placeholder="https://mitienda.com/productos/..."/></label><p>Leemos nombre, descripción, precio y hasta 6 imágenes públicas del producto.</p><button onClick={() => void importUrl()} disabled={saving || !productUrl.trim()}>{saving ? <><span className="studio-spinner small"/> Analizando…</> : <><Icon name="external" size={16}/>Analizar y guardar</>}</button></div> : <div className="product-intake-manual">
+		{mode === 'url' ? <div className="product-intake-url"><label htmlFor="product-intake-url">URL exacta del producto</label><UrlInput id="product-intake-url" value={productUrl} onChange={setProductUrl} placeholder="https://mitienda.com/productos/..." ariaLabel="URL exacta del producto" onEnter={() => { if (!saving && productUrl.trim()) void importUrl(); }}/><p>Leemos nombre, descripción, precio y hasta 6 imágenes públicas del producto.</p><button onClick={() => void importUrl()} disabled={saving || !productUrl.trim()}>{saving ? <><span className="studio-spinner small"/> Analizando…</> : <><Icon name="external" size={16}/>Analizar y guardar</>}</button></div> : <div className="product-intake-manual">
 			<input ref={manualInput} hidden multiple type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => setFiles(Array.from(event.target.files || []).slice(0, 6))}/>
 			<button className="product-photo-drop" onClick={() => manualInput.current?.click()}><span><Icon name="upload"/></span><strong>{files.length ? `${files.length} ${files.length === 1 ? 'foto elegida' : 'fotos elegidas'}` : 'Subir entre 1 y 6 fotos'}</strong><small>Frente, dorso, detalle o distintos ángulos.</small></button>
 			{previews.length > 0 && <div className="product-photo-previews">{previews.map((url, index) => <span key={url}><img src={url} alt={`Foto ${index + 1}`}/>{index === 0 && <b>Principal</b>}</span>)}</div>}

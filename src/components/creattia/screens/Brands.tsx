@@ -1,4 +1,5 @@
 import { getSessionToken } from '../app-session';
+import UrlInput from '../UrlInput';
 import type { AppSession } from '../app-types';
 import { useEffect, useState } from 'react';
 /** Administrador de marcas y el formulario de "Mi marca". */
@@ -304,11 +305,13 @@ export function BrandsManager({ session, planCode, onPlans }: { session: AppSess
 			</p>
 
 			<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '18px' }}>
-				<input
+				<UrlInput
 					value={url}
-					onChange={(event) => setUrl(event.target.value)}
+					onChange={setUrl}
 					placeholder="https://tunegocio.com"
-					style={{ flex: '1 1 280px', padding: '11px 14px', borderRadius: '10px', border: '1px solid #e2dde9', fontSize: '14px' }}
+					ariaLabel="URL de tu negocio"
+					onEnter={() => { if (!scanning && url.trim() && brands.length < limit) void scan(); }}
+					style={{ flex: '1 1 280px' }}
 				/>
 				<button
 					onClick={() => void scan()}
