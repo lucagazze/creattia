@@ -775,15 +775,44 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 		metadata: baseMetadata,
 	};
 
+	/**
+	 * Empareja cada producto del catálogo con SU foto.
+	 *
+	 * Repartirlas por posición (al producto 3 la imagen 3) es una lotería: la
+	 * foto que termina adjunta puede ser de otro artículo, y el prompt le pide al
+	 * modelo reproducir fielmente "ese" producto. Las URLs de imagen suelen traer
+	 * el nombre en el slug ("Naturalleatherrolledskirtingsidehide"), así que se
+	 * elige la que comparte más palabras con el nombre del producto y recién si
+	 * no hay coincidencia se cae a la posición.
+	 */
+	const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+	const usedImages = new Set<string>();
+	const imageForProduct = (productName: string, index: number) => {
+		const words = productName.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length >= 4);
+		let best = '';
+		let bestScore = 0;
+		for (const candidate of finalImages) {
+			if (usedImages.has(candidate)) continue;
+			const haystack = normalize(candidate);
+			const score = words.reduce((total, word) => total + (haystack.includes(word) ? word.length : 0), 0);
+			if (score > bestScore) { bestScore = score; best = candidate; }
+		}
+		// Se exige alguna coincidencia real, no una letra suelta.
+		if (best && bestScore >= 5) { usedImages.add(best); return best; }
+		const fallback = finalImages.find((candidate) => !usedImages.has(candidate)) || finalImages[index] || finalImages[0] || '';
+		if (fallback) usedImages.add(fallback);
+		return fallback;
+	};
+
 	// En una página de catálogo no hay UN producto: se devuelve uno por cada
-	// producto distinto que la IA reconoció, repartiendo las fotos encontradas.
-	// Antes todo esto entraba como un único "producto 1" con las fotos mezcladas.
+	// producto distinto que la IA reconoció, con su foto emparejada por nombre.
 	const catalogItems: any[] = Array.isArray(extracted.catalogProducts) ? extracted.catalogProducts.slice(0, 8) : [];
 	if (pageType === 'catalog' && catalogItems.length) {
 		const products = catalogItems
 			.map((item, index): ScannedProduct | null => {
 				const itemName = compact(item?.name || '', 180);
 				if (!itemName) return null;
+				const matchedImage = imageForProduct(itemName, index);
 				return {
 					externalId: `${base}#${index + 1}`,
 					name: itemName,
@@ -792,9 +821,8 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 					currency: compact(extracted.currency || '', 12),
 					offeringType: 'product' as const,
 					productUrl: base,
-					// Una foto por producto cuando alcanzan; si no, la principal.
-					imageUrl: finalImages[index] || finalImages[0] || '',
-					imageUrls: finalImages[index] ? [finalImages[index]] : finalImages.slice(0, 1),
+					imageUrl: matchedImage,
+					imageUrls: matchedImage ? [matchedImage] : [],
 					videoUrls: [],
 					metadata: { ...baseMetadata, catalogIndex: index + 1, fromCatalog: true },
 				};
