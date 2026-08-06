@@ -44,10 +44,14 @@ function configuredTier(): QualityTier | 'auto' {
 }
 
 export function pickQualityTier(analysis: LayoutAnalysis | null, options?: { force?: QualityTier }): TierDecision {
-	if (options?.force) {
+	const configured = configuredTier();
+	// El override por generación se ignora salvo que la app entera esté en modo
+	// automático. Todas las imágenes salen en el MISMO nivel: tener algunas en
+	// 'high' y otras en 'medium' daba resultados desparejos sin que se notara
+	// desde dónde se había pedido cada una.
+	if (options?.force && configured === 'auto') {
 		return { tier: options.force, reason: 'elegido a mano', estimatedCost: COST[options.force] };
 	}
-	const configured = configuredTier();
 	if (configured !== 'auto') {
 		return { tier: configured, reason: `nivel fijo ${configured}`, estimatedCost: COST[configured] };
 	}

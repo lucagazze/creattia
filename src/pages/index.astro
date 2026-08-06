@@ -67,10 +67,17 @@ const landingCylinderImages = landingFreeLibraryImages.map((item) => item.src);
  * radio mayor al exacto quedan separadas y se pierde el tambor. Se calcula, así
  * que sigue cerrando si se agregan o sacan imágenes.
  */
-const cylinderRadius = (cardWidth: number) =>
-	Math.round((cardWidth / 2) / Math.tan(Math.PI / landingCylinderImages.length));
-const cylinderRadiusDesktop = cylinderRadius(220);
-const cylinderRadiusMobile = cylinderRadius(140);
+const cylinderRadius = (cardWidth: number, gap: number) =>
+	Math.round(((cardWidth + gap) / 2) / Math.tan(Math.PI / landingCylinderImages.length));
+/**
+ * Una rendija chica entre tarjetas: sin ella el tambor es una pared cerrada y
+ * no se percibe que gira; con demasiada, las tarjetas se leen sueltas y se
+ * pierde el círculo. 10px deja ver el fondo entre una y otra sin romperlo.
+ */
+const CYLINDER_GAP_DESKTOP = 10;
+const CYLINDER_GAP_MOBILE = 8;
+const cylinderRadiusDesktop = cylinderRadius(220, CYLINDER_GAP_DESKTOP);
+const cylinderRadiusMobile = cylinderRadius(140, CYLINDER_GAP_MOBILE);
 
 const plans = subscriptionPlans.map((plan) => ({
 	...plan,
@@ -3353,17 +3360,29 @@ const faqs = [
 	   ========================================== */
 	.main-footer {
 		background: #FFF;
-		padding: 80px 20px 40px;
+		padding: 64px 20px 36px;
 		display: grid;
-		grid-template-columns: 1fr;
-		gap: 40px;
+		/* En mobile las tres columnas de links iban una debajo de otra y el pie
+		   ocupaba una pantalla entera de scroll. Con dos columnas entra de una. */
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 34px 20px;
 		max-width: 1100px;
 		margin: 0 auto;
+	}
+
+	/* La marca ocupa el ancho completo; los links se reparten debajo. */
+	.main-footer > .footer-brand {
+		grid-column: 1 / -1;
 	}
 
 	@media (min-width: 768px) {
 		.main-footer {
 			grid-template-columns: 1.5fr repeat(3, 1fr);
+			padding: 80px 20px 40px;
+			gap: 40px;
+		}
+		.main-footer > .footer-brand {
+			grid-column: auto;
 		}
 	}
 
