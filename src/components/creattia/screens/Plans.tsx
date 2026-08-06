@@ -1,7 +1,8 @@
 import { subscriptionPlans, yearlyPriceFor, yearlySavingsFor } from '../../../lib/creattia/subscription-plans';
 import { isSupabaseConfigured, supabase } from '../../../lib/creattia/supabase-browser';
 import { Icon } from '../Icon';
-import { activeSubscriptionStatuses, getSessionToken, paidSubscriptionStatuses, planRank } from '../app-session';
+import { activeSubscriptionStatuses, getSessionId, getSessionToken, paidSubscriptionStatuses, planRank } from '../app-session';
+import { CancelFlow } from './CancelFlow';
 import type { AppProfile, AppSession } from '../app-types';
 import { useEffect, useState } from 'react';
 /** Planes, compra de créditos y estado de la suscripción. */
@@ -111,6 +112,43 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 		setPendingPlanChange({ planCode, direction });
 		return;
 	}
+	/**
+	 * Lo que hay que decirle al usuario sobre su plan hoy.
+	 *
+	 * La pantalla mostraba los planes pero nunca hasta cuándo vale el actual, así
+	 * que después de cambiar o cancelar quedaba la duda de qué día se corta.
+	 */
+	const estadoDelPlan = (() => {
+		const plan = subscriptionPlans.find((item) => item.code === profile.planCode);
+		const hasta = profile.subscriptionPeriodEnd
+			? new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(profile.subscriptionPeriodEnd))
+			: '';
+		if (profile.subscriptionStatus === 'cancelled' && hasta) {
+			return {
+				tono: 'aviso' as const,
+				titulo: `Tu plan ${plan?.name || ''} sigue activo hasta el ${hasta}`,
+				detalle: 'Cancelaste la renovación. Ese día la cuenta pasa a Gratis y tus imágenes y marcas se conservan.',
+			};
+		}
+		if (profile.subscriptionStatus === 'pending') {
+			return {
+				tono: 'aviso' as const,
+				titulo: 'Tu pago está pendiente de confirmación',
+				detalle: 'Apenas Mercado Pago lo apruebe se activan los tokens del plan. Si dejaste el checkout a medias, podés retomarlo desde el plan que elegiste.',
+			};
+		}
+		if (profile.subscriptionStatus === 'authorized' && plan) {
+			return {
+				tono: 'ok' as const,
+				titulo: `Tenés el plan ${plan.name} activo`,
+				detalle: hasta
+					? `Se renueva el ${hasta} con ${plan.credits} tokens. Podés cambiar de plan cuando quieras: el nuevo precio se aplica en esa fecha.`
+					: `Se renueva cada mes con ${plan.credits} tokens. Podés cambiar de plan cuando quieras.`,
+			};
+		}
+		return null;
+	})();
+
 	const returnedFromCheckout = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('subscription') === 'return';
 
 	useEffect(() => {
@@ -165,6 +203,15 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 
 	return <><div className="studio-page-heading"><div><p>PLANES Y ACCESO</p><h1>Desbloqueá la biblioteca que te inspira.</h1><span>Elegí el volumen de tokens que necesitás. Todos los planes pagos incluyen la biblioteca completa, estáticos y carruseles.</span></div></div>
 		
+		{/* Qué pasa con tu plan y cuándo. Sin esto, después de cambiar o cancelar
+		    no quedaba a la vista hasta qué día seguía valiendo lo que pagaste. */}
+		{estadoDelPlan && (
+			<div className={`plan-status plan-status-${estadoDelPlan.tono}`} role="status">
+				<strong>{estadoDelPlan.titulo}</strong>
+				<span>{estadoDelPlan.detalle}</span>
+			</div>
+		)}
+
 		{/* Mensual o anual. Antes no existía la opción y el anual era inalcanzable. */}
 		<div className="billing-switch" role="radiogroup" aria-label="Modalidad de cobro">
 			<button
@@ -268,7 +315,16 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 			const isUpgrade = pendingPlanChange.direction === 'up';
 			return <div className="studio-confirm-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPendingPlanChange(null); }}><section className="studio-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="plan-change-title"><div className="studio-confirm-icon" aria-hidden="true">{isUpgrade ? '↑' : '↓'}</div><p className="studio-confirm-kicker">CAMBIO DE PLAN</p><h2 id="plan-change-title">{isUpgrade ? 'Subir' : 'Bajar'} al plan {target.name}</h2><p>Tu suscripción actual se va a actualizar sin crear un segundo cobro. Vas a conservar el acceso y los créditos que correspondan al nuevo plan.</p><div className="studio-confirm-actions"><button type="button" className="studio-confirm-secondary" onClick={() => setPendingPlanChange(null)}>Cancelar</button><button type="button" className="studio-confirm-primary" onClick={() => { setPendingPlanChange(null); void subscribe(target.code, true); }}>{isUpgrade ? 'Subir de plan' : 'Bajar de plan'}</button></div></section></div>;
 		})()}
-		{confirmingCancel && <div className="studio-confirm-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setConfirmingCancel(false); }}><section className="studio-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="cancel-subscription-title"><div className="studio-confirm-icon muted" aria-hidden="true">×</div><p className="studio-confirm-kicker">RENOVACIÓN</p><h2 id="cancel-subscription-title">Cancelar la renovación</h2><p>Vas a conservar tus créditos y el acceso actual hasta que termine el período ya pagado. Después, la cuenta volverá al plan Gratis.</p><div className="studio-confirm-actions"><button type="button" className="studio-confirm-secondary" onClick={() => setConfirmingCancel(false)}>Mantener mi plan</button><button type="button" className="studio-confirm-danger" onClick={() => void cancelSubscription()}>Cancelar renovación</button></div></section></div>}
+		{confirmingCancel && (
+			<CancelFlow
+				profile={profile}
+				userId={getSessionId(session)}
+				periodEnd={profile.subscriptionPeriodEnd}
+				onClose={() => setConfirmingCancel(false)}
+				onConfirm={cancelSubscription}
+				onVerPlanes={() => { setConfirmingCancel(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+			/>
+		)}
 	</>;
 }
 

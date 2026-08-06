@@ -3645,9 +3645,16 @@
 	border-radius: 14px;
 	border: 2px solid #e7e2ef;
 	background: #faf8fd;
+	/* Sin color propio heredaba el del contenedor y las opciones sin elegir se
+	   veían azuladas, como si estuvieran todas seleccionadas. */
+	color: #19171d;
 	cursor: pointer;
 	transition: all .18s ease;
 }
+
+.picker-pill .pill-sub { color: #5c5568; }
+.picker-pill.active .pill-count,
+.picker-pill.active .pill-sub { color: #5b32c7; }
 
 .picker-pill:hover {
 	border-color: #baa4ed;
@@ -6140,4 +6147,54 @@
 
 @media (max-width: 640px) {
 	.decision-options button { width: 100%; }
+}
+
+
+/* ─── Estado del plan, con fechas ─────────────────────────────────────
+   La pantalla mostraba los planes pero nunca hasta cuándo valía el actual. */
+.plan-status {
+	display: flex; flex-direction: column; gap: 3px;
+	margin-bottom: 16px; padding: 13px 16px; border-radius: 12px; border: 1px solid;
+}
+.plan-status strong { font-size: 13.5px; }
+.plan-status span { font-size: 12.5px; line-height: 1.45; }
+.plan-status-ok { border-color: #c1eed6; background: #f2fbf6; }
+.plan-status-ok strong { color: #1c7a48; }
+.plan-status-ok span { color: #4a6b58; }
+.plan-status-aviso { border-color: #f0d8a8; background: #fffaf0; }
+.plan-status-aviso strong { color: #8a5d0f; }
+.plan-status-aviso span { color: #7a6746; }
+
+/* ─── Baja en pasos ───────────────────────────────────────────────────
+   Antes era un botón suelto: se perdía la cuenta sin saber nunca por qué. */
+.cancel-flow { max-width: 480px; text-align: left; }
+.cancel-reasons { display: flex; flex-direction: column; gap: 7px; margin: 14px 0 18px; }
+.cancel-reasons button {
+	min-height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid #e2dde9;
+	background: #fff; color: #3f3a46; cursor: pointer; text-align: left;
+	font-family: inherit; font-size: 13.5px; font-weight: 600;
+	transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.cancel-reasons button:hover { border-color: #cbb8f0; }
+.cancel-reasons button.active { border-color: #7c4dff; background: #f4efff; color: #5b32c9; font-weight: 700; }
+
+.cancel-comment { display: flex; flex-direction: column; gap: 6px; margin: 16px 0 18px; }
+.cancel-comment span { font-size: 12.5px; font-weight: 700; color: #4c4654; }
+.cancel-comment span em { font-style: normal; font-weight: 500; color: #8b8490; }
+.cancel-comment textarea {
+	padding: 10px 12px; border-radius: 10px; border: 1px solid #e2dde9;
+	font-family: inherit; font-size: 13px; line-height: 1.45; resize: vertical;
+}
+
+.cancel-consequences { list-style: none; margin: 14px 0 18px; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+.cancel-consequences li { display: flex; flex-direction: column; gap: 2px; padding-left: 15px; position: relative; }
+.cancel-consequences li::before {
+	content: ''; position: absolute; left: 0; top: 7px; width: 6px; height: 6px;
+	border-radius: 50%; background: #c9c2d4;
+}
+.cancel-consequences strong { font-size: 13px; color: #19171d; line-height: 1.4; }
+.cancel-consequences span { font-size: 12.5px; color: #716d79; line-height: 1.45; }
+
+@media (max-width: 640px) {
+	.cancel-flow { max-width: 100%; }
 }
