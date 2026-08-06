@@ -843,6 +843,12 @@ export default function CreativeApp() {
 	) {
 		const record: ActiveBatch = { ...batch, startedAt: Date.now(), status: 'processing', results: [] };
 		setActiveBatch(record);
+		// Confirmación explícita de que el pedido arrancó. Entre el clic y la
+		// primera imagen pasan varios segundos, y sin un aviso claro no se sabía
+		// si el botón había hecho algo: de ahí venían los clics repetidos.
+		setToast(batch.count > 1
+			? `Empezamos a generar tus ${batch.count} imágenes. Las vas a ver acá a medida que salgan.`
+			: 'Empezamos a generar tu imagen. La vas a ver acá cuando esté lista.');
 		// Siempre a "Mis imágenes": es donde el usuario espera encontrar lo que se
 		// está generando, y ahí está la barra del lote más el progreso por imagen.
 		if (!options?.stay) setView('history');
