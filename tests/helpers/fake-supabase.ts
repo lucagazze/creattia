@@ -10,7 +10,7 @@
  */
 
 type Row = Record<string, any>;
-type Filter = { op: 'eq' | 'in' | 'lt' | 'neq'; column: string; value: any } | { op: 'or'; conditions: string };
+type Filter = { op: 'eq' | 'in' | 'lt' | 'lte' | 'gt' | 'gte' | 'neq'; column: string; value: any } | { op: 'or'; conditions: string };
 
 export type RpcHandler = (args: Record<string, any>) => { data?: any; error?: any } | Promise<{ data?: any; error?: any }>;
 
@@ -29,6 +29,9 @@ function matchesOr(row: Row, conditions: string) {
 		const operand = rest.join('.');
 		if (op === 'is') return operand === 'null' ? value === null || value === undefined : String(value) === operand;
 		if (op === 'lt') return value != null && String(value) < operand;
+		if (op === 'lte') return value != null && String(value) <= operand;
+		if (op === 'gt') return value != null && String(value) > operand;
+		if (op === 'gte') return value != null && String(value) >= operand;
 		if (op === 'eq') return String(value) === operand;
 		return false;
 	});
@@ -42,6 +45,9 @@ function matches(row: Row, filters: Filter[]) {
 		if (filter.op === 'neq') return value !== filter.value;
 		if (filter.op === 'in') return (filter.value as any[]).includes(value);
 		if (filter.op === 'lt') return value < filter.value;
+		if (filter.op === 'lte') return value <= filter.value;
+		if (filter.op === 'gt') return value > filter.value;
+		if (filter.op === 'gte') return value >= filter.value;
 		return true;
 	});
 }
@@ -76,7 +82,14 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
 		const run = () => {
 			const rows = table(tableName);
 			if (mode === 'insert') {
-				const inserted = payload.map((row) => ({ id: row.id ?? `row-${rows.length + 1}`, ...row }));
+				// La tabla real tiene `created_at timestamptz default now()`. Sin
+				// esto, cualquier consulta que filtre por fecha no encontraba nada
+				// acá aunque en producción sí encuentre.
+				const inserted = payload.map((row) => ({
+					id: row.id ?? `row-${rows.length + 1}`,
+					created_at: new Date().toISOString(),
+					...row,
+				}));
 				rows.push(...inserted);
 				return { data: returning ? inserted : null, error: null };
 			}
@@ -122,6 +135,9 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
 			in(column: string, value: any[]) { filters.push({ op: 'in', column, value }); return chain; },
 			or(conditions: string) { filters.push({ op: 'or', conditions }); return chain; },
 			lt(column: string, value: any) { filters.push({ op: 'lt', column, value }); return chain; },
+			lte(column: string, value: any) { filters.push({ op: 'lte', column, value }); return chain; },
+			gt(column: string, value: any) { filters.push({ op: 'gt', column, value }); return chain; },
+			gte(column: string, value: any) { filters.push({ op: 'gte', column, value }); return chain; },
 			order() { return chain; },
 			limit() { return chain; },
 			maybeSingle() { wantsSingle = 'maybe'; return chain; },

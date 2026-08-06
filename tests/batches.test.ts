@@ -173,6 +173,32 @@ describe('POST /api/creativos/carousel-start', () => {
 		assert.ok(rows.every((row) => row.settings_snapshot.carousel === true));
 	});
 
+	test('un segundo envío idéntico no vuelve a cobrar ni a generar', async () => {
+		// Pasó en producción: quedaron dos lotes idénticos de 10 páginas con 126 ms
+		// de diferencia, o sea el doble de créditos, porque el botón no se
+		// deshabilitaba mientras el pedido estaba en vuelo. El botón ya está
+		// arreglado, pero eso vive en el navegador: un reintento de red o una
+		// pestaña duplicada repetirían el cobro igual.
+		const { creditsNow } = setup();
+		const primero = await carouselStart({
+			request: post('https://creattia.app/api/creativos/carousel-start', base),
+		} as any);
+		const uno = await primero.json();
+		assert.equal(creditsNow(), 97);
+		assert.equal(fake.tables.creative_generations.length, 3);
+
+		const segundo = await carouselStart({
+			request: post('https://creattia.app/api/creativos/carousel-start', base),
+		} as any);
+		const dos = await segundo.json();
+
+		assert.equal(segundo.status, 200, JSON.stringify(dos));
+		assert.equal(dos.duplicated, true, 'se avisa que se reutilizó el lote');
+		assert.equal(dos.batchId, uno.batchId, 'devuelve el lote que ya existía');
+		assert.equal(fake.tables.creative_generations.length, 3, 'no se crean páginas nuevas');
+		assert.equal(creditsNow(), 97, 'no se vuelve a cobrar');
+	});
+
 	test('pedir una calidad distinta no cambia el precio del carrusel', async () => {
 		const { creditsNow } = setup();
 		await carouselStart({

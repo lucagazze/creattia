@@ -5,7 +5,7 @@ import { getSessionToken } from '../app-session';
 import type { ActiveBatch, AppSession, Generation, Product } from '../app-types';
 import { groupCarouselHistory } from '../history-utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { downloadImage } from '../download';
+import { downloadCarousel, downloadImage } from '../download';
 import { signOriginalGeneration, useFullGenerationUrl } from '../../../lib/creattia/generation-image';
 /** Historial de generaciones: tarjetas, lightbox y la referencia ganadora. */
 
@@ -691,6 +691,9 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 	const isCarousel = carouselSlides.length > 1;
 	const goToSlide = (delta: number) => setSlideIndex((previous) => (previous + delta + carouselSlides.length) % carouselSlides.length);
 	const touchStartX = useRef<number | null>(null);
+	/** Bajar un carrusel entero tarda: sin aviso parece que el botón no hizo nada. */
+	const [bajando, setBajando] = useState(false);
+	const [progresoBajada, setProgresoBajada] = useState('');
 	useEffect(() => {
 		if (!isCarousel) return;
 		const handleKeyDown = (event: KeyboardEvent) => {
@@ -825,12 +828,15 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 		setStarting(true); setError('');
 		try {
 			const form = new FormData();
-			form.set('templateId', String(item.templateId || 40));
-			form.set('templateName', item.title);
-			form.set('sourceGenerationId', item.id);
+			// La página que se está mirando, no la primera del carrusel: antes
+			// `item` era siempre la página 1, así que pedir otra versión desde la
+			// página 4 rehacía la 1 y la 4 quedaba igual.
+			form.set('templateId', String(activeItem.templateId || item.templateId || 40));
+			form.set('templateName', activeItem.title || item.title);
+			form.set('sourceGenerationId', activeItem.id);
 			form.set('variationStrength', revision.trim() ? 'exact' : 'light');
-			form.set('imageType', item.imageType || 'promotion');
-			form.set('format', revisionFormat || item.format || '1:1');
+			form.set('imageType', activeItem.imageType || item.imageType || 'promotion');
+			form.set('format', revisionFormat || activeItem.format || item.format || '1:1');
 			form.set('fidelity', '1');
 			form.set('preset', 'Nueva versión');
 			form.set('count', '1');
@@ -938,9 +944,31 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 							</span>
 						</button>
 					)}
-					<button type="button" className="regen-download" onClick={async () => downloadImage(await signOriginalGeneration(activeItem.outputPath, fullUrl), `creattia-${activeItem.id}.png`)}>
-						<Icon name="download" size={16} />
-						Descargar imagen
+					{/* Con un carrusel se baja el conjunto: antes solo caía la página
+					    que estabas mirando y había que abrirlas de a una. */}
+					<button
+						type="button"
+						className="regen-download"
+						disabled={bajando}
+						onClick={async () => {
+							if (bajando) return;
+							setBajando(true);
+							try {
+								if (isCarousel) {
+									const paginas = await Promise.all(carouselSlides.map(async (slide, index) => ({
+										url: await signOriginalGeneration(slide.outputPath, slide.imageUrl),
+										indice: slide.outputIndex || index + 1,
+									})));
+									await downloadCarousel(paginas.filter((p) => p.url), item.title || 'carrusel', (hechas, total) => setProgresoBajada(`${hechas} de ${total}`));
+								} else {
+									await downloadImage(await signOriginalGeneration(activeItem.outputPath, fullUrl), `creattia-${activeItem.id}.png`);
+								}
+							} finally { setBajando(false); setProgresoBajada(''); }
+						}}
+					>
+						{bajando
+							? <><span className="studio-spinner small" aria-hidden="true" /> {progresoBajada ? `Preparando ${progresoBajada}…` : 'Preparando…'}</>
+							: <><Icon name="download" size={16} />{isCarousel ? `Descargar las ${carouselSlides.length} páginas` : 'Descargar imagen'}</>}
 					</button>
 					{activeItem.referenceUrl && (
 						<button onClick={() => setShowReference(!showReference)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: showReference ? '#eceaef' : '#f8f6fb', border: showReference ? '1px solid #cfc9d8' : '1px solid transparent', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>
@@ -952,8 +980,14 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 						</button>
 					)}
 					<div style={{ borderTop: '1px solid #eee9f2', paddingTop: '14px' }}>
-						<strong style={{ display: 'block', fontSize: '14px', color: '#19171d', marginBottom: '8px' }}>Crear otra versión</strong>
-						<p style={{ margin: '0 0 10px', fontSize: '12.5px', color: '#8b8490', lineHeight: 1.5 }}>Contale a la IA qué cambiar. Si lo dejás vacío genera una variante manteniendo el diseño.</p>
+						<strong style={{ display: 'block', fontSize: '14px', color: '#19171d', marginBottom: '8px' }}>
+							{isCarousel ? `Rehacer la página ${slideIndex + 1} de ${carouselSlides.length}` : 'Crear otra versión'}
+						</strong>
+						<p style={{ margin: '0 0 10px', fontSize: '12.5px', color: '#8b8490', lineHeight: 1.5 }}>
+							{isCarousel
+								? 'Se rehace solo la página que estás viendo; las demás quedan como están. Cambiá de página arriba para rehacer otra.'
+								: 'Contale a la IA qué cambiar. Si lo dejás vacío genera una variante manteniendo el diseño.'}
+						</p>
 						
 						{/* Qué producto usa la nueva versión.
 						    Antes eran cinco pestañas siempre visibles con el título

@@ -1,6 +1,6 @@
 import { useReferenceUrls } from '../../lib/creattia/reference-urls';
 import UrlInput from './UrlInput';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
 import ProductAssetReview, { type ProductReviewItem } from './ProductAssetReview';
 
@@ -58,6 +58,16 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [carouselSameProduct, setCarouselSameProduct] = useState(true);
 	const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
 	const [carouselStarting, setCarouselStarting] = useState(false);
+	/**
+	 * Cerrojo contra el doble envío.
+	 *
+	 * El botón no se deshabilitaba mientras el lote estaba en vuelo, así que un
+	 * segundo clic mandaba otra tanda entera: quedaron dos lotes idénticos de 10
+	 * páginas con 126 ms de diferencia, o sea el doble de créditos gastados. El
+	 * estado de React no alcanza para frenarlo —entre dos clics seguidos todavía
+	 * vale el valor viejo—, hace falta una referencia que cambie en el acto.
+	 */
+	const enviando = useRef(false);
 	const wantsFullCarousel = isCarouselAd && carouselMode === 'full';
 	// La página que se clona cuando se elige "solo una página": el resto del
 	// flujo de revisión visual funciona exactamente igual que un anuncio suelto.
@@ -334,6 +344,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	}
 
 	async function approveAndGenerate() {
+		// Mismo cerrojo que el carrusel: el botón se deshabilita con `phase`, pero
+		// entre dos clics muy seguidos ese estado todavía vale el valor viejo.
+		if (enviando.current) return;
+		enviando.current = true;
 		setPhase('starting'); setError('');
 		onGenerationRequested?.();
 		try {
@@ -396,6 +410,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la generación.');
 			setPhase('review');
+		} finally {
+			enviando.current = false;
 		}
 	}
 
@@ -441,6 +457,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			await requestPlan();
 			return;
 		}
+		if (enviando.current) return;
+		enviando.current = true;
 		setCarouselStarting(true); setError('');
 		onGenerationRequested?.();
 		try {
@@ -528,6 +546,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la generación del carrusel.');
 		} finally {
+			enviando.current = false;
 			setCarouselStarting(false);
 		}
 	}
@@ -890,7 +909,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 										<button
 											type="button"
 											onClick={() => { if (!step1Ready) { setError('Completá los productos antes de generar.'); setFormStep(1); return; } void approveAndGenerateCarousel(); }}
-											disabled={phase === 'planning'}
+											disabled={phase === 'planning' || carouselStarting}
 											className="url-batch-submit-btn"
 										>
 											{carouselStarting ? <><span className="studio-spinner small" aria-hidden="true" /> Preparando carrusel…</> : `Generar ${carouselSlides.length} imágenes`}

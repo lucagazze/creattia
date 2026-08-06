@@ -124,6 +124,44 @@ export const POST: APIRoute = async ({ request }) => {
 
 		const count = slides.length;
 
+		/**
+		 * Red contra el doble envío.
+		 *
+		 * Pasó de verdad: quedaron dos lotes idénticos de 10 páginas con 126 ms de
+		 * diferencia, o sea el doble de créditos gastados por un clic de más. El
+		 * botón ya no se puede tocar dos veces, pero eso vive en el navegador: un
+		 * reintento de red, una pestaña duplicada o un cliente viejo repetirían el
+		 * cobro. Si el mismo usuario pide el mismo carrusel sobre la misma
+		 * referencia dentro del último minuto, se devuelve el lote que ya existe
+		 * en vez de cobrar y generar todo otra vez.
+		 */
+		const desdeISO = new Date(Date.now() - 60_000).toISOString();
+		const { data: recientes } = await admin.from('creative_generations')
+			.select('id,batch_id,output_index,title,template_id,status,settings_snapshot,requested_outputs')
+			.eq('user_id', userId)
+			.eq('variant_key', 'carrusel')
+			.gte('created_at', desdeISO)
+			.limit(60);
+		// Se agrupa por lote: cada página guarda SU propia referencia, así que
+		// comparar página por página contra la primera nunca da más de una
+		// coincidencia. Lo que identifica al pedido es el lote entero.
+		const porLote = new Map<string, any[]>();
+		for (const row of recientes || []) {
+			if (!row.batch_id) continue;
+			porLote.set(row.batch_id, [...(porLote.get(row.batch_id) || []), row]);
+		}
+		for (const [loteExistente, paginas] of porLote) {
+			if (paginas.length !== count) continue;
+			const primera = paginas.find((row: any) => (row.settings_snapshot?.carouselIndex || row.output_index) === 1);
+			if (primera?.settings_snapshot?.referencePath !== slides[0]) continue;
+			console.warn(`[carousel-start] envío duplicado del usuario ${userId}: se reutiliza el lote ${loteExistente}`);
+			return json({
+				batchId: loteExistente,
+				generations: [...paginas].sort((a: any, b: any) => (a.output_index || 0) - (b.output_index || 0)),
+				duplicated: true,
+			});
+		}
+
 		if (!isUnlimited) {
 			const { data: reserveRes, error: creditError } = await admin.rpc('reserve_creative_credits', {
 				p_user_id: userId,

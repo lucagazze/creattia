@@ -548,17 +548,6 @@ export default function WinnersLibrary({
 		setLockedVisibleCount(8);
 	}, [selectedCategories, selectedFormat, savedOnly, query]);
 
-	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
-	// imagen al instante en vez de esperar a que baje cada foto de a una.
-	useEffect(() => {
-		// El bucket es privado: las URLs las firma el servidor.
-		const urlFor = (path: string) => (path.startsWith('http') ? path : signedUrls[path] || '');
-		filteredItems.slice(0, visibleCount).forEach((item) => {
-			const slides = item.metadata?.carouselImages;
-			if (!Array.isArray(slides) || slides.length < 2) return;
-			slides.slice(1).forEach((path) => { const img = new Image(); img.src = urlFor(path); });
-		});
-	}, [filteredItems, visibleCount]);
 	const gridRef = React.useRef<HTMLDivElement | null>(null);
 	const [columnCount, setColumnCount] = useState(4);
 	useEffect(() => {
@@ -601,10 +590,35 @@ export default function WinnersLibrary({
 	const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
 	// El catálogo completo llega sin firmar (son más de 6.500 rutas): se piden
 	// las URLs de las tarjetas que se están viendo, y del carrusel abierto.
+	// Se firman TODAS las páginas de cada carrusel visible, no las dos primeras.
+	// Con el tope anterior, un carrusel de diez tenía URL para dos: la precarga
+	// no encontraba nada que precargar y a partir de la tercera había que esperar
+	// a que se firmara y bajara la imagen en el momento de pasarla.
 	const signedUrls = useReferenceUrls([
-		...visibleItems.flatMap((item: any) => [item.imagePath, ...(item.metadata?.carouselImages || []).slice(0, 2)]),
+		...visibleItems.flatMap((item: any) => [item.imagePath, ...(item.metadata?.carouselImages || []).slice(0, 12)]),
 		...(activeAd ? [activeAd.imagePath, ...((activeAd as any).metadata?.carouselImages || [])] : []),
 	]);
+	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
+	// imagen al instante en vez de esperar a que baje cada foto de a una.
+	//
+	// Faltaba `signedUrls` en las dependencias, y ese era el problema de fondo:
+	// el efecto corría antes de que llegaran las firmas, no encontraba ninguna
+	// URL y no volvía a intentarlo nunca. Ahora se ejecuta también cuando las
+	// firmas aparecen, que es cuando realmente se puede precargar algo.
+	useEffect(() => {
+		// El bucket es privado: las URLs las firma el servidor.
+		const urlFor = (path: string) => (path.startsWith('http') ? path : signedUrls[path] || '');
+		filteredItems.slice(0, visibleCount).forEach((item) => {
+			const slides = item.metadata?.carouselImages;
+			if (!Array.isArray(slides) || slides.length < 2) return;
+			slides.slice(1).forEach((path) => {
+				const url = urlFor(path);
+				if (!url) return;
+				const img = new Image();
+				img.src = url;
+			});
+		});
+	}, [filteredItems, visibleCount, signedUrls]);
 	const lockedItems = useMemo<WinnerItem[]>(() => {
 		if (!selectedLockedAngles.length || !lockedVisibleCount) return [];
 		const selectedAngles = selectedLockedAngles;
