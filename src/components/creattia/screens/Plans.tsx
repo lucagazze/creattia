@@ -10,7 +10,15 @@ import { useEffect, useState } from 'react';
 export function BuyCreditsSection({ session }: { session: AppSession }) {
 	const [config, setConfig] = useState<any>(null);
 	const [buying, setBuying] = useState(false);
-	const [quantity, setQuantity] = useState(1);
+	/**
+	 * La cantidad se guarda como texto, no como número.
+	 *
+	 * Antes se forzaba a 1 en cada tecla —Math.max(1, ...)— así que el campo
+	 * nunca podía quedar vacío: para escribir 3 había que borrar el 1 y no se
+	 * podía, terminabas con 13 o 31. Ahora se deja escribir libremente y el valor
+	 * se acota recién al calcular el total y al pagar.
+	 */
+	const [quantity, setQuantity] = useState('1');
 	const [error, setError] = useState('');
 
 	useEffect(() => {
@@ -49,7 +57,7 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 	if (!config) return <div className="studio-loading-panel" style={{ marginTop: '36px', minHeight: '120px' }}><span className="studio-spinner" aria-hidden="true" /><p>Cargando opciones de pago…</p></div>;
 	const unconfigured = !config.configured;
 	const maxCredits = Number(config.maxCredits || 1000);
-	const safeQuantity = Math.min(maxCredits, Math.max(1, Math.floor(quantity)));
+	const safeQuantity = Math.min(maxCredits, Math.max(1, Math.floor(Number(quantity) || 1)));
 	const unitPrice = Number(config.unitPrice || 0.3);
 	const totalPrice = (unitPrice * safeQuantity).toFixed(2);
 	const symbol = config.currency === 'USD' ? 'u$s' : '$';
@@ -76,7 +84,26 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 					<label htmlFor="credit-quantity" style={{ display: 'block', marginBottom: '7px', color: '#19171d', fontSize: '15px', fontWeight: 800 }}>¿Cuántos créditos querés comprar?</label>
 					<p style={{ margin: '0 0 14px', color: '#716d79', fontSize: '12.5px', lineHeight: 1.45 }}>Elegí cualquier cantidad. Cada crédito equivale a una imagen generada.</p>
 					<div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-						<input id="credit-quantity" type="number" min={1} max={maxCredits} step={1} value={quantity} onChange={(event) => setQuantity(Math.min(maxCredits, Math.max(1, Number(event.target.value) || 1)))} style={{ width: '140px', boxSizing: 'border-box', height: '46px', padding: '0 13px', border: '1px solid #d8cceb', borderRadius: '10px', color: '#19171d', fontSize: '20px', fontWeight: 800 }} />
+						<input
+							id="credit-quantity"
+							type="number"
+							inputMode="numeric"
+							min={1}
+							max={maxCredits}
+							step={1}
+							value={quantity}
+							onChange={(event) => {
+								const escrito = event.target.value;
+								// Se permite el campo vacío mientras se escribe; solo se
+								// descartan las letras y los números fuera de rango.
+								if (escrito === '') { setQuantity(''); return; }
+								const numero = Number(escrito);
+								if (!Number.isFinite(numero)) return;
+								setQuantity(String(Math.min(maxCredits, Math.max(0, Math.floor(numero)))));
+							}}
+							onBlur={() => setQuantity(String(safeQuantity))}
+							style={{ width: '140px', boxSizing: 'border-box', height: '46px', padding: '0 13px', border: '1px solid #d8cceb', borderRadius: '10px', color: '#19171d', fontSize: '20px', fontWeight: 800 }}
+						/>
 						<span style={{ color: '#716d79', fontSize: '13px' }}>créditos</span>
 					</div>
 					<small style={{ display: 'block', marginTop: '9px', color: '#8b8290', fontSize: '11px' }}>Podés comprar de 1 a {maxCredits} créditos en una sola operación.</small>

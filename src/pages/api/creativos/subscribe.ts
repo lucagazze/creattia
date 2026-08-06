@@ -156,7 +156,17 @@ export const POST: APIRoute = async ({ request, url }) => {
 		.maybeSingle();
 	if (existingError) return fail('subscribe', existingError, 'No se pudo completar la operación sobre tu suscripción.');
 	const siteUrl = import.meta.env.PUBLIC_SITE_URL || url.origin;
-	const existingIsActive = Boolean(existing && ['authorized', 'pending', 'paused'].includes(existing.status));
+	/**
+	 * Un plan vigente de verdad, contra un checkout abierto sin pagar.
+	 *
+	 * Los dos se trataban igual, y eso rompía el caso más común: si dejabas el
+	 * pago de Básico a medias y volvías a tocar Básico, la respuesta era
+	 * 409 "Ese ya es tu plan actual" y Mercado Pago no abría nunca más. El
+	 * pendiente tampoco es motivo para bloquear otro plan: no se cobró nada.
+	 * Más abajo se cancela el checkout viejo y se abre uno nuevo.
+	 */
+	const existingIsActive = Boolean(existing && ['authorized', 'paused'].includes(existing.status));
+	const existingIsPending = existing?.status === 'pending';
 	if (existingIsActive && existing?.plan_code === planCode) {
 		return json({ error: 'Ese ya es tu plan actual.', code: 'SAME_PLAN' }, 409);
 	}
@@ -212,10 +222,10 @@ export const POST: APIRoute = async ({ request, url }) => {
 	}
 
 	if (existingIsActive && !changeCurrent) {
-		return json({ error: 'Ya tenés una suscripción activa o pendiente.', code: 'SUBSCRIPTION_EXISTS', currentPlanCode: existing?.plan_code || null }, 409);
+		return json({ error: 'Ya tenés una suscripción activa.', code: 'SUBSCRIPTION_EXISTS', currentPlanCode: existing?.plan_code || null }, 409);
 	}
 
-	if (existing?.status === 'pending' && existing.provider_subscription_id) {
+	if (existingIsPending && existing.provider_subscription_id) {
 		// Un checkout abandonado no cobró nada: si Mercado Pago no lo deja
 		// cancelar —porque nunca llegó a autorizarse, o porque ya venció— seguir
 		// adelante es seguro y es lo único que destraba al usuario. Antes esto
