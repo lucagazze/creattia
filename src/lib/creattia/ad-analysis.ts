@@ -332,6 +332,28 @@ Rules:
 				...item,
 				slide: Number.isInteger(Number(item?.slide)) && Number(item.slide) >= 1 ? Number(item.slide) : undefined,
 			})) : [];
+			// El bloque creativo entra tal cual al prompt del render: se acota acá
+			// para que una respuesta larga o rara del analizador no se cuele ni
+			// infle el prompt sin control.
+			if (parsed.creative && typeof parsed.creative === 'object') {
+				const texto = (valor: unknown, max: number) => (typeof valor === 'string' ? valor.trim().slice(0, max) : undefined);
+				parsed.creative = {
+					...parsed.creative,
+					adType: texto(parsed.creative.adType, 120),
+					styleFamily: texto(parsed.creative.styleFamily, 60),
+					photographyStyle: texto(parsed.creative.photographyStyle, 200),
+					lighting: texto(parsed.creative.lighting, 200),
+					depth: texto(parsed.creative.depth, 200),
+					composition: texto(parsed.creative.composition, 240),
+					colorPsychology: texto(parsed.creative.colorPsychology, 240),
+					emotion: texto(parsed.creative.emotion, 120),
+					designPattern: texto(parsed.creative.designPattern, 300),
+					scoreReasons: Array.isArray(parsed.creative.scoreReasons)
+						? parsed.creative.scoreReasons.map((razon: any) => String(razon || '').trim().slice(0, 120)).filter(Boolean).slice(0, 5)
+						: [],
+				};
+			}
+
 			parsed.creativeDecisions = Array.isArray(parsed.creativeDecisions)
 				? parsed.creativeDecisions.slice(0, 5).map((decision: any) => ({
 					type: ['person', 'scene', 'styling', 'object', 'comparison', 'product-handling', 'other'].includes(decision?.type) ? decision.type : 'other',
@@ -573,9 +595,26 @@ PHYSICAL SCALE (CRITICAL) — The template's product is ${input.analysis.templat
 	// pierde el porqué: la luz, la profundidad y el tipo de fotografía son la
 	// mitad de lo que hace que un anuncio se vea profesional.
 	const c = input.analysis?.creative;
-	const creativeBlock = c && (c.photographyStyle || c.lighting || c.composition)
+	/**
+	 * Lo que hace ganar a este anuncio, dicho por el propio análisis.
+	 *
+	 * El analizador ya devolvía `adType`, `styleFamily` y `scoreReasons` —"por qué
+	 * este creativo funciona": contraste, jerarquía, CTA, legibilidad— y nada de
+	 * eso llegaba al prompt del render. Se pagaba el análisis y se tiraba
+	 * justamente la parte que explica la fuerza del anuncio, que es lo único que
+	 * hay que conservar al clonarlo.
+	 *
+	 * El tipo de anuncio va primero a propósito: saber que es un testimonial, una
+	 * comparativa o un antes/después gobierna toda la composición, mucho más que
+	 * cualquier detalle de iluminación.
+	 */
+	const creativeBlock = c && (c.photographyStyle || c.lighting || c.composition || c.adType)
 		? `
 ART DIRECTION TO PRESERVE — this ad works because of how it is shot and arranged, not only because of where the text sits. Reproduce all of it:${[
+			c.adType && `
+   · What kind of ad this is: ${c.adType}. The new ad must remain the SAME kind — do not turn a testimonial into a plain product shot, or a comparison into a single hero.`,
+			c.styleFamily && `
+   · Aesthetic family: ${c.styleFamily}. Someone should place the result in that same family at a glance.`,
 			c.photographyStyle && `
    · Shot style: ${c.photographyStyle}`,
 			c.lighting && `
@@ -590,6 +629,8 @@ ART DIRECTION TO PRESERVE — this ad works because of how it is shot and arrang
    · Emotion it must trigger: ${c.emotion}`,
 			c.designPattern && `
    · The reusable pattern: ${c.designPattern}`,
+			Array.isArray(c.scoreReasons) && c.scoreReasons.length && `
+   · WHY THIS AD PERFORMS — these are the specific strengths that made it a winner, and every one of them must survive in the new ad: ${c.scoreReasons.filter(Boolean).slice(0, 5).join('; ')}`,
 		].filter(Boolean).join('')}
 The new ad must be shot the same way. A flat, evenly lit product on a plain background is a failure if the template used directional light and shallow depth.`
 		: '';

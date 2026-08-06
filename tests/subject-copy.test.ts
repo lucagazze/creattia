@@ -83,3 +83,49 @@ describe('los textos siguen al sujeto', () => {
 		assert.doesNotMatch(prompt, /SUBJECT IS THE STORE/);
 	});
 });
+
+/**
+ * Lo que hace ganar al anuncio tiene que llegar al render.
+ *
+ * El analizador devolvía `adType`, `styleFamily` y `scoreReasons` —"por qué este
+ * creativo funciona": contraste, jerarquía, CTA, legibilidad— y nada de eso
+ * entraba al prompt. Se pagaba el análisis y se descartaba justamente la parte
+ * que explica la fuerza del anuncio, que es lo único que hay que conservar al
+ * clonarlo.
+ */
+describe('la fuerza del ganador llega al render', () => {
+	const analisis: any = {
+		creative: {
+			adType: 'testimonial con reseña destacada',
+			styleFamily: 'Skincare',
+			photographyStyle: 'packshot de estudio',
+			lighting: 'suave difusa',
+			composition: 'división 50/50',
+			scoreReasons: ['contraste alto entre fondo y titular', 'CTA con color de acción', 'jerarquía clara'],
+		},
+	};
+
+	test('el tipo de anuncio se conserva explícitamente', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false);
+		assert.match(prompt, /testimonial con reseña destacada/);
+		// Y se dice qué NO puede pasar, que es lo que se rompe al clonar.
+		assert.match(prompt, /do not turn a testimonial into a plain product shot/i);
+	});
+
+	test('la familia estética viaja', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false);
+		assert.match(prompt, /Skincare/);
+	});
+
+	test('las razones por las que gana se listan como obligatorias', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false);
+		assert.match(prompt, /WHY THIS AD PERFORMS/);
+		assert.match(prompt, /contraste alto entre fondo y titular/);
+		assert.match(prompt, /CTA con color de acción/);
+	});
+
+	test('sin datos creativos no se inventa el bloque', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, { creative: {} } as any, false);
+		assert.doesNotMatch(prompt, /WHY THIS AD PERFORMS/);
+	});
+});
