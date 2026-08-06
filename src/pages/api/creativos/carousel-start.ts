@@ -97,10 +97,6 @@ export const POST: APIRoute = async ({ request }) => {
 			Array.isArray(body?.logoSlideIndexes) ? body.logoSlideIndexes.map((v: unknown) => Number(v)).filter((n: number) => Number.isInteger(n) && n >= 0) : []
 		);
 		const approvedPlan = body?.approvedPlan && typeof body.approvedPlan === 'object' ? body.approvedPlan : null;
-		// Misma escala que el Studio y el lote: 'pro' renderiza en nivel alto y
-		// cuesta 3 créditos por página en vez de 1.
-		const quality = String(body?.quality || '') === 'pro' ? 'pro' : 'flash';
-		const creditsPerImage = quality === 'pro' ? 3 : 1;
 
 		// Los productos tienen que ser del usuario y tener al menos una foto real.
 		const uniqueProductIds = [...new Set(productIds)];
@@ -128,7 +124,7 @@ export const POST: APIRoute = async ({ request }) => {
 		if (!isUnlimited) {
 			const { data: reserveRes, error: creditError } = await admin.rpc('reserve_creative_credits', {
 				p_user_id: userId,
-				p_amount: count * creditsPerImage,
+				p_amount: count, // 1 crédito por página
 			});
 			if (creditError) throw creditError;
 			if (reserveRes === -1) {
@@ -155,7 +151,6 @@ export const POST: APIRoute = async ({ request }) => {
 				requested_outputs: count,
 				settings_snapshot: {
 					format,
-					quality,
 					colorMode,
 					typoMode,
 					language,

@@ -97,14 +97,14 @@ describe('POST /api/creativos/batch-start', () => {
 		assert.deepEqual(paths.sort(), ['40/2fb666571bf2802e.png', '41/aaaaaaaaaaaaaaaa.png']);
 	});
 
-	test('la calidad pro cuesta 3 créditos por imagen y queda anotada', async () => {
+	test('pedir una calidad distinta no cambia el precio del lote', async () => {
 		const { creditsNow } = setup();
 		const response = await batchStart({
 			request: post('https://creattia.app/api/creativos/batch-start', { ...base, quality: 'pro' }),
 		} as any);
 		assert.equal(response.status, 200);
-		assert.equal(creditsNow(), 97);
-		assert.equal(fake.tables.creative_generations[0].settings_snapshot.quality, 'pro');
+		assert.equal(creditsNow(), 99, 'una imagen, un crédito');
+		assert.equal(fake.tables.creative_generations[0].settings_snapshot.quality, undefined);
 	});
 
 	test('sin créditos suficientes no se crea ninguna fila', async () => {
@@ -173,13 +173,13 @@ describe('POST /api/creativos/carousel-start', () => {
 		assert.ok(rows.every((row) => row.settings_snapshot.carousel === true));
 	});
 
-	test('la calidad pro cuesta 3 créditos por página', async () => {
+	test('pedir una calidad distinta no cambia el precio del carrusel', async () => {
 		const { creditsNow } = setup();
 		await carouselStart({
 			request: post('https://creattia.app/api/creativos/carousel-start', { ...base, quality: 'pro' }),
 		} as any);
-		assert.equal(creditsNow(), 91, '3 páginas × 3 créditos');
-		assert.equal(fake.tables.creative_generations[0].settings_snapshot.quality, 'pro');
+		assert.equal(creditsNow(), 97, '3 páginas, 3 créditos');
+		assert.equal(fake.tables.creative_generations[0].settings_snapshot.quality, undefined);
 	});
 
 	test('un carrusel necesita al menos 2 páginas', async () => {

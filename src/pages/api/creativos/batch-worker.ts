@@ -48,8 +48,6 @@ export const POST: APIRoute = async ({ request }) => {
 	const isUnlimited = access.isUnlimited;
 
 	let generationId = '';
-	// Se recuerda para poder reembolsar lo que realmente se cobró si algo falla.
-	let failedQuality: string = 'flash';
 	try {
 		const body = await request.json().catch(() => ({}));
 		generationId = String(body?.generationId || '').trim();
@@ -76,7 +74,6 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const snapshot: any = row.settings_snapshot || {};
-		failedQuality = snapshot.quality === 'pro' ? 'pro' : 'flash';
 		const requestedFormat = String(row.format || snapshot.format || 'original');
 		const brief = stripWebReferences(row.user_brief);
 		const subjectMode = ['product', 'service', 'saas', 'brand'].includes(String(snapshot.subjectMode))
@@ -223,11 +220,9 @@ export const POST: APIRoute = async ({ request }) => {
 			creativeDecisions: approvedCarouselPlan.creativeDecisions?.filter((decision: any) => !decision.slide || decision.slide === slideNumber),
 		} : null;
 
-		// Calidad: igual que en el Studio, 'pro' usa el nivel alto. `forceTier`
-		// sigue mandando para poder forzarla desde el snapshot.
-		const decision = pickQualityTier(approvedPlan, {
-			force: snapshot.forceTier || (snapshot.quality === 'pro' ? 'high' : undefined),
-		});
+		// Mismo nivel que el Studio, decidido en un solo lugar. `forceTier` queda
+		// como escotilla para forzar una generación puntual desde el snapshot.
+		const decision = pickQualityTier(approvedPlan, { force: snapshot.forceTier });
 		console.log(`[batch-worker ${generationId}] calidad ${decision.tier}: ${decision.reason}`);
 
 		const { buffer, engine, prompt, analysis } = await renderReferenceClone({
@@ -306,9 +301,7 @@ export const POST: APIRoute = async ({ request }) => {
 			// fila. Si el barrido de colgadas ya la había cerrado, ya lo devolvió.
 			const closed = await closeGenerationsAndCountRefunds(admin, userId, [generationId], message);
 			if (!isUnlimited && closed.length) {
-				// Una imagen 'pro' se cobró 3 créditos: devolver 1 fijo le comía 2.
-				const refund = failedQuality === 'pro' ? 3 : 1;
-				const { error: refundError } = await admin.rpc('refund_creative_credits', { p_user_id: userId, p_amount: refund });
+				const { error: refundError } = await admin.rpc('refund_creative_credits', { p_user_id: userId, p_amount: 1 });
 				if (refundError) console.error('Refund falló:', refundError);
 			}
 		}

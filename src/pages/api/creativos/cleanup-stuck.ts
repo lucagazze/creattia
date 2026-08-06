@@ -114,7 +114,7 @@ export const POST: APIRoute = async ({ request }) => {
 			const closed = await closeGenerationsAndCountRefunds(
 				admin, userId, processingRows.map((row) => row.id), 'Generación interrumpida. Los créditos fueron devueltos.',
 			);
-			refundable = closed.reduce((total, id) => total + (costById.get(id) || 1), 0);
+			refundable = closed.length; // 1 crédito por imagen
 		}
 
 		if (remove) {

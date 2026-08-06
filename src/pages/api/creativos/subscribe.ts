@@ -14,9 +14,11 @@ export const prerender = false;
  * Mercado Pago. Con estos precios el margen queda por encima del 50% incluso si
  * el usuario consume el 100% de sus créditos:
  *
- * Costo real por imagen: USD 0.086. Todas las imágenes salen en gpt-image-2
- * medium — se descartó el ruteo automático a 'low' porque degradaba la letra
- * chica de las etiquetas, y no vale arriesgar un anuncio por unos centavos.
+ * Costo real por imagen: USD 0.086 (0.082 de gpt-image-2 medium + 0.004 del
+ * análisis del ganador). TODAS las imágenes salen en el mismo nivel, sin nivel
+ * elegible por el usuario: 'low' degradaba la letra chica de las etiquetas y
+ * 'high' tardaba 180s contra 60s —con maxDuration de 300 dejaba generaciones
+ * colgadas— sin una mejora medida que lo justifique. Una imagen, un crédito.
  *
  *   Básico    USD 9.99/mes  ->   5 créditos  -> precio de entrada del lanzamiento
  *   Pro       USD 24.99/mes -> 60 créditos  -> costo 5.16  -> margen 79.4%

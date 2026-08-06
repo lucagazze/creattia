@@ -30,7 +30,9 @@ const COST: Record<QualityTier, number> = { low: 0.035, medium: 0.082, high: 0.2
  * más se nota — la letra chica de las etiquetas — y no vale la pena arriesgar la
  * calidad de un anuncio por unos centavos. Se prioriza que todas salgan bien.
  *
- * Para volver al ruteo automático alcanza con poner IMAGE_QUALITY_TIER=auto.
+ * El nivel no es elegible por el usuario: una imagen cuesta siempre 1 crédito.
+ * Para mover el nivel de TODA la app está IMAGE_QUALITY_TIER (low|medium|high|auto),
+ * y para forzar una generación puntual, `forceTier` en el snapshot.
  */
 function configuredTier(): QualityTier | 'auto' {
 	const raw = (process.env.IMAGE_QUALITY_TIER || import.meta.env.IMAGE_QUALITY_TIER || 'medium').toLowerCase();

@@ -12,6 +12,7 @@ import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
 import { buildClonePrompt } from '../../../lib/creattia/generation-pipeline';
+import { pickQualityTier } from '../../../lib/creattia/quality-router';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -153,7 +154,8 @@ export const POST: APIRoute = async ({ request }) => {
 	let generationIds: string[] = [];
 	const completedIds = new Set<string>();
 	let reservedCount = 0;
-	let creditsPerImage = 1;
+	// Una imagen = un crédito, sin excepciones.
+	const creditsPerImage = 1;
 
 	try {
 		const form = await request.formData();
@@ -215,9 +217,10 @@ export const POST: APIRoute = async ({ request }) => {
 		]);
 		const requestedCount = Number(clean(form.get('count'), 1) || 1);
 		const count = sourceGenerationId ? 1 : requestedCount;
-		// Calidad: 'pro' usa el modelo Pro (mejor pero más caro) → 3 créditos por imagen; 'flash' (default) → 1.
-		const quality = clean(form.get('quality'), 6) === 'pro' ? 'pro' as const : 'flash' as const;
-		creditsPerImage = quality === 'pro' ? 3 : 1;
+		// Todas las imágenes salen en el mismo nivel de calidad: lo decide
+		// quality-router (medium por defecto, IMAGE_QUALITY_TIER para cambiarlo en
+		// toda la app). El cliente ya no elige nivel, así que una imagen siempre
+		// cuesta 1 crédito.
 		const product = form.get('product');
 		const logo = form.get('logo');
 
@@ -370,7 +373,7 @@ export const POST: APIRoute = async ({ request }) => {
 			? storedProducts.map((item) => item.name).join(' + ')
 			: (requestedTemplateName || templateName);
 		const generationSettingsSnapshot = {
-			format, language, imageType, preset, quality, productIds, productNames: storedProducts.map((item) => item.name),
+			format, language, imageType, preset, productIds, productNames: storedProducts.map((item) => item.name),
 			includeLogo,
 			subjectMode,
 			avatarId: avatarId || null,
@@ -703,7 +706,7 @@ The result must look like the same image with only that one adjustment applied.`
 				prompt,
 				images: inputBuffers,
 				format: effectiveFormat,
-				tier: quality === 'pro' ? 'high' : 'medium',
+				tier: pickQualityTier(layoutAnalysis).tier,
 			});
 			stamp(`imagen ${index + 1}/${count} generada con ${engine}`);
 			return buffer;
