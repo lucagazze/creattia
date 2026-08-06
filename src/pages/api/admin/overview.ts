@@ -51,8 +51,8 @@ export const GET: APIRoute = async ({ request }) => {
 			admin.from('creative_subscriptions').select('user_id,provider_subscription_id,plan_code,status,monthly_credits,current_period_end,last_event_id,created_at,updated_at').order('created_at', { ascending: false }),
 			admin.from('creative_credit_purchases').select('payment_id,user_id,credits,amount,currency,created_at').order('created_at', { ascending: false }).limit(5000),
 			admin.from('creative_subscription_payments').select('payment_id,user_id,provider_subscription_id,plan_code,status,amount,currency,paid_at,created_at').order('paid_at', { ascending: false }).limit(5000),
-			admin.from('creative_generations').select('id,user_id,status,created_at,completed_at,title').order('created_at', { ascending: false }).limit(10000),
-			admin.from('creative_video_generations').select('id,user_id,status,created_at,completed_at,title').order('created_at', { ascending: false }).limit(5000),
+			admin.from('creative_generations').select('id,user_id,status,created_at,completed_at,title,output_path,format,settings_snapshot').order('created_at', { ascending: false }).limit(10000),
+			admin.from('creative_video_generations').select('id,user_id,status,created_at,completed_at,title,duration_seconds').order('created_at', { ascending: false }).limit(5000),
 			admin.from('creative_admin_access_overrides').select('user_id,access_mode,plan_code,credits_override,note,updated_at'),
 		]);
 		for (const result of [profilesResult, subscriptionsResult, purchasesResult, subscriptionPaymentsResult, generationsResult, videosResult, overridesResult]) {
@@ -128,13 +128,47 @@ export const GET: APIRoute = async ({ request }) => {
 		const completedGenerations = generations.filter((row: any) => row.status === 'completed').length;
 		const totalPaid = [...purchases, ...subscriptionPayments].reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
 		const totalPurchasedCredits = purchases.reduce((sum: number, row: any) => sum + Number(row.credits || 0), 0);
+		// Quién hizo cada cosa: el feed mostraba solo el estado y había que abrir
+		// la ficha para saber de quién era.
+		const userById = new Map(users.map((user: any) => [user.id, user]));
+		const authorOf = (userId: string) => {
+			const user = userById.get(userId);
+			return { email: user?.email || 'Cuenta eliminada', name: user?.user_metadata?.full_name || '' };
+		};
+
 		const activity = [
-			...users.map((user: any) => ({ type: 'signup', createdAt: user.created_at, title: 'Nueva cuenta', description: user.email || 'Usuario sin email', userId: user.id })),
-			...subscriptions.map((row: any) => ({ type: 'subscription', createdAt: row.created_at, title: `Suscripción ${ADMIN_PLAN_LABELS[row.plan_code] || row.plan_code}`, description: row.status, userId: row.user_id })),
-			...purchases.map((row: any) => ({ type: 'payment', createdAt: row.created_at, title: 'Compra de créditos', description: `${row.credits} créditos · ${row.amount ? `${row.currency || 'USD'} ${row.amount}` : 'importe no informado'}`, userId: row.user_id })),
-			...subscriptionPayments.map((row: any) => ({ type: 'payment', createdAt: row.paid_at || row.created_at, title: 'Pago de suscripción', description: `${ADMIN_PLAN_LABELS[row.plan_code] || row.plan_code || 'Plan'} · ${row.amount ? `${row.currency || 'USD'} ${row.amount}` : 'importe no informado'}`, userId: row.user_id })),
-			...generations.slice(0, 200).map((row: any) => ({ type: 'generation', createdAt: row.created_at, title: row.title || 'Imagen generada', description: row.status, userId: row.user_id })),
-		].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()).slice(0, 40);
+			...users.map((user: any) => ({ type: 'signup', createdAt: user.created_at, title: 'Nueva cuenta', description: user.email || 'Usuario sin email', userId: user.id, ...authorOf(user.id) })),
+			...subscriptions.map((row: any) => ({ type: 'subscription', createdAt: row.created_at, title: `Suscripción ${ADMIN_PLAN_LABELS[row.plan_code] || row.plan_code}`, description: row.status, userId: row.user_id, ...authorOf(row.user_id) })),
+			...purchases.map((row: any) => ({ type: 'payment', createdAt: row.created_at, title: 'Compra de créditos', description: `${row.credits} créditos · ${row.amount ? `${row.currency || 'USD'} ${row.amount}` : 'importe no informado'}`, userId: row.user_id, amount: row.amount, currency: row.currency, ...authorOf(row.user_id) })),
+			...subscriptionPayments.map((row: any) => ({ type: 'payment', createdAt: row.paid_at || row.created_at, title: 'Pago de suscripción', description: `${ADMIN_PLAN_LABELS[row.plan_code] || row.plan_code || 'Plan'} · ${row.amount ? `${row.currency || 'USD'} ${row.amount}` : 'importe no informado'}`, userId: row.user_id, amount: row.amount, currency: row.currency, ...authorOf(row.user_id) })),
+			...generations.slice(0, 200).map((row: any) => ({
+				type: 'generation',
+				createdAt: row.created_at,
+				title: row.title || 'Imagen generada',
+				description: row.status === 'completed' ? 'Creativo listo' : row.status === 'failed' ? 'Falló' : 'Generando',
+				userId: row.user_id,
+				status: row.status,
+				format: row.format || row.settings_snapshot?.format || null,
+				// Se firma abajo, en lote.
+				outputPath: row.output_path || null,
+				...authorOf(row.user_id),
+			})),
+			...videos.slice(0, 50).map((row: any) => ({
+				type: 'video', createdAt: row.created_at, title: row.title || 'Video generado',
+				description: `${row.status}${row.duration_seconds ? ` · ${row.duration_seconds}s` : ''}`,
+				userId: row.user_id, status: row.status, ...authorOf(row.user_id),
+			})),
+		].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()).slice(0, 60);
+
+		// Miniaturas de los creativos del feed, firmadas en una sola llamada.
+		const thumbPaths = [...new Set(activity.map((item: any) => item.outputPath).filter(Boolean))] as string[];
+		if (thumbPaths.length) {
+			const { data: signed } = await admin.storage.from('creative-assets').createSignedUrls(thumbPaths, 60 * 60);
+			const urlByPath = new Map((signed || []).map((row: any, index: number) => [row.path || thumbPaths[index], row.signedUrl]));
+			for (const item of activity as any[]) {
+				if (item.outputPath) item.thumbUrl = urlByPath.get(item.outputPath) || null;
+			}
+		}
 
 		return json({
 			generatedAt: new Date().toISOString(),

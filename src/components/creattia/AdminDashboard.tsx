@@ -244,7 +244,32 @@ function ActivitySection({ activity, onOpenUser }: { activity: any[]; onOpenUser
 }
 
 function ActivityList({ activity, onOpenUser, large = false }: { activity: any[]; onOpenUser: (id: string) => void; large?: boolean }) {
-	return <div className={`admin-activity-list ${large ? 'large' : ''}`}>{activity.map((item: any, index: number) => <button key={`${item.type}-${item.createdAt}-${index}`} onClick={() => item.userId && onOpenUser(item.userId)}><span className={`admin-activity-icon ${item.type}`}>{item.type === 'signup' ? '+' : item.type === 'payment' ? '$' : item.type === 'subscription' ? '◆' : '✦'}</span><span><strong>{item.title}</strong><small>{item.description}</small></span><time>{dateLabel(item.createdAt)}</time></button>)}{!activity.length && <EmptyState label="Todavía no hay actividad para mostrar." />}</div>;
+	return (
+		<div className={`admin-activity-list ${large ? 'large' : ''}`}>
+			{activity.map((item: any, index: number) => (
+				<button key={`${item.type}-${item.createdAt}-${index}`} onClick={() => item.userId && onOpenUser(item.userId)}>
+					{/* La miniatura del creativo cuando existe; si no, el icono del tipo de evento. */}
+					{item.thumbUrl
+						? <img className="admin-activity-thumb" src={item.thumbUrl} alt="" loading="lazy" decoding="async" />
+						: <span className={`admin-activity-icon ${item.type}`}>{item.type === 'signup' ? '+' : item.type === 'payment' ? '$' : item.type === 'subscription' ? '◆' : item.type === 'video' ? '▶' : '✦'}</span>}
+					<span className="admin-activity-copy">
+						<strong>{item.title}</strong>
+						<small>
+							{/* Quién lo hizo: antes había que abrir la ficha para saberlo. */}
+							{item.email && <span className="admin-activity-author">{item.name || item.email}</span>}
+							{item.description}
+						</small>
+					</span>
+					<span className="admin-activity-meta">
+						{item.format && <em className="admin-activity-format">{item.format}</em>}
+						{item.status && <em className={`admin-activity-state is-${item.status}`}>{item.status === 'completed' ? 'listo' : item.status === 'failed' ? 'falló' : item.status}</em>}
+						<time>{dateLabel(item.createdAt)}</time>
+					</span>
+				</button>
+			))}
+			{!activity.length && <EmptyState label="Todavía no hay actividad para mostrar." />}
+		</div>
+	);
 }
 
 function UserDrawer({ detail, loading, saving, creditsDraft, setCreditsDraft, onClose, onAction }: { detail: any; loading: boolean; saving: boolean; creditsDraft: string; setCreditsDraft: (value: string) => void; onClose: () => void; onAction: (action: string, extra?: Record<string, unknown>) => Promise<void> }) {
