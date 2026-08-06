@@ -22,10 +22,10 @@ export const prerender = false;
  *
 
  *
- *   Básico    USD 9.99/mes  ->   5 créditos -> USD 2.00 por token -> margen 88%
- *   Pro       USD 31.99/mes ->  60 créditos -> USD 0.53 por token -> margen 55%
- *   Scale     USD 61.99/mes -> 120 créditos -> USD 0.52 por token -> margen 54%
- *   Agency    USD 129.99/mes-> 260 créditos -> USD 0.50 por token -> margen 52%
+ *   Básico    USD 9.99/mes  ->   5 tokens -> USD 2.00 por token -> margen 88%
+ *   Pro       USD 24.99/mes ->  40 tokens -> USD 0.62 por token -> margen 62%
+ *   Scale     USD 49.99/mes ->  90 tokens -> USD 0.56 por token -> margen 57%
+ *   Agency    USD 97.70/mes -> 190 tokens -> USD 0.51 por token -> margen 53%
  *
  * Esos márgenes son con el usuario consumiendo el 100% de sus créditos; con el
  * consumo real típico (55%) todos quedan bastante por encima.
@@ -49,22 +49,22 @@ const plans = {
 	pro: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_PRO_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_PRO_YEARLY_ID' },
-		price: 31.99,
-		credits: 60,
+		price: 24.99,
+		credits: 40,
 		reason: 'Creattia — Pro' 
 	},
 	scale: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_SCALE_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_SCALE_YEARLY_ID' },
-		price: 61.99,
-		credits: 120,
+		price: 49.99,
+		credits: 90,
 		reason: 'Creattia — Scale' 
 	},
 	agency: {
 		monthly: { env: 'MERCADO_PAGO_PLAN_AGENCY_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_AGENCY_YEARLY_ID' },
-		price: 129.99,
-		credits: 260,
+		price: 97.70,
+		credits: 190,
 		reason: 'Creattia — Agency'
 	},
 } as const;

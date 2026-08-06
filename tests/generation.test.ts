@@ -211,16 +211,15 @@ describe('POST /api/creativos/generate', () => {
 		assert.equal(payload.code, 'LIBRARY_LOCKED');
 	});
 
-	test('todas las imágenes salen en el nivel más alto y cuestan 1 crédito', async () => {
-		// El nivel no es elegible por el usuario: todas van en 'high', que es donde
-		// las letras salen con filo de vector. Mandar quality por parámetro no
-		// cambia ni el nivel ni el precio.
+	test('el nivel de calidad no es elegible por parámetro y la imagen cuesta 1 crédito', async () => {
+		// El nivel lo decide quality-router para toda la app; mandar quality en el
+		// request no puede cambiarlo ni cambiar el precio.
 		const { creditsNow } = setup();
 		const response = await generate({ request: generateRequest({ ...baseFields, quality: 'pro' }) } as any);
 		assert.equal(response.status, 202);
 		assert.equal(creditsNow(), 49, 'sigue costando 1 crédito');
 		await settleBackgroundWork();
-		assert.equal(generateAdImage.mock.calls[0]?.[0].tier, 'high');
+		assert.equal(generateAdImage.mock.calls[0]?.[0].tier, 'medium');
 	});
 
 	test('varias imágenes en un lote reservan y generan todas', async () => {
@@ -310,7 +309,7 @@ describe('POST /api/creativos/batch-worker', () => {
 			},
 		});
 		await batchWorker({ request: workerRequest() } as any);
-		assert.equal(generateAdImage.mock.calls[0]![0].tier, 'high');
+		assert.equal(generateAdImage.mock.calls[0]![0].tier, 'medium');
 	});
 
 	test('no vuelve a generar una fila ya cerrada', async () => {

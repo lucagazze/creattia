@@ -6,7 +6,6 @@ import { isAdminEmail } from '../src/lib/creattia/admin';
 import { checkReferencePath, FREE_PREVIEW_REFERENCE_PATHS, hasFullLibraryAccess } from '../src/lib/creattia/library-access';
 import { brandLimitForPlan, creditsForPlan, subscriptionPlans } from '../src/lib/creattia/subscription-plans';
 import { videoCreditCost, videoCreditCostForAccount } from '../src/lib/creattia/video-pipeline';
-import { pickQualityTier } from '../src/lib/creattia/quality-router';
 
 /**
  * Lo que se prueba acá es lo que decide quién paga y cuánto. Son las reglas que
@@ -121,9 +120,17 @@ test('los créditos que acredita el webhook salen de la misma oferta que se vend
 
 // ── Margen ───────────────────────────────────────────────────────────────────
 
-/** Costo real de una imagen: el render en el nivel que se usa + el análisis. */
+/**
+ * Costo de una imagen para verificar márgenes.
+ *
+ * Se usa a propósito el escenario CARO —render en nivel alto— y no el que está
+ * configurado hoy: así el test no se afloja solo cuando alguien baja el nivel, y
+ * los precios quedan validados contra el peor caso. El costo exacto del tamaño
+ * que se pide hoy lo mide `npm run compare-quality`.
+ */
 const ANALYSIS_COST = 0.004;
-const IMAGE_COST = pickQualityTier(null).estimatedCost + ANALYSIS_COST;
+const WORST_CASE_RENDER = 0.236;
+const IMAGE_COST = WORST_CASE_RENDER + ANALYSIS_COST;
 /** Regla de negocio: ningún plan por debajo de esto. */
 const MIN_MARGIN = 0.50;
 

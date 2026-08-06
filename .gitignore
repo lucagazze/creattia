@@ -29,3 +29,6 @@ scripts/_*.log
 
 # Credenciales de despliegue (token personal de Supabase). Nunca se commitea.
 .env.deploy
+
+# Comparaciones de calidad generadas a mano
+comparacion-calidad/
