@@ -14,6 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "diagnose": "node --env-file-if-exists=.env scripts/diagnose-generation.mjs",
+    "migrate": "node --env-file-if-exists=.env.deploy scripts/apply-migrations.mjs",
+    "migrate:dry": "node --env-file-if-exists=.env.deploy scripts/apply-migrations.mjs --dry-run",
     "test:video-pipeline": "node --experimental-strip-types scripts/test-video-pipeline.mjs",
     "test:video-media": "node --experimental-strip-types scripts/test-video-media.mjs",
     "test:video-e2e": "node --env-file=.env.local --experimental-strip-types scripts/e2e-video-generation.mjs",

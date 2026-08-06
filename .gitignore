@@ -26,3 +26,6 @@ supabase/.temp/
 # Logs de las corridas de scraping
 scripts/*.log
 scripts/_*.log
+
+# Credenciales de despliegue (token personal de Supabase). Nunca se commitea.
+.env.deploy
