@@ -6071,3 +6071,42 @@
 	.billing-switch button { flex: 1; justify-content: center; padding: 0 10px; font-size: 12.5px; }
 	.billing-switch button em { font-size: 11px; padding: 2px 6px; }
 }
+
+
+/* ─── Historial de pagos ──────────────────────────────────────────────
+   El menú tenía un "Historial de pagos" que mostraba siempre el mismo cartel
+   sin consultar nada. Esta es la pantalla real. */
+.billing-summary {
+	display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 12px; margin-bottom: 22px;
+}
+.billing-card {
+	display: flex; flex-direction: column; gap: 3px;
+	padding: 16px 18px; border-radius: 14px; border: 1px solid #eae5f1; background: #fff;
+}
+.billing-card small { font-size: 10.5px; font-weight: 800; letter-spacing: .09em; color: #8b8490; }
+.billing-card strong { font-size: 24px; letter-spacing: -.02em; color: #19171d; }
+.billing-card span { font-size: 12px; color: #716d79; line-height: 1.4; }
+
+.billing-loading { display: grid; place-items: center; gap: 10px; min-height: 220px; color: #8b8490; }
+.billing-loading p { margin: 0; font-size: 13px; font-weight: 600; }
+
+.billing-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.billing-list li {
+	display: flex; align-items: center; gap: 12px;
+	padding: 13px 16px; border-radius: 12px; border: 1px solid #eee9f2; background: #fff;
+}
+.billing-icon {
+	flex: 0 0 auto; display: grid; place-items: center; width: 34px; height: 34px;
+	border-radius: 10px; background: #f2ecfc; color: #5b32c9;
+}
+.billing-icon.tokens { background: #fff4e6; color: #b06a12; }
+.billing-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.billing-detail strong { font-size: 13.5px; color: #19171d; }
+.billing-detail small { font-size: 12px; color: #8b8490; }
+.billing-amount { flex: 0 0 auto; font-size: 15px; font-weight: 800; color: #19171d; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 640px) {
+	.billing-list li { padding: 12px 13px; gap: 10px; }
+	.billing-amount { font-size: 14px; }
+}

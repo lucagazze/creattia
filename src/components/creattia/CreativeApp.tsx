@@ -32,6 +32,7 @@ const AvatarManager = lazy(() => import('./AvatarManager'));
 const AdminDashboard = lazy(() => import('./AdminDashboard'));
 const BrandsManager = lazy(() => import('./screens/Brands').then((m) => ({ default: m.BrandsManager })));
 const Plans = lazy(() => import('./screens/Plans').then((m) => ({ default: m.Plans })));
+const Billing = lazy(() => import('./screens/Billing').then((m) => ({ default: m.Billing })));
 
 /** Mientras baja el trozo de la pantalla: ocupa el mismo lugar, sin saltos. */
 function CargandoPantalla() {
@@ -1140,7 +1141,9 @@ export default function CreativeApp() {
 							<button className="studio-settings-item" onClick={() => { navigateTo('plans'); setSettingsOpen(false); }}>
 								<Icon name="card" size={15}/>Planes y suscripción
 							</button>
-							<button className="studio-settings-item" onClick={() => { alert('Historial de pagos: no tenés facturas todavía.'); }}>
+							{/* Antes esto era un alert fijo que decía "no tenés facturas
+							    todavía" sin consultar nada, aunque hubiera cobros guardados. */}
+							<button className="studio-settings-item" onClick={() => { navigateTo('billing'); setSettingsOpen(false); }}>
 								<Icon name="history" size={15}/>Historial de pagos
 							</button>
 							<div style={{ height: '1px', background: '#e7e2ec', margin: '4px 10px' }} />
@@ -1343,6 +1346,7 @@ export default function CreativeApp() {
 						/>
 					)}
 					{view === 'plans' && <Plans profile={profile} session={session} />}
+					{view === 'billing' && <Billing profile={profile} session={session} />}
 					{view === 'brand' && (
 						<div className="brand-workspace-stack">
 							<BrandsManager session={session} planCode={profile.planCode} onPlans={() => navigateTo('plans')} />

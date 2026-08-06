@@ -6,7 +6,7 @@ import type { Session } from '@supabase/supabase-js';
  * archivo de 4.700 líneas.
  */
 
-export type View = 'home' | 'library' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved' | 'discover' | 'admin';
+export type View = 'home' | 'library' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved' | 'discover' | 'admin' | 'billing';
 
 // Lote de generación en curso: la API responde al instante y el trabajo pesado
 // sigue en el servidor; el front lo sigue por batch_id en creative_generations.
