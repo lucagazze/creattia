@@ -773,6 +773,30 @@ const faqs = [
 			<p>© 2026 Creattia. Todos los derechos reservados.</p>
 		</div>
 	</footer>
+<script is:inline>
+	// Zoom desactivado en la landing.
+	//
+	// El meta viewport ya lleva user-scalable=no, pero iOS Safari lo ignora desde
+	// iOS 10: en iPhone se seguía pudiendo pellizcar y hacer doble toque. La clase
+	// se agrega desde JS a propósito: si el script no corre, la página sigue
+	// siendo ampliable en vez de quedar bloqueada por CSS.
+	document.documentElement.classList.add('sin-zoom');
+	// Safari en iOS dispara estos eventos propios en vez de respetar el viewport.
+	for (const evento of ['gesturestart', 'gesturechange', 'gestureend']) {
+		document.addEventListener(evento, (e) => e.preventDefault(), { passive: false });
+	}
+	// Pellizco con dos dedos donde no hay eventos de gesto (Android, iPadOS).
+	document.addEventListener('touchmove', (e) => {
+		if (e.touches.length > 1) e.preventDefault();
+	}, { passive: false });
+	// Doble toque: solo se frena si llega antes de 300 ms del toque anterior.
+	let ultimoToque = 0;
+	document.addEventListener('touchend', (e) => {
+		const ahora = Date.now();
+		if (ahora - ultimoToque < 300) e.preventDefault();
+		ultimoToque = ahora;
+	}, { passive: false });
+</script>
 </Layout>
 
 <script>
@@ -1130,6 +1154,14 @@ const faqs = [
 </script>
 
 <style>
+	/* Sin zoom en la landing.
+	   El meta viewport ya lleva user-scalable=no, pero iOS Safari lo ignora desde
+	   iOS 10: en iPhone se seguía pudiendo pellizcar y hacer doble toque. Esto se
+	   ocupa de las dos vías. `manipulation` además elimina el retardo de 300 ms
+	   que el navegador espera para ver si venía un doble toque. */
+	html.sin-zoom, html.sin-zoom body { touch-action: pan-x pan-y; }
+	html.sin-zoom * { touch-action: manipulation; }
+
 	/* ==========================================
 	   SISTEMA DE DISEÑO Y CONFIGURACIÓN PREMIUM
 	   ========================================== */
@@ -1662,7 +1694,14 @@ const faqs = [
 	   ========================================== */
 	.manifesto-section {
 		background: #FFF;
-		padding: 96px 20px;
+		/* El bloque quedaba centrado entre las dos secciones y se leía como si
+		   arrancara demasiado abajo. Se sube: menos aire arriba que abajo, así
+		   cae entre la mitad de la sección anterior y la siguiente. */
+		padding: 64px 20px 128px;
+	}
+
+	@media (min-width: 810px) {
+		.manifesto-section { padding: 80px 20px 160px; }
 	}
 
 	.manifesto-container {
