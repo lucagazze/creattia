@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export type ProductReviewMedia = {
 	path?: string;
@@ -10,9 +10,11 @@ export type ProductReviewItem = {
 	id: string;
 	name: string;
 	product_url?: string | null;
+	price_text?: string | null;
 	media?: ProductReviewMedia[];
 	imageUrls?: string[];
 	videoUrls?: string[];
+	metadata?: Record<string, any>;
 };
 
 function mediaFor(product: ProductReviewItem): ProductReviewMedia[] {
@@ -23,63 +25,107 @@ function mediaFor(product: ProductReviewItem): ProductReviewMedia[] {
 	];
 }
 
-export default function ProductAssetReview({ products, selectedProductIds = [], onToggleProduct }: {
+/**
+ * Lo que se importó de la URL, para elegir qué entra al creativo.
+ *
+ * Era una lista vertical: cada producto ocupaba un bloque alto con su cabecera,
+ * su botón y una tira de fotos. Con la home de una tienda —que ahora trae hasta
+ * 8 productos separados— había que scrollear muchísimo para ver qué se detectó.
+ *
+ * Ahora es una grilla de tarjetas: la foto manda, el nombre debajo, y se
+ * selecciona tocando la tarjeta entera. Se ve todo de un vistazo y las fotos
+ * extra de un producto se abren solo si hacen falta.
+ */
+export default function ProductAssetReview({ products, selectedProductIds = [], onToggleProduct, isCatalog = false, storeName }: {
 	products: ProductReviewItem[];
 	selectedProductIds?: string[];
 	onToggleProduct?: (productId: string) => void;
+	/** La URL era la home o una categoría: son productos de la tienda, no una ficha. */
+	isCatalog?: boolean;
+	storeName?: string;
 }) {
+	const [expanded, setExpanded] = useState<string | null>(null);
 	if (!products.length) return null;
 
+	const selectable = Boolean(onToggleProduct);
+	const allSelected = products.length > 0 && products.every((product) => selectedProductIds.includes(product.id));
+
 	return (
-		<section className="product-asset-review" aria-labelledby="product-assets-title">
-			<header className="product-asset-review-heading">
+		<section className="asset-review" aria-labelledby="product-assets-title">
+			<header className="asset-review-head">
 				<div>
-					<span className="product-asset-review-kicker">REFERENCIAS IMPORTADAS</span>
-					<h2 id="product-assets-title">Elegí qué productos usar</h2>
-					<p>El Producto 1 es el de la URL principal. Podés sumar otros productos con URLs adicionales o dejar seleccionado solo uno. La IA recibe únicamente los que marques.</p>
+					<span className="asset-review-kicker">{isCatalog ? 'PRODUCTOS DE LA TIENDA' : 'REFERENCIAS IMPORTADAS'}</span>
+					<h2 id="product-assets-title">
+						{isCatalog
+							? `Encontramos ${products.length} ${products.length === 1 ? 'producto' : 'productos'}${storeName ? ` en ${storeName}` : ''}`
+							: 'Elegí qué productos usar'}
+					</h2>
+					<p>
+						{isCatalog
+							? 'El anuncio va a hablar de la tienda. Elegí cuáles querés que se vean en la imagen.'
+							: 'La IA recibe únicamente los que marques.'}
+					</p>
 				</div>
-				<span className="product-asset-review-count">{selectedProductIds.length} seleccionados</span>
+				<div className="asset-review-actions">
+					<span className="asset-review-count">{selectedProductIds.length}/{products.length}</span>
+					{selectable && products.length > 1 && (
+						<button
+							type="button"
+							className="asset-review-all"
+							onClick={() => products.forEach((product) => {
+								const isSelected = selectedProductIds.includes(product.id);
+								if (allSelected ? isSelected : !isSelected) onToggleProduct?.(product.id);
+							})}
+						>
+							{allSelected ? 'Quitar todos' : 'Usar todos'}
+						</button>
+					)}
+				</div>
 			</header>
 
-			<div className="product-asset-review-list">
-				{products.map((product, productIndex) => {
+			<div className="asset-grid">
+				{products.map((product, index) => {
 					const media = mediaFor(product);
-					const imageCount = media.filter((item) => item.type !== 'video').length;
-					const videoCount = media.filter((item) => item.type === 'video').length;
+					const cover = media.find((item) => item.type !== 'video') || media[0];
+					const extras = media.length - 1;
 					const selected = selectedProductIds.includes(product.id);
+					const isOpen = expanded === product.id;
 					return (
-						<article className={`product-asset-group ${selected ? 'is-selected' : ''}`} key={product.id}>
-							<header>
-								<div className="product-asset-group-index">{productIndex + 1}</div>
-								<div className="product-asset-group-title">
-									<strong>Producto {productIndex + 1}{productIndex === 0 ? ' · PRINCIPAL' : ''}</strong>
-									<h3>{product.name || 'Producto importado'}</h3>
-									{product.product_url && <a href={product.product_url} target="_blank" rel="noreferrer">Abrir página ↗</a>}
-								</div>
-								<button type="button" className={`product-asset-select ${selected ? 'active' : ''}`} onClick={() => onToggleProduct?.(product.id)} aria-pressed={selected}>
-									<span aria-hidden="true">{selected ? '✓' : '+'}</span>{selected ? 'Usar este producto' : 'Agregar producto'}
+						<article className={`asset-card${selected ? ' is-selected' : ''}`} key={product.id}>
+							<button
+								type="button"
+								className="asset-card-main"
+								onClick={() => onToggleProduct?.(product.id)}
+								aria-pressed={selected}
+								aria-label={`${selected ? 'Quitar' : 'Usar'} ${product.name || `producto ${index + 1}`}`}
+							>
+								<span className="asset-card-photo">
+									{cover ? (
+										cover.type === 'video'
+											? <video src={cover.url} muted playsInline preload="metadata" />
+											// Las primeras entran de una; el resto a medida que se scrollea.
+											: <img src={cover.url} alt="" loading={index < 6 ? 'eager' : 'lazy'} decoding="async" />
+									) : <span className="asset-card-nophoto">Sin foto</span>}
+									<span className="asset-card-check" aria-hidden="true">{selected ? '✓' : ''}</span>
+								</span>
+								<span className="asset-card-name" title={product.name}>{product.name || `Producto ${index + 1}`}</span>
+								{product.price_text && <span className="asset-card-price">{product.price_text}</span>}
+							</button>
+							{extras > 0 && (
+								<button type="button" className="asset-card-more" onClick={() => setExpanded(isOpen ? null : product.id)}>
+									{isOpen ? 'Ocultar' : `+${extras} ${extras === 1 ? 'foto' : 'fotos'}`}
 								</button>
-								<div className="product-asset-group-count" aria-label={`${imageCount} imágenes y ${videoCount} videos`}>
-									{imageCount > 0 && <span>▧ {imageCount} {imageCount === 1 ? 'imagen' : 'imágenes'}</span>}
-									{videoCount > 0 && <span>▶ {videoCount} {videoCount === 1 ? 'video' : 'videos'}</span>}
-								</div>
-							</header>
-
-							{media.length ? (
-								<div className="product-asset-media-rail" aria-label={`Medios de ${product.name || `Producto ${productIndex + 1}`}`}>
+							)}
+							{isOpen && (
+								<div className="asset-card-rail">
 									{media.map((item, mediaIndex) => (
-										<div className="product-asset-tile" key={`${item.path || item.url}-${mediaIndex}`}>
-											{item.type === 'video' ? (
-												<video src={item.url} controls muted playsInline preload="metadata" />
-											) : (
-												<img src={item.url} alt={`${product.name || 'Producto'} · referencia ${mediaIndex + 1}`} loading="lazy" decoding="async" />
-											)}
-											<span className={`product-asset-type ${item.type === 'video' ? 'is-video' : ''}`}>{item.type === 'video' ? 'VIDEO · SOLO REVISIÓN' : `IMG ${mediaIndex + 1}`}</span>
-										</div>
+										<span className="asset-card-thumb" key={`${item.path || item.url}-${mediaIndex}`}>
+											{item.type === 'video'
+												? <video src={item.url} controls muted playsInline preload="metadata" />
+												: <img src={item.url} alt={`${product.name} ${mediaIndex + 1}`} loading="lazy" decoding="async" />}
+										</span>
 									))}
 								</div>
-							) : (
-								<div className="product-asset-empty">No pudimos obtener medios visuales de esta página. Podés sumar fotos a mano antes de generar.</div>
 							)}
 						</article>
 					);

@@ -5732,3 +5732,70 @@
 	align-self: flex-start; padding: 0; border: 0; background: none; cursor: pointer;
 	color: #7c4ddb; font-size: 11.5px; font-weight: 700; text-decoration: underline;
 }
+
+/* ── Revisión de lo importado tras escanear una URL ────────────────────────
+   Era una lista vertical de bloques altos: con la home de una tienda, que trae
+   varios productos, había que scrollear mucho para ver qué se detectó. Ahora es
+   una grilla donde manda la foto y se elige tocando la tarjeta entera. */
+.asset-review { margin-bottom: 18px; }
+.asset-review-head {
+	display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+	flex-wrap: wrap; margin-bottom: 12px;
+}
+.asset-review-kicker { display: block; color: #7c4ddb; font-size: 10.5px; font-weight: 800; letter-spacing: .07em; }
+.asset-review-head h2 { margin: 3px 0 2px; font-size: 16px; font-weight: 800; color: #241f2c; }
+.asset-review-head p { margin: 0; color: #857c90; font-size: 12px; line-height: 1.45; max-width: 52ch; }
+.asset-review-actions { display: flex; align-items: center; gap: 10px; }
+.asset-review-count {
+	padding: 3px 10px; border-radius: 999px; background: #f2eefa; color: #6b4bb0;
+	font-size: 11.5px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.asset-review-all {
+	padding: 0; border: 0; background: none; cursor: pointer;
+	color: #7c4ddb; font-size: 11.5px; font-weight: 700; text-decoration: underline;
+}
+
+.asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; }
+.asset-card {
+	display: flex; flex-direction: column; min-width: 0; border: 1.5px solid #ebe6f2; border-radius: 14px;
+	background: #fff; overflow: hidden; transition: border-color .15s ease, box-shadow .15s ease;
+}
+.asset-card:hover { border-color: #cdbdee; box-shadow: 0 6px 18px rgba(60,40,100,.08); }
+.asset-card.is-selected { border-color: #7c4ddb; box-shadow: 0 6px 18px rgba(124,77,219,.14); }
+
+.asset-card-main {
+	display: flex; flex-direction: column; min-width: 0; gap: 6px; padding: 0 0 9px;
+	border: 0; background: none; cursor: pointer; text-align: left; font-family: inherit;
+}
+.asset-card-photo { position: relative; display: block; aspect-ratio: 1; background: #f6f3fb; }
+.asset-card-photo img,
+.asset-card-photo video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.asset-card-nophoto {
+	position: absolute; inset: 0; display: grid; place-items: center;
+	color: #a79db4; font-size: 11px; font-weight: 700;
+}
+/* La marca de selección va sobre la foto: se ve de un vistazo cuáles entran. */
+.asset-card-check {
+	position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%;
+	display: grid; place-items: center; border: 1.5px solid #fff; background: rgba(255,255,255,.72);
+	color: transparent; font-size: 12px; font-weight: 900; backdrop-filter: blur(3px);
+}
+.asset-card.is-selected .asset-card-check { background: #7c4ddb; color: #fff; }
+.asset-card-name {
+	padding: 0 10px; color: #2f2938; font-size: 12.5px; font-weight: 700; line-height: 1.3;
+	display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.asset-card-price { padding: 0 10px; color: #857c90; font-size: 11.5px; font-weight: 700; }
+.asset-card-more {
+	margin: 0 10px 9px; padding: 4px 0; border: 0; border-top: 1px solid #f1edf7; background: none;
+	cursor: pointer; color: #7c4ddb; font-size: 11px; font-weight: 700; text-align: left;
+}
+.asset-card-rail { display: flex; gap: 6px; overflow-x: auto; padding: 0 10px 10px; }
+.asset-card-thumb { flex: 0 0 62px; }
+.asset-card-thumb img,
+.asset-card-thumb video { width: 62px; height: 62px; border-radius: 8px; object-fit: cover; display: block; }
+
+@media (max-width: 640px) {
+	.asset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+	.asset-review-head h2 { font-size: 15px; }
+}

@@ -933,6 +933,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 						{productMode === 'url' && importedProducts.length > 0 && (
 							<ProductAssetReview
 								products={importedProducts}
+								isCatalog={isCatalog}
+								storeName={(importedProducts[0] as any)?.metadata?.store?.name}
 								selectedProductIds={selectedProductIds}
 								onToggleProduct={(productId) => setSelectedProductIds((current) => current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId])}
 							/>
