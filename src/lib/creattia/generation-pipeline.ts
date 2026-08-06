@@ -119,7 +119,11 @@ export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalys
 		hasLogo,
 		brief: input.brief,
 		analysis,
-		languageCode: analysis?.language || (input.language && LANGUAGE_NAMES[input.language] ? input.language : undefined),
+		// El idioma que eligió el usuario manda sobre el que traía el anuncio
+		// ganador. Estaba al revés: el análisis devuelve el idioma que LEYÓ en la
+		// referencia, así que con un ganador en español el creativo salía en
+		// español aunque se hubiera pedido inglés.
+		languageCode: (input.language && LANGUAGE_NAMES[input.language]) ? input.language : analysis?.language,
 		adCopy: analysis?.adCopy ? {
 			headline: analysis.adCopy.headline,
 			subheadline: analysis.adCopy.description,

@@ -173,7 +173,7 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	const hasAvatarImages = avatarInputs.length > 0;
 	const subjectMode = input.subjectMode || (hasProductImages ? 'product' : 'brand');
 	const languageRule = input.language && LANGUAGE_NAMES[input.language]
-		? `Write the internal replacement suggestions in ${LANGUAGE_NAMES[input.language]} and set "language" to "${input.language}".`
+		? `TARGET LANGUAGE IS ${LANGUAGE_NAMES[input.language].toUpperCase()} AND IT IS NOT NEGOTIABLE. Every replacement string you produce — headline, description, CTA, every text zone — must be written in ${LANGUAGE_NAMES[input.language]}, even when the template you are analysing is written in a different language. Do NOT copy or keep the template's original language. Translate and adapt the message instead. Set "language" to "${input.language}".`
 		: 'Detect the language used by the winning ad, set "language" to "es", "en", "fr", "it", "pt" or "de", and write replacement suggestions in that language.';
 	const systemPrompt = `You are a senior performance ad designer. You receive: (1) ${isCarouselReference ? 'multiple pages of one winning carousel, in order' : 'one winning static ad TEMPLATE image'}${hasProductImages ? ', (2) one or more photos of the SAME real product/SKU from different views' : ''}${hasAvatarImages ? ', (3) several reference photos of the same person/avatar' : ''}, and verified context.
 
@@ -324,7 +324,11 @@ Rules:
 					directive: '',
 				}))
 				: [];
-			parsed.language = typeof parsed.language === 'string' && LANGUAGE_NAMES[parsed.language] ? parsed.language : (input.language || 'es');
+			// Si el usuario eligió idioma, ese es el idioma del creativo: no es una
+			// sugerencia que el modelo pueda pisar con el idioma de la referencia.
+			parsed.language = (input.language && LANGUAGE_NAMES[input.language])
+				? input.language
+				: (typeof parsed.language === 'string' && LANGUAGE_NAMES[parsed.language] ? parsed.language : 'es');
 			parsed.textZones = parsed.textZones.map((zone: any) => ({
 				...zone,
 				slide: Number.isInteger(Number(zone?.slide)) && Number(zone.slide) >= 1 ? Number(zone.slide) : undefined,

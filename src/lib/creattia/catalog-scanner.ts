@@ -5,6 +5,12 @@ import { normalizeExternalUrl, readLimited, safeExternalFetch } from './safe-fet
 
 export type ScannedProduct = {
 	externalId: string;
+	/**
+	 * Qué se está vendiendo, detectado por la IA al leer la página. Antes el
+	 * usuario tenía que elegir a mano entre "producto" y "servicio / SaaS": si
+	 * una landing ofrece un servicio, la IA lo puede ver sola.
+	 */
+	offeringType?: 'product' | 'service';
 	name: string;
 	description: string;
 	priceText: string;
@@ -625,7 +631,9 @@ Respondé SOLO con JSON válido con esta estructura exacta:
   "category": "categoría del producto (ej: skincare, calzado, suplementos, etc.)",
   "keyBenefits": ["beneficio 1", "beneficio 2", "beneficio 3"],
   "targetAudience": "descripción del público objetivo del producto",
-  "orientationDetails": "si tiene frente, dorso o laterales: qué estampas, bordados, etiquetas o detalles pertenecen a cada lado; usá la ficha técnica y las fotos, o null si no está verificado"
+  "orientationDetails": "si tiene frente, dorso o laterales: qué estampas, bordados, etiquetas o detalles pertenecen a cada lado; usá la ficha técnica y las fotos, o null si no está verificado",
+  "offeringType": "\"product\" si lo que se vende es un objeto físico que se envía o se retira; \"service\" si es un servicio, software, SaaS, curso, suscripción, consultoría, app o cualquier cosa que no sea un objeto físico. Mirá la página completa, no solo el título.",
+  "offeringEvidence": "en una frase, qué te hizo decidir ese offeringType (ej: 'tiene botón de agregar al carrito y peso de envío' o 'ofrece planes mensuales de software')"
 }`,
 					}
 				],
@@ -662,7 +670,9 @@ Respondé SOLO con JSON válido con esta estructura exacta:
   "category": "categoría del producto (ej: skincare, calzado, suplementos, etc.)",
   "keyBenefits": ["beneficio 1", "beneficio 2", "beneficio 3"],
   "targetAudience": "descripción del público objetivo del producto",
-  "orientationDetails": "si tiene frente, dorso o laterales: qué estampas, bordados, etiquetas o detalles pertenecen a cada lado; usá la ficha técnica y las fotos, o null si no está verificado"
+  "orientationDetails": "si tiene frente, dorso o laterales: qué estampas, bordados, etiquetas o detalles pertenecen a cada lado; usá la ficha técnica y las fotos, o null si no está verificado",
+  "offeringType": "\"product\" si lo que se vende es un objeto físico que se envía o se retira; \"service\" si es un servicio, software, SaaS, curso, suscripción, consultoría, app o cualquier cosa que no sea un objeto físico. Mirá la página completa, no solo el título.",
+  "offeringEvidence": "en una frase, qué te hizo decidir ese offeringType (ej: 'tiene botón de agregar al carrito y peso de envío' o 'ofrece planes mensuales de software')"
 }`,
 						},
 						// Attach main image for visual context if available
@@ -706,6 +716,8 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 		description,
 		priceText: compact(extracted.price || '', 60),
 		currency: compact(extracted.currency || '', 12),
+		// Lo detecta la IA leyendo la página; el usuario ya no lo elige a mano.
+		offeringType: extracted.offeringType === 'service' ? 'service' : 'product',
 		productUrl: base,
 		imageUrl: finalImages[0] || '',
 		imageUrls: finalImages,
@@ -713,6 +725,8 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 		metadata: {
 			brand: compact(extracted.brand || '', 120),
 			category: compact(extracted.category || '', 100),
+			offeringType: extracted.offeringType === 'service' ? 'service' : 'product',
+			offeringEvidence: compact(extracted.offeringEvidence || '', 200),
 			aiExtracted: true,
 			sourceUrl: url,
 		},

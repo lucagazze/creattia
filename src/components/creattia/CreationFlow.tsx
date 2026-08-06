@@ -80,7 +80,15 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	}, [isCarouselAd]);
 
 	// Cómo cargar el producto: por URL(s), a mano (con archivos), o sin producto.
-	const [productMode, setProductMode] = useState<'url' | 'manual' | 'service'>('url');
+	const [productMode, setProductMode] = useState<'url' | 'manual'>('url');
+	/**
+	 * Producto físico o servicio/SaaS. Ya no se pregunta: lo detecta la IA al
+	 * analizar la URL. Preguntarlo obligaba al usuario a clasificar algo que la
+	 * página ya dice sola, y si se equivocaba el creativo terminaba pidiendo una
+	 * foto de producto que no existe.
+	 */
+	const [detectedOffering, setDetectedOffering] = useState<'product' | 'service'>('product');
+	const isService = detectedOffering === 'service';
 	const [urls, setUrls] = useState<string[]>(['']);
 	const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 	const [importedProducts, setImportedProducts] = useState<ProductReviewItem[]>([]);
@@ -138,7 +146,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const urlsNeeded = wantsFullCarousel && !carouselSameProduct ? carouselSlides.length : 1;
 	const filledUrls = urls.map((u) => u.trim()).filter(Boolean).length;
 	const step1Ready = (productMode === 'url' && filledUrls >= urlsNeeded)
-		|| (productMode === 'service' && (filledUrls > 0 || manualProductName.trim()))
+		
 		|| (productMode === 'manual' && manualProductName.trim() && !(wantsFullCarousel && !carouselSameProduct));
 	const comparisonInfo = plan?.comparison || {};
 	const comparisonDetected = comparisons.length > 0 || comparisonInfo.detected === true;
@@ -175,6 +183,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				if (response.ok && payload.importedIds?.length) {
 					ids.push(...payload.importedIds);
 					if (Array.isArray(payload.products)) {
+						// Lo que detectó la IA al leer la página manda sobre el default.
+						const offering = payload.products.find((item: any) => item?.metadata?.offeringType)?.metadata?.offeringType;
+						if (offering === 'service' || offering === 'product') setDetectedOffering(offering);
 						payload.products.forEach((product: ProductReviewItem) => {
 							if (product?.id && payload.importedIds.includes(product.id)) productsById.set(product.id, product);
 						});
@@ -231,26 +242,30 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		setPhase('planning'); setError('');
 		try {
 			let productIds: string[] = [];
-			if (productMode === 'url' || productMode === 'service') {
+			let offeringForSubmit: 'product' | 'service' = detectedOffering;
+			if (productMode === 'url') {
 				const list = urls.map((u) => u.trim()).filter(Boolean);
 				if (!list.length && productMode === 'url') { setError('Pegá al menos una URL.'); setPhase('setup'); return; }
 				if (list.length) productIds = await scanUrls(list);
 				if (productMode === 'url' && !productIds.length) { setPhase('setup'); return; }
+				// setState no se refleja en este mismo handler: se relee del producto.
+				const scanned = importedProducts.find((item: any) => productIds.includes(item.id));
+				if ((scanned as any)?.metadata?.offeringType === 'service') offeringForSubmit = 'service';
 			}
 			const form = new FormData();
 			form.set('referencePath', effectiveReferencePath);
 			if (wantsFullCarousel) form.set('referencePaths', JSON.stringify(carouselSlides));
 			form.set('language', language);
 			form.set('brandSource', brandSource);
-			form.set('subjectMode', productMode === 'service' ? 'service' : 'product');
-			if ((productMode === 'url' || productMode === 'service') && productIds.length) {
+			form.set('subjectMode', offeringForSubmit);
+			if (productMode === 'url' && productIds.length) {
 				form.set('productId', productIds[0]); // contexto de análisis
-			} else if (productMode === 'manual' || productMode === 'service') {
+			} else if (productMode === 'manual') {
 				if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
-			if (productMode === 'service') {
+			if (isService) {
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
@@ -292,11 +307,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('colorMode', colorMode);
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
-			form.set('subjectMode', productMode === 'service' ? 'service' : 'product');
+			form.set('subjectMode', detectedOffering);
 			form.set('includeLogo', includeLogo ? '1' : '0');
-			if ((productMode === 'url' || productMode === 'service') && selectedProductIds.length) {
+			if ((productMode === 'url' || isService) && selectedProductIds.length) {
 				selectedProductIds.forEach((id) => form.append('productIds', id));
-			} else if (productMode === 'manual' || productMode === 'service') {
+			} else if (productMode === 'manual') {
 				if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
@@ -382,7 +397,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		onGenerationRequested?.();
 		try {
 			let productIds: string[] = [];
-			if (productMode === 'url' || (productMode === 'service' && urls.some((url) => url.trim()))) {
+			let offeringForSubmit: 'product' | 'service' = detectedOffering;
+			if (productMode === 'url' || (isService && urls.some((url) => url.trim()))) {
 				const list = urls.map((u) => u.trim()).filter(Boolean);
 				if (carouselSameProduct) {
 					const ids = await scanUrls([list[0]]);
@@ -438,7 +454,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					referenceName: ad.name || 'Carrusel ganador',
 					templateId: !isNaN(pathPrefixId) ? pathPrefixId : 40,
 					productIds,
-					subjectMode: productMode === 'service' ? 'service' : 'product',
+					subjectMode: offeringForSubmit,
 					productName: manualProductName.trim(),
 					productDescription: manualProductFacts.trim(),
 					avatarId: carouselAvatarId || null,
@@ -595,8 +611,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								<label className="picker-label">¿Qué vas a promocionar?</label>
 								<div className="wiz-tabs">
 									{([
-						['url', '🔗', 'Con URL', 'Analizamos tu página'],
-						['service', '✦', 'Servicio / SaaS', 'Sin producto físico'],
+						['url', '🔗', 'Con URL', 'Detectamos qué ofrecés'],
 										...(wantsFullCarousel && !carouselSameProduct ? [] : [['manual', '✍️', 'Cargar a mano', 'Cargás los datos'] as const]),
 									] as const).map(([value, icon, text, hint]) => (
 										<button key={value} type="button" className={`wiz-tab ${productMode === value ? 'active' : ''}`} onClick={() => setProductMode(value)}>
@@ -612,7 +627,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									</p>
 								)}
 
-								{(productMode === 'url' || productMode === 'service') && (
+								{(productMode === 'url' || isService) && (
 									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 										{urls.map((u, i) => (
 											<div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -636,7 +651,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												+ Agregar otra URL {wantsFullCarousel && !carouselSameProduct ? '(otra página)' : '(otro producto)'}
 											</button>
 										)}
-										{productMode === 'service' && (
+										{isService && (
 											<div className="wiz-fields" style={{ marginTop: '12px' }}>
 												<input className="wiz-input" value={manualProductName} onChange={(e) => setManualProductName(e.target.value)} placeholder="Nombre del servicio, SaaS o marca..." />
 												<textarea className="wiz-input" value={manualProductFacts} onChange={(e) => setManualProductFacts(e.target.value)} rows={3} placeholder="Qué hace, para quién es y qué resultado promete..." />
@@ -858,9 +873,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							/>
 						)}
 						<section style={{ marginBottom: '18px', padding: '16px', border: '1px solid #e6ddf5', borderRadius: '12px', background: '#fcfaff' }} aria-label="Identidad visual">
-							<strong style={label}>{productMode === 'service' ? '¿Qué querés mostrar como protagonista?' : '¿Querés mostrar una persona o avatar?'}</strong>
+							<strong style={label}>{isService ? '¿Qué querés mostrar como protagonista?' : '¿Querés mostrar una persona o avatar?'}</strong>
 							<p style={{ margin: '-3px 0 12px', fontSize: '12px', color: '#716d79', lineHeight: 1.45 }}>
-								{productMode === 'service' ? 'Podés usar un avatar, o dejar que la IA decida entre logo, interfaz, resultado, persona contextual o una escena de marca según el anuncio ganador.' : 'Para mantener una persona consistente podés usar tu avatar. Si no elegís ninguno, la IA mantiene la dirección del anuncio ganador sin inventar una identidad recurrente.'}
+								{isService ? 'Podés usar un avatar, o dejar que la IA decida entre logo, interfaz, resultado, persona contextual o una escena de marca según el anuncio ganador.' : 'Para mantener una persona consistente podés usar tu avatar. Si no elegís ninguno, la IA mantiene la dirección del anuncio ganador sin inventar una identidad recurrente.'}
 							</p>
 							<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
 								<button type="button" style={chip(avatarMode === 'none')} onClick={() => setAvatarMode('none')}>Sin persona / avatar</button>
