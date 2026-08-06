@@ -318,6 +318,8 @@ export function GenerationCard({
 	const [refPreview, setRefPreview] = useState<{ path: string; name: string } | null>(null);
 	const [slideIndex, setSlideIndex] = useState(0);
 	const isCarousel = Boolean(slides && slides.length > 1);
+	/** Bajar un carrusel tarda: sin aviso el icono parece no responder. */
+	const [bajandoTarjeta, setBajandoTarjeta] = useState(false);
 	const active = isCarousel ? slides![Math.min(slideIndex, slides!.length - 1)] : item;
 	const referenceThumbUrl = useReferenceUrl(active.referencePath);
 	const deleteIds = isCarousel ? slides!.map((slide) => slide.id) : active.id;
@@ -525,7 +527,33 @@ export function GenerationCard({
 								</span>
 							</>
 						)}
-						<a href={active.imageUrl} onClick={(event) => { event.preventDefault(); event.stopPropagation(); void downloadImage(active.imageUrl, `creattia-${active.id}.png`); }} aria-label={`Descargar ${item.title}`}><Icon name="download" size={17}/></a>
+						{/* En un carrusel baja el conjunto, no la página que se está
+						    viendo: quien descarga desde la tarjeta quiere el creativo
+						    completo, igual que desde el visor. */}
+						<a
+							href={active.imageUrl}
+							aria-label={isCarousel ? `Descargar las ${slides!.length} páginas de ${item.title}` : `Descargar ${item.title}`}
+							title={isCarousel ? `Descargar las ${slides!.length} páginas` : 'Descargar'}
+							onClick={async (event) => {
+								event.preventDefault();
+								event.stopPropagation();
+								if (bajandoTarjeta) return;
+								setBajandoTarjeta(true);
+								try {
+									if (isCarousel) {
+										const paginas = await Promise.all(slides!.map(async (slide, index) => ({
+											url: await signOriginalGeneration(slide.outputPath, slide.imageUrl),
+											indice: slide.outputIndex || index + 1,
+										})));
+										await downloadCarousel(paginas.filter((pagina) => pagina.url), item.title || 'carrusel');
+									} else {
+										await downloadImage(await signOriginalGeneration(active.outputPath, active.imageUrl), `creattia-${active.id}.png`);
+									}
+								} finally { setBajandoTarjeta(false); }
+							}}
+						>
+							{bajandoTarjeta ? <span className="studio-spinner small" aria-hidden="true" /> : <Icon name="download" size={17}/>}
+						</a>
 						{active.referencePath && (
 							<button
 								type="button"

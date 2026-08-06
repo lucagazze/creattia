@@ -1,4 +1,4 @@
-import { subscriptionPlans } from '../../../lib/creattia/subscription-plans';
+import { subscriptionPlans, yearlyPriceFor, yearlySavingsFor } from '../../../lib/creattia/subscription-plans';
 import { isSupabaseConfigured, supabase } from '../../../lib/creattia/supabase-browser';
 import { Icon } from '../Icon';
 import { getSessionToken, paidSubscriptionStatuses, planRank } from '../app-session';
@@ -97,7 +97,11 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 	const [notice, setNotice] = useState('');
 	const [pendingPlanChange, setPendingPlanChange] = useState<{ planCode: string; direction: 'up' | 'down' } | null>(null);
 	const [confirmingCancel, setConfirmingCancel] = useState(false);
-	const billingCycle = 'monthly';
+	/**
+	 * Mensual o anual. Estaba clavado en 'monthly': el cobro anual existía en el
+	 * servidor pero no había forma de llegar a él desde la pantalla.
+	 */
+	const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 	async function changePlan(planCode: string, direction: 'up' | 'down') {
 		const targetPlan = subscriptionPlans.find((plan) => plan.code === planCode);
 		if (!targetPlan) return;
@@ -158,6 +162,20 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 
 	return <><div className="studio-page-heading"><div><p>PLANES Y ACCESO</p><h1>Desbloqueá la biblioteca que te inspira.</h1><span>Elegí el volumen de tokens que necesitás. Todos los planes pagos incluyen la biblioteca completa, estáticos y carruseles.</span></div></div>
 		
+		{/* Mensual o anual. Antes no existía la opción y el anual era inalcanzable. */}
+		<div className="billing-switch" role="radiogroup" aria-label="Modalidad de cobro">
+			<button
+				type="button" role="radio" aria-checked={billingCycle === 'monthly'}
+				className={billingCycle === 'monthly' ? 'active' : ''}
+				onClick={() => setBillingCycle('monthly')}
+			>Mensual</button>
+			<button
+				type="button" role="radio" aria-checked={billingCycle === 'yearly'}
+				className={billingCycle === 'yearly' ? 'active' : ''}
+				onClick={() => setBillingCycle('yearly')}
+			>Anual <em>2 meses gratis</em></button>
+		</div>
+
 		{error && <p className="studio-form-error">{error}</p>}
 		{notice && <p className="studio-form-notice">{notice}</p>}
 		<div className="studio-plans-grid">{subscriptionPlans.map((plan) => {
@@ -168,8 +186,13 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 				: hasPaidSubscription && profile.planCode === plan.code;
 			const isPlanChange = hasPaidSubscription && !currentPlan;
 			const direction = planRank(plan.code) > planRank(profile.planCode) ? 'up' : 'down';
-			const price = isFreePlan ? '0.00' : plan.price.toFixed(2);
+			// En anual se muestra el equivalente por mes —que es como la gente
+			// compara— y aparte lo que se cobra de una y cuánto se ahorra.
+			const esAnual = billingCycle === 'yearly' && !isFreePlan;
+			const precioMensualEquivalente = esAnual ? yearlyPriceFor(plan.price) / 12 : plan.price;
+			const price = isFreePlan ? '0.00' : precioMensualEquivalente.toFixed(2);
 			const frequencyText = isFreePlan ? '' : '/mes';
+			const ahorroAnual = esAnual ? yearlySavingsFor(plan.price) : 0;
 
 			const handleButtonClick = () => {
 				if (isFreePlan) {
@@ -201,6 +224,17 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 					<span className="plan-price-val"><b>$</b>{price}</span>
 					<span className="plan-price-freq">{frequencyText}</span>
 				</div>
+				{esAnual && (
+					<p className="plan-yearly-note">
+						<strong>${yearlyPriceFor(plan.price).toFixed(2)} una vez al año</strong>
+						<span>Ahorrás ${ahorroAnual.toFixed(2)} · recibís {(plan.credits || 0) * 12} tokens de una</span>
+					</p>
+				)}
+				{!isFreePlan && !esAnual && plan.credits ? (
+					<p className="plan-yearly-note plan-unit-note">
+						<span>{plan.credits} tokens por mes · ${(plan.price / plan.credits).toFixed(2)} por token</span>
+					</p>
+				) : null}
 				<button
 					className="plan-subscribe-btn"
 					style={{ background: plan.featured ? 'linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%)' : '#744bde' }}

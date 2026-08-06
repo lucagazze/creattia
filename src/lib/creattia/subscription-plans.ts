@@ -15,6 +15,26 @@ export type SubscriptionPlan = {
 	features: SubscriptionPlanFeature[];
 };
 
+/**
+ * Meses que se pagan al contratar un año: 10 en vez de 12, o sea dos de regalo.
+ *
+ * El cobro anual existía en el código pero era inalcanzable —exigía planes
+ * cargados a mano en Mercado Pago que nunca se crearon— y además nadie había
+ * definido su precio. Vive acá para que la pantalla y el cobro no puedan
+ * desincronizarse: el descuento se calcula una sola vez.
+ */
+export const YEARLY_PAID_MONTHS = 10;
+
+/** Lo que se cobra de una por un año del plan. */
+export function yearlyPriceFor(monthlyPrice: number): number {
+	return Math.round(monthlyPrice * YEARLY_PAID_MONTHS * 100) / 100;
+}
+
+/** Cuánto se ahorra contra pagar mes a mes. */
+export function yearlySavingsFor(monthlyPrice: number): number {
+	return Math.round((monthlyPrice * 12 - yearlyPriceFor(monthlyPrice)) * 100) / 100;
+}
+
 /** Fuente única de verdad para precios, tokens y beneficios de la oferta. */
 export const subscriptionPlans: SubscriptionPlan[] = [
 	{

@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 
+import { yearlyPriceFor } from '../../../lib/creattia/subscription-plans';
+
 export const prerender = false;
 
 /**
@@ -136,15 +138,15 @@ export const POST: APIRoute = async ({ request, url }) => {
 	if (!accessToken) {
 		return json({ error: 'Mercado Pago todavía no está configurado.', requiresConfiguration: true }, 503);
 	}
-	let transactionAmount: number = plan.price;
+	// El anual se cobra de una por los meses que valga el año.
+	const precioDelCiclo = billingCycle === 'yearly' ? yearlyPriceFor(plan.price) : plan.price;
+	let transactionAmount: number = precioDelCiclo;
 	try {
-		transactionAmount = providerAmount(plan.price);
+		transactionAmount = providerAmount(precioDelCiclo);
 	} catch (error) {
 		return json({ error: error instanceof Error ? error.message : 'La conversión de moneda no está configurada.' }, 503);
 	}
-	if (!planId && billingCycle !== 'monthly') {
-		return json({ error: `Mercado Pago todavía no está configurado para la modalidad ${billingCycle}.`, requiresConfiguration: true }, 503);
-	}
+
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 	const { data: existing, error: existingError } = await admin.from('creative_subscriptions')
@@ -236,11 +238,13 @@ export const POST: APIRoute = async ({ request, url }) => {
 	if (planId) {
 		preapprovalPayload.preapproval_plan_id = planId;
 	} else {
-		// Mercado Pago permite crear una suscripción mensual sin un plan previo.
-		// Esto mantiene funcionando el checkout aunque todavía no se hayan cargado
-		// los IDs opcionales de cada plan en Vercel.
+		// Mercado Pago permite crear la suscripción sin un plan previo, indicando
+		// la recurrencia en el mismo pedido. Antes esto solo cubría el mensual y
+		// el anual quedaba cortado con un 503 pidiendo una configuración que nadie
+		// había hecho; con la frecuencia en 12 meses funciona igual, sin depender
+		// de que existan planes cargados a mano en el panel.
 		preapprovalPayload.auto_recurring = {
-			frequency: 1,
+			frequency: billingCycle === 'yearly' ? 12 : 1,
 			frequency_type: 'months',
 			transaction_amount: transactionAmount,
 			currency_id: subscriptionCurrency,

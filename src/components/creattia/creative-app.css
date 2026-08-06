@@ -6032,3 +6032,40 @@
 	padding: 2px 5px; border-radius: 999px; background: #ece3ff; color: #6b4bb0;
 }
 .batch-style-options button.active .batch-detected-tag { background: rgba(255, 255, 255, .25); color: #fff; }
+
+
+/* ─── Mensual / anual ─────────────────────────────────────────────────
+   El cobro anual existía en el servidor pero no había forma de elegirlo. */
+.billing-switch {
+	display: inline-flex; gap: 4px; margin: 0 0 20px; padding: 4px;
+	border-radius: 999px; border: 1px solid #e2dde9; background: #f7f5fa;
+}
+.billing-switch button {
+	display: inline-flex; align-items: center; gap: 7px;
+	min-height: 40px; padding: 0 18px; border: 0; border-radius: 999px;
+	background: transparent; color: #5c5568; cursor: pointer;
+	font-family: inherit; font-size: 13.5px; font-weight: 800;
+	transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.billing-switch button:hover { color: #19171d; }
+.billing-switch button.active { background: #fff; color: #19171d; box-shadow: 0 3px 10px rgba(38, 25, 48, .1); }
+.billing-switch button em {
+	font-style: normal; font-size: 10.5px; font-weight: 800; letter-spacing: .02em;
+	padding: 3px 8px; border-radius: 999px; background: #e7f7ee; color: #1c7a48;
+}
+.billing-switch button.active em { background: #d6f2e3; }
+
+/* Lo que se cobra de verdad, debajo del precio por mes. */
+.plan-yearly-note {
+	display: flex; flex-direction: column; gap: 2px;
+	margin: -6px 0 14px; font-size: 12px; line-height: 1.45;
+}
+.plan-yearly-note strong { font-size: 13px; color: #19171d; }
+.plan-yearly-note span { color: #716d79; }
+.plan-unit-note { margin-top: -4px; }
+
+@media (max-width: 640px) {
+	.billing-switch { width: 100%; justify-content: stretch; }
+	.billing-switch button { flex: 1; justify-content: center; padding: 0 10px; font-size: 12.5px; }
+	.billing-switch button em { font-size: 9.5px; padding: 2px 6px; }
+}
