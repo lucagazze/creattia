@@ -44,6 +44,8 @@ export type AppSession = Session | DemoSession;
 
 export type Generation = {
 	id: string;
+	/** Ruta en storage: permite pedir el original cuando se abre la imagen. */
+	outputPath?: string | null;
 	title: string;
 	imageUrl: string;
 	format: string;

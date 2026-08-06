@@ -5,6 +5,7 @@ import type { ActiveBatch, AppSession, Generation, Product } from '../app-types'
 import { groupCarouselHistory } from '../history-utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { downloadImage } from '../download';
+import { useFullGenerationUrl } from '../../../lib/creattia/generation-image';
 /** Historial de generaciones: tarjetas, lightbox y la referencia ganadora. */
 
 export function History({ 
@@ -675,6 +676,8 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 	const [slideIndex, setSlideIndex] = useState(0);
 	const activeItem = carouselSlides[Math.min(slideIndex, carouselSlides.length - 1)] || item;
 	const referenceThumbUrl = useReferenceUrl(activeItem.referencePath);
+	// La grilla muestra miniaturas para abrir rápido; acá se pide el original.
+	const fullUrl = useFullGenerationUrl(activeItem.outputPath, activeItem.imageUrl);
 	const isCarousel = carouselSlides.length > 1;
 	const goToSlide = (delta: number) => setSlideIndex((previous) => (previous + delta + carouselSlides.length) % carouselSlides.length);
 	const touchStartX = useRef<number | null>(null);
@@ -820,7 +823,7 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 			<div className="studio-lightbox-panel" onClick={(event) => event.stopPropagation()} style={{ position: 'relative', display: 'flex', gap: '22px', alignItems: 'stretch', maxWidth: '1100px', width: '100%', maxHeight: '90vh' }}>
 				<button onClick={onClose} aria-label="Cerrar" style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 8, border: 0, background: 'rgba(255,255,255,0.94)', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', color: '#19171d', fontSize: '16px', fontWeight: 700, boxShadow: '0 4px 14px rgba(0,0,0,0.22)' }}>✕</button>
 				<div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ flex: '1 1 auto', display: 'grid', placeItems: 'center', minWidth: 0, position: 'relative', touchAction: isCarousel ? 'pan-y' : 'auto' }}>
-					<img src={showReference && activeItem.referenceUrl ? activeItem.referenceUrl : activeItem.imageUrl} alt={activeItem.title} style={{ maxWidth: '100%', maxHeight: '86vh', borderRadius: '14px', boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }} />
+					<img src={showReference && activeItem.referenceUrl ? activeItem.referenceUrl : fullUrl} alt={activeItem.title} style={{ maxWidth: '100%', maxHeight: '86vh', borderRadius: '14px', boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }} />
 					{isCarousel && !showReference && <>
 						<button type="button" aria-label="Página anterior" onClick={() => goToSlide(-1)} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '40px', height: '40px', border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#19171d', fontSize: '25px', cursor: 'pointer', boxShadow: '0 6px 18px rgba(0,0,0,.25)' }}>‹</button>
 						<button type="button" aria-label="Página siguiente" onClick={() => goToSlide(1)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', width: '40px', height: '40px', border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#19171d', fontSize: '25px', cursor: 'pointer', boxShadow: '0 6px 18px rgba(0,0,0,.25)' }}>›</button>
@@ -867,7 +870,7 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 							</span>
 						</button>
 					)}
-					<button onClick={() => void downloadImage(activeItem.imageUrl, `creattia-${activeItem.id}.png`)} style={{ width: '100%', height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>Descargar imagen</button>
+					<button onClick={() => void downloadImage(fullUrl, `creattia-${activeItem.id}.png`)} style={{ width: '100%', height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>Descargar imagen</button>
 					{activeItem.referenceUrl && (
 						<button onClick={() => setShowReference(!showReference)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: showReference ? '#eceaef' : '#f8f6fb', border: showReference ? '1px solid #cfc9d8' : '1px solid transparent', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>
 							<img src={activeItem.referenceUrl} alt="Anuncio ganador usado" style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '8px' }} />

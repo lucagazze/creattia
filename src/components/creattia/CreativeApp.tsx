@@ -456,7 +456,7 @@ export default function CreativeApp() {
 					if (generationsError) {
 						console.warn('No se pudo cargar el historial:', generationsError.message);
 					} else if (records?.length) {
-						const signedByPath = await signGenerationPaths(client, records.map((record: any) => record.output_path));
+						const signedByPath = await signGenerationPaths(client, records.map((record: any) => record.output_path), { thumb: true });
 						const mapped = records.map((record: any) => {
 							const imgUrl = record.output_path ? signedByPath.get(record.output_path) || '' : '';
 
@@ -465,6 +465,7 @@ export default function CreativeApp() {
 								id: record.id,
 								title: record.title,
 								imageUrl: imgUrl,
+								outputPath: record.output_path || null,
 								format: record.format,
 								createdAt: record.created_at || new Date().toISOString(),
 								category: creative ? ringMeta[creative.ring]?.label : 'Creativo',
@@ -550,7 +551,7 @@ export default function CreativeApp() {
 				if (!active || !records || records.length === 0) return;
 
 				void resumeStuck(records as any);
-				const signedByPath = await signGenerationPaths(client, records.map((record: any) => record.output_path));
+				const signedByPath = await signGenerationPaths(client, records.map((record: any) => record.output_path), { thumb: true });
 				if (!active) return;
 
 				setHistory((prev) => {
@@ -865,7 +866,7 @@ export default function CreativeApp() {
 				.eq('batch_id', batch.batchId).order('output_index');
 			if (cancelled || error || !data?.length) return;
 
-			const signedByPath = await signGenerationPaths(client, data.map((row: any) => row.output_path));
+			const signedByPath = await signGenerationPaths(client, data.map((row: any) => row.output_path), { thumb: true });
 			if (cancelled) return;
 
 			// Actualizar en tiempo real los items en el historial (history)
