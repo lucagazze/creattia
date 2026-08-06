@@ -60,7 +60,9 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 	const safeQuantity = Math.min(maxCredits, Math.max(1, Math.floor(Number(quantity) || 1)));
 	const unitPrice = Number(config.unitPrice || 0.3);
 	const totalPrice = (unitPrice * safeQuantity).toFixed(2);
-	const symbol = config.currency === 'USD' ? 'u$s' : '$';
+	// "USD 0.49" y no "u$s 0.49": el símbolo criollo se lee informal y encima
+	// repetía la moneda dos veces en la misma frase.
+	const symbol = config.currency === 'USD' ? 'USD ' : '$';
 
 	return (
 		<div id="buy-credits-section" style={{ marginTop: '36px', padding: '24px', background: '#f5f2f9', border: '1px solid #e2dee8', borderRadius: '16px' }}>
@@ -73,7 +75,7 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 				{unconfigured ? (
 					<strong> Muy pronto vas a poder comprarlos acá.</strong>
 				) : (
-					<strong> Cada crédito cuesta {symbol}{unitPrice.toFixed(2)} {config.currency}.</strong>
+					<strong> Cada crédito cuesta {symbol}{unitPrice.toFixed(2)}.</strong>
 				)}
 			</p>
 			

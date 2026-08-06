@@ -227,6 +227,66 @@ export default function CreativeApp() {
 		}
 	}
 
+	/**
+	 * Al volver de pagar, esperar a que aparezcan los tokens.
+	 *
+	 * Mercado Pago devuelve al usuario apenas aprueba el pago, pero los créditos
+	 * los acredita el webhook unos segundos después. Nadie miraba ese regreso, así
+	 * que se volvía a la app con el mismo número de siempre en la barra y la única
+	 * salida era recargar a mano y esperar que hubiera funcionado.
+	 *
+	 * Se consulta el saldo cada 3 segundos durante medio minuto, se corta apenas
+	 * sube, y se avisa cuántos tokens entraron.
+	 */
+	useEffect(() => {
+		if (typeof window === 'undefined' || !supabase || !session) return;
+		const parametros = new URLSearchParams(window.location.search);
+		const vuelveDePagar = parametros.get('purchase') === 'success' || parametros.get('subscription') === 'return';
+		if (!vuelveDePagar) return;
+		window.history.replaceState({}, '', window.location.pathname);
+
+		const saldoPrevio = profile.credits ?? 0;
+		let intentos = 0;
+		let vigente = true;
+		setToast('Confirmando tu pago…');
+
+		const revisar = async () => {
+			intentos += 1;
+			const { data } = await supabase!.from('creative_profiles')
+				.select('credits_remaining,plan_code,subscription_status,subscription_period_end')
+				.eq('user_id', sessionUserIdRef.current || '').maybeSingle();
+			if (!vigente || !data) return false;
+			const saldo = data.credits_remaining ?? saldoPrevio;
+			setProfile((previo) => ({
+				...previo,
+				credits: saldo,
+				planCode: data.plan_code || previo.planCode,
+				subscriptionStatus: data.subscription_status || previo.subscriptionStatus,
+				subscriptionPeriodEnd: data.subscription_period_end || previo.subscriptionPeriodEnd,
+			}));
+			if (saldo > saldoPrevio) {
+				const sumados = saldo - saldoPrevio;
+				setToast(`¡Listo! Se sumaron ${sumados} ${sumados === 1 ? 'token' : 'tokens'} a tu cuenta.`);
+				return true;
+			}
+			return false;
+		};
+
+		const intervalo = window.setInterval(() => {
+			void revisar().then((listo) => {
+				if (listo || intentos >= 10) {
+					window.clearInterval(intervalo);
+					// Si el webhook todavía no llegó, se dice la verdad en vez de
+					// dejar un aviso de "confirmando" colgado para siempre.
+					if (!listo && vigente) setToast('Recibimos tu pago. Los tokens se acreditan en unos minutos.');
+				}
+			});
+		}, 3000);
+		void revisar();
+
+		return () => { vigente = false; window.clearInterval(intervalo); };
+	}, [session]);
+
 	function navigateTo(nextView: View) {
 		setViewHistory((prev) => [...prev, view]);
 		setView(nextView);

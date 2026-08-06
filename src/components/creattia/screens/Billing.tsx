@@ -137,7 +137,7 @@ export function Billing({ profile, session }: { profile: AppProfile; session: Ap
 								</small>
 							</div>
 							<span className="billing-amount">
-								{movimiento.moneda === 'ARS' ? '$' : 'u$s'}{movimiento.monto.toFixed(2)}
+								{movimiento.moneda === 'ARS' ? '$' : 'USD '}{movimiento.monto.toFixed(2)}
 							</span>
 						</li>
 					))}
