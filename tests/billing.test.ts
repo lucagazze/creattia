@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { test } from 'vitest';
+import { readFile } from 'node:fs/promises';
+import { describe, test } from 'vitest';
 
 import { getEffectiveAccess } from '../src/lib/creattia/admin-access';
 import { isAdminEmail } from '../src/lib/creattia/admin';
@@ -164,4 +165,26 @@ test('a más volumen, mejor precio por token', () => {
 		const current = paid[index].price / paid[index].credits!;
 		assert.ok(current <= previous, `${paid[index].code} sale más caro por token que ${paid[index - 1].code}`);
 	}
+});
+
+/**
+ * Mercado Pago espera "cancelled", con dos eles.
+ *
+ * Con "canceled" respondía 400 "Invalid preapproval status param", y eso
+ * encadenaba dos fallos: nadie podía cancelar su suscripción, y quien abandonaba
+ * un checkout quedaba con un pendiente que no se podía limpiar, así que el
+ * siguiente intento de suscribirse moría en 502 para siempre.
+ */
+describe('cancelación en Mercado Pago', () => {
+	test('se manda el estado que la API acepta', async () => {
+		const fuente = await readFile('src/pages/api/creativos/subscribe.ts', 'utf8');
+		assert.match(fuente, /status: 'cancelled'/);
+		assert.doesNotMatch(fuente, /status: 'canceled'/);
+	});
+
+	test('un checkout abandonado no puede dejar la cuenta trabada', async () => {
+		const fuente = await readFile('src/pages/api/creativos/subscribe.ts', 'utf8');
+		// El camino del pendiente ya no corta con 502: sigue y libera al usuario.
+		assert.doesNotMatch(fuente, /PENDING_SUBSCRIPTION_CANCEL_FAILED/);
+	});
 });

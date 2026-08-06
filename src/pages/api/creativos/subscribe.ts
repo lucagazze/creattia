@@ -89,7 +89,11 @@ async function cancelProviderSubscription(subscriptionId: string, accessToken: s
 		return await fetch(`https://api.mercadopago.com/preapproval/${encodeURIComponent(subscriptionId)}`, {
 			method: 'PUT',
 			headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
-			body: JSON.stringify({ status: 'canceled' }),
+			// Mercado Pago espera "cancelled", con dos eles. Con "canceled"
+			// respondía 400 "Invalid preapproval status param", así que nadie podía
+			// cancelar su suscripción ni volver a suscribirse tras abandonar un
+			// checkout: el pendiente quedaba trabado para siempre.
+			body: JSON.stringify({ status: 'cancelled' }),
 		});
 	} catch {
 		return null;
@@ -210,8 +214,15 @@ export const POST: APIRoute = async ({ request, url }) => {
 	}
 
 	if (existing?.status === 'pending' && existing.provider_subscription_id) {
+		// Un checkout abandonado no cobró nada: si Mercado Pago no lo deja
+		// cancelar —porque nunca llegó a autorizarse, o porque ya venció— seguir
+		// adelante es seguro y es lo único que destraba al usuario. Antes esto
+		// cortaba con un 502 y dejaba la cuenta sin poder suscribirse jamás.
 		const cancelResponse = await cancelProviderSubscription(existing.provider_subscription_id, accessToken);
-		if (!cancelResponse?.ok) return json({ error: 'No pudimos cancelar el checkout pendiente. Tu plan actual sigue sin cambios.', code: 'PENDING_SUBSCRIPTION_CANCEL_FAILED' }, 502);
+		if (!cancelResponse?.ok) {
+			const detalle = await cancelResponse?.text().catch(() => '') || 'sin respuesta';
+			console.warn(`[subscribe] no se pudo cancelar el pendiente ${existing.provider_subscription_id}: ${detalle.slice(0, 200)}`);
+		}
 		await admin.from('creative_subscriptions').update({ status: 'cancelled', updated_at: new Date().toISOString() })
 			.eq('user_id', auth.user.id).eq('provider', 'mercado_pago');
 	}
