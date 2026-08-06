@@ -88,6 +88,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * foto de producto que no existe.
 	 */
 	const [scannedOffering, setScannedOffering] = useState<'product' | 'service' | 'catalog'>('product');
+	/** Corrección manual: gana sobre lo detectado. */
+	const [subjectOverride, setSubjectOverride] = useState<'catalog' | 'product' | null>(null);
 	const [urls, setUrls] = useState<string[]>(['']);
 	const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 	const [importedProducts, setImportedProducts] = useState<ProductReviewItem[]>([]);
@@ -104,7 +106,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		const desdeProductos = (elegidos.length ? elegidos : importedProducts)
 			.map((item: any) => item?.metadata?.pageType)
 			.find((tipo: string) => tipo === 'catalog' || tipo === 'service' || tipo === 'product');
-		return (desdeProductos as any) || scannedOffering;
+		return subjectOverride || (desdeProductos as any) || scannedOffering;
 	})();
 	const isService = detectedOffering === 'service';
 	/** La URL era la home de la tienda o una categoría: el anuncio habla del negocio. */
@@ -935,6 +937,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								products={importedProducts}
 								isCatalog={isCatalog}
 								storeName={(importedProducts[0] as any)?.metadata?.store?.name}
+								detectionReason={(importedProducts[0] as any)?.metadata?.store?.evidence}
+								onChangeSubject={setSubjectOverride}
 								selectedProductIds={selectedProductIds}
 								onToggleProduct={(productId) => setSelectedProductIds((current) => current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId])}
 							/>

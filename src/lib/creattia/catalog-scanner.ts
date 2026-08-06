@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import { createHash } from 'node:crypto';
 import OpenAI from 'openai';
 import { normalizeExternalUrl, readLimited, safeExternalFetch } from './safe-fetch';
+import { pageTypeFromUrl, resolvePageType } from './page-type';
 
 /**
  * Qué clase de página se analizó.
@@ -741,13 +742,20 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 		1600,
 	);
 
-	const pageType: PageType = extracted.pageType === 'catalog' ? 'catalog'
+	// Lo que dice la ruta pesa más que lo que el modelo cree leer: con la home de
+	// una tienda el modelo elegía el primer producto de la grilla y lo trataba
+	// como protagonista, mientras que "/" no admite interpretación.
+	const fromModel: PageType | null = extracted.pageType === 'catalog' ? 'catalog'
 		: extracted.pageType === 'service' ? 'service'
-		: 'product';
+		: extracted.pageType === 'product' ? 'product'
+		: null;
+	const urlVerdict = pageTypeFromUrl(url);
+	const resolved = resolvePageType(urlVerdict, fromModel);
+	const pageType: PageType = resolved.pageType;
 	const store = {
 		name: compact(extracted.storeName || extracted.brand || new URL(url).hostname.replace(/^www\./, ''), 120),
 		description: compact(extracted.storeDescription || '', 600),
-		evidence: compact(extracted.pageTypeEvidence || '', 200),
+		evidence: compact(resolved.reason + (extracted.pageTypeEvidence ? ` · ${extracted.pageTypeEvidence}` : ''), 240),
 	};
 
 	const baseMetadata = {

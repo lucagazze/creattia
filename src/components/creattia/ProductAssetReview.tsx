@@ -36,13 +36,17 @@ function mediaFor(product: ProductReviewItem): ProductReviewMedia[] {
  * selecciona tocando la tarjeta entera. Se ve todo de un vistazo y las fotos
  * extra de un producto se abren solo si hacen falta.
  */
-export default function ProductAssetReview({ products, selectedProductIds = [], onToggleProduct, isCatalog = false, storeName }: {
+export default function ProductAssetReview({ products, selectedProductIds = [], onToggleProduct, isCatalog = false, storeName, detectionReason, onChangeSubject }: {
 	products: ProductReviewItem[];
 	selectedProductIds?: string[];
 	onToggleProduct?: (productId: string) => void;
 	/** La URL era la home o una categoría: son productos de la tienda, no una ficha. */
 	isCatalog?: boolean;
 	storeName?: string;
+	/** Por qué se clasificó así, para que se entienda y se pueda desconfiar. */
+	detectionReason?: string;
+	/** Permite corregir a mano si la detección se equivocó. */
+	onChangeSubject?: (subject: 'catalog' | 'product') => void;
 }) {
 	const [expanded, setExpanded] = useState<string | null>(null);
 	if (!products.length) return null;
@@ -82,6 +86,25 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 					)}
 				</div>
 			</header>
+
+			{/* De qué va a hablar el anuncio, ANTES de generar: era la sorpresa más
+			    cara de la app —se descubría recién en la imagen final—. */}
+			<div className={`asset-subject${isCatalog ? ' is-store' : ''}`}>
+				<div className="asset-subject-copy">
+					<strong>{isCatalog ? 'El anuncio va a hablar de la tienda' : 'El anuncio va a hablar de un producto'}</strong>
+					<small>
+						{isCatalog
+							? 'Muestra una selección de lo que vendés, sin un producto protagonista.'
+							: 'Se centra en el producto elegido, con sus datos y sus fotos.'}
+						{detectionReason ? ` · Lo detectamos porque ${detectionReason}.` : ''}
+					</small>
+				</div>
+				{onChangeSubject && (
+					<button type="button" onClick={() => onChangeSubject(isCatalog ? 'product' : 'catalog')}>
+						{isCatalog ? 'Hablar de un producto' : 'Hablar de la tienda'}
+					</button>
+				)}
+			</div>
 
 			<div className="asset-grid">
 				{products.map((product, index) => {

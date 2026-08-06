@@ -192,7 +192,7 @@ Return STRICT JSON:
     "cta": "short adapted action, maximum 30 characters"
   },
   "textZones": [
-    { "slide": 1, "where": "short position description", "onProduct": true|false, "original": "exact text visibly present in the winning image", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product, similar length" }
+    { "slide": 1, "where": "PRECISE position: which corner or edge, and whether the block sits over the photo or outside it (e.g. 'white box overlapping the bottom-LEFT of the photo', 'red breadcrumb line above the headline')", "onProduct": true|false, "original": "exact text visibly present in the winning image", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product, similar length", "emphasis": "null, or the visual emphasis applied to PART of this text and WHICH words carry it: highlighter/marker background (say the colour), underline, heavier weight, a different colour, or a boxed word. Example: 'marker highlight in soft yellow over \"62 and have $1.3 million saved up\"'" }
   ],
   "referenceHasProduct": true|false,
   "templateHasLogoSlot": true|false — does the template visibly display a brand logo or brand wordmark (a natural spot where the advertiser brand belongs)?,
@@ -458,7 +458,15 @@ export function buildReferenceClonePrompt(input: {
 	const droppedOnProduct = (input.analysis?.textZones?.length || 0) - zones.length;
 	let textSwap = '';
 	if (zones.length) {
-		textSwap = zones.map((zone, index) => `${index + 1}. [${zone.where || 'text zone'}${zone.messageRole ? ` — persuasive job: ${zone.messageRole}` : ''}] Replace "${zone.original || ''}" with "${zone.replacement}"`).join('\n');
+		textSwap = zones.map((zone, index) => {
+			// El formato de la zona es parte del diseño que hace funcionar al
+			// ganador: un resaltado o un subrayado que no se reproduce cambia
+			// dónde cae el ojo y el anuncio deja de verse igual.
+			const emphasis = typeof (zone as any).emphasis === 'string' && (zone as any).emphasis.trim() && (zone as any).emphasis.trim().toLowerCase() !== 'null'
+				? ` — KEEP THIS FORMATTING: ${(zone as any).emphasis.trim()}. Apply the same treatment to the equivalent words of the new text.`
+				: '';
+			return `${index + 1}. [${zone.where || 'text zone'}${zone.messageRole ? ` — persuasive job: ${zone.messageRole}` : ''}] Replace "${zone.original || ''}" with "${zone.replacement}"${emphasis}`;
+		}).join('\n');
 	}
 
 	const placement = input.analysis?.productPlacement
@@ -603,6 +611,8 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 		: `\nLOGO DECISION (CRITICAL) — The winning reference has no confirmed ad-level logo slot. ${input.hasLogo
 			? 'Only include the supplied selected-identity logo if the reference has a natural, clearly visible brand position; never create a new logo lockup, badge or footer.'
 			: 'Do not add a logo, wordmark, domain, watermark or brand badge. Preserve any genuine branding printed on the TARGET PRODUCT itself because it is part of the product, not an ad overlay.'}`;
+	const layoutFidelityRule = `\nLAYOUT FIDELITY OF TEXT BLOCKS (CRITICAL) — Every text block must stay in the SAME place as in the template: same corner, same side, same distance from the edges, same width, and the same relationship with the photo (if a block overlaps the image on the left, it must overlap on the left, not on the right). Mirroring a block to the other side, recentring it or resizing it changes the composition that made the original work. Reproduce as well any highlight, marker, underline, colour accent or boxed word that the template applies to part of a text: those marks tell the reader where to look, and dropping them flattens the ad.`;
+
 	const catalogRule = isCatalogSubject
 		? `\nSUBJECT IS THE STORE, NOT ONE ITEM (CRITICAL) — This ad is about the business as a whole, not about a single product. The supplied photos are a SELECTION of what the store sells: show them together as a coherent group, collection or lineup, all sharing the same lighting, scale logic and surface. Never present one of them as "the" hero product with the others as accessories, never invent a product that was not supplied, and never write a price or a claim that belongs to a single item. The message must work for the whole catalogue: what the store sells, for whom, and why choose it.`
 		: '';
@@ -624,7 +634,7 @@ ${strategyBlock}${creativeBlock}${imageSlotBlock}
 WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website. Render exactly "${input.displayWebsite}" ONCE in an existing URL or footer slot.` : 'Do not render any URL, domain, web address, social handle or QR code. Remove any website from the winning template and leave that space clean.'}
 
 4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
-${catalogRule}${qualityRule}${TEXT_RENDERING_RULE}${semanticPaletteRule}${identityBlock}
+${layoutFidelityRule}${catalogRule}${qualityRule}${TEXT_RENDERING_RULE}${semanticPaletteRule}${identityBlock}
 ${logoDecision}
 ${peopleBlock}${comparisonBlock}${comparisonContext}${creativeDecisionBlock}
 

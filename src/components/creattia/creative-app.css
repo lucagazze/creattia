@@ -5838,3 +5838,18 @@
 	flex: 1 0 100%; display: flex; align-items: center; gap: 6px;
 	color: #6f6a77; font-size: 11.5px; font-weight: 600; cursor: pointer;
 }
+
+/* Aviso de a qué se refiere el anuncio, antes de generar. */
+.asset-subject {
+	display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+	margin-bottom: 12px; padding: 10px 12px; border-radius: 12px;
+	border: 1px solid #e6e0f0; background: #faf8fd;
+}
+.asset-subject.is-store { border-color: #cdbdee; background: #f6f1ff; }
+.asset-subject-copy strong { display: block; font-size: 12.5px; font-weight: 800; color: #2f2938; }
+.asset-subject-copy small { display: block; margin-top: 2px; color: #7d7488; font-size: 11.5px; line-height: 1.45; }
+.asset-subject button {
+	flex: 0 0 auto; padding: 6px 12px; border-radius: 999px; border: 1px solid #d5cbe6;
+	background: #fff; cursor: pointer; font-family: inherit; font-size: 11.5px; font-weight: 700; color: #6b4bb0;
+}
+.asset-subject button:hover { border-color: #b9a3e0; }
