@@ -3439,6 +3439,15 @@
 	background: #efeafb; color: #6f38dd; font-variant-numeric: tabular-nums;
 }
 .niche-dd-caret { flex: 0 0 auto; font-size: 10px; color: #8b8490; transition: transform .18s ease; }
+
+/* Filtro de tipo interruptor (Guardados): mismas medidas, tipografía y radio
+   que los desplegables, pero con el icono adelante en vez de la flecha atrás.
+   Así las tres píldoras se leen como una sola familia. */
+.niche-dd-trigger.is-toggle { grid-template-columns: auto minmax(0, 1fr) auto; }
+.niche-dd-lead { flex: 0 0 auto; font-size: 13px; line-height: 1; color: #e5313f; }
+.niche-dd-trigger.is-on { border-color: #f0b3c6; background: #fdeef5; color: #c2276f; }
+.niche-dd-trigger.is-on .niche-dd-badge { background: #f9d9e6; color: #c2276f; }
+.niche-dd-trigger.is-on:hover { border-color: #e79bb6; }
 .niche-dd-caret.is-open { transform: rotate(180deg); }
 .niche-dd-menu {
 	position: absolute; top: 50px; left: 0; z-index: 130; width: 300px; max-width: calc(100vw - 32px); max-height: 460px; overflow-y: auto;
@@ -5290,14 +5299,18 @@
 }
 
 @media (max-width: 640px) {
+	/* Grilla de 2 columnas en vez de flex-wrap: garantiza que las tres píldoras
+	   midan exactamente lo mismo. Con wrap, la última quedaba sola en su fila y
+	   se estiraba, y se leía como un control distinto de los otros dos. */
 	.library-filter-controls {
+		display: grid !important;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		align-items: stretch !important;
-		justify-content: flex-start !important;
+		justify-content: stretch !important;
 		gap: 10px !important;
 	}
 	.library-filter-controls > .niche-dd {
-		width: calc(50% - 5px);
-		flex: 0 0 calc(50% - 5px);
+		width: 100%;
 		min-width: 0;
 	}
 	.library-filter-controls .niche-dd-trigger {

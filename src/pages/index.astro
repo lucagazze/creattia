@@ -55,6 +55,20 @@ const landingFreeLibraryImages = [
 const landingShowcase = landingFreeLibraryImages;
 const landingCylinderImages = landingFreeLibraryImages.map((item) => item.src);
 
+/**
+ * Radio del cilindro 3D del carrusel.
+ *
+ * Estaba fijo en 420px con 14 tarjetas de 220px y no alcanzaba: las tarjetas se
+ * encimaban entre sí y se comían el contenido de la vecina (se veía "Marathon
+ * Runners' Go-T…" cortado por la tarjeta siguiente). El radio mínimo para que
+ * dos tarjetas contiguas apenas se toquen es (ancho/2) / tan(180°/cantidad); se
+ * le suma el aire que se quiere ver entre una y otra.
+ */
+const cylinderRadius = (cardWidth: number, gap: number) =>
+	Math.ceil(((cardWidth + gap) / 2) / Math.tan(Math.PI / landingCylinderImages.length));
+const cylinderRadiusDesktop = cylinderRadius(220, 26);
+const cylinderRadiusMobile = cylinderRadius(140, 16);
+
 const plans = subscriptionPlans.map((plan) => ({
 	...plan,
 	priceLabel: plan.price.toFixed(2),
@@ -89,9 +103,9 @@ const faqs = [
 	ogTitle="Creattia | Imágenes publicitarias para tu negocio"
 	ogDescription="Elegí una idea, sumá tu producto y generá imágenes listas para publicar."
 >
-	<link rel="preload" href="https://tryholo.ai/fonts/Satoshi-Variable.woff2" as="font" crossorigin="anonymous" type="font/woff2" slot="head" />
-	<link rel="preload" href="https://tryholo.ai/fonts/Satoshi-VariableItalic.woff2" as="font" crossorigin="anonymous" type="font/woff2" slot="head" />
-	<link rel="preload" href="https://tryholo.ai/fonts/Wonderkids-Regular.ttf" as="font" crossorigin="anonymous" type="font/ttf" slot="head" />
+	<link rel="preload" href="/fonts/Satoshi-Variable.woff2" as="font" crossorigin="anonymous" type="font/woff2" slot="head" />
+	<link rel="preload" href="/fonts/Satoshi-VariableItalic.woff2" as="font" crossorigin="anonymous" type="font/woff2" slot="head" />
+	<link rel="preload" href="/fonts/Wonderkids-Regular.ttf" as="font" crossorigin="anonymous" type="font/ttf" slot="head" />
 
 	<!-- Header de Navegación -->
 	<header class="floating-header" aria-label="Navegación principal">
@@ -306,7 +320,10 @@ const faqs = [
 				<p class="section-desc">Olvidate de las herramientas complejas, plantillas y pestañas. Creattia es la IA para tu marketing, diseñada para escalar tu negocio en piloto automático.</p>
 			</div>
 
-			<div class="cylinder-carousel-container">
+			<div
+				class="cylinder-carousel-container"
+				style={`--carousel-radius-desktop: ${cylinderRadiusDesktop}px; --carousel-radius-mobile: ${cylinderRadiusMobile}px;`}
+			>
 				<div class="carousel-cylinder">
 					{landingCylinderImages.map((src, idx) => {
 						const angle = idx * (360 / landingCylinderImages.length);
@@ -1109,9 +1126,13 @@ const faqs = [
 	/* ==========================================
 	   FUENTES SATOSHI Y WONDERKIDS (TryHolo Clone)
 	   ========================================== */
+	/* Las fuentes se sirven desde el propio dominio (public/fonts/).
+	   Antes se traían de tryholo.ai: dependía de un sitio de terceros que podía
+	   caerse o bloquear el hotlinking, y la CSP —que solo permite fuentes
+	   propias— las bloqueaba, así que la landing caía al sans-serif del sistema. */
 	@font-face {
 		font-family: 'Satoshi';
-		src: url('https://tryholo.ai/fonts/Satoshi-Variable.woff2') format('woff2');
+		src: url('/fonts/Satoshi-Variable.woff2') format('woff2');
 		font-weight: 300 900;
 		font-display: swap;
 		font-style: normal;
@@ -1119,7 +1140,7 @@ const faqs = [
 
 	@font-face {
 		font-family: 'Satoshi';
-		src: url('https://tryholo.ai/fonts/Satoshi-VariableItalic.woff2') format('woff2');
+		src: url('/fonts/Satoshi-VariableItalic.woff2') format('woff2');
 		font-weight: 300 900;
 		font-display: swap;
 		font-style: italic;
@@ -1127,7 +1148,7 @@ const faqs = [
 
 	@font-face {
 		font-family: 'Wonderkids Regular';
-		src: url('https://tryholo.ai/fonts/Wonderkids-Regular.ttf') format('truetype');
+		src: url('/fonts/Wonderkids-Regular.ttf') format('truetype');
 		font-weight: 400;
 		font-style: normal;
 		font-display: swap;
@@ -2060,19 +2081,20 @@ const faqs = [
 		perspective: var(--carousel-perspective);
 		height: var(--carousel-height);
 		--carousel-card-w: 220px;
-		--carousel-card-h: 390px;
-		--carousel-radius: 420px;
-		--carousel-perspective: 1240px;
-		--carousel-height: 520px;
+		--carousel-card-h: 300px;
+		/* El radio lo calcula el frontmatter según cuántas tarjetas hay. */
+		--carousel-radius: var(--carousel-radius-desktop, 540px);
+		--carousel-perspective: 1400px;
+		--carousel-height: 430px;
 	}
 
 	@media (max-width: 809px) {
 		.cylinder-carousel-container {
 			--carousel-card-w: 140px;
-			--carousel-card-h: 250px;
-			--carousel-radius: 280px;
-			--carousel-perspective: 1000px;
-			--carousel-height: 360px;
+			--carousel-card-h: 190px;
+			--carousel-radius: var(--carousel-radius-mobile, 360px);
+			--carousel-perspective: 1100px;
+			--carousel-height: 280px;
 		}
 	}
 

@@ -484,6 +484,8 @@ export default function WinnersLibrary({
 	// menos uno" para que cada dropdown muestre el conteo real considerando
 	// lo que ya está elegido en los demás (filtro en cascada, tipo e-commerce).
 	const isSavedItem = (item: WinnerItem) => item.imagePath ? likedScrapedPaths.has(item.imagePath) : favorites.has(item.templateId);
+	// El filtro de guardados muestra su propio total, igual que Ángulo y Formato.
+	const savedCount = useMemo(() => items.filter(isSavedItem).length, [items, likedScrapedPaths, favorites]);
 	const matchesSaved = (item: WinnerItem) => !savedOnly || isSavedItem(item);
 	const itemFormat = (item: WinnerItem): 'static_image' | 'carousel' | 'video' =>
 		item.metadata?.mediaType === 'carousel' ? 'carousel' : item.metadata?.mediaType === 'video' ? 'video' : 'static_image';
@@ -1055,8 +1057,22 @@ export default function WinnersLibrary({
 					)}
 				</div>
 
+				{/* Misma estructura que los otros dos filtros: icono, etiqueta y
+				    contador. Antes era un botón suelto con el corazón y el texto
+				    a secas, y como el trigger es una grilla de 3 columnas, el
+				    corazón caía en la columna del label y el texto en la del
+				    contador: por eso se veía de otro tamaño y desalineado. */}
 				<div className="niche-dd">
-					<button onClick={() => setSavedOnly((v) => !v)} className="niche-dd-trigger" style={{ borderColor: savedOnly ? '#f0b3c6' : undefined, background: savedOnly ? '#fdeef5' : undefined, color: savedOnly ? '#c2276f' : undefined }}><span style={{ color: '#e5313f', fontSize: '14px' }}>♥</span> Guardados</button>
+					<button
+						type="button"
+						onClick={() => setSavedOnly((value) => !value)}
+						className={`niche-dd-trigger is-toggle${savedOnly ? ' is-on' : ''}`}
+						aria-pressed={savedOnly}
+					>
+						<span className="niche-dd-lead" aria-hidden="true">♥</span>
+						<span className="niche-dd-label">Guardados</span>
+						<span className="niche-dd-badge">{savedCount}</span>
+					</button>
 				</div>
 			</div>
 
