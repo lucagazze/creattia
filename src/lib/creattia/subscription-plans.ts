@@ -53,14 +53,14 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 	{
 		code: 'pro',
 		name: 'Pro',
-		price: 24.99,
+		price: 31.99,
 		credits: 60,
 		description: 'Hasta 60 tokens mensuales para marcas en crecimiento.',
 		brandLimit: 2,
 		featured: false,
 		features: [
 			{ name: '60 tokens al mes', active: true },
-			{ name: '≈ $0.42 por token — el mejor equilibrio', active: true },
+			{ name: '≈ $0.53 por token — el mejor equilibrio', active: true },
 			{ name: 'Hasta 4 generaciones simultáneas', active: true },
 			{ name: 'Hasta 2 marcas activas', active: true },
 			{ name: 'Soporte prioritario por email', active: true },
@@ -69,14 +69,14 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 	{
 		code: 'scale',
 		name: 'Scale',
-		price: 49.99,
+		price: 61.99,
 		credits: 120,
 		description: 'Hasta 120 tokens mensuales para producir a mayor volumen.',
 		brandLimit: 4,
 		featured: false,
 		features: [
 			{ name: '120 tokens al mes', active: true },
-			{ name: '≈ $0.42 por token — menor costo', active: true },
+			{ name: '≈ $0.52 por token — menor costo', active: true },
 			{ name: 'Hasta 6 generaciones simultáneas', active: true },
 			{ name: 'Hasta 4 marcas activas', active: true },
 			{ name: 'Soporte prioritario y acceso anticipado', active: true },
@@ -85,14 +85,14 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 	{
 		code: 'agency',
 		name: 'Agency',
-		price: 97.70,
-		credits: 300,
-		description: 'Hasta 300 tokens mensuales para agencias y equipos grandes.',
+		price: 129.99,
+		credits: 260,
+		description: 'Hasta 260 tokens mensuales para agencias y equipos grandes.',
 		brandLimit: 6,
 		featured: false,
 		features: [
-			{ name: '300 tokens al mes', active: true },
-			{ name: '≈ $0.33 por token — mejor costo', active: true },
+			{ name: '260 tokens al mes', active: true },
+			{ name: '≈ $0.50 por token — mejor costo', active: true },
 			{ name: 'Generaciones simultáneas ilimitadas', active: true },
 			{ name: 'Hasta 6 marcas activas', active: true },
 			{ name: 'Soporte prioritario y acceso anticipado', active: true },
@@ -108,4 +108,18 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 export function brandLimitForPlan(planCode?: string | null) {
 	const plan = subscriptionPlans.find((item) => item.code === planCode);
 	return plan?.brandLimit ?? 1;
+}
+
+/**
+ * Créditos mensuales de cada plan pago. El webhook de Mercado Pago y el panel
+ * admin leen de acá: tenían su propia copia de la tabla y se desincronizaron
+ * —una renovación acreditaba 300 cuando el plan ya vendía 260—.
+ */
+export const planCredits: Record<string, number> = Object.fromEntries(
+	subscriptionPlans.filter((plan) => plan.credits).map((plan) => [plan.code, plan.credits as number]),
+);
+
+/** Créditos del plan, o 0 si el código no corresponde a ningún plan pago. */
+export function creditsForPlan(planCode?: string | null) {
+	return planCredits[String(planCode || '')] ?? 0;
 }

@@ -20,20 +20,20 @@ export const prerender = false;
  * agrega sombras y halos, que es justo lo que delata a un anuncio hecho con IA.
  * Una imagen, un crédito.
  *
- * OJO CON EL MARGEN: a este costo, los créditos sueltos (USD 0.30) dejan 20% y
- * Agency (USD 0.326 por crédito) deja 26%. Pro y Scale (USD 0.417) quedan en
- * 42%. Si hace falta recuperar margen, las palancas son subir el precio del
- * crédito suelto y el de Agency — no bajar la calidad.
+
  *
- *   Básico    USD 9.99/mes  ->   5 créditos  -> precio de entrada del lanzamiento
- *   Pro       USD 24.99/mes -> 60 créditos  -> costo 5.16  -> margen 79.4%
- *   Scale     USD 49.99/mes -> 120 créditos -> costo 10.32 -> margen 79.4%
- *   Agency    USD 97.70/mes -> 300 créditos -> costo 25.80 -> margen 73.6%
+ *   Básico    USD 9.99/mes  ->   5 créditos -> USD 2.00 por token -> margen 88%
+ *   Pro       USD 31.99/mes ->  60 créditos -> USD 0.53 por token -> margen 55%
+ *   Scale     USD 61.99/mes -> 120 créditos -> USD 0.52 por token -> margen 54%
+ *   Agency    USD 129.99/mes-> 260 créditos -> USD 0.50 por token -> margen 52%
  *
  * Esos márgenes son con el usuario consumiendo el 100% de sus créditos; con el
- * consumo real típico (55%) los tres superan el 70%.
+ * consumo real típico (55%) todos quedan bastante por encima.
  *
- * Compra suelta sin suscripción: USD 0.30 por imagen.
+ * Compra suelta sin suscripción: USD 0.49 por imagen (margen 51%).
+ *
+ * REGLA: ningún plan puede quedar por debajo del 50% de margen. Con el costo
+ * actual eso fija un piso de USD 0.48 por token. Lo verifica un test.
  *
  * Si cambiás el precio en Mercado Pago, actualizá los créditos de acá o el
  * margen se rompe.
@@ -49,22 +49,22 @@ const plans = {
 	pro: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_PRO_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_PRO_YEARLY_ID' },
-		price: 24.99,
+		price: 31.99,
 		credits: 60,
 		reason: 'Creattia — Pro' 
 	},
 	scale: { 
 		monthly: { env: 'MERCADO_PAGO_PLAN_SCALE_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_SCALE_YEARLY_ID' },
-		price: 49.99,
+		price: 61.99,
 		credits: 120,
 		reason: 'Creattia — Scale' 
 	},
 	agency: {
 		monthly: { env: 'MERCADO_PAGO_PLAN_AGENCY_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_AGENCY_YEARLY_ID' },
-		price: 97.70,
-		credits: 300,
+		price: 129.99,
+		credits: 260,
 		reason: 'Creattia — Agency'
 	},
 } as const;

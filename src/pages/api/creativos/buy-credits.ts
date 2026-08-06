@@ -3,8 +3,9 @@ import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia
 
 export const prerender = false;
 
-// Compra puntual: el precio público es USD 0.30 por crédito.
-const DEFAULT_UNIT_PRICE = 0.3;
+// Compra puntual: USD 0.49 por crédito. Con un costo de USD 0.24 por imagen
+// deja 51% de margen, el mínimo que se fijó para toda la oferta.
+const DEFAULT_UNIT_PRICE = 0.49;
 const MAX_CREDITS_PER_CHECKOUT = 1000;
 
 function getUnitPrice() {

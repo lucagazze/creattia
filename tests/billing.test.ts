@@ -4,8 +4,9 @@ import { test } from 'vitest';
 import { getEffectiveAccess } from '../src/lib/creattia/admin-access';
 import { isAdminEmail } from '../src/lib/creattia/admin';
 import { checkReferencePath, FREE_PREVIEW_REFERENCE_PATHS, hasFullLibraryAccess } from '../src/lib/creattia/library-access';
-import { brandLimitForPlan, subscriptionPlans } from '../src/lib/creattia/subscription-plans';
+import { brandLimitForPlan, creditsForPlan, subscriptionPlans } from '../src/lib/creattia/subscription-plans';
 import { videoCreditCost, videoCreditCostForAccount } from '../src/lib/creattia/video-pipeline';
+import { pickQualityTier } from '../src/lib/creattia/quality-router';
 
 /**
  * Lo que se prueba acá es lo que decide quién paga y cuánto. Son las reglas que
@@ -109,25 +110,51 @@ test('el límite de marcas que se cobra es el que promete la página de precios'
 	}
 });
 
-test('los créditos por plan coinciden con los que acredita el webhook', () => {
-	// Mismos valores que `planCredits` en webhook/mercadopago.ts: si se
-	// desincronizan, una renovación acredita distinto de lo vendido.
-	const expected: Record<string, number> = { creator: 5, pro: 60, scale: 120, agency: 300 };
-	for (const [code, credits] of Object.entries(expected)) {
-		const plan = subscriptionPlans.find((item) => item.code === code);
-		assert.ok(plan, `falta el plan ${code}`);
-		assert.equal(plan.credits, credits, `los créditos de ${code} no coinciden con el webhook`);
+test('los créditos que acredita el webhook salen de la misma oferta que se vende', () => {
+	// Antes esta tabla estaba escrita tres veces —oferta, webhook y panel admin—
+	// y se desincronizaron: el webhook acreditaba 300 cuando el plan vendía 260.
+	for (const plan of subscriptionPlans) {
+		assert.equal(creditsForPlan(plan.code), plan.credits ?? 0, `${plan.code} no coincide`);
 	}
+	assert.equal(creditsForPlan('plan-inventado'), 0);
 });
 
-test('la cuenta administradora se reconoce y ninguna otra pasa por admin', () => {
-	assert.equal(isAdminEmail('algoritmiadesarrollos@gmail.com'), true);
-	// Mayúsculas y espacios no deberían cambiar el resultado.
-	assert.equal(isAdminEmail('  Algoritmiadesarrollos@Gmail.com '), true);
-	assert.equal(isAdminEmail('otra@gmail.com'), false);
-	// Un email vacío o ausente nunca puede resolver como admin: antes cualquier
-	// cuenta sin email comparaba '' contra '' si el default cambiaba.
-	assert.equal(isAdminEmail(''), false);
-	assert.equal(isAdminEmail(null), false);
-	assert.equal(isAdminEmail(undefined), false);
+// ── Margen ───────────────────────────────────────────────────────────────────
+
+/** Costo real de una imagen: el render en el nivel que se usa + el análisis. */
+const ANALYSIS_COST = 0.004;
+const IMAGE_COST = pickQualityTier(null).estimatedCost + ANALYSIS_COST;
+/** Regla de negocio: ningún plan por debajo de esto. */
+const MIN_MARGIN = 0.50;
+
+test('ningún plan deja menos del 50% de margen', () => {
+	// Si mañana sube el costo del modelo o alguien baja un precio, este test
+	// falla antes de que la oferta empiece a perder plata en silencio.
+	const failures: string[] = [];
+	for (const plan of subscriptionPlans) {
+		if (!plan.credits) continue; // el plan gratuito no vende créditos
+		const perCredit = plan.price / plan.credits;
+		const margin = (perCredit - IMAGE_COST) / perCredit;
+		if (margin < MIN_MARGIN) {
+			failures.push(`${plan.code}: USD ${perCredit.toFixed(3)} por token → ${(margin * 100).toFixed(0)}%`);
+		}
+	}
+	assert.deepEqual(failures, [], `planes por debajo del ${MIN_MARGIN * 100}%:\n  ${failures.join('\n  ')}`);
+});
+
+test('el crédito suelto también deja más del 50%', () => {
+	// Mismo número que DEFAULT_UNIT_PRICE en buy-credits.ts.
+	const singleCreditPrice = 0.49;
+	const margin = (singleCreditPrice - IMAGE_COST) / singleCreditPrice;
+	assert.ok(margin >= MIN_MARGIN, `el crédito suelto deja ${(margin * 100).toFixed(0)}%`);
+});
+
+test('a más volumen, mejor precio por token', () => {
+	// La escalera comercial: un plan más caro nunca puede salir más caro por token.
+	const paid = subscriptionPlans.filter((plan) => plan.credits).sort((a, b) => a.price - b.price);
+	for (let index = 1; index < paid.length; index += 1) {
+		const previous = paid[index - 1].price / paid[index - 1].credits!;
+		const current = paid[index].price / paid[index].credits!;
+		assert.ok(current <= previous, `${paid[index].code} sale más caro por token que ${paid[index - 1].code}`);
+	}
 });

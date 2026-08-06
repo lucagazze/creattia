@@ -1,10 +1,11 @@
 import type { APIRoute } from 'astro';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { fail, getAdminClient, json } from '../../../../lib/creattia/server';
+import { planCredits } from '../../../../lib/creattia/subscription-plans';
 
 export const prerender = false;
 
-const planCredits: Record<string, number> = { creator: 5, pro: 60, scale: 120, agency: 300 };
+
 
 function resolvePlan(subscription: any) {
 	const external = String(subscription.external_reference || '');

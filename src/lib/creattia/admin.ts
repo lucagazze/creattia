@@ -30,12 +30,8 @@ export function isAdminEmail(email?: string | null) {
 	return normalized.length > 0 && adminEmails.has(normalized);
 }
 
-export const ADMIN_PLAN_CREDITS: Record<string, number> = {
-	creator: 5,
-	pro: 60,
-	scale: 120,
-	agency: 300,
-};
+/** Créditos que otorga cada plan desde el panel admin. Fuente: la oferta. */
+export { planCredits as ADMIN_PLAN_CREDITS } from './subscription-plans';
 
 export const ADMIN_PLAN_LABELS: Record<string, string> = {
 	creator: 'Básico',
