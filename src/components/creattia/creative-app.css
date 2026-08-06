@@ -5965,3 +5965,61 @@
 	display: grid; place-items: center; gap: 12px; min-height: 55vh; color: #8b8490;
 }
 .studio-screen-loading p { margin: 0; font-size: 13px; font-weight: 600; }
+
+
+/* ─── Panel de una imagen: descarga y cambio de producto ──────────────
+   El botón de descarga era un bloque negro puesto a mano, sin relación con el
+   resto de la página. Pasa al violeta de las acciones principales y al mismo
+   radio y alto que los demás controles. */
+.regen-download {
+	display: flex; align-items: center; justify-content: center; gap: 8px;
+	width: 100%; min-height: 46px; padding: 0 16px; border: 0; border-radius: 12px;
+	background: linear-gradient(135deg, #7c4dff, #5b32c9); color: #fff;
+	font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+	box-shadow: 0 6px 18px rgba(116, 75, 222, .22);
+	transition: transform .12s ease, box-shadow .15s ease;
+}
+.regen-download:hover { box-shadow: 0 9px 24px rgba(116, 75, 222, .3); }
+.regen-download:active { transform: translateY(1px); }
+
+/* El producto se afirma; las opciones aparecen solo si se pide cambiarlo. */
+.regen-product { margin-bottom: 14px; }
+.regen-product-kept {
+	display: flex; align-items: center; gap: 10px;
+	padding: 10px 12px; border-radius: 12px; border: 1px solid #d9eede; background: #f4fbf6;
+}
+.regen-product-check {
+	flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px;
+	border-radius: 50%; background: #1c7a48; color: #fff;
+}
+.regen-product-kept p { flex: 1; min-width: 0; margin: 0; display: flex; flex-direction: column; gap: 1px; }
+.regen-product-kept strong {
+	font-size: 12.5px; color: #19171d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.regen-product-kept small { font-size: 11.5px; color: #5f7a68; }
+.regen-product-kept > button {
+	flex: 0 0 auto; min-height: 34px; padding: 0 12px; border-radius: 9px;
+	border: 1px solid #cfe4d6; background: #fff; color: #1c7a48;
+	font-family: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
+}
+.regen-product-kept > button:hover { background: #eaf6ee; }
+
+.regen-product-tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.regen-product-tabs button {
+	min-height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid #e2dde9;
+	background: #fff; color: #5c5568; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+	transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.regen-product-tabs button:hover { border-color: #cbb8f0; }
+.regen-product-tabs button.active { border-color: #7c4dff; background: #f4efff; color: #5b32c9; }
+.regen-product-tabs .regen-product-cancel { margin-left: auto; border: 0; background: none; color: #8b8490; font-weight: 700; }
+.regen-product-tabs .regen-product-cancel:hover { color: #19171d; background: none; }
+
+
+/* Colores detectados, en la revisión: se ven los reales y se corrigen ahí. */
+.review-palette {
+	margin-bottom: 18px; padding: 14px 16px; border: 1px solid #eee9f2; border-radius: 12px; background: #fff;
+}
+.review-palette-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 11px; }
+.review-palette-head strong { font-size: 13px; color: #19171d; }
+.review-palette-head small { font-size: 12px; color: #716d79; line-height: 1.45; }

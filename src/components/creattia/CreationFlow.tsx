@@ -125,11 +125,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * el creativo salía con una identidad que no era la de la marca.
 	 */
 	const [paletteOverride, setPaletteOverride] = useState<Record<string, string>>({});
-	const detectedPalette: Record<string, string> | null = (() => {
-		if (colorMode === 'winner') return null;
-		const fromUrl = (importedProducts[0] as any)?.metadata?.brandFromUrl?.palette;
-		return fromUrl || null;
-	})();
 	const [typoMode, setTypoMode] = useState<'winner' | 'url' | 'brand'>('winner');
 	const [brandSource, setBrandSource] = useState('url');
 	const [includeLogo, setIncludeLogo] = useState(false);
@@ -160,6 +155,21 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		return () => { cancelled = true; };
 	}, [phase, token]);
 	const [plan, setPlan] = useState<any>(null);
+
+	/**
+	 * Los colores que se muestran al revisar.
+	 *
+	 * Prioriza lo que devolvió el análisis de la referencia, porque es lo que
+	 * realmente se va a aplicar; si no vino, cae en lo que se detectó de la URL
+	 * de la marca. Con "colores del ganador" no se muestra nada: no hay identidad
+	 * propia que corregir, se respeta la del anuncio.
+	 */
+	const revisionPalette: Record<string, string> | null = (() => {
+		if (colorMode === 'winner') return null;
+		return (plan as any)?.brandPalette
+			|| (importedProducts[0] as any)?.metadata?.brandFromUrl?.palette
+			|| null;
+	})();
 	const [zones, setZones] = useState<Array<{ where?: string; messageRole?: string; original?: string; replacement?: string; onProduct?: boolean }>>([]);
 	const [people, setPeople] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
 	const [comparisons, setComparisons] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
@@ -836,35 +846,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												<button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value as 'winner' | 'url' | 'brand')} aria-pressed={colorMode === option.value}>{option.label}</button>
 											))}
 										</div>
-										{detectedPalette && (
-											<div className="palette-editor">
-												<small className="batch-brand-note">Estos son los colores que detectamos. Si alguno no es el de tu marca, cambialo.</small>
-												<div className="palette-swatches">
-													{([['background', 'Fondo'], ['accent', 'Principal'], ['secondary', 'Secundario'], ['text', 'Texto']] as const).map(([role, label]) => {
-														const value = paletteOverride[role] || detectedPalette[role] || '';
-														if (!value) return null;
-														const corregido = Boolean(paletteOverride[role]);
-														return (
-															<label key={role} className={`palette-swatch${corregido ? ' is-edited' : ''}`}>
-																<input
-																	type="color"
-																	value={value}
-																	onChange={(event) => setPaletteOverride((prev) => ({ ...prev, [role]: event.target.value }))}
-																	aria-label={`Color ${label}`}
-																/>
-																<span>{label}</span>
-																<em>{value}</em>
-															</label>
-														);
-													})}
-												</div>
-												{Object.keys(paletteOverride).length > 0 && (
-													<button type="button" className="palette-reset" onClick={() => setPaletteOverride({})}>
-														Volver a los detectados
-													</button>
-												)}
-											</div>
-										)}
 									</div>
 									<div className="batch-style-group">
 										<span className="picker-label">Tipografía</span>
@@ -974,15 +955,41 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								</div>
 							)}
 						</section>
-						{plan.brandPalette && (
-							<section style={{ marginBottom: '18px', padding: '14px 16px', border: '1px solid #eee9f2', borderRadius: '12px', background: '#fff' }} aria-label="Paleta detectada">
-								<strong style={label}>Colores que se van a usar</strong>
-								<p style={{ margin: '-3px 0 10px', fontSize: '12px', color: '#716d79' }}>Extraídos de la identidad seleccionada: fondo, acento y texto. La IA los aplica por rol para mantener contraste.</p>
-								<div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-									{(['background', 'accent', 'text', 'secondary'] as const).filter((key) => plan.brandPalette[key]).map((key) => (
-										<div key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '12px', color: '#4c4654' }}><span style={{ width: '22px', height: '22px', borderRadius: '6px', background: plan.brandPalette[key], border: '1px solid #ddd5e6', display: 'inline-block' }} /> <span>{key === 'background' ? 'Fondo' : key === 'accent' ? 'Acento' : key === 'text' ? 'Texto' : 'Secundario'} <small style={{ color: '#8b8490' }}>{plan.brandPalette[key]}</small></span></div>
-									))}
+						{/* Los colores se muestran y se editan ACÁ, en la revisión.
+						    Antes se pedían en el paso previo, cuando todavía no había
+						    nada analizado: se decidía a ciegas sobre colores que después
+						    podían no ser los detectados. Ahora se ven los reales y se
+						    corrigen sobre la misma pantalla donde se aprueba. */}
+						{revisionPalette && (
+							<section className="review-palette" aria-label="Colores detectados">
+								<div className="review-palette-head">
+									<strong>Colores detectados</strong>
+									<small>Los sacamos de la identidad elegida. Si alguno no es el de tu marca, tocalo y cambialo.</small>
 								</div>
+								<div className="palette-swatches">
+									{([['background', 'Fondo'], ['accent', 'Principal'], ['secondary', 'Secundario'], ['text', 'Texto']] as const).map(([role, roleLabel]) => {
+										const value = paletteOverride[role] || revisionPalette[role] || '';
+										if (!value) return null;
+										const corregido = Boolean(paletteOverride[role]);
+										return (
+											<label key={role} className={`palette-swatch${corregido ? ' is-edited' : ''}`}>
+												<input
+													type="color"
+													value={value}
+													onChange={(event) => setPaletteOverride((prev) => ({ ...prev, [role]: event.target.value }))}
+													aria-label={`Color ${roleLabel}`}
+												/>
+												<span>{roleLabel}</span>
+												<em>{value}</em>
+											</label>
+										);
+									})}
+								</div>
+								{Object.keys(paletteOverride).length > 0 && (
+									<button type="button" className="palette-reset" onClick={() => setPaletteOverride({})}>
+										Volver a los detectados
+									</button>
+								)}
 							</section>
 						)}
 						{plan.templateHasLogoSlot && includeLogo && (

@@ -6,7 +6,7 @@ import type { ActiveBatch, AppSession, Generation, Product } from '../app-types'
 import { groupCarouselHistory } from '../history-utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { downloadImage } from '../download';
-import { useFullGenerationUrl } from '../../../lib/creattia/generation-image';
+import { signOriginalGeneration, useFullGenerationUrl } from '../../../lib/creattia/generation-image';
 /** Historial de generaciones: tarjetas, lightbox y la referencia ganadora. */
 
 export function History({ 
@@ -731,13 +731,16 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 	/** Si además de la marca se toman los colores y la tipografía de esa web. */
 	const [applyBrandStyle, setApplyBrandStyle] = useState(true);
 	/**
-	 * De qué habla la nueva versión. Se hereda de la imagen original: sin esto el
-	 * servidor caía en "un producto" y una imagen de la tienda se rehacía
-	 * hablando de un artículo suelto.
+	 * De qué habla la nueva versión: se hereda de la imagen original.
+	 *
+	 * Había un selector para elegirlo a mano y sobraba. La imagen ya se generó
+	 * sabiendo si hablaba de la tienda, de un producto o de un servicio, y al
+	 * rehacerla no hay motivo para volver a preguntarlo: si cambia el producto,
+	 * el análisis lo vuelve a detectar sobre el contenido nuevo. Lo que sí hacía
+	 * falta era mandarlo, porque sin esto el servidor lo daba por "un producto".
 	 */
-	const [subjectMode, setSubjectMode] = useState<'catalog' | 'product' | 'service'>(
-		item.subjectMode === 'catalog' ? 'catalog' : item.subjectMode && item.subjectMode !== 'product' ? 'service' : 'product',
-	);
+	const subjectMode: 'catalog' | 'product' | 'service' =
+		item.subjectMode === 'catalog' ? 'catalog' : item.subjectMode && item.subjectMode !== 'product' ? 'service' : 'product';
 
 	async function loadBrandFromUrl() {
 		const url = brandUrl.trim();
@@ -762,6 +765,11 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 	const [productMode, setProductMode] = useState<'keep' | 'catalog' | 'url' | 'manual' | 'none'>('keep');
 	const [catalogProductId, setCatalogProductId] = useState(originalProductId);
 	const [localProducts, setLocalProducts] = useState<Product[]>(products);
+	/** Cómo se llama lo que ya usa esta imagen, para poder nombrarlo y no decir
+	 *  "el mismo producto" sin que se sepa cuál es. */
+	const keptProductName = localProducts.find((candidate) => candidate.id === originalProductId)?.name
+		|| item.title
+		|| 'El producto de esta imagen';
 	
 	// Arranca con la URL de la que salió la imagen: regenerar "en base a la URL"
 	// no debería obligar a buscarla y pegarla de nuevo.
@@ -930,7 +938,10 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 							</span>
 						</button>
 					)}
-					<button onClick={() => void downloadImage(fullUrl, `creattia-${activeItem.id}.png`)} style={{ width: '100%', height: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '11px', border: 0, background: '#19171d', color: '#fff', fontSize: '14px', fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>Descargar imagen</button>
+					<button type="button" className="regen-download" onClick={async () => downloadImage(await signOriginalGeneration(activeItem.outputPath, fullUrl), `creattia-${activeItem.id}.png`)}>
+						<Icon name="download" size={16} />
+						Descargar imagen
+					</button>
 					{activeItem.referenceUrl && (
 						<button onClick={() => setShowReference(!showReference)} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: showReference ? '#eceaef' : '#f8f6fb', border: showReference ? '1px solid #cfc9d8' : '1px solid transparent', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}>
 							<img src={activeItem.referenceUrl} alt="Anuncio ganador usado" style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '8px' }} />
@@ -944,70 +955,44 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 						<strong style={{ display: 'block', fontSize: '14px', color: '#19171d', marginBottom: '8px' }}>Crear otra versión</strong>
 						<p style={{ margin: '0 0 10px', fontSize: '12.5px', color: '#8b8490', lineHeight: 1.5 }}>Contale a la IA qué cambiar. Si lo dejás vacío genera una variante manteniendo el diseño.</p>
 						
-						{/* Product/Service Switcher tab menu */}
-						<div style={{ marginBottom: '16px' }}>
-							<label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: '#716d79', marginBottom: '8px' }}>
-								🛍️ CAMBIAR PRODUCTO O FOTO (OPCIONAL):
-							</label>
-							<div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
-								{[
-									{ id: 'keep', label: 'Conservar' },
-									{ id: 'catalog', label: 'Catálogo' },
-									{ id: 'url', label: 'Por URL' },
-									{ id: 'manual', label: 'Carga manual' },
-									{ id: 'none', label: 'Sin producto' }
-								].map(m => (
-									<button
-										key={m.id}
-										type="button"
-										onClick={() => setProductMode(m.id as any)}
-										style={{
-											padding: '5px 10px', borderRadius: '8px', border: '1px solid #e9e6ed',
-											background: productMode === m.id ? '#744bde' : '#f8f6fb',
-											color: productMode === m.id ? '#fff' : '#5c5568',
-											fontSize: '12px', fontWeight: 700, cursor: 'pointer',
-											transition: 'all 0.15s'
-										}}
-									>
-										{m.label}
-									</button>
-								))}
-							</div>
-
-							{/* De qué habla la nueva versión. Se muestra siempre, con lo
-							    heredado marcado: antes no había forma de saber que una imagen
-							    de la tienda se iba a rehacer como si fuera de un producto. */}
-							<div className="regen-subject">
-								<strong>¿De qué habla esta versión?</strong>
-								<div className="regen-subject-options" role="radiogroup" aria-label="De qué habla esta versión">
-									{([
-										{ value: 'catalog', label: 'La tienda' },
-										{ value: 'product', label: 'Un producto' },
-										{ value: 'service', label: 'Un servicio' },
-									] as const).map((option) => (
-										<button
-											key={option.value}
-											type="button"
-											role="radio"
-											aria-checked={subjectMode === option.value}
-											className={subjectMode === option.value ? 'active' : ''}
-											onClick={() => setSubjectMode(option.value)}
-										>
-											{option.label}
-										</button>
-									))}
+						{/* Qué producto usa la nueva versión.
+						    Antes eran cinco pestañas siempre visibles con el título
+						    "CAMBIAR PRODUCTO O FOTO (OPCIONAL)": obligaba a decidir algo
+						    que en la enorme mayoría de los casos no se cambia. Ahora se
+						    afirma lo que va a pasar y las opciones aparecen solo si se
+						    pide cambiarlo. */}
+						<div className="regen-product">
+							{productMode === 'keep' ? (
+								<div className="regen-product-kept">
+									<span className="regen-product-check" aria-hidden="true"><Icon name="check" size={13} /></span>
+									<p>
+										<strong>{keptProductName}</strong>
+										<small>Se mantiene el mismo producto de esta imagen.</small>
+									</p>
+									<button type="button" onClick={() => setProductMode(localProducts.length ? 'catalog' : 'url')}>Cambiar</button>
 								</div>
-								<small>
-									{subjectMode === 'catalog'
-										? 'Los textos van a hablar de la tienda y su variedad, sin poner un producto de protagonista.'
-										: subjectMode === 'service'
-											? 'Los textos van a hablar del servicio y su resultado, sin describir un objeto físico.'
-											: 'Los textos van a hablar del producto elegido, con su nombre y sus datos reales.'}
-								</small>
-							</div>
-
-							{productMode === 'keep' && (
-								<p style={{ margin: 0, fontSize: '12px', color: '#128a51', fontWeight: 600 }}>✓ Se usará el mismo producto de la imagen original.</p>
+							) : (
+								<div className="regen-product-change">
+									<div className="regen-product-tabs" role="tablist" aria-label="De dónde sale el producto">
+										{[
+											...(localProducts.length ? [{ id: 'catalog', label: 'De los míos' }] : []),
+											{ id: 'url', label: 'Desde una URL' },
+											{ id: 'manual', label: 'Subir fotos' },
+										].map((m) => (
+											<button
+												key={m.id}
+												type="button"
+												role="tab"
+												aria-selected={productMode === m.id}
+												className={productMode === m.id ? 'active' : ''}
+												onClick={() => setProductMode(m.id as any)}
+											>
+												{m.label}
+											</button>
+										))}
+										<button type="button" className="regen-product-cancel" onClick={() => setProductMode('keep')}>Cancelar</button>
+									</div>
+								</div>
 							)}
 
 							{productMode === 'catalog' && (
