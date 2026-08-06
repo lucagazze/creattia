@@ -21,7 +21,14 @@ const VIEWPORTS = [
 	{ name: 'escritorio', width: 1440, height: 900, isMobile: false },
 ];
 
-const SCREENS = ['generar', 'historial', 'productos', 'marcas', 'plantillas', 'cuenta'];
+// La app no cambia de URL al navegar: se recorre tocando el menú, igual que un
+// usuario. En móvil el menú está detrás del botón hamburguesa.
+const SCREENS = [
+	{ slug: 'inicio', label: 'Inicio' },
+	{ slug: 'ganadores', label: 'Biblioteca de ganadores' },
+	{ slug: 'guardados', label: 'Anuncios guardados' },
+	{ slug: 'mis-imagenes', label: 'Mis imágenes' },
+];
 
 mkdirSync(OUT, { recursive: true });
 
@@ -54,12 +61,20 @@ for (const vp of VIEWPORTS) {
 
 	const page = await context.newPage();
 
+	await page.goto(BASE + '/app', { waitUntil: 'domcontentloaded', timeout: 60000 });
+	await page.waitForTimeout(6000);
+
 	for (const screen of SCREENS) {
-		const url = screen === 'landing' ? BASE : `${BASE}/app?screen=${screen}`;
 		try {
-			await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
-		} catch { /* networkidle puede no llegar con polling; seguimos igual */ }
-		await page.waitForTimeout(2500);
+			// El menú se pliega desde 900px, no solo en móvil: se intenta siempre.
+			const burger = page.locator('.studio-menu-button, [aria-label="Abrir menú"]').first();
+			if (await burger.isVisible().catch(() => false)) { await burger.click(); await page.waitForTimeout(700); }
+			await page.locator(`.studio-nav button:has-text("${screen.label}")`).first().click({ timeout: 15000 });
+			await page.waitForTimeout(4000);
+		} catch (error) {
+			console.log(`✗ ${vp.name}/${screen.slug}: no se pudo abrir (${String(error).slice(0, 80)})`);
+			continue;
+		}
 
 		// Lo que una captura no cuenta: desbordes y solapamientos reales.
 		const diag = await page.evaluate(() => {
@@ -69,29 +84,26 @@ for (const vp of VIEWPORTS) {
 				const r = el.getBoundingClientRect();
 				if (r.width === 0 || r.height === 0) continue;
 				const cs = getComputedStyle(el);
-				if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+				if (cs.visibility === 'hidden' || cs.display === 'none' || cs.position === 'fixed') continue;
 				const id = `${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ').filter(Boolean).slice(0, 2).join('.')}`;
-				// Desborda el ancho de la ventana.
 				if (r.right > doc.clientWidth + 1 && el.children.length === 0) out.anchos.push({ id, right: Math.round(r.right) });
-				// Texto por debajo de lo legible.
 				const size = parseFloat(cs.fontSize);
-				if (size && size < 11 && el.textContent?.trim() && el.children.length === 0) out.chicos.push({ id, size });
-				// Objetivo táctil menor al mínimo cómodo.
+				if (size && size < 11 && el.textContent?.trim() && el.children.length === 0) out.chicos.push({ id, size: +size.toFixed(1) });
 				if (/^(button|a)$/i.test(el.tagName) && (r.height < 32 || r.width < 32) && el.textContent?.trim()) {
 					out.toques.push({ id, w: Math.round(r.width), h: Math.round(r.height) });
 				}
 			}
-			const uniq = (list, key) => Object.values(list.reduce((acc, item) => ({ ...acc, [item.id]: item }), {})).slice(0, 12);
+			const uniq = (list) => Object.values(list.reduce((acc, item) => ({ ...acc, [item.id]: item }), {})).slice(0, 10);
 			out.anchos = uniq(out.anchos); out.chicos = uniq(out.chicos); out.toques = uniq(out.toques);
 			return out;
 		});
 
 		if (diag.scrollX > 0 || diag.anchos.length || diag.chicos.length || diag.toques.length) {
-			problemas.push({ pantalla: screen, vista: vp.name, ...diag });
+			problemas.push({ pantalla: screen.slug, vista: vp.name, ...diag });
 		}
 
-		await page.screenshot({ path: `${OUT}/${vp.name}-${screen}.png`, fullPage: true });
-		console.log(`✓ ${vp.name}/${screen}${diag.scrollX > 0 ? `  ⚠ scroll horizontal +${diag.scrollX}px` : ''}`);
+		await page.screenshot({ path: `${OUT}/${vp.name}-${screen.slug}.png`, fullPage: true });
+		console.log(`✓ ${vp.name}/${screen.slug}${diag.scrollX > 0 ? `  ⚠ scroll horizontal +${diag.scrollX}px` : ''}`);
 	}
 	await context.close();
 }
