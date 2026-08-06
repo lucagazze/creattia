@@ -58,16 +58,19 @@ const landingCylinderImages = landingFreeLibraryImages.map((item) => item.src);
 /**
  * Radio del cilindro 3D del carrusel.
  *
- * Estaba fijo en 420px con 14 tarjetas de 220px y no alcanzaba: las tarjetas se
- * encimaban entre sí y se comían el contenido de la vecina (se veía "Marathon
- * Runners' Go-T…" cortado por la tarjeta siguiente). El radio mínimo para que
- * dos tarjetas contiguas apenas se toquen es (ancho/2) / tan(180°/cantidad); se
- * le suma el aire que se quiere ver entre una y otra.
+ * El efecto buscado es un tambor continuo: las tarjetas unidas formando un
+ * círculo que gira. Para eso el radio tiene que ser EXACTAMENTE el que hace que
+ * dos tarjetas contiguas se toquen por el borde, (ancho/2) / tan(180°/cantidad).
+ *
+ * Estaba fijo en 420 con 14 tarjetas de 220px, por debajo de ese valor: las
+ * tarjetas se encimaban y cada una tapaba el contenido de la siguiente. Con un
+ * radio mayor al exacto quedan separadas y se pierde el tambor. Se calcula, así
+ * que sigue cerrando si se agregan o sacan imágenes.
  */
-const cylinderRadius = (cardWidth: number, gap: number) =>
-	Math.ceil(((cardWidth + gap) / 2) / Math.tan(Math.PI / landingCylinderImages.length));
-const cylinderRadiusDesktop = cylinderRadius(220, 26);
-const cylinderRadiusMobile = cylinderRadius(140, 16);
+const cylinderRadius = (cardWidth: number) =>
+	Math.round((cardWidth / 2) / Math.tan(Math.PI / landingCylinderImages.length));
+const cylinderRadiusDesktop = cylinderRadius(220);
+const cylinderRadiusMobile = cylinderRadius(140);
 
 const plans = subscriptionPlans.map((plan) => ({
 	...plan,
@@ -2081,20 +2084,20 @@ const faqs = [
 		perspective: var(--carousel-perspective);
 		height: var(--carousel-height);
 		--carousel-card-w: 220px;
-		--carousel-card-h: 300px;
+		--carousel-card-h: 380px;
 		/* El radio lo calcula el frontmatter según cuántas tarjetas hay. */
 		--carousel-radius: var(--carousel-radius-desktop, 540px);
 		--carousel-perspective: 1400px;
-		--carousel-height: 430px;
+		--carousel-height: 500px;
 	}
 
 	@media (max-width: 809px) {
 		.cylinder-carousel-container {
 			--carousel-card-w: 140px;
-			--carousel-card-h: 190px;
+			--carousel-card-h: 240px;
 			--carousel-radius: var(--carousel-radius-mobile, 360px);
 			--carousel-perspective: 1100px;
-			--carousel-height: 280px;
+			--carousel-height: 340px;
 		}
 	}
 
