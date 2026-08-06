@@ -109,14 +109,10 @@ export function History({
 
 			{/* Library filters */}
 			<div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px', alignItems: 'center', background: '#fcfbfe', padding: '10px 14px', borderRadius: '12px', border: '1px solid #eee9f3' }}>
-				<button 
-					onClick={() => setCurrentFolderId('all')} 
-					style={{
-						padding: '6px 12px', borderRadius: '8px', border: 0,
-						background: currentFolderId === 'all' ? '#744bde' : '#f0eef4',
-						color: currentFolderId === 'all' ? '#fff' : '#5b5561',
-						fontSize: '13px', fontWeight: 700, cursor: 'pointer'
-					}}
+				<button
+					type="button"
+					className={`history-filter-pill${currentFolderId === 'all' ? ' is-active' : ''}`}
+					onClick={() => setCurrentFolderId('all')}
 				>
 					Todas ({history.length})
 				</button>
@@ -129,12 +125,8 @@ export function History({
 							onToggleLike(imgId);
 						}
 					}}
-					style={{
-						padding: '6px 12px', borderRadius: '8px', border: 0,
-						background: currentFolderId === 'liked' ? '#ff4185' : '#f0eef4',
-						color: currentFolderId === 'liked' ? '#fff' : '#5b5561',
-						fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px'
-					}}
+					type="button"
+					className={`history-filter-pill is-liked${currentFolderId === 'liked' ? ' is-active' : ''}`}
 				>
 					❤️ Favoritas ({history.filter(h => likedImageIds.includes(h.id)).length})
 				</button>

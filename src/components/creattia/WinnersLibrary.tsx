@@ -1455,13 +1455,15 @@ export default function WinnersLibrary({
 										}}
 										style={{
 											width: '100%',
-											height: '35px',
+											// Es la acción principal de cada tarjeta: tenía el alto y la
+											// letra de un detalle secundario.
+											minHeight: '40px',
 											background: '#f2ecfc',
 											border: 0,
-											borderRadius: '8px',
+											borderRadius: '9px',
 											color: '#19171d',
 											fontWeight: 'bold',
-											fontSize: '10.5px',
+											fontSize: '12.5px',
 											cursor: 'pointer',
 											display: 'flex',
 											alignItems: 'center',

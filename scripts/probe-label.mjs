@@ -20,6 +20,13 @@ const fallos = [];
 page.on('requestfailed', (r) => fallos.push(`${r.url()} → ${r.failure()?.errorText}`));
 await page.goto('https://creattia.vercel.app/app', { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(9000);
+const destino = process.argv[2];
+if (destino) {
+	const burger = page.locator('.studio-menu-button, [aria-label="Abrir menú"]').first();
+	if (await burger.isVisible().catch(() => false)) { await burger.click(); await page.waitForTimeout(700); }
+	await page.locator(`.studio-nav button:has-text("${destino}")`).first().click();
+	await page.waitForTimeout(6000);
+}
 
 const info = await page.evaluate(() => {
 	const chicos = new Map();
@@ -30,7 +37,7 @@ const info = await page.evaluate(() => {
 		if (r.height >= 36) continue;
 		const cadena = [el, el.parentElement, el.parentElement?.parentElement]
 			.filter(Boolean)
-			.map((n) => n.tagName.toLowerCase() + (n.className ? '.' + n.className.toString().trim().split(/\s+/).join('.') : ''))
+			.map((n) => n.tagName.toLowerCase() + (n.className ? '.' + n.className.toString().trim().split(/\s+/).join('.') : '') + (n.id ? '#' + n.id : ''))
 			.reverse().join(' > ');
 		if (!chicos.has(cadena)) chicos.set(cadena, { alto: Math.round(r.height), texto: (el.textContent || '').trim().slice(0, 22) });
 	}

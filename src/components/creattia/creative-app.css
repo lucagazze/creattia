@@ -5439,7 +5439,7 @@
 	font-size: 11px;
 }
 
-.library-access-banner > button {
+.library-access-banner > button { min-height: 40px;
 	display: inline-flex;
 	align-items: center;
 	gap: 7px;
@@ -5535,7 +5535,7 @@
 	font-weight: 800;
 }
 
-.library-locked-card footer button {
+.library-locked-card footer button { min-height: 38px;
 	border: 0;
 	border-radius: 999px;
 	padding: 7px 10px;
@@ -5925,3 +5925,19 @@
 	.url-field-input { font-size: 16px; padding: 11px 0; } /* 16px evita el zoom de iOS */
 	.url-field-paste { padding: 7px 10px; font-size: 12px; }
 }
+
+
+/* ─── Filtros de "Mis imágenes" ─────────────────────────────────────
+   Estaban escritos en línea y repetidos, cada uno con su propio alto: quedaban
+   en 29px, por debajo de lo que el dedo acierta. Una sola clase los deja
+   iguales entre sí y del tamaño de los demás controles. */
+.history-filter-pill {
+	display: inline-flex; align-items: center; gap: 5px; min-height: 38px; padding: 0 14px;
+	border: 0; border-radius: 10px; background: #f0eef4; color: #5b5561;
+	font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+	transition: background .15s ease, color .15s ease;
+}
+.history-filter-pill:hover { background: #e6e1ee; }
+.history-filter-pill.is-active { background: #744bde; color: #fff; }
+.history-filter-pill.is-liked.is-active { background: #ff4185; }
+.history-filter-pill.is-active:hover { filter: brightness(1.06); }
