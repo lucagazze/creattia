@@ -36,7 +36,16 @@ function mediaFor(product: ProductReviewItem): ProductReviewMedia[] {
  * selecciona tocando la tarjeta entera. Se ve todo de un vistazo y las fotos
  * extra de un producto se abren solo si hacen falta.
  */
-export default function ProductAssetReview({ products, selectedProductIds = [], onToggleProduct, isCatalog = false, storeName, detectionReason, onChangeSubject }: {
+export type SubjectChoice = 'catalog' | 'product' | 'service';
+
+/** Las tres cosas de las que puede hablar un anuncio, con su explicación. */
+const SUBJECT_OPTIONS: Array<{ value: SubjectChoice; label: string; hint: string }> = [
+	{ value: 'catalog', label: 'La tienda', hint: 'Una selección de lo que vendés, sin un producto protagonista.' },
+	{ value: 'product', label: 'Un producto', hint: 'Se centra en el producto elegido, con sus datos y sus fotos.' },
+	{ value: 'service', label: 'Un servicio', hint: 'Un servicio, software o suscripción: no hace falta mostrar un objeto.' },
+];
+
+export default function ProductAssetReview({ products, selectedProductIds = [], onToggleProduct, isCatalog = false, storeName, detectionReason, subject, detectedSubject, onChangeSubject }: {
 	products: ProductReviewItem[];
 	selectedProductIds?: string[];
 	onToggleProduct?: (productId: string) => void;
@@ -45,8 +54,12 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 	storeName?: string;
 	/** Por qué se clasificó así, para que se entienda y se pueda desconfiar. */
 	detectionReason?: string;
+	/** De qué habla el anuncio ahora mismo (detectado o corregido a mano). */
+	subject?: SubjectChoice;
+	/** Lo que detectó la IA, para poder marcarlo aunque se haya cambiado. */
+	detectedSubject?: SubjectChoice;
 	/** Permite corregir a mano si la detección se equivocó. */
-	onChangeSubject?: (subject: 'catalog' | 'product') => void;
+	onChangeSubject?: (subject: SubjectChoice) => void;
 }) {
 	const [expanded, setExpanded] = useState<string | null>(null);
 	if (!products.length) return null;
@@ -88,22 +101,35 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 			</header>
 
 			{/* De qué va a hablar el anuncio, ANTES de generar: era la sorpresa más
-			    cara de la app —se descubría recién en la imagen final—. */}
-			<div className={`asset-subject${isCatalog ? ' is-store' : ''}`}>
-				<div className="asset-subject-copy">
-					<strong>{isCatalog ? 'El anuncio va a hablar de la tienda' : 'El anuncio va a hablar de un producto'}</strong>
-					<small>
-						{isCatalog
-							? 'Muestra una selección de lo que vendés, sin un producto protagonista.'
-							: 'Se centra en el producto elegido, con sus datos y sus fotos.'}
-						{detectionReason ? ` · Lo detectamos porque ${detectionReason}.` : ''}
-					</small>
+			    cara de la app —se descubría recién en la imagen final—. Se marca lo
+			    que detectó la IA y se puede cambiar sin volver a empezar. */}
+			<div className="asset-subject">
+				<div className="asset-subject-head">
+					<strong>¿De qué habla el anuncio?</strong>
+					{detectionReason && <small>Detectamos esto porque {detectionReason}.</small>}
 				</div>
-				{onChangeSubject && (
-					<button type="button" onClick={() => onChangeSubject(isCatalog ? 'product' : 'catalog')}>
-						{isCatalog ? 'Hablar de un producto' : 'Hablar de la tienda'}
-					</button>
-				)}
+				<div className="asset-subject-options" role="radiogroup" aria-label="De qué habla el anuncio">
+					{SUBJECT_OPTIONS.map((option) => {
+						const active = (subject || (isCatalog ? 'catalog' : 'product')) === option.value;
+						return (
+							<button
+								key={option.value}
+								type="button"
+								role="radio"
+								aria-checked={active}
+								className={active ? 'active' : ''}
+								onClick={() => onChangeSubject?.(option.value)}
+								disabled={!onChangeSubject}
+							>
+								<span className="asset-subject-label">
+									{option.label}
+									{detectedSubject === option.value && <em>detectado</em>}
+								</span>
+								<small>{option.hint}</small>
+							</button>
+						);
+					})}
+				</div>
 			</div>
 
 			<div className="asset-grid">

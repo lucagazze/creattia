@@ -89,7 +89,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const [scannedOffering, setScannedOffering] = useState<'product' | 'service' | 'catalog'>('product');
 	/** Corrección manual: gana sobre lo detectado. */
-	const [subjectOverride, setSubjectOverride] = useState<'catalog' | 'product' | null>(null);
+	const [subjectOverride, setSubjectOverride] = useState<'catalog' | 'product' | 'service' | null>(null);
 	const [urls, setUrls] = useState<string[]>(['']);
 	const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 	const [importedProducts, setImportedProducts] = useState<ProductReviewItem[]>([]);
@@ -938,6 +938,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								isCatalog={isCatalog}
 								storeName={(importedProducts[0] as any)?.metadata?.store?.name}
 								detectionReason={(importedProducts[0] as any)?.metadata?.store?.evidence}
+								subject={detectedOffering}
+								detectedSubject={(importedProducts[0] as any)?.metadata?.pageType}
 								onChangeSubject={setSubjectOverride}
 								selectedProductIds={selectedProductIds}
 								onToggleProduct={(productId) => setSelectedProductIds((current) => current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId])}

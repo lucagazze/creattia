@@ -5841,15 +5841,38 @@
 
 /* Aviso de a qué se refiere el anuncio, antes de generar. */
 .asset-subject {
-	display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-	margin-bottom: 12px; padding: 10px 12px; border-radius: 12px;
+	margin-bottom: 14px; padding: 12px; border-radius: 14px;
 	border: 1px solid #e6e0f0; background: #faf8fd;
 }
-.asset-subject.is-store { border-color: #cdbdee; background: #f6f1ff; }
-.asset-subject-copy strong { display: block; font-size: 12.5px; font-weight: 800; color: #2f2938; }
-.asset-subject-copy small { display: block; margin-top: 2px; color: #7d7488; font-size: 11.5px; line-height: 1.45; }
-.asset-subject button {
-	flex: 0 0 auto; padding: 6px 12px; border-radius: 999px; border: 1px solid #d5cbe6;
-	background: #fff; cursor: pointer; font-family: inherit; font-size: 11.5px; font-weight: 700; color: #6b4bb0;
+.asset-subject-head strong { display: block; font-size: 12.5px; font-weight: 800; color: #2f2938; }
+.asset-subject-head small { display: block; margin-top: 2px; color: #7d7488; font-size: 11.5px; line-height: 1.45; }
+/* Tres opciones a la vista: se ve la detectada Y las alternativas, sin tener que
+   adivinar que un botón alterna entre estados ocultos. */
+.asset-subject-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.asset-subject-options button {
+	display: block; width: 100%; text-align: left; padding: 9px 11px; border-radius: 11px;
+	border: 1px solid #ded6ec; background: #fff; cursor: pointer; font-family: inherit;
+	transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
-.asset-subject button:hover { border-color: #b9a3e0; }
+.asset-subject-options button:hover:not(:disabled) { border-color: #b9a3e0; }
+.asset-subject-options button:disabled { cursor: default; opacity: .75; }
+.asset-subject-options button.active {
+	border-color: #7c4dff; background: #f4efff; box-shadow: 0 0 0 1px #7c4dff inset;
+}
+.asset-subject-label {
+	display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+	font-size: 12.5px; font-weight: 800; color: #2f2938;
+}
+.asset-subject-options button.active .asset-subject-label { color: #5b32c9; }
+.asset-subject-label em {
+	font-style: normal; font-size: 9.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+	padding: 2px 6px; border-radius: 999px; background: #ece3ff; color: #6b4bb0;
+}
+.asset-subject-options button small {
+	display: block; margin-top: 3px; color: #7d7488; font-size: 11px; line-height: 1.4; font-weight: 500;
+}
+@media (max-width: 640px) {
+	.asset-subject-options { grid-template-columns: 1fr; }
+	.asset-subject-options button small { display: none; }
+	.asset-subject-options button.active small { display: block; }
+}
