@@ -13,7 +13,7 @@ export type Winner = {
 	categoryBranch?: string;
 	categoryLeaf?: string;
 	tags?: string[];
-	metadata?: { domain?: string; mediaType?: string; carouselImages?: string[] };
+	metadata?: { domain?: string; mediaType?: string; carouselImages?: string[]; originalFileName?: string };
 };
 
 export type ProductSignals = { wearable: boolean };
@@ -31,15 +31,36 @@ let cachedWinners: Winner[] | null = null;
 export async function loadWinners(siteOrigin: string): Promise<Winner[]> {
 	if (cachedWinners) return cachedWinners;
 
-	const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || process.env.PUBLIC_SUPABASE_URL || '';
-	const sources = [
-		supabaseUrl
-			? `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/creative-references/manifests/starter-static-50.json`
-			: '',
-		`${siteOrigin.replace(/\/$/, '')}/scraped_ads/manifest.json`,
-	].filter(Boolean);
-
 	const failures: string[] = [];
+
+	// Vía principal: leer el manifiesto con la clave de servicio. El bucket
+	// `creative-references` es privado — es el catálogo que se vende — así que ya
+	// no se puede pedir por su URL pública.
+	try {
+		const { getAdminClient } = await import('./server');
+		const admin = getAdminClient();
+		if (admin) {
+			const { data, error } = await admin.storage.from('creative-references').download('manifests/starter-static-50.json');
+			if (error || !data) {
+				failures.push(`storage: ${error?.message || 'sin manifiesto'}`);
+			} else {
+				const parsed: any = JSON.parse(await data.text());
+				const items: Winner[] = Array.isArray(parsed) ? parsed : parsed.items || [];
+				const usable = items.filter((item) => item.imagePath);
+				if (usable.length) {
+					cachedWinners = usable;
+					return cachedWinners;
+				}
+				failures.push('sin items usables en el manifiesto de storage');
+			}
+		}
+	} catch (error) {
+		failures.push(error instanceof Error ? error.message : String(error));
+	}
+
+	// Respaldo solo para desarrollo local, donde el manifiesto puede estar en
+	// `public/scraped_ads/` (ese directorio no se sube al repo ni a Vercel).
+	const sources = [`${siteOrigin.replace(/\/$/, '')}/scraped_ads/manifest.json`];
 	for (const source of sources) {
 		try {
 			const response = await fetch(source);

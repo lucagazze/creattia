@@ -1,7 +1,9 @@
 import type { APIRoute } from 'astro';
 import { loadWinners, type Winner } from '../../../lib/creattia/winner-picker';
 import { isCompatible, screenWinners } from '../../../lib/creattia/winner-screening';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
+import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
+import { FREE_PREVIEW_REFERENCE_PATHS, freePreviewAngleFor, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -36,6 +38,14 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 	const googleKey = process.env.GOOGLE_AI_API_KEY || import.meta.env.GOOGLE_AI_API_KEY || '';
 
+	// Cada llamada baja imágenes y las pasa por un modelo de visión: sin tope,
+	// una cuenta gratis en bucle genera factura real sin gastar un crédito.
+	const access = await getEffectiveAccess(admin, auth.user.id, auth.user.email);
+	if (!access.isUnlimited) {
+		const withinLimit = await checkRateLimit(admin, auth.user.id, 'next-reference', 60, 3600, true);
+		if (!withinLimit) return json({ error: 'Pediste muchas referencias en poco tiempo. Esperá unos minutos.' }, 429);
+	}
+
 	try {
 		const body = await request.json().catch(() => ({}));
 		const exclude = new Set<string>(
@@ -49,8 +59,16 @@ export const POST: APIRoute = async ({ request }) => {
 		const wanted = Math.min(Math.max(Number(body?.count) || 1, 1), 6);
 
 		const all = await loadWinners(new URL(request.url).origin);
-		const available = all.filter((winner) => !exclude.has(winner.imagePath));
-		if (!available.length) return json({ winners: [], exhausted: true });
+		// Una cuenta sin plan solo puede recibir las referencias del preview
+		// gratuito. Antes este endpoint devolvía rutas de toda la biblioteca, así
+		// que el paywall se salteaba pidiendo "otra referencia" hasta tenerlas.
+		const allowed = hasFullLibraryAccess(access)
+			? all
+			: all.filter((winner) => FREE_PREVIEW_REFERENCE_PATHS.has(winner.imagePath) || freePreviewAngleFor(winner));
+		const available = allowed.filter((winner) => !exclude.has(winner.imagePath));
+		if (!available.length) {
+			return json({ winners: [], exhausted: true, locked: !hasFullLibraryAccess(access) });
+		}
 
 		const savedSet = new Set(savedPaths);
 		// Los guardados primero, el resto de la biblioteca después. Cada grupo va
@@ -96,8 +114,7 @@ export const POST: APIRoute = async ({ request }) => {
 			})),
 			exhausted: picked.length === 0,
 		});
-	} catch (error: any) {
-		console.error('Error buscando otra referencia:', error);
-		return json({ error: error?.message || 'No se pudo buscar otra referencia.' }, 500);
+	} catch (error) {
+		return fail('next-reference', error, 'No se pudo buscar otra referencia.');
 	}
 };

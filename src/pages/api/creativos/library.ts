@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { freePreviewAngleFor } from '../../../lib/creattia/library-access';
 
 export const prerender = false;
 
@@ -8,35 +9,6 @@ const BUCKET = 'creative-references';
 const MANIFEST_PATH = 'manifests/starter-static-50.json';
 const PREVIEW_PER_ANGLE = 5;
 const PAID_PLAN_CODES = new Set(['creator', 'pro', 'scale', 'agency']);
-const FREE_PREVIEW_FILES: Record<string, string[]> = {
-	'antes-despues': ['antes y despues (1).png', 'antes y despues (11).jpg', 'antes y despues (12).jpg', 'antes y despues (2).png', 'antes y despues (25).jpg'],
-	estadisticas: ['Factos y Estadisticas (3).jpg', 'Factos y Estadisticas (15).jpg', 'Factos y Estadisticas (34).jpg', 'Factos y Estadisticas (30).jpg', 'Factos y Estadisticas (26).jpg'],
-	caracteristicas: ['caracteristicas y beneficios (10).jpg', 'caracteristicas y beneficios (13).jpg', 'caracteristicas y beneficios (19).jpg', 'caracteristicas y beneficios (34).jpg', 'caracteristicas y beneficios (48).jpg'],
-	estacional: ['Vacaciones - Estacional (3).jpg', 'Vacaciones - Estacional (5).jpg', 'Vacaciones - Estacional (8).jpg', 'Vacaciones - Estacional (18).jpg', 'Vacaciones - Estacional (21).jpg'],
-	noticias: ['Noticias (4).png', 'Noticias (19).jpg', 'Noticias (22).jpg', 'Noticias (26).jpg', 'Noticias (27).jpg'],
-	precio: ['Promociones y Descuentos (13).jpg', 'Promociones y Descuentos (18).jpg', 'Promociones y Descuentos (24).jpg', 'Promociones y Descuentos (32).jpg', 'Promociones y Descuentos (36).jpg'],
-	'razones-porque': ['Razones porque (44).jpg', 'Razones porque (49).jpg', 'Razones porque (51).jpg', 'Razones porque (54).jpg', 'Razones porque (1).png'],
-	resenas: ['Testimonios (66).jpg', 'Testimonios (18).png', 'Testimonios (71).jpg', 'Testimonios (85).jpg', 'Testimonios (87).jpg'],
-	competencia: ['Nosotros vs Ellos (77).jpg', 'Nosotros vs Ellos (94).jpg', 'Nosotros vs Ellos (97).jpg', 'Nosotros vs Ellos (103).jpg', 'Nosotros vs Ellos (1).jpg'],
-	producto: [
-		'producto-presentacion-gratis-01.png',
-		'producto-presentacion-gratis-02.png',
-		'producto-presentacion-gratis-03.png',
-		'producto-presentacion-gratis-04.png',
-		'producto-presentacion-gratis-05.png',
-	],
-};
-const FREE_PREVIEW_PRODUCT_PATHS = [
-	'40/2fb666571bf2802e.png',
-	'40/55596501e64f813b.png',
-	'40/174faa5c6ab2a671.png',
-	'40/8640d4617f2e692d.png',
-	'40/b3aaaa6a8d580a1a.png',
-];
-const FREE_PREVIEW_FILE_TO_ANGLE = new Map(
-	Object.entries(FREE_PREVIEW_FILES).flatMap(([angle, files]) => files.map((file) => [file.toLowerCase(), angle] as const))
-);
-const FREE_PREVIEW_PATH_TO_ANGLE = new Map(FREE_PREVIEW_PRODUCT_PATHS.map((path) => [path, 'producto'] as const));
 const STATIC_MEDIA_TYPES = new Set(['static_image', 'carousel']);
 const ANGLES = new Set([
 	'producto',
@@ -62,11 +34,6 @@ function angleFor(item: any) {
 	};
 	const normalized = legacy[leaf] || leaf;
 	return ANGLES.has(normalized) ? normalized : 'producto';
-}
-
-function freePreviewAngleFor(item: any) {
-	const sourceFile = String(item.metadata?.originalFileName || '').toLowerCase().trim();
-	return FREE_PREVIEW_FILE_TO_ANGLE.get(sourceFile) || FREE_PREVIEW_PATH_TO_ANGLE.get(String(item.imagePath || '')) || null;
 }
 
 function sortForPreview(left: any, right: any) {
@@ -162,7 +129,10 @@ export const GET: APIRoute = async ({ request }) => {
 	}
 
 	const items = isPaid ? allItems.map((item: any) => ({ ...item, category: angleFor(item) })) : previewItems;
-	const accessibleItems = isPaid ? items : await addAccessUrls(admin, items);
+	// Se firman siempre, también para las cuentas pagas: el bucket
+	// `creative-references` dejó de ser público, así que el front ya no puede
+	// armar la URL por su cuenta.
+	const accessibleItems = await addAccessUrls(admin, items);
 	const lockedCount = isPaid ? 0 : Math.max(0, allItems.length - previewPaths.size);
 
 	return json({

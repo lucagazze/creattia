@@ -8,11 +8,13 @@ import {
 } from '../../../lib/creattia/ad-analysis';
 import { generateAdImage, type EngineImage } from '../../../lib/creattia/image-engines';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, closeGenerationsAndCountRefunds, getAdminClient, json } from '../../../lib/creattia/server';
+import { readLimited, safeExternalFetch } from '../../../lib/creattia/safe-fetch';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { stripWebReferences } from '../../../lib/creattia/ad-copy';
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
+import { closestFormat } from '../../../lib/creattia/formats';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -20,18 +22,6 @@ export const maxDuration = 300;
 const ASSETS = 'creative-assets';
 const REFERENCES = 'creative-references';
 
-// Proporción soportada más cercana a la del anuncio ganador, para que
-// 'original' conserve la composición sin recortes.
-function closestFormat(ratio: number) {
-	const candidates: Array<[string, number]> = [['1:1', 1], ['3:4', 3 / 4], ['9:16', 9 / 16], ['4:3', 4 / 3], ['16:9', 16 / 9]];
-	let best = '1:1';
-	let bestDistance = Infinity;
-	for (const [key, value] of candidates) {
-		const distance = Math.abs(Math.log(ratio / value));
-		if (distance < bestDistance) { bestDistance = distance; best = key; }
-	}
-	return best;
-}
 
 /**
  * Genera UN anuncio del lote clonando un ganador real de la biblioteca con el
@@ -72,6 +62,14 @@ export const POST: APIRoute = async ({ request }) => {
 		if (row.status === 'completed' && row.output_path) {
 			const { data: signed } = await admin.storage.from(ASSETS).createSignedUrl(row.output_path, 60 * 60);
 			return json({ ok: true, id: row.id, alreadyDone: true, imageUrl: signed?.signedUrl || '' });
+		}
+
+		// Solo se trabaja sobre filas que siguen en curso. Una fila 'failed' ya
+		// tuvo su crédito devuelto: generarla igual era exactamente el agujero
+		// que permitía cancelar el lote, recuperar los créditos y llevarse las
+		// imágenes gratis.
+		if (row.status !== 'processing') {
+			return json({ error: 'Esta generación ya fue cerrada. Volvé a lanzarla desde el lote.', code: 'NOT_PROCESSING' }, 409);
 		}
 
 		const snapshot: any = row.settings_snapshot || {};
@@ -172,9 +170,11 @@ export const POST: APIRoute = async ({ request }) => {
 			// sucio o no se puede leer, se sigue sin logo antes que arruinar el aviso.
 			if (includeLogo && urlBrand?.logoUrl) {
 				try {
-					const logoResponse = await fetch(urlBrand.logoUrl);
+					// URL sacada del HTML de un sitio de terceros: va por el fetch
+					// con guarda de red privada, nunca por fetch directo.
+					const logoResponse = await safeExternalFetch(urlBrand.logoUrl, { headers: { accept: 'image/*' } });
 					if (logoResponse.ok) {
-						const raw = Buffer.from(await logoResponse.arrayBuffer());
+						const raw = Buffer.from(await readLimited(logoResponse, 4_000_000));
 						if (raw.length > 500 && raw.length < 4_000_000) {
 							const normalized = await normalizeImageInput(raw);
 							if (normalized) logoImage = { buffer: normalized.buffer, type: normalized.type };
@@ -342,17 +342,14 @@ export const POST: APIRoute = async ({ request }) => {
 		const message = error instanceof Error ? error.message : 'No se pudo generar el anuncio.';
 		console.error(`[batch-worker ${generationId}] falló:`, error);
 		if (generationId) {
-			await admin.from('creative_generations').update({
-				status: 'failed',
-				error_code: message.slice(0, 160),
-				completed_at: new Date().toISOString(),
-			}).eq('id', generationId).eq('user_id', userId);
-			// El crédito de una imagen que no salió se devuelve siempre.
-			if (!isUnlimited) {
+			// El crédito se devuelve solo si esta invocación es la que cerró la
+			// fila. Si el barrido de colgadas ya la había cerrado, ya lo devolvió.
+			const closed = await closeGenerationsAndCountRefunds(admin, userId, [generationId], message);
+			if (!isUnlimited && closed.length) {
 				const { error: refundError } = await admin.rpc('refund_creative_credits', { p_user_id: userId, p_amount: 1 });
 				if (refundError) console.error('Refund falló:', refundError);
 			}
 		}
-		return json({ error: message }, 500);
+		return json({ error: 'No pudimos generar este anuncio. El crédito fue devuelto.' }, 500);
 	}
 };

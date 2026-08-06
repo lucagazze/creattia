@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 
@@ -184,6 +184,6 @@ export const POST: APIRoute = async ({ request }) => {
 			await admin.rpc('refund_creative_credits', { p_user_id: userId, p_amount: reserved })
 				.then(({ error: refundError }: any) => { if (refundError) console.error('Refund falló:', refundError); });
 		}
-		return json({ error: error?.message || 'No se pudo iniciar la generación del carrusel.' }, 500);
+		return fail('carousel-start', error, 'No se pudo iniciar la generación del carrusel.');
 	}
 };

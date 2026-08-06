@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Tipos: `astro check` en modo estricto, igual que en local.
+      - run: npm run check
+
+      # Reglas de facturación y acceso: es lo que no puede romperse en silencio.
+      - run: npm test
+
+      - run: npm run build
+
+      # Falla si vuelve a entrar una dependencia con vulnerabilidad conocida.
+      - run: npm audit --audit-level=high

@@ -19,7 +19,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
-	const withinLimit = await checkRateLimit(admin, auth.user.id, 'rewrite-copy', 60, 3600);
+	const withinLimit = await checkRateLimit(admin, auth.user.id, 'rewrite-copy', 60, 3600, true);
 	if (!withinLimit) return json({ error: 'Rehiciste muchos textos en poco tiempo. Esperá un rato y volvé a intentar.' }, 429);
 
 	try {

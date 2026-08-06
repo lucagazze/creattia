@@ -8,6 +8,8 @@ export type SubscriptionPlan = {
 	name: string;
 	price: number;
 	credits?: number;
+	/** Marcas activas simultáneas que habilita el plan. */
+	brandLimit: number;
 	description: string;
 	featured: boolean;
 	features: SubscriptionPlanFeature[];
@@ -20,6 +22,7 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 		name: 'Gratis',
 		price: 0,
 		description: 'Probá Creattia con 1 token y una muestra de cada ángulo.',
+		brandLimit: 1,
 		featured: false,
 		features: [
 			{ name: '1 token de regalo', active: true },
@@ -36,6 +39,7 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 		price: 9.99,
 		credits: 5,
 		description: 'Biblioteca completa y 5 tokens mensuales para empezar a crear.',
+		brandLimit: 1,
 		featured: true,
 		features: [
 			{ name: 'Biblioteca completa de ganadores', active: true },
@@ -52,12 +56,13 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 		price: 24.99,
 		credits: 60,
 		description: 'Hasta 60 tokens mensuales para marcas en crecimiento.',
+		brandLimit: 3,
 		featured: false,
 		features: [
 			{ name: '60 tokens al mes', active: true },
 			{ name: '≈ $0.42 por token — el mejor equilibrio', active: true },
 			{ name: 'Hasta 4 generaciones simultáneas', active: true },
-			{ name: 'Hasta 2 marcas activas', active: true },
+			{ name: 'Hasta 3 marcas activas', active: true },
 			{ name: 'Soporte prioritario por email', active: true },
 		],
 	},
@@ -67,12 +72,13 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 		price: 49.99,
 		credits: 120,
 		description: 'Hasta 120 tokens mensuales para producir a mayor volumen.',
+		brandLimit: 5,
 		featured: false,
 		features: [
 			{ name: '120 tokens al mes', active: true },
 			{ name: '≈ $0.42 por token — menor costo', active: true },
 			{ name: 'Hasta 6 generaciones simultáneas', active: true },
-			{ name: 'Hasta 4 marcas activas', active: true },
+			{ name: 'Hasta 5 marcas activas', active: true },
 			{ name: 'Soporte prioritario y acceso anticipado', active: true },
 		],
 	},
@@ -82,6 +88,7 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 		price: 97.70,
 		credits: 300,
 		description: 'Hasta 300 tokens mensuales para agencias y equipos grandes.',
+		brandLimit: 6,
 		featured: false,
 		features: [
 			{ name: '300 tokens al mes', active: true },
@@ -92,3 +99,13 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 		],
 	},
 ];
+
+/**
+ * Marcas activas habilitadas por plan. Fuente única: la oferta comercial de
+ * arriba. `brands.ts` tenía su propia tabla, sin 'agency', así que la cuenta más
+ * cara del catálogo terminaba limitada a 1 marca — el valor de reserva.
+ */
+export function brandLimitForPlan(planCode?: string | null) {
+	const plan = subscriptionPlans.find((item) => item.code === planCode);
+	return plan?.brandLimit ?? 1;
+}

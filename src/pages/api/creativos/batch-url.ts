@@ -22,7 +22,6 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!auth.user) return json({ error: auth.error || 'Sesión requerida.' }, 401);
 
 	const userId = auth.user.id;
-	const userEmail = auth.user.email || '';
 
 	const openAIKey = process.env.OPENAI_API_KEY || import.meta.env.OPENAI_API_KEY || '';
 	const googleKey = process.env.GOOGLE_AI_API_KEY || import.meta.env.GOOGLE_AI_API_KEY || '';

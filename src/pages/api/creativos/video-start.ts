@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { assertReferenceUrl } from '../../../lib/creattia/reference-host';
+import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { analyzeVideoReference, buildVideoPrompt, startGeminiOmniVideo, VIDEO_MODELS, VIDEO_SIZES, type VideoCreativePlan } from '../../../lib/creattia/video-engines';
 import { normalizeImageInput } from '../../../lib/creattia/ad-analysis';
 import { resolveAvatarReferences, type AvatarMode } from '../../../lib/creattia/avatar-assets';
@@ -15,13 +16,9 @@ export const prerender = false;
 const ASSETS = 'creative-assets';
 const MAX_PRODUCT_BYTES = 10 * 1024 * 1024;
 const MAX_REFERENCE_VIDEO_BYTES = 100 * 1024 * 1024;
-const VIDEO_REFERENCE_HOST = 'czocbnyoenjbpxmcqobn.supabase.co';
 
 async function downloadReferencePoster(value: string) {
-	const url = new URL(value);
-	if (url.protocol !== 'https:' || url.hostname !== VIDEO_REFERENCE_HOST) {
-		throw new Error('La referencia debe venir de la Biblioteca de ganadores.');
-	}
+	const url = assertReferenceUrl(value);
 	const response = await fetch(url);
 	if (!response.ok) throw new Error('No se pudo descargar el fotograma de referencia.');
 	const buffer = Buffer.from(await response.arrayBuffer());
@@ -30,10 +27,7 @@ async function downloadReferencePoster(value: string) {
 }
 
 function validateReferenceVideoUrl(value: string) {
-	const url = new URL(value);
-	if (url.protocol !== 'https:' || url.hostname !== VIDEO_REFERENCE_HOST) {
-		throw new Error('La referencia debe venir de la Biblioteca de ganadores.');
-	}
+	const url = assertReferenceUrl(value);
 	return url.toString();
 }
 
@@ -61,6 +55,10 @@ export const POST: APIRoute = async ({ request }) => {
 	const googleKey = process.env.GOOGLE_AI_API_KEY || import.meta.env.GOOGLE_AI_API_KEY || '';
 	if (!googleKey) return json({ error: 'Falta configurar GOOGLE_AI_API_KEY para generar videos con Gemini.', requiresConfiguration: true }, 503);
 
+	const withinLimit = await checkRateLimit(admin, auth.user.id, 'video-start', 20, 3600, true);
+	if (!withinLimit) return json({ error: 'Lanzaste muchos videos en poco tiempo. Esperá unos minutos.' }, 429);
+
+	let reservedCredits = 0;
 	try {
 		const form = await request.formData();
 		const referenceVideoUrl = String(form.get('referenceVideoUrl') || '').trim();
@@ -113,12 +111,33 @@ export const POST: APIRoute = async ({ request }) => {
 		const speechMode = ['adapt', 'new', 'none'].includes(rawSpeechMode) ? rawSpeechMode as 'adapt' | 'new' | 'none' : 'adapt';
 		const dialogueInstructions = String(form.get('dialogueInstructions') || '').trim().slice(0, 1200);
 
+		// Validación barata primero: nada de bajar 100 MB ni llamar a un modelo
+		// para después descubrir que la duración era inválida.
 		if (!referenceVideoUrl || !referencePosterUrl) return json({ error: 'Falta la referencia de video.' }, 400);
-		const referenceVideo = await downloadReferenceVideo(referenceVideoUrl);
 		if (!isVideoOutputDuration(duration)) return json({ error: 'La duración debe estar entre 4 y 30 segundos.' }, 400);
 		if (!VIDEO_SIZES.includes(size as typeof VIDEO_SIZES[number])) return json({ error: 'Formato inválido.' }, 400);
 		if (!VIDEO_MODELS.includes(model as typeof VIDEO_MODELS[number])) return json({ error: 'Modelo de video inválido.' }, 400);
+		validateReferenceVideoUrl(referenceVideoUrl);
 
+		// Los créditos se reservan ANTES del trabajo caro. Antes se descargaba el
+		// video de referencia, se cortaba y se llamaba a OpenAI para analizarlo, y
+		// recién al final se miraba el saldo: una cuenta sin créditos podía hacer
+		// correr todo ese costo en loop sin pagar nada.
+		const nominalCreditCost = videoCreditCost(duration);
+		const chargedCredits = videoCreditCostForAccount(duration, isUnlimited);
+		let remaining = isUnlimited ? 99999 : 0;
+		if (chargedCredits > 0) {
+			const { data, error: reserveError } = await admin.rpc('reserve_creative_credits', {
+				p_user_id: auth.user.id,
+				p_amount: chargedCredits,
+			});
+			if (reserveError) throw reserveError;
+			if (data === -1) return json({ error: `Necesitás ${nominalCreditCost} créditos para generar un video.`, code: 'INSUFFICIENT_CREDITS' }, 402);
+			remaining = Number(data || 0);
+			reservedCredits = chargedCredits;
+		}
+
+		const referenceVideo = await downloadReferenceVideo(referenceVideoUrl);
 		const poster = await downloadReferencePoster(referencePosterUrl);
 		if (!poster) return json({ error: 'No se pudo procesar el fotograma de referencia.' }, 400);
 
@@ -236,18 +255,6 @@ export const POST: APIRoute = async ({ request }) => {
 		const outputSegments = videoSegmentsForDuration(duration);
 		const referenceSegments = outputSegments.map((segment) => referenceSegmentForOutput(segment, referenceDuration));
 		const referenceBuffers = await splitVideoBuffer(referenceVideo.buffer, referenceSegments, size as '720x1280' | '1280x720');
-		const nominalCreditCost = videoCreditCost(duration);
-		const chargedCredits = videoCreditCostForAccount(duration, isUnlimited);
-		let remaining = isUnlimited ? 99999 : 0;
-		if (chargedCredits > 0) {
-			const { data, error: reserveError } = await admin.rpc('reserve_creative_credits', {
-				p_user_id: auth.user.id,
-				p_amount: chargedCredits,
-			});
-			if (reserveError) throw reserveError;
-			if (data === -1) return json({ error: `Necesitás ${nominalCreditCost} créditos para generar un video.`, code: 'INSUFFICIENT_CREDITS' }, 402);
-			remaining = Number(data || 0);
-		}
 
 		const providerJobs: Array<{ id: string; index: number; start: number; duration: number; status: string; progress: number }> = [];
 		try {
@@ -284,7 +291,8 @@ export const POST: APIRoute = async ({ request }) => {
 				providerJobs.push({ id: providerJob.id, index: segment.index, start: segment.start, duration: segment.duration, status: providerJob.status, progress: providerJob.progress || 0 });
 			}
 		} catch (providerError) {
-			if (chargedCredits > 0) await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: chargedCredits });
+			// El reembolso lo hace el catch de afuera, que es el único dueño de
+			// `reservedCredits`: hacerlo también acá devolvía el doble.
 			throw providerError;
 		}
 		const allCompleted = providerJobs.every((job) => job.status === 'completed');
@@ -309,13 +317,16 @@ export const POST: APIRoute = async ({ request }) => {
 			settings_snapshot: { brandName, includeLogo, includeWebsite, displayWebsite, brief, objective, audience, audienceReason, audienceAlternatives, objections, hookIdea, benefit, proof, offer, tone, language, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, audioDirection, voiceover, captions, peopleDirection, performanceDirection, realismDirection, speechMode, dialogueInstructions, avatarMode, avatarId: avatarId || null, avatarName: avatar.name || null, avatarSourceImageCount: avatar.sourceImageCount, referenceCount: visualReferences.length, referenceDuration, creditCost: chargedCredits, nominalCreditCost, adminBypass: isUnlimited, adCopy: approvedPlan.adCopy, analysis, creativePlan: approvedPlan, segmentJobs: providerJobs },
 		}).select('id,status,progress,title').single();
 		if (insertError || !job) {
-			if (chargedCredits > 0) await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: chargedCredits });
 			throw insertError || new Error('No se pudo guardar el trabajo de video.');
 		}
+		reservedCredits = 0; // el trabajo quedó registrado: ya no se devuelve nada
 
 		return json({ ok: true, job, creditsRemaining: remaining, creditCost: nominalCreditCost, chargedCredits, adminBypass: isUnlimited });
 	} catch (error) {
-		console.error('[video-start]', error);
-		return json({ error: error instanceof Error ? error.message : 'No se pudo iniciar el video.' }, 500);
+		if (reservedCredits > 0) {
+			const { error: refundError } = await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: reservedCredits });
+			if (refundError) console.error('[video-start] refund falló', refundError);
+		}
+		return fail('video-start', error, 'No pudimos iniciar el video. Los créditos fueron devueltos.');
 	}
 };

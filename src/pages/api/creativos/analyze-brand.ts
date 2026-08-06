@@ -3,7 +3,7 @@ import { analyzeBrandStyle, persistBrandStyle } from '../../../lib/creattia/bran
 import { analyzeCatalogWithAI, scanInstagram, scanWebsite, type ScannedProduct, type ScannedSource } from '../../../lib/creattia/catalog-scanner';
 import { mirrorProductImages } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
 export const maxDuration = 120;
@@ -13,6 +13,9 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!auth.user) return json({ error: auth.error }, 401);
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
+	// Escanea la web entera y la manda a un modelo: sin tope es costo abierto.
+	const withinLimit = await checkRateLimit(admin, auth.user.id, 'analyze-brand', 15, 3600, true);
+	if (!withinLimit) return json({ error: 'Analizaste muchas marcas en poco tiempo. Esperá un rato y volvé a intentar.' }, 429);
 
 	try {
 		const body = await request.json().catch(() => ({}));
@@ -130,6 +133,6 @@ export const POST: APIRoute = async ({ request }) => {
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'No se pudo analizar la marca.';
 		await admin.from('creative_profiles').update({ catalog_status: 'failed', catalog_error: message.slice(0, 1000), updated_at: new Date().toISOString() }).eq('user_id', auth.user.id);
-		return json({ error: message }, 500);
+		return fail('analyze-brand', error, 'No se pudo analizar la marca.');
 	}
 };

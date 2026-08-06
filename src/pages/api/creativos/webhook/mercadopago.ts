@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { getAdminClient, json } from '../../../../lib/creattia/server';
+import { fail, getAdminClient, json } from '../../../../lib/creattia/server';
 
 export const prerender = false;
 
@@ -10,7 +10,7 @@ function resolvePlan(subscription: any) {
 	const external = String(subscription.external_reference || '');
 	const [userId, requestedPlan, requestedCycle] = external.split(':');
 	const yearly = requestedCycle === 'yearly';
-	if (planCredits[requestedPlan]) return { userId, planCode: requestedPlan, yearly };
+	if (Object.hasOwn(planCredits, requestedPlan)) return { userId, planCode: requestedPlan, yearly };
 	const providerPlan = String(subscription.preapproval_plan_id || '');
 	const configured: Record<string, { planCode: string; yearly: boolean }> = {};
 	const addConfiguredPlan = (id: string | undefined, planCode: string, isYearly: boolean) => {
@@ -25,7 +25,14 @@ function resolvePlan(subscription: any) {
 	addConfiguredPlan(import.meta.env.MERCADO_PAGO_PLAN_SCALE_YEARLY_ID, 'scale', true);
 	addConfiguredPlan(import.meta.env.MERCADO_PAGO_PLAN_AGENCY_YEARLY_ID, 'agency', true);
 	const resolved = configured[providerPlan];
-	return { userId: external.split(':')[0] || external, planCode: resolved?.planCode || 'creator', yearly: resolved?.yearly || false };
+	// Sin plan resuelto no se inventa uno: antes caía en 'creator' y una
+	// suscripción con referencia rara terminaba acreditando un plan que nadie
+	// contrató. Ahora el llamador corta y queda registrado en el log.
+	return {
+		userId: external.split(':')[0] || external,
+		planCode: resolved?.planCode || null,
+		yearly: resolved?.yearly || false,
+	};
 }
 
 function verifySignature(request: Request, dataId: string, secret: string) {
@@ -83,14 +90,14 @@ export const POST: APIRoute = async ({ request, url }) => {
 		});
 		if (purchaseError) {
 			if (purchaseError.code === '23505') return json({ received: true, duplicated: true });
-			return json({ error: purchaseError.message }, 500);
+			return fail('mercadopago-webhook', purchaseError, 'No se pudo procesar la notificación.');
 		}
 		const { error: creditError } = await admin.rpc('add_purchased_credits', { p_user_id: userId, p_amount: credits });
 		if (creditError) {
 			// Permitimos que Mercado Pago reintente el webhook si la acreditación
 			// falló después de registrar el pago.
 			await admin.from('creative_credit_purchases').delete().eq('payment_id', String(payment.id));
-			return json({ error: creditError.message }, 500);
+			return fail('mercadopago-webhook', creditError, 'No se pudo procesar la notificación.');
 		}
 		return json({ received: true, credited: credits });
 	}
@@ -118,18 +125,24 @@ export const POST: APIRoute = async ({ request, url }) => {
 		if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
 			return json({ received: true });
 		}
+		if (!planCode) {
+			console.error('[mercadopago-webhook] renovación sin plan resoluble', {
+				preapprovalId, externalReference: subscription.external_reference, preapprovalPlanId: subscription.preapproval_plan_id,
+			});
+			return json({ error: 'No se pudo resolver el plan de la suscripción.' }, 422);
+		}
 
 		const admin = getAdminClient();
 		if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 		const { data: currentProfile, error: profileReadError } = await admin.from('creative_profiles')
 			.select('subscription_status,subscription_period_end')
 			.eq('user_id', userId).maybeSingle();
-		if (profileReadError || !currentProfile) return json({ error: profileReadError?.message || 'Perfil no encontrado.' }, 500);
+		if (profileReadError || !currentProfile) return fail('mercadopago-webhook', profileReadError, 'Perfil no encontrado.');
 
 		const nextPeriod = subscription.next_payment_date || null;
 		const periodChanged = Boolean(nextPeriod && nextPeriod !== currentProfile.subscription_period_end);
 		const shouldRefill = currentProfile.subscription_status !== 'authorized' || periodChanged;
-		const monthlyCredits = (planCredits[planCode] || planCredits.creator) * (yearly ? 12 : 1);
+		const monthlyCredits = planCredits[planCode] * (yearly ? 12 : 1);
 		const now = new Date().toISOString();
 		const { error: subscriptionError } = await admin.from('creative_subscriptions').upsert({
 			user_id: userId,
@@ -142,7 +155,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 			last_event_id: String(dataId),
 			updated_at: now,
 		}, { onConflict: 'user_id,provider' });
-		if (subscriptionError) return json({ error: subscriptionError.message }, 500);
+		if (subscriptionError) return fail('mercadopago-webhook', subscriptionError, 'No se pudo procesar la notificación.');
 		const payment = invoice.payment || {};
 		const { error: paymentLogError } = await admin.from('creative_subscription_payments').upsert({
 			payment_id: String(dataId),
@@ -155,7 +168,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 			paid_at: payment.date_approved || payment.date_created || now,
 			metadata: { paymentType: invoice.payment_type_id || null, statusDetail: payment.status_detail || null },
 		});
-		if (paymentLogError && paymentLogError.code !== '42P01') return json({ error: paymentLogError.message }, 500);
+		if (paymentLogError && paymentLogError.code !== '42P01') return fail('mercadopago-webhook', paymentLogError, 'No se pudo procesar la notificación.');
 
 		const profileUpdate: Record<string, string | number | null> = {
 			subscription_status: 'authorized',
@@ -171,7 +184,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 		}
 		const { data: updatedProfile, error: profileUpdateError } = await admin.from('creative_profiles')
 			.update(profileUpdate).eq('user_id', userId).select('user_id').maybeSingle();
-		if (profileUpdateError || !updatedProfile) return json({ error: profileUpdateError?.message || 'Perfil no encontrado.' }, 500);
+		if (profileUpdateError || !updatedProfile) return fail('mercadopago-webhook', profileUpdateError, 'Perfil no encontrado.');
 		return json({ received: true, refilled: shouldRefill ? monthlyCredits : 0 });
 	}
 
@@ -184,6 +197,15 @@ export const POST: APIRoute = async ({ request, url }) => {
 	const subscription = await mpResponse.json();
 
 	const { userId, planCode, yearly } = resolvePlan(subscription);
+	if (!planCode) {
+		if (userId) {
+			console.error('[mercadopago-webhook] preapproval sin plan resoluble', {
+				dataId, externalReference: subscription.external_reference, preapprovalPlanId: subscription.preapproval_plan_id,
+			});
+			return json({ error: 'No se pudo resolver el plan de la suscripción.' }, 422);
+		}
+		return json({ received: true });
+	}
 	const mappedStatus: Record<string, string> = {
 		authorized: 'authorized',
 		pending: 'pending',
@@ -202,11 +224,11 @@ export const POST: APIRoute = async ({ request, url }) => {
 		const { data: currentProfile, error: profileReadError } = await admin.from('creative_profiles')
 			.select('subscription_status,subscription_period_end')
 			.eq('user_id', userId).maybeSingle();
-		if (profileReadError || !currentProfile) return json({ error: profileReadError?.message || 'Perfil no encontrado.' }, 500);
+		if (profileReadError || !currentProfile) return fail('mercadopago-webhook', profileReadError, 'Perfil no encontrado.');
 		const periodChanged = Boolean(nextPeriod && nextPeriod !== currentProfile?.subscription_period_end);
 		const shouldRefill = status === 'authorized' && (currentProfile?.subscription_status !== 'authorized' || periodChanged);
 		// Anual: se acreditan los 12 meses juntos en cada renovación anual.
-		const monthlyCredits = (planCredits[planCode] || planCredits.creator) * (yearly ? 12 : 1);
+		const monthlyCredits = planCredits[planCode] * (yearly ? 12 : 1);
 		const profileUpdate: Record<string, string | number | null> = {
 			subscription_status: status,
 			plan_code: planCode,
@@ -230,10 +252,10 @@ export const POST: APIRoute = async ({ request, url }) => {
 			last_event_id: String(dataId),
 			updated_at: new Date().toISOString(),
 		}, { onConflict: 'user_id,provider' });
-		if (subscriptionError) return json({ error: subscriptionError.message }, 500);
+		if (subscriptionError) return fail('mercadopago-webhook', subscriptionError, 'No se pudo procesar la notificación.');
 		const { data: updatedProfile, error: profileUpdateError } = await admin.from('creative_profiles')
 			.update(profileUpdate).eq('user_id', userId).select('user_id').maybeSingle();
-		if (profileUpdateError || !updatedProfile) return json({ error: profileUpdateError?.message || 'Perfil no encontrado.' }, 500);
+		if (profileUpdateError || !updatedProfile) return fail('mercadopago-webhook', profileUpdateError, 'Perfil no encontrado.');
 	}
 
 	return json({ received: true });

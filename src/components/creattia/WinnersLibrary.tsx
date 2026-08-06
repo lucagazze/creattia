@@ -616,7 +616,7 @@ export default function WinnersLibrary({
 			
 			if (!isSupabaseConfigured || !supabase) {
 				await new Promise(resolve => setTimeout(resolve, 3000));
-				setGeneratedResult(`https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${activeAd.imagePath}`);
+				setGeneratedResult(activeAd.imageUrl || '');
 				if (onToast) onToast('¡Vista demo creada con éxito!');
 			} else {
 				const response = await fetch('/api/creativos/generate', {
@@ -636,7 +636,7 @@ export default function WinnersLibrary({
 					onGenerationStarted({
 						batchId: payload.batchId,
 						title: selectedSavedProduct?.name ? `${selectedSavedProduct.name} · ${activeAd.name}` : activeAd.name,
-						referenceUrl: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${activeAd.imagePath}`,
+						referenceUrl: activeAd.imageUrl || '',
 						count: 1,
 					});
 					return;
@@ -844,9 +844,11 @@ export default function WinnersLibrary({
 	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
 	// imagen al instante en vez de esperar a que baje cada foto de a una.
 	useEffect(() => {
-		const urlFor = (path: string) => supabase
-			? supabase.storage.from('creative-references').getPublicUrl(path).data.publicUrl
-			: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${path}`;
+		// El bucket de referencias es privado: /api/creativos/library ya devuelve
+		// cada portada y cada página de carrusel con su URL firmada. Construirla
+		// a mano acá daba un 400 y, cuando el bucket era público, salteaba el
+		// control de acceso.
+		const urlFor = (path: string) => (path.startsWith('http') ? path : '');
 		filteredItems.slice(0, visibleCount).forEach((item) => {
 			const slides = item.metadata?.carouselImages;
 			if (!Array.isArray(slides) || slides.length < 2) return;
@@ -1426,12 +1428,10 @@ export default function WinnersLibrary({
 						const hasFailed = item.imagePath ? failedImages.has(item.imagePath) : false;
 						if (hasFailed) return null; // imagen rota: no mostrar placeholder genérico
 						const isVideo = item.metadata?.mediaType === 'video';
-						const urlFor = (path: string) => path.startsWith('http')
-							? path
-							: supabase
-								? supabase.storage.from('creative-references').getPublicUrl(path).data.publicUrl
-								: `https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/${path}`;
+						// Ya vienen firmadas desde la API (ver comentario de arriba).
+						const urlFor = (path: string) => (path.startsWith('http') ? path : '');
 						const imageUrl = item.imageUrl || urlFor(item.imagePath);
+						if (!imageUrl) return null; // sin URL firmada no hay nada que mostrar
 
 						// Carrusel: varias páginas para navegar dentro de la misma tarjeta.
 						const slides = item.metadata?.mediaType === 'carousel' && Array.isArray(item.metadata.carouselImages) && item.metadata.carouselImages.length > 1

@@ -4,7 +4,7 @@ import { analyzeBrandStyle, persistBrandStyle } from '../../../lib/creattia/bran
 import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
 import { mirrorProductImages, mirrorProductVideos } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
-import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { countProductImages, listProductImageRows, upsertProductMediaRows } from '../../../lib/creattia/product-media';
 
 export const prerender = false;
@@ -103,16 +103,6 @@ async function listProducts(userId: string) {
 			mediaCount: media.length,
 		};
 	});
-}
-
-function sameProductUrl(left: string, right: string) {
-	try {
-		const a = new URL(left);
-		const b = new URL(right);
-		return a.hostname === b.hostname && a.pathname.replace(/\/$/, '') === b.pathname.replace(/\/$/, '');
-	} catch {
-		return false;
-	}
 }
 
 async function importProductUrls(userId: string, rawUrls: unknown[]) {
@@ -257,7 +247,7 @@ export const POST: APIRoute = async ({ request }) => {
 			if (rawUrls.length > 10) return json({ error: 'Podés importar hasta 10 URLs por vez.' }, 400);
 			// Cada análisis llama a OpenAI aunque no gaste créditos: sin tope se
 			// puede hacer costar plata sin límite.
-			const withinLimit = await checkRateLimit(admin, auth.user.id, 'product-url-scan', 30, 3600);
+			const withinLimit = await checkRateLimit(admin, auth.user.id, 'product-url-scan', 30, 3600, true);
 			if (!withinLimit) return json({ error: 'Analizaste muchas URLs en poco tiempo. Esperá un rato y volvé a intentar.' }, 429);
 			const imported = await importProductUrls(auth.user.id, rawUrls);
 			const products = await listProducts(auth.user.id);
@@ -361,7 +351,7 @@ export const DELETE: APIRoute = async ({ request }) => {
 		if (!imagePath.startsWith(`${auth.user.id}/`)) return json({ error: 'Foto invalida.' }, 400);
 		const { error: rowError } = await admin.from('creative_product_images').delete()
 			.eq('user_id', auth.user.id).eq('product_id', imageProductId).eq('storage_path', imagePath);
-		if (rowError) return json({ error: rowError.message }, 500);
+		if (rowError) return fail('products', rowError, 'No se pudo completar la operación sobre el catálogo.');
 		const { data: productRow } = await admin.from('creative_products').select('image_path')
 			.eq('id', imageProductId).eq('user_id', auth.user.id).maybeSingle();
 		if (productRow?.image_path === imagePath) {
@@ -374,7 +364,7 @@ export const DELETE: APIRoute = async ({ request }) => {
 	const id = params.get('id') || '';
 	if (!id) return json({ error: 'Producto inválido.' }, 400);
 	const { data: product, error: findError } = await admin.from('creative_products').select('id').eq('id', id).eq('user_id', auth.user.id).eq('is_active', true).maybeSingle();
-	if (findError) return json({ error: findError.message }, 500);
+	if (findError) return fail('products', findError, 'No se pudo completar la operación sobre el catálogo.');
 	if (!product) return json({ error: 'Producto no encontrado.' }, 404);
 	// Keep the product and its private source image for generation history and revisions.
 	// The catalog is user-facing soft-deleted so foreign-key provenance remains intact.
@@ -382,5 +372,5 @@ export const DELETE: APIRoute = async ({ request }) => {
 		is_active: false,
 		updated_at: new Date().toISOString(),
 	}).eq('id', id).eq('user_id', auth.user.id);
-	return error ? json({ error: error.message }, 500) : json({ ok: true });
+	return error ? fail('products', error, 'No se pudo completar la operación sobre el catálogo.') : json({ ok: true });
 };

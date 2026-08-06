@@ -2,23 +2,24 @@
 export const prerender = true;
 import Layout from '../layouts/Layout.astro';
 import { subscriptionPlans } from '../lib/creattia/subscription-plans';
+import { showcaseUrl } from '../lib/creattia/showcase';
 
 
 // Data matching the new cloned layout translated to Spanish
 const showcase = [
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/efd72e666983d8e7.webp', label: 'Café' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/1b76d7e89d46ac25.webp', label: 'Suplementos' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/f0e11445b9ff5bcf.webp', label: 'Bienestar' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/95585757da7f44a8.webp', label: 'Bebidas' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/1d58518c1d718dd4.webp', label: 'Cuidado Personal' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/1/af32ca5ec7697330.webp', label: 'Gourmet' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/dae50b9af9994bbc.webp', label: 'Cosmética' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/1/dcaf28871a7a4904.webp', label: 'Accesorios' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/ece227e7e0c07477.webp', label: 'Moda' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/9c8d4a8001b24d29.webp', label: 'Belleza' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/6115528cf8820436.webp', label: 'Cuidado Piel' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/2712b3774b326865.webp', label: 'Deporte' },
-	{ type: 'image', src: 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/e00a8677f0d13e45.webp', label: 'Estilo' }
+	{ type: 'image', src: showcaseUrl('40/efd72e666983d8e7.webp'), label: 'Café' },
+	{ type: 'image', src: showcaseUrl('40/1b76d7e89d46ac25.webp'), label: 'Suplementos' },
+	{ type: 'image', src: showcaseUrl('40/f0e11445b9ff5bcf.webp'), label: 'Bienestar' },
+	{ type: 'image', src: showcaseUrl('40/95585757da7f44a8.webp'), label: 'Bebidas' },
+	{ type: 'image', src: showcaseUrl('40/1d58518c1d718dd4.webp'), label: 'Cuidado Personal' },
+	{ type: 'image', src: showcaseUrl('1/af32ca5ec7697330.webp'), label: 'Gourmet' },
+	{ type: 'image', src: showcaseUrl('40/dae50b9af9994bbc.webp'), label: 'Cosmética' },
+	{ type: 'image', src: showcaseUrl('1/dcaf28871a7a4904.webp'), label: 'Accesorios' },
+	{ type: 'image', src: showcaseUrl('40/ece227e7e0c07477.webp'), label: 'Moda' },
+	{ type: 'image', src: showcaseUrl('40/9c8d4a8001b24d29.webp'), label: 'Belleza' },
+	{ type: 'image', src: showcaseUrl('40/6115528cf8820436.webp'), label: 'Cuidado Piel' },
+	{ type: 'image', src: showcaseUrl('40/2712b3774b326865.webp'), label: 'Deporte' },
+	{ type: 'image', src: showcaseUrl('40/e00a8677f0d13e45.webp'), label: 'Estilo' }
 ];
 
 const ideasRow1 = [
@@ -49,37 +50,37 @@ const steps = [
 ];
 
 const cylinderImages = [
-	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/efd72e666983d8e7.webp',
-	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/1b76d7e89d46ac25.webp',
-	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/f0e11445b9ff5bcf.webp',
-	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/95585757da7f44a8.webp',
-	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/1d58518c1d718dd4.webp',
-	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/1/af32ca5ec7697330.webp',
-	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/dae50b9af9994bbc.webp',
-	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/1/dcaf28871a7a4904.webp',
-	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/ece227e7e0c07477.webp',
-	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/9c8d4a8001b24d29.webp',
-	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/6115528cf8820436.webp',
-	'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/40/2712b3774b326865.webp'
+	showcaseUrl('40/efd72e666983d8e7.webp'),
+	showcaseUrl('40/1b76d7e89d46ac25.webp'),
+	showcaseUrl('40/f0e11445b9ff5bcf.webp'),
+	showcaseUrl('40/95585757da7f44a8.webp'),
+	showcaseUrl('40/1d58518c1d718dd4.webp'),
+	showcaseUrl('1/af32ca5ec7697330.webp'),
+	showcaseUrl('40/dae50b9af9994bbc.webp'),
+	showcaseUrl('1/dcaf28871a7a4904.webp'),
+	showcaseUrl('40/ece227e7e0c07477.webp'),
+	showcaseUrl('40/9c8d4a8001b24d29.webp'),
+	showcaseUrl('40/6115528cf8820436.webp'),
+	showcaseUrl('40/2712b3774b326865.webp')
 ];
 
 // Selección pública de la biblioteca gratuita. Estas son las mismas rutas
 // que usa /api/creativos/library.ts para cuentas sin suscripción.
 const landingFreeLibraryImages = [
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/2fb666571bf2802e.png`, label: 'Producto / presentación' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/55596501e64f813b.png`, label: 'Producto / presentación' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/174faa5c6ab2a671.png`, label: 'Producto / presentación' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/8640d4617f2e692d.png`, label: 'Producto / presentación' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/b3aaaa6a8d580a1a.png`, label: 'Producto / presentación' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}23/ec1000c7e99f98bf.jpg`, label: 'Nosotros vs Ellos' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}7/c621e734bc3f2b0d.jpg`, label: 'Testimonios' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}13/8d769523a157558c.jpg`, label: 'Promociones y descuentos' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/1d58518c1d718dd4.webp`, label: 'Producto / presentación' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}41/fee532dba2b04af0.jpg`, label: 'Características y beneficios' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/9c8d4a8001b24d29.webp`, label: 'Características y beneficios' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}10/383bfa16d248c64d.png`, label: 'Noticias' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}40/6115528cf8820436.webp`, label: 'Producto / presentación' },
-	{ src: `${'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/'}19/4e9aee92bbc8b5db.jpg`, label: 'Vacaciones / Estacional' },
+	{ src: showcaseUrl('40/2fb666571bf2802e.png'), label: 'Producto / presentación' },
+	{ src: showcaseUrl('40/55596501e64f813b.png'), label: 'Producto / presentación' },
+	{ src: showcaseUrl('40/174faa5c6ab2a671.png'), label: 'Producto / presentación' },
+	{ src: showcaseUrl('40/8640d4617f2e692d.png'), label: 'Producto / presentación' },
+	{ src: showcaseUrl('40/b3aaaa6a8d580a1a.png'), label: 'Producto / presentación' },
+	{ src: showcaseUrl('23/ec1000c7e99f98bf.jpg'), label: 'Nosotros vs Ellos' },
+	{ src: showcaseUrl('7/c621e734bc3f2b0d.jpg'), label: 'Testimonios' },
+	{ src: showcaseUrl('13/8d769523a157558c.jpg'), label: 'Promociones y descuentos' },
+	{ src: showcaseUrl('40/1d58518c1d718dd4.webp'), label: 'Producto / presentación' },
+	{ src: showcaseUrl('41/fee532dba2b04af0.jpg'), label: 'Características y beneficios' },
+	{ src: showcaseUrl('40/9c8d4a8001b24d29.webp'), label: 'Características y beneficios' },
+	{ src: showcaseUrl('10/383bfa16d248c64d.png'), label: 'Noticias' },
+	{ src: showcaseUrl('40/6115528cf8820436.webp'), label: 'Producto / presentación' },
+	{ src: showcaseUrl('19/4e9aee92bbc8b5db.jpg'), label: 'Vacaciones / Estacional' },
 ];
 const landingShowcase = landingFreeLibraryImages;
 const landingCylinderImages = landingFreeLibraryImages.map((item) => item.src);

@@ -27,6 +27,14 @@ cp .env.example .env
 npm run dev
 ```
 
+Antes de subir un cambio:
+
+```bash
+npm run check   # tipos
+npm test        # reglas de facturación y acceso
+npm run build
+```
+
 La aplicación funciona en modo demo cuando Supabase todavía no está configurado.
 
 ## Supabase
@@ -46,6 +54,17 @@ La aplicación funciona en modo demo cuando Supabase todavía no está configura
 5. Habilitar Google como proveedor si se usará ese acceso.
 
 La `SUPABASE_SERVICE_ROLE_KEY` es exclusivamente de servidor. Nunca debe llevar el prefijo `PUBLIC_` ni incluirse en código cliente.
+
+Los buckets están separados a propósito:
+
+- `creative-references` — **privado**. La biblioteca de ganadores completa, que
+  es lo que se vende. Se sirve siempre con URLs firmadas desde el servidor, que
+  valida el plan de la cuenta antes de firmar.
+- `creative-showcase` — **público**. Solo la muestra que aparece en la landing.
+- `creative-assets` — **privado**, por usuario (`<user_id>/...`).
+
+Antes de aplicar la migración que cierra `creative-references` hay que copiar la
+muestra al bucket público. El orden completo está en [SECURITY.md](SECURITY.md).
 
 ## Referencias creativas
 

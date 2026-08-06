@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { downloadGeminiOmniVideo, downloadRunwayVideo, downloadSoraVideo, retrieveGeminiOmniVideo, retrieveRunwayVideo, retrieveSoraVideo, type VideoJobStatus } from '../../../lib/creattia/video-engines';
 import { concatenateVideoBuffers, verifyVideoBuffer } from '../../../lib/creattia/video-media';
 import { canAccessVideoFeature } from '../../../lib/creattia/video-access';
@@ -52,7 +52,7 @@ export const GET: APIRoute = async ({ request, url }) => {
 	const { data: row, error: rowError } = await admin.from('creative_video_generations')
 		.select('id,user_id,status,progress,provider,provider_job_id,output_path,error_code,title,settings_snapshot')
 		.eq('id', id).eq('user_id', auth.user.id).maybeSingle();
-	if (rowError) return json({ error: rowError.message }, 500);
+	if (rowError) return fail('video-status', rowError, 'No se pudo leer el estado del video.');
 	if (!row) return json({ error: 'El trabajo de video no existe.' }, 404);
 
 	if (row.status === 'completed' && row.output_path) {

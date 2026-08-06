@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
 import { supabase } from '../../lib/creattia/supabase-browser';
 import ProductAssetReview, { type ProductReviewMedia } from './ProductAssetReview';
+import { useReferenceUrls } from '../../lib/creattia/reference-urls';
 
 // Cuántos anuncios se generan a la vez. Cada uno es una request independiente:
 // si una falla o se corta, las demás siguen y esa se puede reintentar sola.
@@ -129,7 +130,6 @@ type BatchItem = {
 
 // Nombre legible del tipo de anuncio ganador.
 
-const REFERENCES_PUBLIC_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references';
 
 // Referencia ganadora propuesta para el lote (paso de revisión).
 type WinnerRef = {
@@ -196,7 +196,6 @@ export function BrandOptionIcon({ icon, size = 19 }: { icon: string; size?: numb
 }
 
 
-const referenceUrlFor = (imagePath: string) => `${REFERENCES_PUBLIC_BASE}/${imagePath}`;
 
 export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	onSelectRemodel,
@@ -242,6 +241,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [isScanning, setIsScanning] = useState(false);
 	const [preview, setPreview] = useState<BatchPreview | null>(null);
 	const [selected, setSelected] = useState<WinnerRef[]>([]);
+	// El bucket de referencias es privado: el servidor firma cada miniatura.
+	const winnerUrls = useReferenceUrls(selected.map((winner) => winner.imagePath));
 	const [spares, setSpares] = useState<WinnerRef[]>([]);
 	// Todo lo que el usuario ya vio en esta sesión de revisión: ninguna referencia
 	// se repite, ni siquiera después de descartarla.
@@ -484,7 +485,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				templateId: gen.template_id,
 				title: gen.title,
 				status: 'processing',
-				referenceUrl: gen.settings_snapshot?.referencePath ? referenceUrlFor(gen.settings_snapshot.referencePath) : undefined,
+				referenceUrl: undefined,
 				referenceName: gen.settings_snapshot?.referenceName,
 				referenceLeaf: gen.settings_snapshot?.referenceLeaf,
 			}));
@@ -540,7 +541,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						status: row.status as any,
 						imageUrl: row.output_path ? signed.get(row.output_path) : undefined,
 						error: row.error_code,
-						referenceUrl: snapshot.referencePath ? `${REFERENCES_PUBLIC_BASE}/${snapshot.referencePath}` : undefined,
+						referenceUrl: undefined,
 						referenceName: snapshot.referenceName,
 						referenceLeaf: snapshot.referenceLeaf,
 					};
@@ -818,10 +819,10 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								<button
 									type="button"
 									className="ref-thumb"
-									onClick={() => setPreviewModalUrl(referenceUrlFor(winner.imagePath))}
+									onClick={() => setPreviewModalUrl(winnerUrls[winner.imagePath] || '')}
 									title="Ver el anuncio ganador en grande"
 								>
-									<img src={referenceUrlFor(winner.imagePath)} alt={winner.name} loading="lazy" />
+									<img src={winnerUrls[winner.imagePath] || ''} alt={winner.name} loading="lazy" />
 									<span className="ref-index">{index + 1}</span>
 								</button>
 								<div className="ref-foot single">

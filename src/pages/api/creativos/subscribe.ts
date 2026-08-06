@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
 
@@ -104,10 +104,18 @@ async function updateProviderSubscription(subscriptionId: string, accessToken: s
 export const POST: APIRoute = async ({ request, url }) => {
 	const accessToken = import.meta.env.MERCADO_PAGO_ACCESS_TOKEN;
 	const body = await request.json().catch(() => ({}));
-	const planCode = String(body.planCode || 'creator') as keyof typeof plans;
-	const billingCycle = String(body.billingCycle || 'monthly') as 'monthly' | 'yearly';
+	const requestedPlan = String(body.planCode || 'creator');
+	const requestedCycle = String(body.billingCycle || 'monthly');
+	// `plans[requestedPlan]` con un string arbitrario también resolvía cosas del
+	// prototipo ("constructor", "toString"), que pasaban el chequeo de existencia
+	// y reventaban más abajo con un 500. Se valida contra las claves propias.
+	if (!Object.hasOwn(plans, requestedPlan)) return json({ error: 'El plan elegido no existe.' }, 400);
+	if (requestedCycle !== 'monthly' && requestedCycle !== 'yearly') {
+		return json({ error: 'La modalidad de cobro no es válida.' }, 400);
+	}
+	const planCode = requestedPlan as keyof typeof plans;
+	const billingCycle = requestedCycle as 'monthly' | 'yearly';
 	const plan = plans[planCode];
-	if (!plan) return json({ error: 'El plan elegido no existe.' }, 400);
 	const changeCurrent = body.changeCurrent === true;
 	const auth = await authenticateRequest(request);
 	if (!auth.user?.email) return json({ error: auth.error || 'La cuenta necesita un email válido.' }, 401);
@@ -133,7 +141,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 		.eq('user_id', auth.user.id)
 		.eq('provider', 'mercado_pago')
 		.maybeSingle();
-	if (existingError) return json({ error: existingError.message }, 500);
+	if (existingError) return fail('subscribe', existingError, 'No se pudo completar la operación sobre tu suscripción.');
 	const siteUrl = import.meta.env.PUBLIC_SITE_URL || url.origin;
 	const existingIsActive = Boolean(existing && ['authorized', 'pending', 'paused'].includes(existing.status));
 	if (existingIsActive && existing?.plan_code === planCode) {
@@ -157,12 +165,14 @@ export const POST: APIRoute = async ({ request, url }) => {
 
 		const now = new Date().toISOString();
 		const nextPeriod = updatePayload.next_payment_date || existing.current_period_end || null;
-		const { data: currentProfile, error: currentProfileError } = await admin.from('creative_profiles')
-			.select('credits_remaining,credits_monthly')
-			.eq('user_id', auth.user.id).maybeSingle();
-		if (currentProfileError) return json({ error: currentProfileError.message }, 500);
-		const consumedCredits = Math.max(0, Number(currentProfile?.credits_monthly || 0) - Number(currentProfile?.credits_remaining || 0));
-		const adjustedCredits = Math.max(0, plan.credits - consumedCredits);
+
+		// Mercado Pago aceptó el cambio de monto, pero todavía NO cobró el
+		// importe nuevo: eso llega como `subscription_authorized_payment`.
+		// Antes acá mismo se subía plan_code y se acreditaban los créditos del
+		// plan nuevo, así que se podía saltar de Básico a Agency y llevarse 300
+		// créditos antes de que existiera un solo cobro. Ahora se registra el
+		// cambio como pendiente y los créditos los entrega el webhook cuando el
+		// pago está aprobado.
 		const { error: subscriptionUpdateError } = await admin.from('creative_subscriptions').update({
 			plan_code: planCode,
 			status: existing.status,
@@ -170,18 +180,22 @@ export const POST: APIRoute = async ({ request, url }) => {
 			current_period_end: nextPeriod,
 			updated_at: now,
 		}).eq('user_id', auth.user.id).eq('provider', 'mercado_pago');
-		if (subscriptionUpdateError) return json({ error: subscriptionUpdateError.message }, 500);
+		if (subscriptionUpdateError) return fail('subscribe-change', subscriptionUpdateError, 'No pudimos registrar el cambio de plan.');
 		const { error: profileUpdateError } = await admin.from('creative_profiles').update({
-			subscription_status: existing.status,
-			plan_code: planCode,
-			credits_monthly: plan.credits,
-			credits_remaining: adjustedCredits,
+			// Los créditos y el plan efectivo NO se tocan hasta que entre el pago.
 			subscription_period_end: nextPeriod,
 			mercado_pago_subscription_id: existing.provider_subscription_id,
 			updated_at: now,
 		}).eq('user_id', auth.user.id);
-		if (profileUpdateError) return json({ error: profileUpdateError.message }, 500);
-		return json({ changed: true, planCode, status: existing.status, creditsRemaining: adjustedCredits, subscriptionPeriodEnd: nextPeriod });
+		if (profileUpdateError) return fail('subscribe-change', profileUpdateError, 'No pudimos registrar el cambio de plan.');
+		return json({
+			changed: true,
+			planCode,
+			status: existing.status,
+			pendingPayment: true,
+			message: 'Tu plan cambia en el próximo cobro. Los créditos nuevos se acreditan cuando Mercado Pago confirme el pago.',
+			subscriptionPeriodEnd: nextPeriod,
+		});
 	}
 
 	if (existingIsActive && !changeCurrent) {
@@ -241,7 +255,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 	}, { onConflict: 'user_id,provider' });
 	if (subscriptionError) {
 		await cancelProviderSubscription(String(payload.id), accessToken);
-		return json({ error: 'No pudimos preparar el pago de forma segura. No se creó ninguna suscripción.', detail: subscriptionError.message }, 500);
+		return json({ error: 'No pudimos preparar el pago de forma segura. No se creó ninguna suscripción.' }, 500);
 	}
 	const { data: updatedProfile, error: profileError } = await admin.from('creative_profiles').update({
 		subscription_status: 'pending',
@@ -254,7 +268,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 		await cancelProviderSubscription(String(payload.id), accessToken);
 		await admin.from('creative_subscriptions').update({ status: 'cancelled', updated_at: new Date().toISOString() })
 			.eq('user_id', auth.user.id).eq('provider', 'mercado_pago');
-		return json({ error: 'No pudimos preparar el pago de forma segura. No se creó ninguna suscripción.', detail: profileError?.message || 'Perfil no encontrado.' }, 500);
+		return json({ error: 'No pudimos preparar el pago de forma segura. No se creó ninguna suscripción.' }, 500);
 	}
 
 	return json({ checkoutUrl });
@@ -273,7 +287,7 @@ export const DELETE: APIRoute = async ({ request }) => {
 		.eq('user_id', auth.user.id)
 		.eq('provider', 'mercado_pago')
 		.maybeSingle();
-	if (readError) return json({ error: readError.message }, 500);
+	if (readError) return fail('subscribe', readError, 'No se pudo completar la operación sobre tu suscripción.');
 	if (!subscription?.provider_subscription_id) return json({ error: 'No encontramos una suscripción activa para cancelar.' }, 404);
 	if (subscription.status === 'cancelled') return json({ ok: true, status: 'cancelled' });
 
@@ -284,9 +298,9 @@ export const DELETE: APIRoute = async ({ request }) => {
 	const now = new Date().toISOString();
 	const { error: subscriptionError } = await admin.from('creative_subscriptions').update({ status: 'cancelled', updated_at: now })
 		.eq('user_id', auth.user.id).eq('provider', 'mercado_pago');
-	if (subscriptionError) return json({ error: subscriptionError.message }, 500);
+	if (subscriptionError) return fail('subscribe', subscriptionError, 'No se pudo completar la operación sobre tu suscripción.');
 	const { error: profileError } = await admin.from('creative_profiles').update({ subscription_status: 'cancelled', updated_at: now })
 		.eq('user_id', auth.user.id);
-	if (profileError) return json({ error: profileError.message }, 500);
+	if (profileError) return fail('subscribe', profileError, 'No se pudo completar la operación sobre tu suscripción.');
 	return json({ ok: true, status: 'cancelled' });
 };

@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { authenticateRequest, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -34,8 +34,14 @@ async function extractDocx(buf: Buffer): Promise<{ text: string; images: string[
 
 async function extractXlsx(buf: Buffer): Promise<string> {
 	const XLSX = await import('xlsx');
-	const wb = XLSX.read(buf, { type: 'buffer' });
-	return wb.SheetNames.map((name) => `# ${name}\n${XLSX.utils.sheet_to_csv(wb.Sheets[name])}`).join('\n\n').slice(0, 20000);
+	// El archivo lo sube el usuario, así que el parser corre sobre entrada
+	// hostil: `dense` evita construir objetos indexados por celda (la vía del
+	// prototype pollution reportado) y solo se pide lo que se va a leer.
+	const wb = XLSX.read(buf, { type: 'buffer', dense: true, cellHTML: false, cellFormula: false, bookVBA: false });
+	return wb.SheetNames.slice(0, 20)
+		.map((name) => `# ${name}\n${XLSX.utils.sheet_to_csv(wb.Sheets[name])}`)
+		.join('\n\n')
+		.slice(0, 20000);
 }
 
 // Destila {name, facts} del texto con Gemini flash.
@@ -59,6 +65,11 @@ export const POST: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error }, 401);
 	const googleKey = import.meta.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_AI_API_KEY || '';
+	const admin = getAdminClient();
+	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
+	// Cada archivo se parsea y se manda a Gemini: sin tope es costo abierto.
+	const withinLimit = await checkRateLimit(admin, auth.user.id, 'parse-doc', 30, 3600, true);
+	if (!withinLimit) return json({ error: 'Subiste muchos archivos en poco tiempo. Esperá un rato y volvé a intentar.' }, 429);
 
 	try {
 		const form = await request.formData();
@@ -92,7 +103,6 @@ export const POST: APIRoute = async ({ request }) => {
 
 		return json({ name: productName, facts: productFacts, images });
 	} catch (error) {
-		console.error('parse-doc error:', error);
-		return json({ error: 'No pudimos analizar el archivo.' }, 500);
+		return fail('parse-doc', error, 'No pudimos analizar el archivo.');
 	}
 };

@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { assertReferenceUrl } from '../../../lib/creattia/reference-host';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 import { analyzeFullVideoReference, type FullVideoReferenceAnalysis } from '../../../lib/creattia/video-reference';
 import { normalizeVideoSetupSuggestions } from '../../../lib/creattia/video-suggestions';
@@ -8,11 +9,9 @@ import { canAccessVideoFeature } from '../../../lib/creattia/video-access';
 export const prerender = false;
 
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
-const VIDEO_REFERENCE_HOST = 'czocbnyoenjbpxmcqobn.supabase.co';
 
 async function downloadReferenceVideo(value: string) {
-	const url = new URL(value);
-	if (url.protocol !== 'https:' || url.hostname !== VIDEO_REFERENCE_HOST) throw new Error('La referencia debe venir de la Biblioteca de ganadores.');
+	const url = assertReferenceUrl(value);
 	const response = await fetch(url);
 	if (!response.ok) throw new Error('No se pudo leer el video ganador.');
 	const buffer = Buffer.from(await response.arrayBuffer());
@@ -32,7 +31,7 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 
 	try {
-		const withinLimit = await checkRateLimit(admin, auth.user.id, 'video-setup-suggestions', 20, 3600);
+		const withinLimit = await checkRateLimit(admin, auth.user.id, 'video-setup-suggestions', 20, 3600, true);
 		if (!withinLimit) return json({ error: 'Analizaste muchos videos en poco tiempo. Esperá un rato y volvé a intentar.' }, 429);
 
 		const form = await request.formData();

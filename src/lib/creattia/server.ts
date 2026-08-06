@@ -44,8 +44,14 @@ export async function checkRateLimit(
 	eventKey: string,
 	maxCount: number,
 	windowSeconds: number,
+	/**
+	 * Si el limitador falla: `false` (default) deja pasar para no tumbar la
+	 * función; `true` bloquea. Se usa `true` en lo que llama a un modelo caro,
+	 * donde un limitador roto es una factura abierta.
+	 */
+	failClosed = false,
 ): Promise<boolean> {
-	if (!admin) return true; // sin conexión a Supabase no hay forma de contar: no bloquea
+	if (!admin) return !failClosed; // sin conexión a Supabase no hay forma de contar
 	try {
 		const { data, error } = await admin.rpc('check_rate_limit', {
 			p_user_id: userId,
@@ -53,12 +59,51 @@ export async function checkRateLimit(
 			p_max_count: maxCount,
 			p_window_seconds: windowSeconds,
 		});
-		if (error) { console.error('check_rate_limit RPC error:', error); return true; }
+		if (error) { console.error('check_rate_limit RPC error:', error); return !failClosed; }
 		return data !== false;
 	} catch (err) {
 		console.error('check_rate_limit falló:', err);
-		return true; // un fallo del limitador nunca debe tumbar la función real
+		return !failClosed;
 	}
+}
+
+/**
+ * Cierra generaciones y devuelve SOLO las que este llamado logró mover de
+ * 'processing' a 'failed'.
+ *
+ * Es el único punto donde se decide un reembolso. El `eq('status','processing')`
+ * hace que dos caminos concurrentes (el pipeline que falla, el barrido de
+ * colgadas, el botón Cancelar) no puedan acreditar el mismo crédito dos veces:
+ * gana el primero y el resto recibe cero filas. Antes cada uno reembolsaba por
+ * su cuenta y se podían duplicar créditos.
+ */
+export async function closeGenerationsAndCountRefunds(
+	admin: NonNullable<ReturnType<typeof getAdminClient>>,
+	userId: string,
+	generationIds: string[],
+	errorMessage: string,
+): Promise<string[]> {
+	if (!generationIds.length) return [];
+	const { data, error } = await admin.from('creative_generations').update({
+		status: 'failed',
+		error_code: errorMessage.slice(0, 160),
+		completed_at: new Date().toISOString(),
+	}).in('id', generationIds).eq('user_id', userId).eq('status', 'processing').select('id');
+	if (error) {
+		console.error('No se pudieron cerrar las generaciones:', error);
+		return [];
+	}
+	return (data || []).map((row) => row.id as string);
+}
+
+/**
+ * Respuesta de error para el usuario final: el detalle real va al log del
+ * servidor y nunca al cliente. Devolver `error.message` crudo filtraba nombres
+ * de tablas, columnas y mensajes de Postgres en cada 500.
+ */
+export function fail(context: string, error: unknown, message: string, status = 500) {
+	console.error(`[${context}]`, error);
+	return json({ error: message }, status);
 }
 
 export function json(data: unknown, status = 200) {

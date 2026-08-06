@@ -1,54 +1,23 @@
 import type { APIRoute } from 'astro';
 import { waitUntil } from '@vercel/functions';
 import { toFile } from 'openai';
-import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput, renderStudioProductShot, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
+import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import { generateAdImage } from '../../../lib/creattia/image-engines';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, closeGenerationsAndCountRefunds, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
+import { checkReferencePath } from '../../../lib/creattia/library-access';
+import { readLimited, safeExternalFetch } from '../../../lib/creattia/safe-fetch';
 import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad-copy';
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
+import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
 
 export const prerender = false;
 export const maxDuration = 300;
 
-// gpt-image-2 acepta cualquier tamaño divisible por 16 → ratios exactos.
-// Las claves legacy (square/portrait/story/landscape) se mantienen como alias.
-const formatSizes: Record<string, string> = {
-	'1:1': '1024x1024',
-	'3:4': '1152x1536',
-	'9:16': '864x1536',
-	'4:3': '1536x1152',
-	'16:9': '1536x864',
-	square: '1024x1024',
-	portrait: '1152x1536',
-	story: '864x1536',
-	landscape: '1536x1152',
-};
-
-// gpt-image-1 solo acepta 1024x1024, 1024x1536 y 1536x1024
-const geminiAspectRatios: Record<string, string> = {
-	'1:1': '1:1', '3:4': '3:4', '9:16': '9:16', '4:3': '4:3', '16:9': '16:9',
-	square: '1:1', portrait: '3:4', story: '9:16', landscape: '4:3',
-};
-
 // Motor primario: Gemini image (nano-banana). ~6x más barato y ~10x más rápido
 // que gpt-image en calidad alta, con excelente fidelidad de producto y texto.
 const imageTypes = new Set(['product', 'promotion', 'lifestyle', 'catalog']);
-// 'original' = usar la proporción del anuncio ganador de referencia
-const formats = new Set([...Object.keys(formatSizes), 'original']);
-
-// Dado un ratio ancho/alto, elegir el formato soportado más cercano.
-function closestFormat(ratio: number) {
-	const candidates: Array<[string, number]> = [['1:1', 1], ['3:4', 3 / 4], ['9:16', 9 / 16], ['4:3', 4 / 3], ['16:9', 16 / 9]];
-	let best = '1:1';
-	let bestDistance = Infinity;
-	for (const [key, value] of candidates) {
-		const distance = Math.abs(Math.log(ratio / value));
-		if (distance < bestDistance) { bestDistance = distance; best = key; }
-	}
-	return best;
-}
 const variationStrengths = new Set(['exact', 'light', 'strong']);
 const acceptedInputTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/avif']);
 
@@ -168,9 +137,6 @@ async function fileToOpenAI(file: File, fallbackName: string) {
 	return toFile(bytes, file.name || fallbackName, { type: file.type || 'image/png' });
 }
 
-async function blobToOpenAI(blob: Blob, fallbackName: string) {
-	return toFile(Buffer.from(await blob.arrayBuffer()), fallbackName, { type: blob.type || 'image/png' });
-}
 
 
 
@@ -195,7 +161,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const preset = clean(form.get('preset'), 40) || 'Fiel al ganador';
 		const brief = clean(form.get('brief'), 600);
 		const requestedFormat = clean(form.get('format'), 20) || 'square';
-		const format = formats.has(requestedFormat) ? requestedFormat as keyof typeof formatSizes : 'square';
+		const format = supportedFormats.has(requestedFormat) ? requestedFormat as keyof typeof formatSizes : 'square';
 		const requestedImageType = clean(form.get('imageType'), 30) || 'product';
 		const imageType = imageTypes.has(requestedImageType) ? requestedImageType : 'product';
 		const referenceId = clean(form.get('referenceId'), 60);
@@ -255,8 +221,6 @@ export const POST: APIRoute = async ({ request }) => {
 		const logo = form.get('logo');
 
 		if (!Number.isInteger(templateId) || templateId < 1) return json({ error: 'El creativo elegido no es válido.' }, 400);
-		// Relaxed validation: accept any path matching the known scraped format (numberPrefix/16hexchars.ext)
-		if (referencePath && !/^[0-9]+\/[a-f0-9]{8,}\.(png|jpe?g|webp|avif)$/i.test(referencePath)) return json({ error: 'La ruta de referencia no es válida.' }, 400);
 		if (!Number.isInteger(count) || count < 1 || count > 4) return json({ error: 'Elegí entre 1 y 4 imágenes.' }, 400);
 		if (productIds.length > 5) return json({ error: 'Podés usar hasta 5 productos en una imagen.' }, 400);
 		if (product instanceof File && product.size > 15 * 1024 * 1024) return json({ error: 'La imagen del producto supera los 15 MB.' }, 413);
@@ -351,19 +315,38 @@ export const POST: APIRoute = async ({ request }) => {
 			sourceGeneration = data;
 		}
 
-		let storedReference: { id: string | null; image_path: string } | null = referencePath && !sourceGeneration ? { id: null, image_path: referencePath } : null;
+		const access = await getEffectiveAccess(admin, auth.user.id, auth.user.email);
+		const isUnlimited = access.isUnlimited;
+		let remaining = 99999;
+
+		// La ruta de referencia llega del cliente: antes alcanzaba con que
+		// matcheara una regex de forma, así que cualquier cuenta podía generar
+		// con la biblioteca paga completa. Ahora tiene que existir de verdad en
+		// el manifiesto y estar habilitada para el plan de la cuenta.
+		let storedReference: { id: string | null; image_path: string } | null = null;
+		if (referencePath && !sourceGeneration) {
+			const verdict = await checkReferencePath(referencePath, access, new URL(request.url).origin);
+			if (!verdict.ok) return json({ error: verdict.error, ...(verdict.code ? { code: verdict.code } : {}) }, verdict.status);
+			storedReference = { id: null, image_path: verdict.path };
+		}
 		if (referenceId && !sourceGeneration) {
 			const { data, error } = await admin.from('creative_references').select('id,image_path')
 				.eq('id', referenceId).eq('template_id', templateId).eq('is_active', true)
 				.in('rights_status', ['owned', 'licensed', 'public_domain']).maybeSingle();
 			if (error) throw error;
 			if (!data) return json({ error: 'La referencia no está disponible o todavía no tiene derechos verificados.' }, 400);
+			const verdict = await checkReferencePath(data.image_path, access, new URL(request.url).origin);
+			if (!verdict.ok) return json({ error: verdict.error, ...(verdict.code ? { code: verdict.code } : {}) }, verdict.status);
 			storedReference = data;
 		}
 
-		const access = await getEffectiveAccess(admin, auth.user.id, auth.user.email);
-		const isUnlimited = access.isUnlimited;
-		let remaining = 99999;
+		// Techo de uso por hora: los créditos frenan el gasto de imágenes, pero
+		// el análisis de layout con visión corre igual y cuesta plata. Las
+		// cuentas ilimitadas (admin) quedan afuera del tope.
+		if (!isUnlimited) {
+			const withinLimit = await checkRateLimit(admin, auth.user.id, 'generate', 120, 3600, true);
+			if (!withinLimit) return json({ error: 'Generaste muchas imágenes en poco tiempo. Esperá unos minutos.' }, 429);
+		}
 
 		const creditsNeeded = count * creditsPerImage;
 		if (!isUnlimited) {
@@ -545,12 +528,15 @@ export const POST: APIRoute = async ({ request }) => {
 				hasLogo = true;
 			}
 		} else if (brandSource === 'url' && urlLogoUrl) {
-			// El logo del sitio viene como URL: se baja y se normaliza. Si sale
-			// sucio o no se puede leer, se sigue sin logo antes que arruinar el aviso.
+			// El logo del sitio viene como URL sacada del HTML de un sitio que
+			// elige el usuario: es una URL hostil por definición. Va por
+			// safeExternalFetch, que bloquea redes privadas y metadata de la
+			// nube, y con lectura acotada. Si sale sucio se sigue sin logo antes
+			// que arruinar el aviso.
 			try {
-				const logoResponse = await fetch(urlLogoUrl);
+				const logoResponse = await safeExternalFetch(urlLogoUrl, { headers: { accept: 'image/*' } });
 				if (logoResponse.ok) {
-					const raw = Buffer.from(await logoResponse.arrayBuffer());
+					const raw = Buffer.from(await readLimited(logoResponse, 4_000_000));
 					if (raw.length > 500 && raw.length < 4_000_000) {
 						const normalized = await normalizeImageInput(raw);
 						if (normalized) {
@@ -764,14 +750,13 @@ The result must look like the same image with only that one adjustment applied.`
 		const missingCount = count - responseGenerations.length;
 		if (missingCount > 0) {
 			const missingIds = generationIds.filter((id) => !completedIds.has(id));
-			const { error: missingUpdateError } = await admin.from('creative_generations').update({
-				status: 'failed',
-				error_code: 'La API devolvió menos imágenes de las solicitadas.',
-				completed_at: new Date().toISOString(),
-			}).in('id', missingIds);
-			if (missingUpdateError) throw missingUpdateError;
-			if (reservedCount > 0) {
-				const missingRefund = missingCount * creditsPerImage;
+			// Solo se reembolsa lo que este llamado logró cerrar: si el barrido de
+			// colgadas ya cerró alguna de estas filas, ya devolvió ese crédito.
+			const closed = await closeGenerationsAndCountRefunds(
+				admin, auth.user!.id, missingIds, 'La API devolvió menos imágenes de las solicitadas.',
+			);
+			if (reservedCount > 0 && closed.length) {
+				const missingRefund = Math.min(reservedCount, closed.length * creditsPerImage);
 				const { error: missingRefundError } = await admin.rpc('refund_creative_credits', { p_user_id: auth.user!.id, p_amount: missingRefund });
 				if (missingRefundError) throw missingRefundError;
 				reservedCount -= missingRefund;
@@ -783,14 +768,11 @@ The result must look like the same image with only that one adjustment applied.`
 			const message = error instanceof Error ? error.message : 'No se pudo generar el creativo.';
 			console.error('Generation pipeline failed:', error);
 			const failedIds = generationIds.filter((id) => !completedIds.has(id));
-			if (failedIds.length) {
-				await admin.from('creative_generations').update({
-					status: 'failed',
-					error_code: message.slice(0, 160),
-					completed_at: new Date().toISOString(),
-				}).in('id', failedIds);
-			}
-			const refundAmount = Math.max(0, reservedCount - completedIds.size * creditsPerImage);
+			const closed = await closeGenerationsAndCountRefunds(admin, auth.user!.id, failedIds, message);
+			const refundAmount = Math.min(
+				Math.max(0, reservedCount - completedIds.size * creditsPerImage),
+				closed.length * creditsPerImage,
+			);
 			if (refundAmount > 0) {
 				const { error: refundError } = await admin.rpc('refund_creative_credits', { p_user_id: auth.user!.id, p_amount: refundAmount });
 				if (refundError) console.error('Credit refund also failed:', refundError);
@@ -806,23 +788,21 @@ The result must look like the same image with only that one adjustment applied.`
 		}, 202);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'No se pudo generar el creativo.';
+		console.error('[generate]', error);
 		const failedIds = generationIds.filter((id) => !completedIds.has(id));
-		if (failedIds.length) {
-			await admin.from('creative_generations').update({
-				status: 'failed',
-				error_code: message.slice(0, 160),
-				completed_at: new Date().toISOString(),
-			}).in('id', failedIds);
-		}
-		const refundAmount = Math.max(0, reservedCount - completedIds.size * creditsPerImage);
+		const closed = await closeGenerationsAndCountRefunds(admin, auth.user.id, failedIds, message);
+		const refundAmount = Math.min(
+			Math.max(0, reservedCount - completedIds.size * creditsPerImage),
+			closed.length * creditsPerImage,
+		);
 		const { error: refundError } = refundAmount > 0
 			? await admin.rpc('refund_creative_credits', { p_user_id: auth.user.id, p_amount: refundAmount })
 			: { error: null };
+		if (refundError) console.error('[generate] refund falló', refundError);
 		return json({
 			error: refundError
-				? 'No pudimos terminar la generación ni devolver los créditos automáticamente. Contactá a soporte con el detalle.'
+				? 'No pudimos terminar la generación ni devolver los créditos automáticamente. Contactá a soporte.'
 				: 'No pudimos terminar esta generación. Los créditos no usados fueron devueltos.',
-			detail: refundError?.message || message,
 		}, 500);
 	}
 };

@@ -1,14 +1,17 @@
 import type { APIRoute } from 'astro';
 import { analyzeBrandStyle } from '../../../lib/creattia/brand-style';
 import { normalizeExternalUrl, readLimited, safeExternalFetch } from '../../../lib/creattia/safe-fetch';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { isAdminEmail } from '../../../lib/creattia/admin';
+import { brandLimitForPlan } from '../../../lib/creattia/subscription-plans';
 
 export const prerender = false;
 export const maxDuration = 120;
 
-// Marcas por plan: básico 1, medio 3, avanzado 5.
-const brandLimits: Record<string, number> = { trial: 1, creator: 1, pro: 3, scale: 5 };
+// El límite sale de la oferta comercial (subscription-plans), no de una tabla
+// aparte: la que había acá no incluía 'agency', así que el plan más caro
+// quedaba con el valor de reserva de 1 marca.
+const brandLimitFor = (planCode?: string | null) => brandLimitForPlan(planCode === 'trial' ? 'free' : planCode);
 
 function clean(value: unknown, max = 500) {
 	return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -40,7 +43,7 @@ export const GET: APIRoute = async ({ request }) => {
 			.eq('user_id', auth.user.id).eq('is_active', true).order('created_at', { ascending: true }),
 		admin.from('creative_profiles').select('active_brand_id,plan_code').eq('user_id', auth.user.id).maybeSingle(),
 	]);
-	if (error) return json({ error: error.message }, 500);
+	if (error) return fail('brands', error, 'No se pudo completar la operación sobre tus marcas.');
 
 	const planCode = profile?.plan_code || 'trial';
 	const withLogos = await Promise.all((brands || []).map(async (brand) => {
@@ -55,7 +58,7 @@ export const GET: APIRoute = async ({ request }) => {
 	return json({
 		brands: withLogos,
 		activeBrandId: profile?.active_brand_id || null,
-		limit: brandLimits[planCode] || 1,
+		limit: brandLimitFor(planCode),
 		planCode,
 	});
 };
@@ -82,7 +85,7 @@ export const POST: APIRoute = async ({ request }) => {
 		]);
 		const planCode = profile?.plan_code || 'trial';
 		const isAdmin = isAdminEmail(auth.user.email);
-		const limit = isAdmin ? 99 : (brandLimits[planCode] || 1);
+		const limit = isAdmin ? 99 : brandLimitFor(planCode);
 		if ((count || 0) >= limit) {
 			return json({ error: `Tu plan permite hasta ${limit} ${limit === 1 ? 'marca' : 'marcas'}. Mejorá tu plan para agregar más.`, code: 'BRAND_LIMIT' }, 402);
 		}
@@ -131,7 +134,7 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 		return json({ brand: { ...brand, logoUrl } }, 201);
 	} catch (error) {
-		return json({ error: error instanceof Error ? error.message : 'No se pudo analizar la marca.' }, 500);
+		return fail('brands-create', error, 'No se pudo analizar la marca.');
 	}
 };
 
@@ -155,7 +158,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 		const style = body.brand_style && typeof body.brand_style === 'object' ? body.brand_style : {};
 		const { data: profile, error: profileError } = await admin.from('creative_profiles')
 			.select('active_brand_id,plan_code').eq('user_id', auth.user.id).maybeSingle();
-		if (profileError) return json({ error: profileError.message }, 500);
+		if (profileError) return fail('brands', profileError, 'No se pudo completar la operación sobre tus marcas.');
 
 		let brand: any = null;
 		if (profile?.active_brand_id) {
@@ -175,20 +178,20 @@ export const PATCH: APIRoute = async ({ request }) => {
 			const updates: any = { name: name || brand.name, website_url: websiteUrl || brand.website_url, brand_colors: colors.length ? colors : brand.brand_colors, brand_style: { ...(brand.brand_style || {}), ...style }, updated_at: new Date().toISOString() };
 			if (logoPath) updates.logo_path = logoPath;
 			const { data: updated, error } = await admin.from('creative_brands').update(updates).eq('id', brand.id).eq('user_id', auth.user.id).select('*').single();
-			if (error) return json({ error: error.message }, 500);
+			if (error) return fail('brands', error, 'No se pudo completar la operación sobre tus marcas.');
 			await activateBrand(admin, auth.user.id, updated);
 			return json({ ok: true, brand: updated });
 		}
 
 		const isAdmin = isAdminEmail(auth.user.email);
-		const limit = isAdmin ? 99 : (brandLimits[profile?.plan_code || 'trial'] || 1);
+		const limit = isAdmin ? 99 : brandLimitFor(profile?.plan_code);
 		const { count } = await admin.from('creative_brands').select('id', { count: 'exact', head: true }).eq('user_id', auth.user.id).eq('is_active', true);
 		if ((count || 0) >= limit) return json({ error: `Tu plan permite hasta ${limit} ${limit === 1 ? 'marca' : 'marcas'}.` }, 402);
 		const { data: created, error } = await admin.from('creative_brands').insert({
 			user_id: auth.user.id, name: name || 'Mi marca', website_url: websiteUrl || null,
 			logo_path: logoPath || null, brand_colors: colors.length ? colors : null, brand_style: style,
 		}).select('*').single();
-		if (error) return json({ error: error.message }, 500);
+		if (error) return fail('brands', error, 'No se pudo completar la operación sobre tus marcas.');
 		await activateBrand(admin, auth.user.id, created);
 		return json({ ok: true, brand: created }, 201);
 	}
@@ -196,7 +199,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 	if (!brandId) return json({ error: 'Marca inválida.' }, 400);
 	const { data: brand, error } = await admin.from('creative_brands').select('*')
 		.eq('id', brandId).eq('user_id', auth.user.id).eq('is_active', true).maybeSingle();
-	if (error) return json({ error: error.message }, 500);
+	if (error) return fail('brands', error, 'No se pudo completar la operación sobre tus marcas.');
 	if (!brand) return json({ error: 'La marca no existe.' }, 404);
 
 	if (body.action === 'update') {
@@ -215,7 +218,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 			.eq('id', brandId)
 			.select('*')
 			.single();
-		if (updateError) return json({ error: updateError.message }, 500);
+		if (updateError) return fail('brands', updateError, 'No se pudo completar la operación sobre tus marcas.');
 
 		// Si es la marca activa del perfil, sincronizarla
 		const { data: profile } = await admin.from('creative_profiles').select('active_brand_id').eq('user_id', auth.user.id).maybeSingle();
@@ -238,7 +241,7 @@ export const DELETE: APIRoute = async ({ request }) => {
 	if (!id) return json({ error: 'Marca inválida.' }, 400);
 	const { error } = await admin.from('creative_brands').update({ is_active: false, updated_at: new Date().toISOString() })
 		.eq('id', id).eq('user_id', auth.user.id);
-	if (error) return json({ error: error.message }, 500);
+	if (error) return fail('brands', error, 'No se pudo completar la operación sobre tus marcas.');
 	const { data: profile } = await admin.from('creative_profiles').select('active_brand_id').eq('user_id', auth.user.id).maybeSingle();
 	if (profile?.active_brand_id === id) {
 		await admin.from('creative_profiles').update({ active_brand_id: null, updated_at: new Date().toISOString() }).eq('user_id', auth.user.id);

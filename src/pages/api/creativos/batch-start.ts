@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
 import { loadWinners } from '../../../lib/creattia/winner-picker';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
+import { FREE_PREVIEW_REFERENCE_PATHS, freePreviewAngleFor, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
 import { countProductImages } from '../../../lib/creattia/product-media';
 
 export const prerender = false;
@@ -87,6 +88,18 @@ export const POST: APIRoute = async ({ request }) => {
 		const approved = paths.map((path) => byPath.get(path)).filter((winner): winner is NonNullable<typeof winner> => Boolean(winner));
 		if (approved.length !== paths.length) {
 			return json({ error: 'Alguna de las referencias elegidas ya no está disponible en la biblioteca.' }, 400);
+		}
+		// Además de existir, tienen que estar habilitadas para el plan: una cuenta
+		// sin suscripción solo puede lanzar lotes con el preview gratuito.
+		if (!hasFullLibraryAccess(access)) {
+			const locked = approved.filter((winner) => !FREE_PREVIEW_REFERENCE_PATHS.has(winner.imagePath) && !freePreviewAngleFor(winner));
+			if (locked.length) {
+				return json({
+					error: 'Algunas de esas referencias son parte de la biblioteca completa. Activá un plan para usarlas.',
+					code: 'LIBRARY_LOCKED',
+					lockedCount: locked.length,
+				}, 402);
+			}
 		}
 
 		const count = approved.length;
@@ -175,6 +188,6 @@ export const POST: APIRoute = async ({ request }) => {
 			await admin.rpc('refund_creative_credits', { p_user_id: userId, p_amount: reserved })
 				.then(({ error: refundError }: any) => { if (refundError) console.error('Refund falló:', refundError); });
 		}
-		return json({ error: error?.message || 'No se pudo iniciar la generación del lote.' }, 500);
+		return fail('batch-start', error, 'No se pudo iniciar la generación del lote.');
 	}
 };

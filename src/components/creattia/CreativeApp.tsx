@@ -14,6 +14,7 @@ import { UrlBatchSection, driveBatchWorkers } from './UrlBatchSection';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
 import AdminDashboard from './AdminDashboard';
 import { subscriptionPlans } from '../../lib/creattia/subscription-plans';
+import { fetchLibraryItems, fetchReferenceUrls, useReferenceUrl, useReferenceUrls } from '../../lib/creattia/reference-urls';
 
 type View = 'home' | 'library' | 'products' | 'studio' | 'history' | 'plans' | 'brand' | 'winners' | 'generation' | 'saved' | 'discover' | 'admin';
 
@@ -50,7 +51,6 @@ type AppProfile = {
 };
 type DemoSession = { user: { id: string; email: string } };
 type AppSession = Session | DemoSession;
-const REFERENCES_PUBLIC_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references';
 
 type Generation = {
 	id: string;
@@ -1804,14 +1804,15 @@ function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onSeen }: 
 	const [leaving, setLeaving] = useState<Record<string, 'left' | 'right'>>({});
 	const [dragX, setDragX] = useState<{ path: string; x: number } | null>(null);
 	const dragStartRef = useRef<{ path: string; x: number; moved: boolean } | null>(null);
-	const supabaseBase = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
+	// El bucket de referencias es privado: las URLs se piden firmadas al servidor.
+	const signedUrls = useReferenceUrls(pool.map((item: any) => item.imagePath));
 
 	useEffect(() => {
 		if (pool.length && !dealt.cards.length) setDealt({ cards: pool.slice(0, 4), cursor: 4 });
 	}, [pool]);
 
 	function resolveUrl(item: any) {
-		return item.imageUrl || (item.imagePath?.startsWith('http') ? item.imagePath : supabaseBase + item.imagePath);
+		return item.imageUrl || signedUrls[item.imagePath] || '';
 	}
 
 	function replaceCard(path: string, direction: 'left' | 'right') {
@@ -1931,13 +1932,13 @@ function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved }: { po
 	const [sessionLikes, setSessionLikes] = useState(0);
 	const [lastAction, setLastAction] = useState<{ index: number; liked: boolean } | null>(null);
 	const startRef = useRef<{ x: number; y: number } | null>(null);
-	const supabaseBase = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
+	const signedUrls = useReferenceUrls(pool.map((item: any) => item.imagePath));
 
 	const remaining = pool.slice(index, index + 3);
 	const current = remaining[0];
 
 	function resolveUrl(item: any) {
-		return item.imageUrl || (item.imagePath?.startsWith('http') ? item.imagePath : supabaseBase + item.imagePath);
+		return item.imageUrl || signedUrls[item.imagePath] || '';
 	}
 
 	// La acción (like/pass) y la dirección en la que vuela la tarjeta son cosas
@@ -2122,6 +2123,8 @@ function Dashboard({
 	pendingProductUrl?: string;
 	onPendingProductUrlUsed?: () => void;
 }) {
+	// El bucket de referencias es privado: las miniaturas se piden firmadas.
+	const likedWinnerUrls = useReferenceUrls(likedWinners.map((winner: any) => winner.imagePath));
 	// Se precarga una sola vez: si el usuario la borra o la cambia, no se le
 	// vuelve a imponer en la próxima visita.
 	useEffect(() => {
@@ -2193,8 +2196,7 @@ function Dashboard({
 					</div>
 					<div className="library-ad-grid-masonry dashboard-masonry" style={{ columnGap: '16px' }}>
 						{likedWinners.map((winner, idx) => {
-							const supabaseUrl = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
-							const imageUrl = winner.imageUrl || (winner.imagePath?.startsWith('http') ? winner.imagePath : supabaseUrl + winner.imagePath);
+							const imageUrl = winner.imageUrl || likedWinnerUrls[winner.imagePath] || '';
 							const isLiked = likedScrapedPaths.has(winner.imagePath);
 
 							return (
@@ -2383,16 +2385,18 @@ function Library({ items, favorites, onChoose, onToggleFavorite }: { items: Crea
 				const isStatic = item.metadata?.mediaType === 'static_image' || /\.(png|jpe?g|webp|avif)$/i.test(item.image_path || '');
 				if (isStatic && !firstStaticByTemplate.has(Number(item.template_id))) firstStaticByTemplate.set(Number(item.template_id), item.image_path);
 			}
+			// El manifiesto ya no se puede leer desde el navegador (bucket privado):
+			// /api/creativos/library lo devuelve filtrado por plan.
 			if (!firstStaticByTemplate.size) {
-				const { data: manifestUrl } = client.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
-				const response = await fetch(manifestUrl.publicUrl);
-				if (response.ok) {
-					const remoteManifest = await response.json();
-					for (const item of remoteManifest.items || []) if (!firstStaticByTemplate.has(Number(item.templateId))) firstStaticByTemplate.set(Number(item.templateId), item.imagePath);
-				}
+				const remoteManifest = await fetchLibraryItems(client);
+				for (const item of remoteManifest) if (!firstStaticByTemplate.has(Number(item.templateId))) firstStaticByTemplate.set(Number(item.templateId), item.imagePath);
 			}
-			const publicEntries = [...firstStaticByTemplate.entries()].map(([templateId, imagePath]) => [templateId, client.storage.from('creative-references').getPublicUrl(imagePath).data.publicUrl] as const);
-			if (active) setReferenceImages(Object.fromEntries(publicEntries));
+			const paths = [...firstStaticByTemplate.values()];
+			const signed = await fetchReferenceUrls(client, paths);
+			const entries = [...firstStaticByTemplate.entries()]
+				.map(([templateId, imagePath]) => [templateId, signed[imagePath] || ''] as const)
+				.filter(([, url]) => Boolean(url));
+			if (active) setReferenceImages(Object.fromEntries(entries));
 		}
 		void loadReferenceImages();
 		return () => { active = false; };
@@ -2740,23 +2744,22 @@ function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed, profil
 				id: item.id,
 				name: item.name,
 				description: 'Composición visual ganadora validada.',
-				imageUrl: client.storage.from('creative-references').getPublicUrl(item.image_path).data.publicUrl,
+				imageUrl: '',
 				storagePath: item.image_path,
 			}));
 			if (!loaded.length) {
-				const { data: manifestUrl } = client.storage.from('creative-references').getPublicUrl('manifests/starter-static-50.json');
-				const response = await fetch(manifestUrl.publicUrl);
-				if (response.ok) {
-					const remoteManifest = await response.json();
-					loaded = (remoteManifest.items || []).filter((item: any) => Number(item.templateId) === creative.id).slice(0, 5).map((item: any) => ({
-						id: `storage:${item.imagePath}`,
-						name: item.name,
-						description: 'Composición estática original.',
-						imageUrl: client.storage.from('creative-references').getPublicUrl(item.imagePath).data.publicUrl,
-						storagePath: item.imagePath,
-					}));
-				}
+				const remoteManifest = await fetchLibraryItems(client);
+				loaded = remoteManifest.filter((item) => Number(item.templateId) === creative.id).slice(0, 5).map((item) => ({
+					id: `storage:${item.imagePath}`,
+					name: item.name,
+					description: 'Composición estática original.',
+					imageUrl: '',
+					storagePath: item.imagePath,
+				}));
 			}
+			// Una sola llamada firma todas las miniaturas de esta plantilla.
+			const signed = await fetchReferenceUrls(client, loaded.map((item) => item.storagePath || ''));
+			loaded = loaded.map((item) => ({ ...item, imageUrl: signed[item.storagePath || ''] || '' })).filter((item) => item.imageUrl);
 			if (cancelled) return;
 			if (!cancelled) { setReferences(loaded); setReferenceId(loaded[0]?.id || ''); }
 		})();
@@ -3167,6 +3170,8 @@ function WinnerReferenceModal({
 	onToggleLike?: (path: string) => void;
 	onUse?: (path: string) => void;
 }) {
+	// El bucket es privado: la referencia se muestra con URL firmada.
+	const referenceUrl = useReferenceUrl(reference.path);
 	return (
 		<div className="ref-modal" onClick={(event) => { event.stopPropagation(); onClose(); }} role="dialog" aria-modal="true" aria-label="Anuncio ganador de referencia">
 			<div className="ref-modal-box" onClick={(event) => event.stopPropagation()}>
@@ -3178,7 +3183,7 @@ function WinnerReferenceModal({
 					<button type="button" onClick={onClose} aria-label="Cerrar">✕</button>
 				</div>
 				<div className="ref-modal-visual">
-					<img src={`${REFERENCES_PUBLIC_BASE}/${reference.path}`} alt={reference.name || 'Anuncio ganador'} />
+					<img src={referenceUrl} alt={reference.name || 'Anuncio ganador'} />
 				</div>
 				<div className="ref-modal-context">
 					<span>REFERENCIA ORIGINAL</span>
@@ -3252,6 +3257,7 @@ function GenerationCard({
 	const [slideIndex, setSlideIndex] = useState(0);
 	const isCarousel = Boolean(slides && slides.length > 1);
 	const active = isCarousel ? slides![Math.min(slideIndex, slides!.length - 1)] : item;
+	const referenceThumbUrl = useReferenceUrl(active.referencePath);
 	const deleteIds = isCarousel ? slides!.map((slide) => slide.id) : active.id;
 	// Precarga el resto de las páginas del carrusel apenas se ve la tarjeta:
 	// sin esto, cada vez que tocás la flecha se descargaba la imagen recién
@@ -3469,7 +3475,7 @@ function GenerationCard({
 								}}
 								title={`Inspirado en el anuncio ganador${active.referenceName ? ` de ${active.referenceName}` : ''} — tocá para verlo`}
 							>
-								<img src={`${REFERENCES_PUBLIC_BASE}/${active.referencePath}`} alt="" loading="lazy" />
+								<img src={referenceThumbUrl} alt="" loading="lazy" />
 								<span>🏆 Referencia</span>
 							</button>
 						)}
@@ -3617,6 +3623,7 @@ function ImageLightbox({ item, slides, session, onClose, onStarted, onGeneration
 	const carouselSlides = slides && slides.length > 1 ? slides : [item];
 	const [slideIndex, setSlideIndex] = useState(0);
 	const activeItem = carouselSlides[Math.min(slideIndex, carouselSlides.length - 1)] || item;
+	const referenceThumbUrl = useReferenceUrl(activeItem.referencePath);
 	const isCarousel = carouselSlides.length > 1;
 	const goToSlide = (delta: number) => setSlideIndex((previous) => (previous + delta + carouselSlides.length) % carouselSlides.length);
 	const touchStartX = useRef<number | null>(null);
@@ -3794,7 +3801,7 @@ function ImageLightbox({ item, slides, session, onClose, onStarted, onGeneration
 							title="Ver el anuncio ganador original"
 						>
 							<img
-								src={`${REFERENCES_PUBLIC_BASE}/${activeItem.referencePath}`}
+								src={referenceThumbUrl}
 								alt=""
 								loading="lazy"
 								style={{ width: '46px', height: '46px', borderRadius: '9px', objectFit: 'cover', flex: '0 0 auto' }}
@@ -4642,6 +4649,7 @@ function SavedAds({
 }) {
 	const likedGenerations = history.filter(item => likedImageIds.includes(item.id));
 	const likedScrapedItems = scrapedWinners.filter(winner => likedScrapedPaths.has(winner.imagePath));
+	const likedScrapedUrls = useReferenceUrls(likedScrapedItems.map((winner: any) => winner.imagePath));
 	const hasContent = likedGenerations.length > 0 || likedScrapedItems.length > 0;
 
 	return (
@@ -4681,8 +4689,7 @@ function SavedAds({
 							<h2 style={{ fontSize: '18px', fontWeight: 800, color: '#744bde', marginBottom: '14px' }}>Ideas de la biblioteca guardadas</h2>
 							<div className="studio-history-grid">
 								{likedScrapedItems.map((winner, idx) => {
-									const supabaseUrl = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references/';
-									const imageUrl = winner.imageUrl || (winner.imagePath?.startsWith('http') ? winner.imagePath : supabaseUrl + winner.imagePath);
+									const imageUrl = winner.imageUrl || likedScrapedUrls[winner.imagePath] || '';
 									return (
 										<article
 											className="studio-generation-card"

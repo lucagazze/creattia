@@ -19,3 +19,10 @@ scripts/_curation_cache/
 work/
 __pycache__/
 *.pyc
+
+# Estado local del CLI de Supabase: expone project-ref y la URL del pooler.
+supabase/.temp/
+
+# Logs de las corridas de scraping
+scripts/*.log
+scripts/_*.log

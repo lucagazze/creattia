@@ -1,3 +1,4 @@
+import { useReferenceUrls } from '../../lib/creattia/reference-urls';
 import React, { useState, useEffect } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
 import ProductAssetReview, { type ProductReviewItem } from './ProductAssetReview';
@@ -38,8 +39,13 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const REFERENCES_BASE = 'https://czocbnyoenjbpxmcqobn.supabase.co/storage/v1/object/public/creative-references';
-	const referenceUrlFor = (path: string) => path.startsWith('http') ? path : `${REFERENCES_BASE}/${path}`;
+	// El bucket de referencias es privado: las URLs las firma el servidor.
+	// Se piden juntas la portada y todas las páginas del carrusel.
+	const signedReferenceUrls = useReferenceUrls([
+		ad.imagePath,
+		...(Array.isArray(ad.metadata?.carouselImages) ? ad.metadata.carouselImages : []),
+	]);
+	const referenceUrlFor = (path: string) => (path.startsWith('http') ? path : signedReferenceUrls[path] || '');
 	const referenceUrl = referenceUrlFor(ad.imagePath);
 
 	// Carrusel ganador: varias páginas para elegir cómo generar.
@@ -69,7 +75,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	// para que pasar de página con las flechas sea instantáneo.
 	useEffect(() => {
 		if (!isCarouselAd) return;
-		carouselSlides.forEach((slide) => { const img = new Image(); img.src = `${REFERENCES_BASE}/${slide}`; });
+		carouselSlides.forEach((slide) => { const img = new Image(); img.src = referenceUrlFor(slide); });
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [isCarouselAd]);
 
@@ -554,7 +560,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 															background: '#f6f4f9',
 														}}
 													>
-														<img src={`${REFERENCES_BASE}/${slide}`} alt={`Página ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+														<img src={referenceUrlFor(slide)} alt={`Página ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
 													</button>
 												))}
 											</div>
@@ -745,7 +751,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 																	background: '#f6f4f9', opacity: on ? 1 : 0.5,
 																}}
 															>
-																<img src={`${REFERENCES_BASE}/${slide}`} alt={`Página ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+																<img src={referenceUrlFor(slide)} alt={`Página ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
 																<span style={{ position: 'absolute', bottom: '2px', right: '2px', fontSize: '11px', lineHeight: 1, filter: on ? 'none' : 'grayscale(1)' }}>{on ? '🏷️' : '🚫'}</span>
 															</button>
 														);

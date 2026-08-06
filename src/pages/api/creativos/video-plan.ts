@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { assertReferenceUrl } from '../../../lib/creattia/reference-host';
+import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { analyzeVideoReference, createVideoPlan, type VideoReferenceAnalysis } from '../../../lib/creattia/video-engines';
 import { normalizeImageInput } from '../../../lib/creattia/ad-analysis';
 import { resolveAvatarReferences, type AvatarMode } from '../../../lib/creattia/avatar-assets';
@@ -13,11 +14,9 @@ export const prerender = false;
 const ASSETS = 'creative-assets';
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
-const VIDEO_REFERENCE_HOST = 'czocbnyoenjbpxmcqobn.supabase.co';
 
 async function downloadPoster(value: string) {
-	const url = new URL(value);
-	if (url.protocol !== 'https:' || url.hostname !== VIDEO_REFERENCE_HOST) throw new Error('La referencia debe venir de la Biblioteca de ganadores.');
+	const url = assertReferenceUrl(value);
 	const response = await fetch(url);
 	if (!response.ok) throw new Error('No se pudo leer el fotograma del video ganador.');
 	const buffer = Buffer.from(await response.arrayBuffer());
@@ -26,8 +25,7 @@ async function downloadPoster(value: string) {
 }
 
 async function downloadReferenceVideo(value: string) {
-	const url = new URL(value);
-	if (url.protocol !== 'https:' || url.hostname !== VIDEO_REFERENCE_HOST) throw new Error('La referencia debe venir de la Biblioteca de ganadores.');
+	const url = assertReferenceUrl(value);
 	const response = await fetch(url);
 	if (!response.ok) throw new Error('No se pudo leer el video ganador.');
 	const buffer = Buffer.from(await response.arrayBuffer());
@@ -57,6 +55,9 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!apiKey) return json({ error: 'Falta configurar OPENAI_API_KEY para planificar videos.', requiresConfiguration: true }, 503);
 	const googleKey = process.env.GOOGLE_AI_API_KEY || import.meta.env.GOOGLE_AI_API_KEY || '';
 	if (!googleKey) return json({ error: 'Falta configurar GOOGLE_AI_API_KEY para analizar videos.', requiresConfiguration: true }, 503);
+
+	const withinLimit = await checkRateLimit(admin, auth.user.id, 'video-plan', 30, 3600, true);
+	if (!withinLimit) return json({ error: 'Planificaste muchos videos en poco tiempo. Esperá unos minutos.' }, 429);
 
 	try {
 		const form = await request.formData();
@@ -162,7 +163,6 @@ export const POST: APIRoute = async ({ request }) => {
 		const plan = await createVideoPlan({ apiKey, poster, productImages, avatarImages: avatar.images, avatarMode, avatarName: avatar.name, avatarDescription: [avatar.description, avatarDescription].filter(Boolean).join(' · '), referenceNotes, referenceDuration, productName, productFacts, brandName, includeLogo, includeWebsite, displayWebsite, objective, audience, audienceReason, audienceAlternatives, objections, hookIdea, performanceDirection, realismDirection, benefit, proof, offer, cta, tone, language, duration, size, audioDirection, voiceover, captions, peopleDirection, referenceMode, preserveDirection, changeDirection, productUsage, mustAvoid, speechMode, dialogueInstructions, referenceAnalysis: analysis });
 		return json({ ok: true, analysis, plan });
 	} catch (error) {
-		console.error('[video-plan]', error);
-		return json({ error: error instanceof Error ? error.message : 'No se pudo crear el plan del video.' }, 500);
+		return fail('video-plan', error, 'No se pudo crear el plan del video.');
 	}
 };
