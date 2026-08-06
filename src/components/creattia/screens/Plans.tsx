@@ -81,7 +81,10 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 					<small style={{ display: 'block', marginTop: '9px', color: '#8b8290', fontSize: '11px' }}>Podés comprar de 1 a {maxCredits} créditos en una sola operación.</small>
 				</div>
 				<div style={{ background: '#fff', border: '1px solid #d8c5fa', borderRadius: '12px', padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 16px rgba(116, 75, 222, 0.08)' }}>
-					<div><span style={{ display: 'block', color: '#716d79', fontSize: '12px' }}>Total a pagar</span><strong style={{ display: 'block', marginTop: '5px', color: '#744bde', fontSize: '30px', letterSpacing: '-.03em' }}>{symbol}{totalPrice}</strong><small style={{ color: '#8b8290', fontSize: '11px' }}>{symbol}0.30 por crédito</small></div>
+					<div><span style={{ display: 'block', color: '#716d79', fontSize: '12px' }}>Total a pagar</span><strong style={{ display: 'block', marginTop: '5px', color: '#744bde', fontSize: '30px', letterSpacing: '-.03em' }}>{symbol}{totalPrice}</strong>{/* Estaba escrito a mano en 0.30 y el precio real venía del servidor: la
+   pantalla decía "cada crédito cuesta 0.49" arriba y "0.30 por crédito"
+   dos líneas más abajo, en la misma tarjeta. */}
+									<small style={{ color: '#8b8290', fontSize: '11.5px' }}>{symbol}{unitPrice.toFixed(2)} por crédito</small></div>
 					<button onClick={() => void buy(safeQuantity)} disabled={buying || unconfigured} style={{ width: '100%', minHeight: '42px', marginTop: '16px', borderRadius: '10px', border: 0, background: 'linear-gradient(110deg, #744bde, #ec4492 65%, #f05427)', color: '#fff', fontWeight: 800, fontSize: '13px', cursor: 'pointer', opacity: buying ? 0.65 : 1 }}>{unconfigured ? 'Pago no disponible' : buying ? <><span className="studio-spinner small" aria-hidden="true" /> Abriendo Mercado Pago...</> : 'Continuar al pago'}</button>
 				</div>
 			</div>

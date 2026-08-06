@@ -77,6 +77,10 @@ for (const vp of VIEWPORTS) {
 				: page.locator(`.studio-nav button:has-text("${screen.label}")`).first();
 			await destino.click({ timeout: 15000 });
 			await page.waitForTimeout(4000);
+			// El menú móvil queda abierto tapando el encabezado y falsea la
+			// captura: se cierra antes de mirar nada.
+			const cerrar = page.locator('.studio-close-menu, .studio-mobile-scrim.is-open').first();
+			if (await cerrar.isVisible().catch(() => false)) { await cerrar.click({ force: true }); await page.waitForTimeout(700); }
 		} catch (error) {
 			console.log(`✗ ${vp.name}/${screen.slug}: no se pudo abrir (${String(error).slice(0, 80)})`);
 			continue;
