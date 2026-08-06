@@ -27,6 +27,16 @@ cp .env.example .env
 npm run dev
 ```
 
+## Estructura del front
+
+`src/components/creattia/` está partido por responsabilidad:
+
+- `CreativeApp.tsx` — estado de la sesión, navegación y datos compartidos.
+- `screens/` — una pantalla por archivo (Dashboard, Studio, History, Plans…).
+- `app-types.ts`, `app-session.ts`, `app-storage.ts`, `app-products.ts` — tipos y
+  helpers compartidos.
+- `Icon.tsx`, `demo-mode.ts`, `history-utils.ts`, `download.ts` — utilidades.
+
 Antes de subir un cambio:
 
 ```bash

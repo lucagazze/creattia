@@ -270,64 +270,6 @@ export default function WinnersLibrary({
 		return () => { window.removeEventListener('click', close); window.removeEventListener('scroll', close, true); };
 	}, [cardContextMenu]);
 
-	const getFallbackImage = (templateId: number) => {
-		const numStr = String(templateId).padStart(2, '0');
-		const map: Record<string, string> = {
-			'01': '01-tweet.png',
-			'02': '02-resena-5-estrellas.png',
-			'03': '03-muro-de-resenas.png',
-			'04': '04-captura-de-whatsapp.png',
-			'05': '05-comentario-destacado.png',
-			'06': '06-antes-y-despues.png',
-			'07': '07-testimonial-con-rostro.png',
-			'08': '08-dm-queda-stock.png',
-			'09': '09-contador-social.png',
-			'10': '10-como-se-vio-en.png',
-			'11': '11-review-de-marketplace.png',
-			'12': '12-ugc-con-producto-en-mano.png',
-			'13': '13-precio-tachado.png',
-			'14': '14-bundle-kit.png',
-			'15': '15-fecha-limite.png',
-			'16': '16-regalo-con-la-compra.png',
-			'17': '17-2x1-3x2.png',
-			'18': '18-envio-gratis.png',
-			'19': '19-cupon-visual.png',
-			'20': '20-escalera-de-precio.png',
-			'21': '21-sello-de-garantia.png',
-			'22': '22-cuotas-sin-interes.png',
-			'23': '23-nosotros-vs-ellos.png',
-			'24': '24-lado-a-lado.png',
-			'25': '25-comparacion-de-costo.png',
-			'26': '26-pagas-x-recibis-y.png',
-			'27': '27-checklist-de-compra.png',
-			'28': '28-composicion-comparada.png',
-			'29': '29-con-vs-sin.png',
-			'30': '30-listicle.png',
-			'31': '31-estadistica-brutal.png',
-			'32': '32-mito-vs-realidad.png',
-			'33': '33-diagrama-senalado.png',
-			'34': '34-pregunta-directa.png',
-			'35': '35-meme.png',
-			'36': '36-comic.png',
-			'37': '37-si-no.png',
-			'38': '38-definicion.png',
-			'39': '39-nota-manuscrita.png',
-			'40': '40-hero-limpio.png',
-			'41': '41-features-senaladas.png',
-			'42': '42-lifestyle-en-uso.png',
-			'43': '43-despiece.png',
-			'44': '44-escala-real.png',
-			'45': '45-paso-a-paso-1-2-3.png',
-			'46': '46-que-viene-en-la-caja.png',
-			'47': '47-secuencia-de-3-frames.png',
-			'48': '48-aval-de-experto.png',
-			'49': '49-sellos-y-certificaciones.png',
-			'50': '50-carta-del-fundador.png',
-		};
-		const file = map[numStr] || '40-hero-limpio.png';
-		return `/images/creattia/reference-library/${file}`;
-	};
-
 	// Admin form states
 	const [showAddModal, setShowAddModal] = useState(false);
 	const [newAdName, setNewAdName] = useState('');
@@ -350,19 +292,9 @@ export default function WinnersLibrary({
 	const [scannedOptions, setScannedOptions] = useState<string[]>([]);
 	const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
 	
-	// Fidelity option: 1 = Muy fiel, 2 = Estética marca, 3 = Híbrido
-	const [adFormat, setAdFormat] = useState('original');
 
-	// Optional onboarding step states inside modal
-	const [onboardingShow, setOnboardingShow] = useState(false);
-	const [onboardingSkippedOrDone, setOnboardingSkippedOrDone] = useState(false);
-	const [onboardingBrandName, setOnboardingBrandName] = useState(profile?.brandName || '');
-	const [onboardingWebsite, setOnboardingWebsite] = useState(profile?.website || '');
-	const [onboardingInstagram, setOnboardingInstagram] = useState(profile?.instagram || '');
-	const [onboardingSaving, setOnboardingSaving] = useState(false);
 	
 	// Output results
-	const [generating, setGenerating] = useState(false);
 	const [generatedResult, setGeneratedResult] = useState('');
 	const [generationError, setGenerationError] = useState('');
 	// Saved products (loaded from Supabase once)
@@ -383,15 +315,6 @@ export default function WinnersLibrary({
 	const availableFormatOptions = canUseVideos ? formatOptions : formatOptions.filter((option) => option.id !== 'video');
 
 	const getSessionToken = (sess: any) => sess?.access_token || '';
-
-	const normalizeProductUrl = (value: string) => {
-		let raw = value.trim();
-		if (!raw) return '';
-		if (!/^https?:\/\//i.test(raw)) {
-			raw = 'https://' + raw;
-		}
-		return raw;
-	};
 
 	// Load saved products from Supabase once when modal opens
 	const loadSavedProducts = async () => {
@@ -445,227 +368,8 @@ export default function WinnersLibrary({
 		setVideoCreationRef(item);
 	};
 
-	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		if (e.target.files) {
-			const filesArr = Array.from(e.target.files).slice(0, 5);
-			setManualFiles(filesArr);
-		}
-	};
 
-	const handleScanUrls = async () => {
-		const validUrls = urlList.map(u => normalizeProductUrl(u)).filter(Boolean);
-		if (!validUrls.length) return;
-		setScanning(true);
-		setGenerationError('');
-		setSelectedSavedProduct(null);
-		try {
-			if (!isSupabaseConfigured || !supabase) {
-				await new Promise(resolve => setTimeout(resolve, 1500));
-				const options: string[] = [];
-				validUrls.forEach((url, i) => {
-					let label = `Producto ${i + 1}`;
-					try {
-						label = new URL(url).hostname.replace('www.', '').split('.')[0];
-						label = label.charAt(0).toUpperCase() + label.slice(1);
-					} catch {}
-					options.push(`Mostrar el producto principal (${label})`);
-					options.push(`Destacar oferta o beneficios de (${label})`);
-				});
-				options.push("Enfatizar los colores y el logotipo de mi marca");
-				options.push("Incluir nota/reseña de cliente verificado");
-				setScannedOptions(options);
-				setSelectedOptions([options[0]]);
-			} else {
-				const ids: string[] = [];
-				for (const normalizedUrl of validUrls.slice(0, 5)) {
-					const response = await fetch('/api/creativos/products', {
-						method: 'POST',
-						headers: {
-							authorization: `Bearer ${getSessionToken(session)}`,
-							'content-type': 'application/json'
-						},
-						body: JSON.stringify({ url: normalizedUrl }),
-					});
-					const payload = await response.json();
-					if (response.ok && payload.importedIds?.length) {
-						ids.push(...payload.importedIds);
-					}
-				}
-				if (!ids.length) {
-					throw new Error('No pudimos analizar los productos de las URLs. Probá ingresando una descripción manual.');
-				}
-				const { data: prodData, error: dbErr } = await supabase
-					.from('creative_products')
-					.select('id,name,description,image_path,analysis')
-					.in('id', ids);
-				
-				if (!dbErr && prodData?.length) {
-					// Auto-select the first scanned product
-					setSelectedSavedProduct(prodData[0]);
-					// Refresh saved products list to include newly saved
-					const { data: allProds } = await supabase
-						.from('creative_products')
-						.select('id,name,description,image_path,source_image_url,analysis')
-						.order('created_at', { ascending: false })
-						.limit(20);
-					if (allProds) setSavedProducts(allProds);
 
-					// Generate dynamic options based on product analysis
-					const prod = prodData[0];
-					const analysis = prod.analysis || {};
-					const productName = prod.name || 'el producto';
-					const options: string[] = [];
-					
-					if (analysis.mainBenefit || analysis.benefit) options.push(`Destacar el beneficio principal: ${analysis.mainBenefit || analysis.benefit}`);
-					if (analysis.price || analysis.priceText) options.push(`Mostrar el precio: ${analysis.price || analysis.priceText}`);
-					if (analysis.socialProof || analysis.reviews) options.push(`Incluir reseña de cliente real (${analysis.socialProof || '⭐⭐⭐⭐⭐'})`);
-					if (analysis.problem) options.push(`Mostrar el problema que resuelve ${productName}`);
-					if (analysis.beforeAfter) options.push(`Comparación antes/después con ${productName}`);
-					options.push(`Mostrar el producto principal (${productName})`);
-					if (prod.description) options.push(`Destacar características de (${productName})`);
-					options.push("Enfatizar los colores y el logotipo de mi marca");
-					options.push("Urgencia / Oferta por tiempo limitado");
-					if (analysis.ingredients || analysis.specs) options.push(`Mostrar ingredientes o especificaciones de ${productName}`);
-					
-					setScannedOptions(options.slice(0, 6));
-					setSelectedOptions([options[0]]);
-				} else {
-					validUrls.forEach((_, i) => {
-						const options = [`Mostrar el producto principal (Producto ${i+1})`];
-						setScannedOptions(options);
-						setSelectedOptions([options[0]]);
-					});
-				}
-			}
-		} catch (err: any) {
-			setGenerationError(err.message || 'Error al escanear la URL.');
-		} finally {
-			setScanning(false);
-		}
-	};
-
-	const handleGenerateFromModal = async () => {
-		if (!activeAd) return;
-		
-		if (profile && !profile.onboardingCompleted && historyCount === 0 && !onboardingSkippedOrDone) {
-			setOnboardingShow(true);
-			return;
-		}
-
-		onGenerationRequested?.();
-		setGenerating(true);
-		setGenerationError('');
-		setGeneratedResult('');
-		try {
-			const form = new FormData();
-			// Extract the templateId from the imagePath prefix (e.g. "40/abc123.webp" → 40)
-			const pathPrefixId = parseInt(activeAd.imagePath.split('/')[0], 10);
-			const templateId = !isNaN(pathPrefixId) ? pathPrefixId : (activeAd.templateId || 40);
-			const creative = creativeCatalog.find(c => c.id === templateId) || creativeCatalog.find(c => c.id === activeAd.templateId) || creativeCatalog[0];
-			
-			form.set('templateId', String(templateId));
-			form.set('templateName', creative?.nombre || activeAd.name || 'Anuncio Ganador');
-			form.set('purpose', creative?.sirve || 'Crear un anuncio de alto rendimiento inspirado en el diseño de referencia');
-			form.set('usageHint', creative?.cuando || 'Cuando querés inspirarte en un anuncio ganador');
-			form.set('format', adFormat);
-			form.set('imageType', 'promotion'); // always 'promotion' so no product is required
-			form.set('referencePath', activeAd.imagePath);
-			
-			const brandName = onboardingBrandName || (profile ? profile.brandName : '');
-			const website = onboardingWebsite || (profile ? profile.website : '');
-			const instagram = onboardingInstagram || (profile ? profile.instagram : '');
-			
-			form.set('brandName', brandName);
-			form.set('website', website);
-			form.set('instagram', instagram);
-			if (profile) {
-				form.set('colors', `${profile.primaryColor || ''}, ${profile.secondaryColor || ''}`);
-			}
-			
-			let briefText = '';
-			if (isUrlMode) {
-				// If a saved product is selected, use its info
-				if (selectedSavedProduct) {
-					// El backend ya tiene nombre, descripción y precio del producto guardado.
-					// No duplicar acá: el brief se trunca a 600 caracteres y tapa las instrucciones.
-					form.set('productIds', selectedSavedProduct.id);
-				} else {
-					const validUrls = urlList.map(u => normalizeProductUrl(u)).filter(Boolean);
-					if (validUrls.length > 0) briefText = `URLs de referencia del producto: ${validUrls.join(', ')}. `;
-				}
-				if (selectedOptions.length) {
-					briefText += `Enfoque publicitario seleccionado: ${selectedOptions.join(' · ')}. `;
-				}
-			} else {
-				briefText = `Descripción del producto/servicio: ${manualDesc}. `;
-				if (manualFiles.length) {
-					form.append('product', manualFiles[0]);
-				}
-			}
-			
-			// Add custom instructions if provided
-			if (customInstructions.trim()) {
-				briefText += `\n\nINSTRUCCIONES ADICIONALES DEL USUARIO: ${customInstructions.trim()}`;
-			}
-			
-			// Siempre fiel al ganador: el backend usa el prompt clon (fidelity 1).
-			form.set('fidelity', '1');
-			form.set('brief', briefText.trim());
-			form.set('preset', 'Fiel al ganador');
-			form.set('count', '1');
-			
-			if (!isSupabaseConfigured || !supabase) {
-				await new Promise(resolve => setTimeout(resolve, 3000));
-				setGeneratedResult(activeAd.imageUrl || '');
-				if (onToast) onToast('¡Vista demo creada con éxito!');
-			} else {
-				const response = await fetch('/api/creativos/generate', {
-					method: 'POST',
-					headers: {
-						authorization: `Bearer ${getSessionToken(session)}`
-					},
-					body: form
-				});
-				const payload = await response.json();
-				if (!response.ok) throw new Error(payload.error || 'Error al generar la imagen.');
-
-				// Modo asíncrono: el servidor sigue generando; pasamos a la página dedicada.
-				if (payload.async && payload.batchId && onGenerationStarted) {
-					setGenerating(false);
-					setActiveAd(null);
-					onGenerationStarted({
-						batchId: payload.batchId,
-						title: selectedSavedProduct?.name ? `${selectedSavedProduct.name} · ${activeAd.name}` : activeAd.name,
-						referenceUrl: activeAd.imageUrl || '',
-						count: 1,
-					});
-					return;
-				}
-
-				const genResult = payload.generations?.[0] || { imageUrl: payload.imageUrl };
-				if (genResult.imageUrl) {
-					setGeneratedResult(genResult.imageUrl);
-					if (onGenerated) {
-						onGenerated(payload.generations || [{
-							id: payload.id,
-							imageUrl: payload.imageUrl,
-							outputIndex: 1,
-							createdAt: new Date().toISOString(),
-							title: activeAd.name,
-							format: adFormat
-						}], payload.creditsRemaining);
-					}
-					if (onToast) onToast('¡Tu anuncio ganador ha sido generado con éxito!');
-				} else {
-					throw new Error('La respuesta de generación no contiene imágenes.');
-				}
-			}
-		} catch (err: any) {
-			setGenerationError(err.message || 'Error al generar la imagen.');
-		} finally {
-			setGenerating(false);
-		}
-	};
 
 	const loadWinners = async () => {
 		try {

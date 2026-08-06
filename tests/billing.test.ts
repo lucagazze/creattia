@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
 import { getEffectiveAccess } from '../src/lib/creattia/admin-access';
+import { isAdminEmail } from '../src/lib/creattia/admin';
 import { checkReferencePath, FREE_PREVIEW_REFERENCE_PATHS, hasFullLibraryAccess } from '../src/lib/creattia/library-access';
 import { brandLimitForPlan, subscriptionPlans } from '../src/lib/creattia/subscription-plans';
 import { videoCreditCost, videoCreditCostForAccount } from '../src/lib/creattia/video-pipeline';
@@ -79,8 +80,9 @@ test('cada plan declara un límite de marcas y el de Agency es el más alto', ()
 	}
 	const agency = brandLimitForPlan('agency');
 	assert.equal(agency, 6);
-	assert.ok(agency > brandLimitForPlan('creator'));
-	assert.ok(agency >= brandLimitForPlan('scale'));
+	assert.ok(agency > brandLimitForPlan('scale'));
+	assert.ok(brandLimitForPlan('scale') > brandLimitForPlan('pro'));
+	assert.ok(brandLimitForPlan('pro') > brandLimitForPlan('creator'));
 	// Un plan desconocido nunca puede habilitar más que el gratuito.
 	assert.equal(brandLimitForPlan('plan-que-no-existe'), 1);
 	assert.equal(brandLimitForPlan(null), 1);
@@ -94,6 +96,19 @@ test('los créditos de video crecen con la duración y el admin no paga', () => 
 	assert.equal(videoCreditCostForAccount('24', false), long);
 });
 
+test('el límite de marcas que se cobra es el que promete la página de precios', () => {
+	// La landing arma sus features desde este mismo archivo, así que el número
+	// que ve el usuario y el que aplica brands.ts no pueden separarse. Antes la
+	// página decía 2 y 4 mientras el backend permitía 3 y 5, y Agency no estaba
+	// en la tabla del backend: la cuenta más cara quedaba limitada a 1 marca.
+	for (const plan of subscriptionPlans) {
+		const feature = plan.features.find((item) => /marcas? activas?/.test(item.name));
+		assert.ok(feature, `el plan ${plan.code} no dice cuántas marcas incluye`);
+		const advertised = Number(feature.name.match(/\d+/)?.[0]);
+		assert.equal(plan.brandLimit, advertised, `${plan.code}: la página dice ${advertised} y se aplican ${plan.brandLimit}`);
+	}
+});
+
 test('los créditos por plan coinciden con los que acredita el webhook', () => {
 	// Mismos valores que `planCredits` en webhook/mercadopago.ts: si se
 	// desincronizan, una renovación acredita distinto de lo vendido.
@@ -103,4 +118,16 @@ test('los créditos por plan coinciden con los que acredita el webhook', () => {
 		assert.ok(plan, `falta el plan ${code}`);
 		assert.equal(plan.credits, credits, `los créditos de ${code} no coinciden con el webhook`);
 	}
+});
+
+test('la cuenta administradora se reconoce y ninguna otra pasa por admin', () => {
+	assert.equal(isAdminEmail('algoritmiadesarrollos@gmail.com'), true);
+	// Mayúsculas y espacios no deberían cambiar el resultado.
+	assert.equal(isAdminEmail('  Algoritmiadesarrollos@Gmail.com '), true);
+	assert.equal(isAdminEmail('otra@gmail.com'), false);
+	// Un email vacío o ausente nunca puede resolver como admin: antes cualquier
+	// cuenta sin email comparaba '' contra '' si el default cambiaba.
+	assert.equal(isAdminEmail(''), false);
+	assert.equal(isAdminEmail(null), false);
+	assert.equal(isAdminEmail(undefined), false);
 });
