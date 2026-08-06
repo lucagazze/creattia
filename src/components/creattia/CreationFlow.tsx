@@ -101,6 +101,17 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
 	const [colorMode, setColorMode] = useState<'winner' | 'url' | 'brand'>('winner');
+	/**
+	 * Corrección manual de los colores detectados. La detección se confunde
+	 * —agarra el gris de un banner o el color del aviso de cookies— y sin esto
+	 * el creativo salía con una identidad que no era la de la marca.
+	 */
+	const [paletteOverride, setPaletteOverride] = useState<Record<string, string>>({});
+	const detectedPalette: Record<string, string> | null = (() => {
+		if (colorMode === 'winner') return null;
+		const fromUrl = (importedProducts[0] as any)?.metadata?.brandFromUrl?.palette;
+		return fromUrl || null;
+	})();
 	const [typoMode, setTypoMode] = useState<'winner' | 'url' | 'brand'>('winner');
 	const [brandSource, setBrandSource] = useState('url');
 	const [includeLogo, setIncludeLogo] = useState(false);
@@ -313,6 +324,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('format', format);
 			form.set('language', language);
 			form.set('colorMode', colorMode);
+			if (Object.keys(paletteOverride).length) form.set('paletteOverride', JSON.stringify(paletteOverride));
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
 			form.set('subjectMode', detectedOffering);
@@ -805,6 +817,35 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												<button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value as 'winner' | 'url' | 'brand')} aria-pressed={colorMode === option.value}>{option.label}</button>
 											))}
 										</div>
+										{detectedPalette && (
+											<div className="palette-editor">
+												<small className="batch-brand-note">Estos son los colores que detectamos. Si alguno no es el de tu marca, cambialo.</small>
+												<div className="palette-swatches">
+													{([['background', 'Fondo'], ['accent', 'Principal'], ['secondary', 'Secundario'], ['text', 'Texto']] as const).map(([role, label]) => {
+														const value = paletteOverride[role] || detectedPalette[role] || '';
+														if (!value) return null;
+														const corregido = Boolean(paletteOverride[role]);
+														return (
+															<label key={role} className={`palette-swatch${corregido ? ' is-edited' : ''}`}>
+																<input
+																	type="color"
+																	value={value}
+																	onChange={(event) => setPaletteOverride((prev) => ({ ...prev, [role]: event.target.value }))}
+																	aria-label={`Color ${label}`}
+																/>
+																<span>{label}</span>
+																<em>{value}</em>
+															</label>
+														);
+													})}
+												</div>
+												{Object.keys(paletteOverride).length > 0 && (
+													<button type="button" className="palette-reset" onClick={() => setPaletteOverride({})}>
+														Volver a los detectados
+													</button>
+												)}
+											</div>
+										)}
 									</div>
 									<div className="batch-style-group">
 										<span className="picker-label">Tipografía</span>

@@ -28,6 +28,52 @@ export type StyleMode = 'winner' | 'url' | 'brand';
 /** Paleta detectada de la web de la marca, tal como la entiende ad-analysis. */
 export type BrandPalette = { background?: string; text?: string; accent?: string; secondary?: string; source?: string };
 
+const PALETTE_ROLES = ['background', 'text', 'accent', 'secondary'] as const;
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+/**
+ * Corrección manual de la paleta detectada.
+ *
+ * La detección de colores se equivoca —toma el gris de un banner, o el color de
+ * un botón de cookies— y hasta ahora no había forma de corregirla: el creativo
+ * salía con una identidad que no era la de la marca. Solo se aceptan colores
+ * hexadecimales completos, así que un valor raro del cliente no puede colarse
+ * dentro del prompt.
+ */
+export function mergePaletteOverride(detected: BrandPalette | undefined, raw: unknown): BrandPalette | undefined {
+	if (!raw || typeof raw !== 'object') return detected;
+	const override = raw as Record<string, unknown>;
+	const corrected: BrandPalette = { ...(detected || {}) };
+	let touched = false;
+	for (const role of PALETTE_ROLES) {
+		const value = override[role];
+		if (typeof value === 'string' && HEX_COLOR.test(value.trim())) {
+			corrected[role] = value.trim().toLowerCase();
+			touched = true;
+		}
+	}
+	if (!touched) return detected;
+	// Queda anotado que la paleta la corrigió una persona, no la detección.
+	return { ...corrected, source: 'corregida por el usuario' };
+}
+
+/** Lee la corrección que viaja como JSON en el formulario o el body. */
+export function parsePaletteOverride(raw: unknown): Record<string, string> | null {
+	if (!raw) return null;
+	try {
+		const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+		if (!parsed || typeof parsed !== 'object') return null;
+		const clean: Record<string, string> = {};
+		for (const role of PALETTE_ROLES) {
+			const value = (parsed as any)[role];
+			if (typeof value === 'string' && HEX_COLOR.test(value.trim())) clean[role] = value.trim().toLowerCase();
+		}
+		return Object.keys(clean).length ? clean : null;
+	} catch {
+		return null;
+	}
+}
+
 /**
  * Lo que necesita el prompt. Se separa del render porque el Studio arma sus
  * imágenes de entrada por su cuenta (con mapa de etiquetas) y solo necesita el

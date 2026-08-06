@@ -8,7 +8,7 @@ import {
 } from '../../../lib/creattia/ad-analysis';
 import type { EngineImage } from '../../../lib/creattia/image-engines';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
-import { detectImageType, renderReferenceClone } from '../../../lib/creattia/generation-pipeline';
+import { detectImageType, mergePaletteOverride, renderReferenceClone } from '../../../lib/creattia/generation-pipeline';
 import { authenticateRequest, closeGenerationsAndCountRefunds, getAdminClient, json } from '../../../lib/creattia/server';
 import { readLimited, safeExternalFetch } from '../../../lib/creattia/safe-fetch';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
@@ -171,7 +171,9 @@ export const POST: APIRoute = async ({ request }) => {
 		const urlBrandTypography: any = urlBrand?.typography || undefined;
 		const myBrandPalette: any = (profile?.brand_style as any)?.palette || null;
 		const urlBrandPalette: any = urlBrand?.palette || null;
-		const brandPalette: any = snapshot.colorMode === 'brand' ? myBrandPalette : snapshot.colorMode === 'url' ? urlBrandPalette : null;
+		const detectedPalette: any = snapshot.colorMode === 'brand' ? myBrandPalette : snapshot.colorMode === 'url' ? urlBrandPalette : null;
+		// Si el usuario corrigió la paleta en la revisión, su corrección manda.
+		const brandPalette = mergePaletteOverride(detectedPalette || undefined, snapshot.paletteOverride);
 		let brandColors: string[] = [];
 		let brandTypography: any = undefined;
 		let logoImage: EngineImage | null = null;

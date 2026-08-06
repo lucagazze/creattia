@@ -5708,3 +5708,27 @@
 	.creative-decisions-review { min-width: 0; max-width: 100%; box-sizing: border-box; }
 	.creative-decisions-review > div { min-width: 0; max-width: 100%; }
 }
+
+/* ── Corrección de la paleta detectada ─────────────────────────────────────
+   La detección se equivoca (toma el gris de un banner o el color del aviso de
+   cookies). Estos controles dejan corregirla antes de generar. */
+.palette-editor { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.palette-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.palette-swatch {
+	display: flex; align-items: center; gap: 7px; padding: 5px 10px 5px 6px;
+	border: 1px solid #e4dfec; border-radius: 999px; background: #fff; cursor: pointer;
+	font-size: 11.5px; font-weight: 700; color: #4a4353;
+}
+.palette-swatch:hover { border-color: #c9bce6; }
+.palette-swatch.is-edited { border-color: #7c4ddb; background: #f7f3ff; }
+.palette-swatch input[type="color"] {
+	width: 26px; height: 26px; padding: 0; border: 1px solid #ded7e8; border-radius: 50%;
+	background: none; cursor: pointer; flex: 0 0 auto;
+}
+.palette-swatch input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.palette-swatch input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 50%; }
+.palette-swatch em { font-style: normal; color: #948b9e; font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.palette-reset {
+	align-self: flex-start; padding: 0; border: 0; background: none; cursor: pointer;
+	color: #7c4ddb; font-size: 11.5px; font-weight: 700; text-decoration: underline;
+}

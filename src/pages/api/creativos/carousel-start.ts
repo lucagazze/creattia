@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
+import { parsePaletteOverride } from '../../../lib/creattia/generation-pipeline';
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { loadWinners } from '../../../lib/creattia/winner-picker';
 import { FREE_PREVIEW_REFERENCE_PATHS, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
@@ -89,6 +90,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const styleModes = new Set(['winner', 'url', 'brand']);
 		const colorMode = styleModes.has(String(body?.colorMode)) ? String(body.colorMode) : 'winner';
 		const typoMode = styleModes.has(String(body?.typoMode)) ? String(body.typoMode) : 'winner';
+		// Corrección manual de la paleta detectada, si el usuario la editó.
+		const paletteOverride = parsePaletteOverride(body?.paletteOverride);
 		const supportedLanguages = new Set(['es', 'en', 'pt', 'it', 'fr', 'de']);
 		const language = supportedLanguages.has(String(body?.language)) ? String(body.language) : 'es';
 		// El usuario elige, página por página, en cuáles va su logo. Antes se
@@ -151,6 +154,7 @@ export const POST: APIRoute = async ({ request }) => {
 				requested_outputs: count,
 				settings_snapshot: {
 					format,
+					paletteOverride,
 					colorMode,
 					typoMode,
 					language,

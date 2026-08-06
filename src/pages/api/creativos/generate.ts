@@ -11,7 +11,7 @@ import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
-import { buildClonePrompt } from '../../../lib/creattia/generation-pipeline';
+import { buildClonePrompt, mergePaletteOverride, parsePaletteOverride } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 
 export const prerender = false;
@@ -294,7 +294,10 @@ export const POST: APIRoute = async ({ request }) => {
 		const myBrandColors = Array.isArray(profile?.brand_colors) ? profile.brand_colors : [];
 		const urlBrandColors = Array.isArray(urlBrand?.colors) ? urlBrand.colors : [];
 		const effectiveBrandColors = colorMode === 'brand' ? myBrandColors : colorMode === 'url' ? urlBrandColors : [];
-		const effectiveBrandPalette = colorMode === 'url' ? urlBrand?.palette : colorMode === 'brand' ? brandStyle?.palette : undefined;
+		const detectedPalette = colorMode === 'url' ? urlBrand?.palette : colorMode === 'brand' ? brandStyle?.palette : undefined;
+		// La detección de colores se puede equivocar: el usuario corrige y su
+		// corrección pisa lo detectado.
+		const effectiveBrandPalette = mergePaletteOverride(detectedPalette, parsePaletteOverride(clean(form.get('paletteOverride'), 400)));
 		const myBrandTypography = brandStyle?.typography;
 		const urlBrandTypography = urlBrand?.typography || undefined;
 		const effectiveBrandTypography = typoMode === 'brand' ? myBrandTypography : typoMode === 'url' ? urlBrandTypography : undefined;
