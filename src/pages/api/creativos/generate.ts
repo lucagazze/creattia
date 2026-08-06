@@ -11,7 +11,7 @@ import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
-import { buildClonePrompt, mergePaletteOverride, parseBrandOverride, parsePaletteOverride } from '../../../lib/creattia/generation-pipeline';
+import { buildClonePrompt, mergePaletteOverride, parseBrandOverride, parsePaletteOverride, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 
 export const prerender = false;
@@ -199,7 +199,12 @@ export const POST: APIRoute = async ({ request }) => {
 		// del usuario sin que nadie lo pidiera.
 		const includeLogo = clean(form.get('includeLogo'), 2) === '1';
 		const subjectModeParam = clean(form.get('subjectMode'), 12);
-		const subjectMode = ['product', 'service', 'saas', 'brand'].includes(subjectModeParam) ? subjectModeParam as 'product' | 'service' | 'saas' | 'brand' : 'product';
+		// 'catalog' faltaba en esta lista: el flujo lo mandaba al detectar una
+		// tienda, no matcheaba, y caía al valor por defecto 'product'. Por eso un
+		// anuncio de la tienda terminaba hablando de un solo artículo.
+		const requestedSubjectMode = SUBJECT_MODES.includes(subjectModeParam as SubjectMode)
+			? subjectModeParam as SubjectMode
+			: null;
 		const avatarId = clean(form.get('avatarId'), 80);
 		const effectiveBrief = stripWebReferences(brief);
 		const brandSourceParam = clean(form.get('brandSource'), 10);
@@ -266,6 +271,15 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 
+		let sourceGeneration: { id: string; output_path: string; product_id: string | null } | null = null;
+		if (sourceGenerationId) {
+			const { data, error } = await admin.from('creative_generations').select('id,output_path,product_id,settings_snapshot')
+				.eq('id', sourceGenerationId).eq('user_id', auth.user.id).eq('status', 'completed').maybeSingle();
+			if (error) throw error;
+			if (!data?.output_path) return json({ error: 'La imagen de referencia no está disponible.' }, 400);
+			sourceGeneration = data;
+		}
+
 		const manualProductName = clean(form.get('productName'), 120);
 		const manualProductFacts = clean(form.get('productFacts'), 1200);
 		if (!storedProducts.length && manualProductName) {
@@ -280,11 +294,22 @@ export const POST: APIRoute = async ({ request }) => {
 				analysis: { category: '' }
 			}];
 		}
+		// De qué habla el anuncio. Al regenerar se hereda de la imagen original
+		// salvo que se pida otro: sin esto, una imagen de la tienda se rehacía
+		// como si hablara de un solo producto, porque el default es 'product'.
+		const heredado = String((sourceGeneration as any)?.settings_snapshot?.subjectMode || '');
+		const subjectMode: SubjectMode = requestedSubjectMode
+			|| (SUBJECT_MODES.includes(heredado as SubjectMode) ? heredado as SubjectMode : 'product');
+		const usesRealProducts = usesRealProductPhotos(subjectMode);
+
 		// ── De quién es el anuncio: la marca del sitio del producto, la guardada
 		// en "Mi marca", o ninguna. Se resuelve acá para no repetir profile?.x
 		// en cada uso del prompt más abajo.
 		const urlBrand = (storedProducts[0] as any)?.metadata?.brandFromUrl || null;
-		if (subjectMode !== 'product') {
+		// Un catálogo se apoya en productos reales igual que una ficha: lo que
+		// cambia es de qué habla el texto, no si hay fotos. Colapsarlo en una sola
+		// entrada sintética le sacaba las fotos y lo volvía un anuncio de marca.
+		if (!usesRealProducts) {
 			const serviceName = manualProductName || (brandSourceParam === 'mine' ? profile?.brand_name : brandSourceParam === 'url' ? urlBrand?.name : '') || 'el servicio o la marca';
 			const serviceFacts = manualProductFacts || urlBrand?.styleSummary || '';
 			if (storedProducts.length) {
@@ -314,15 +339,6 @@ export const POST: APIRoute = async ({ request }) => {
 		const hasReferenceOrSource = !!(referencePath || sourceGenerationId);
 		if (imageType !== 'promotion' && !hasReferenceOrSource && !storedProducts.length && !(product instanceof File && product.size > 0)) {
 			return json({ error: 'Elegí al menos un producto para este tipo de imagen, o seleccioná un anuncio de referencia.' }, 400);
-		}
-
-		let sourceGeneration: { id: string; output_path: string; product_id: string | null } | null = null;
-		if (sourceGenerationId) {
-			const { data, error } = await admin.from('creative_generations').select('id,output_path,product_id,settings_snapshot')
-				.eq('id', sourceGenerationId).eq('user_id', auth.user.id).eq('status', 'completed').maybeSingle();
-			if (error) throw error;
-			if (!data?.output_path) return json({ error: 'La imagen de referencia no está disponible.' }, 400);
-			sourceGeneration = data;
 		}
 
 		const access = await getEffectiveAccess(admin, auth.user.id, auth.user.email);
@@ -382,6 +398,12 @@ export const POST: APIRoute = async ({ request }) => {
 			format, language, imageType, preset, productIds, productNames: storedProducts.map((item) => item.name),
 			includeLogo,
 			subjectMode,
+			// De dónde salió el contenido: al regenerar se vuelve a la misma
+			// fuente en vez de pedirla otra vez.
+			sourceUrl: (storedProducts[0] as any)?.metadata?.sourceUrl
+				|| (storedProducts[0] as any)?.product_url
+				|| (sourceGeneration as any)?.settings_snapshot?.sourceUrl
+				|| null,
 			avatarId: avatarId || null,
 			// Las revisiones heredan el anuncio ganador de la imagen original.
 			referencePath: storedReference?.image_path || (sourceGeneration as any)?.settings_snapshot?.referencePath || null,
@@ -466,7 +488,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const productInputPlan: Array<{ product: any; path: string; photoIndex: number }> = [];
 		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
 		const productVisionInputs: Array<{ buffer: Buffer; type: string }> = [];
-		if (subjectMode === 'product') for (const storedProduct of storedProducts) {
+		if (usesRealProducts) for (const storedProduct of storedProducts) {
 			if (storedProduct.id === 'manual') continue;
 			const paths = [...new Set([
 				storedProduct.image_path,
@@ -475,7 +497,7 @@ export const POST: APIRoute = async ({ request }) => {
 			if (!paths.length) throw new Error(`${storedProduct.name} todavía no tiene una foto disponible.`);
 			productInputPlan.push({ product: storedProduct, path: paths[0], photoIndex: 1 });
 		}
-		if (subjectMode === 'product') for (const storedProduct of storedProducts) {
+		if (usesRealProducts) for (const storedProduct of storedProducts) {
 			if (storedProduct.id === 'manual') continue;
 			if (productInputPlan.length >= 8) break;
 			const paths = [...new Set([

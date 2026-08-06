@@ -916,6 +916,8 @@ export default function CreativeApp() {
 					outputIndex: row.output_index,
 					referencePath: row.settings_snapshot?.referencePath || '',
 					referenceName: row.settings_snapshot?.referenceName || '',
+					subjectMode: row.settings_snapshot?.subjectMode || 'product',
+					sourceUrl: row.settings_snapshot?.sourceUrl || '',
 					error: row.error_code || '',
 					status: row.status,
 				} as any);

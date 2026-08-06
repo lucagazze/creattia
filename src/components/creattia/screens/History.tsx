@@ -730,6 +730,14 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 	const [brandError, setBrandError] = useState('');
 	/** Si además de la marca se toman los colores y la tipografía de esa web. */
 	const [applyBrandStyle, setApplyBrandStyle] = useState(true);
+	/**
+	 * De qué habla la nueva versión. Se hereda de la imagen original: sin esto el
+	 * servidor caía en "un producto" y una imagen de la tienda se rehacía
+	 * hablando de un artículo suelto.
+	 */
+	const [subjectMode, setSubjectMode] = useState<'catalog' | 'product' | 'service'>(
+		item.subjectMode === 'catalog' ? 'catalog' : item.subjectMode && item.subjectMode !== 'product' ? 'service' : 'product',
+	);
 
 	async function loadBrandFromUrl() {
 		const url = brandUrl.trim();
@@ -755,7 +763,9 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 	const [catalogProductId, setCatalogProductId] = useState(originalProductId);
 	const [localProducts, setLocalProducts] = useState<Product[]>(products);
 	
-	const [fastUrl, setFastUrl] = useState('');
+	// Arranca con la URL de la que salió la imagen: regenerar "en base a la URL"
+	// no debería obligar a buscarla y pegarla de nuevo.
+	const [fastUrl, setFastUrl] = useState(item.sourceUrl || '');
 	const [fastImporting, setFastImporting] = useState(false);
 
 	const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -818,6 +828,7 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 			form.set('count', '1');
 			form.set('brief', revision.trim());
 			form.set('includeLogo', includeLogo ? '1' : '0');
+			form.set('subjectMode', subjectMode);
 			form.set('brandSource', includeLogo ? (logoSource === 'url' ? 'url' : 'mine') : 'none');
 			// Identidad de otra web: el logo siempre, y los colores y la tipografía
 			// solo si se pidió reemplazarlos también.
@@ -963,6 +974,38 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 								))}
 							</div>
 
+							{/* De qué habla la nueva versión. Se muestra siempre, con lo
+							    heredado marcado: antes no había forma de saber que una imagen
+							    de la tienda se iba a rehacer como si fuera de un producto. */}
+							<div className="regen-subject">
+								<strong>¿De qué habla esta versión?</strong>
+								<div className="regen-subject-options" role="radiogroup" aria-label="De qué habla esta versión">
+									{([
+										{ value: 'catalog', label: 'La tienda' },
+										{ value: 'product', label: 'Un producto' },
+										{ value: 'service', label: 'Un servicio' },
+									] as const).map((option) => (
+										<button
+											key={option.value}
+											type="button"
+											role="radio"
+											aria-checked={subjectMode === option.value}
+											className={subjectMode === option.value ? 'active' : ''}
+											onClick={() => setSubjectMode(option.value)}
+										>
+											{option.label}
+										</button>
+									))}
+								</div>
+								<small>
+									{subjectMode === 'catalog'
+										? 'Los textos van a hablar de la tienda y su variedad, sin poner un producto de protagonista.'
+										: subjectMode === 'service'
+											? 'Los textos van a hablar del servicio y su resultado, sin describir un objeto físico.'
+											: 'Los textos van a hablar del producto elegido, con su nombre y sus datos reales.'}
+								</small>
+							</div>
+
 							{productMode === 'keep' && (
 								<p style={{ margin: 0, fontSize: '12px', color: '#128a51', fontWeight: 600 }}>✓ Se usará el mismo producto de la imagen original.</p>
 							)}
@@ -982,11 +1025,14 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 
 							{productMode === 'url' && (
 								<div style={{ display: 'flex', gap: '6px' }}>
-									<input
+									<UrlInput
+										className="is-compact"
 										value={fastUrl}
-										onChange={(e) => setFastUrl(e.target.value)}
-										placeholder="Pega la URL del producto..."
-										style={{ flex: 1, height: '36px', boxSizing: 'border-box', padding: '0 10px', borderRadius: '8px', border: '1px solid #e2dde9', fontSize: '12.5px' }}
+										onChange={setFastUrl}
+										placeholder="Pegá la URL del producto o de la tienda…"
+										ariaLabel="URL para regenerar"
+										onEnter={() => { if (!fastImporting && fastUrl.trim()) void handleFastImport(); }}
+										style={{ flex: 1 }}
 									/>
 									<button
 										type="button"

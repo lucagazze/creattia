@@ -172,12 +172,27 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	const avatarInputs = (input.avatarImages || []).filter((photo, index, all) => Boolean(photo.b64) && all.findIndex((candidate) => candidate.b64 === photo.b64) === index).slice(0, 8);
 	const hasAvatarImages = avatarInputs.length > 0;
 	const subjectMode = input.subjectMode || (hasProductImages ? 'product' : 'brand');
+	// De qué habla el anuncio. Antes solo se distinguía "producto" de "todo lo
+	// demás", así que un catálogo caía en la rama de servicio/SaaS —que prohíbe
+	// mostrar producto físico— y el copy sugerido hablaba igual de un artículo
+	// suelto. El sujeto tiene que gobernar tanto la imagen como cada texto.
+	const subjectDirective = subjectMode === 'product'
+		? 'The target is ONE physical product and its exact geometry must be preserved.'
+		: subjectMode === 'catalog'
+			? 'The target is a STORE, not a single item. The supplied photos are a selection of what it sells: treat them as a group of equals. Preserve the real geometry of each one, never promote one to hero with the others as props, and never invent a product that was not supplied.'
+			: 'The target is a service, SaaS or brand-led offer. Do not invent a physical package or generic product. Build the visual around the interface, logo/avatar, people, result, workflow, environment or abstract brand world that best communicates the offer.';
+	const copyDirective = subjectMode === 'catalog'
+		? `COPY SUBJECT (CRITICAL) — Every string you write (primaryText, headline, description, cta and every textZone replacement) must talk about THE STORE AS A WHOLE${input.brandName ? ` (${input.brandName})` : ''}: its range, what it sells, who it is for, and why buy there. Never name a single product as the protagonist, never write a price, a spec, a size or a stock claim that belongs to one item, and never write a CTA that leads to one product page ("Comprá el modelo X"). Write what would still be true if the selection of products changed tomorrow.`
+		: subjectMode === 'product'
+			? `COPY SUBJECT (CRITICAL) — Every string you write (primaryText, headline, description, cta and every textZone replacement) must talk about THIS SPECIFIC PRODUCT: ${input.productName || 'the supplied product'}. Use its real name, its verified facts and its actual benefit. Do not fall back to generic store or brand messaging ("nuestra tienda", "envíos a todo el país", "las mejores marcas") when the ad is about one product: that wastes the space the winning ad used to sell.`
+			: `COPY SUBJECT (CRITICAL) — Every string you write must talk about the offer as a whole: the outcome it delivers and the problem it removes. Do not describe a physical object that does not exist.`;
 	const languageRule = input.language && LANGUAGE_NAMES[input.language]
 		? `TARGET LANGUAGE IS ${LANGUAGE_NAMES[input.language].toUpperCase()} AND IT IS NOT NEGOTIABLE. Every replacement string you produce — headline, description, CTA, every text zone — must be written in ${LANGUAGE_NAMES[input.language]}, even when the template you are analysing is written in a different language. Do NOT copy or keep the template's original language. Translate and adapt the message instead. Set "language" to "${input.language}".`
 		: 'Detect the language used by the winning ad, set "language" to "es", "en", "fr", "it", "pt" or "de", and write replacement suggestions in that language.';
 	const systemPrompt = `You are a senior performance ad designer. You receive: (1) ${isCarouselReference ? 'multiple pages of one winning carousel, in order' : 'one winning static ad TEMPLATE image'}${hasProductImages ? ', (2) one or more photos of the SAME real product/SKU from different views' : ''}${hasAvatarImages ? ', (3) several reference photos of the same person/avatar' : ''}, and verified context.
 
-TARGET SUBJECT MODE: ${subjectMode}. ${subjectMode === 'product' ? 'The target is a physical product and its exact geometry must be preserved.' : 'The target is a service, SaaS or brand-led offer. Do not invent a physical package or generic product. Build the visual around the interface, logo/avatar, people, result, workflow, environment or abstract brand world that best communicates the offer.'}
+TARGET SUBJECT MODE: ${subjectMode}. ${subjectDirective}
+${copyDirective}
 ${input.brandPalette ? `VERIFIED URL/BRAND PALETTE: background ${input.brandPalette.background || 'unknown'}, accent ${input.brandPalette.accent || 'unknown'}, text ${input.brandPalette.text || 'unknown'}${input.brandPalette.secondary ? `, secondary ${input.brandPalette.secondary}` : ''}.` : ''}
 ${hasAvatarImages ? `AVATAR REFERENCE: ${input.avatarDescription || 'Use these photos only to preserve the chosen person/avatar identity; do not treat them as a product.'}` : ''}
 
@@ -442,7 +457,15 @@ export function buildReferenceClonePrompt(input: {
 	const subjectMode = input.subjectMode || 'product';
 	const isCatalogSubject = subjectMode === 'catalog';
 	const isPhysicalSubject = subjectMode === 'product' || isCatalogSubject;
-	const productLabel = input.productNames.length ? input.productNames.join(' + ') : (isPhysicalSubject ? 'the real product supplied by the user' : 'the service or SaaS offer supplied by the user');
+	// A qué se refieren las instrucciones de texto. Para un catálogo NO puede ser
+	// la lista de nombres: "adaptá el mensaje a A + B + C" empuja al modelo a
+	// hablar de artículos sueltos, que es justo lo contrario de un anuncio de la
+	// tienda. Ahí el sujeto es el negocio, y los productos son la muestra.
+	const productLabel = isCatalogSubject
+		? `${input.brandName ? `the store ${input.brandName}` : 'the store'} as a whole, using the supplied products only as a sample of its range`
+		: input.productNames.length
+			? input.productNames.join(' + ')
+			: (isPhysicalSubject ? 'the real product supplied by the user' : 'the service or SaaS offer supplied by the user');
 	const verifiedProductFacts = (input.productFacts || []).filter(Boolean);
 	const referenceHasProduct = input.analysis?.referenceHasProduct !== false;
 

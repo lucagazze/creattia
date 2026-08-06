@@ -61,6 +61,10 @@ export type Generation = {
 	referenceUrl?: string;
 	/** Anuncio ganador que se usó como referencia para generar esta imagen. */
 	referencePath?: string;
+	/** De qué hablaba el anuncio: sirve para que regenerar no cambie de tema. */
+	subjectMode?: 'product' | 'service' | 'saas' | 'brand' | 'catalog';
+	/** URL de la que salió, para poder rehacerla con la misma fuente. */
+	sourceUrl?: string;
 	referenceName?: string;
 	status?: 'processing' | 'completed' | 'failed';
 	error?: string;

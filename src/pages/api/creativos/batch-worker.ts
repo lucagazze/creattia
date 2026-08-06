@@ -8,7 +8,7 @@ import {
 } from '../../../lib/creattia/ad-analysis';
 import type { EngineImage } from '../../../lib/creattia/image-engines';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
-import { detectImageType, mergePaletteOverride, renderReferenceClone } from '../../../lib/creattia/generation-pipeline';
+import { detectImageType, mergePaletteOverride, renderReferenceClone, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { authenticateRequest, closeGenerationsAndCountRefunds, getAdminClient, json } from '../../../lib/creattia/server';
 import { readLimited, safeExternalFetch } from '../../../lib/creattia/safe-fetch';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
@@ -96,8 +96,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const snapshot: any = row.settings_snapshot || {};
 		const requestedFormat = String(row.format || snapshot.format || 'original');
 		const brief = stripWebReferences(row.user_brief);
-		const subjectMode = ['product', 'service', 'saas', 'brand'].includes(String(snapshot.subjectMode))
-			? String(snapshot.subjectMode) as 'product' | 'service' | 'saas' | 'brand'
+		const subjectMode = SUBJECT_MODES.includes(String(snapshot.subjectMode) as SubjectMode)
+			? String(snapshot.subjectMode) as SubjectMode
 			: 'product';
 
 		// ── 1. El anuncio ganador que hay que clonar ──────────────────────────
@@ -117,7 +117,9 @@ export const POST: APIRoute = async ({ request }) => {
 				.select('name,description,price_text,currency,image_path,analysis,metadata')
 				.eq('id', productId).eq('user_id', userId).maybeSingle();
 			productRecord = product;
-			if (subjectMode === 'product') {
+			// El catálogo también necesita las fotos reales: lo que cambia es de
+			// qué habla el texto, no si se muestran los productos.
+			if (usesRealProductPhotos(subjectMode)) {
 			const paths: string[] = [];
 			if (product?.image_path) paths.push(product.image_path);
 			const extraImages = await listProductImageRows(admin, userId, [productId]);
@@ -134,13 +136,13 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 		// En modo texto no hay fotos y está bien: se clonan ganadores que no
 		// muestran producto y la composición visual se clona tal como está.
-		const textMode = snapshot.textMode === true || subjectMode !== 'product' || !productId;
+		const textMode = snapshot.textMode === true || !usesRealProductPhotos(subjectMode) || !productId;
 		const allowNoProductImage = snapshot.allowNoProductImage === true;
 		if (!productImages.length && !textMode && !allowNoProductImage) {
 			throw new Error('No hay ninguna foto real del producto disponible para clonar el anuncio.');
 		}
 
-		const productName = subjectMode === 'product'
+		const productName = usesRealProductPhotos(subjectMode)
 			? (productRecord?.name || snapshot.productName || row.title || 'el producto')
 			: (snapshot.productName || productRecord?.metadata?.brandFromUrl?.name || row.title || 'el servicio o la marca');
 		// Cada fila del lote (y cada página del carrusel) clona un ganador con un
@@ -148,7 +150,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const productNames = [productName];
 		// Datos verificados del producto para reconstruirlo visualmente. Nunca se
 		// completa con supuestos.
-		const productFacts = subjectMode === 'product' ? [
+		const productFacts = usesRealProductPhotos(subjectMode) ? [
 			productRecord?.description || snapshot.productDescription,
 			(productRecord?.price_text || snapshot.productPriceText)
 				&& `Precio exacto tal como figura en la web: ${productRecord?.price_text || snapshot.productPriceText}`,

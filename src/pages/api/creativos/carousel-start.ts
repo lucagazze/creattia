@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
-import { parsePaletteOverride } from '../../../lib/creattia/generation-pipeline';
+import { parsePaletteOverride, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { loadWinners } from '../../../lib/creattia/winner-picker';
 import { FREE_PREVIEW_REFERENCE_PATHS, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
@@ -37,10 +37,10 @@ export const POST: APIRoute = async ({ request }) => {
 
 		const referenceName = String(body?.referenceName || 'Carrusel ganador').slice(0, 180);
 		const subjectModeParam = String(body?.subjectMode || 'product');
-		const subjectMode = ['product', 'service', 'saas', 'brand'].includes(subjectModeParam)
-			? subjectModeParam as 'product' | 'service' | 'saas' | 'brand'
+		const subjectMode = SUBJECT_MODES.includes(subjectModeParam as SubjectMode)
+			? subjectModeParam as SubjectMode
 			: 'product';
-		const productRequired = subjectMode === 'product';
+		const productRequired = usesRealProductPhotos(subjectMode);
 		const subjectName = String(body?.productName || '').trim().slice(0, 120);
 		const subjectDescription = String(body?.productDescription || '').trim().slice(0, 1200);
 		const templateId = Number(body?.templateId);

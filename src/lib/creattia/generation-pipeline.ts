@@ -24,6 +24,21 @@ import type { QualityTier } from './quality-router';
  *   Es lo que corresponde cuando se pasó la home de la tienda o una categoría.
  */
 export type SubjectMode = 'product' | 'service' | 'saas' | 'brand' | 'catalog';
+
+/**
+ * Los sujetos válidos, en un solo lugar.
+ *
+ * Estaban repetidos a mano en cada endpoint como `['product','service','saas','brand']`,
+ * y cuando se sumó 'catalog' al tipo esas listas quedaron desactualizadas: el
+ * valor llegaba, no matcheaba, y caía silenciosamente en 'product'. Un anuncio
+ * de la tienda terminaba hablando de un solo artículo sin que nada fallara.
+ */
+export const SUBJECT_MODES: SubjectMode[] = ['product', 'service', 'saas', 'brand', 'catalog'];
+
+/** Ficha y catálogo se apoyan en fotos reales de productos; el resto no. */
+export function usesRealProductPhotos(mode: SubjectMode): boolean {
+	return mode === 'product' || mode === 'catalog';
+}
 export type StyleMode = 'winner' | 'url' | 'brand';
 /** Paleta detectada de la web de la marca, tal como la entiende ad-analysis. */
 export type BrandPalette = { background?: string; text?: string; accent?: string; secondary?: string; source?: string };
