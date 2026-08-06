@@ -37,6 +37,9 @@ npm run dev
   helpers compartidos.
 - `Icon.tsx`, `demo-mode.ts`, `history-utils.ts`, `download.ts` — utilidades.
 
+Si la generación de imágenes falla, `npm run diagnose` dice exactamente qué
+pieza está rota (claves, funciones de base, biblioteca, motores).
+
 Antes de subir un cambio:
 
 ```bash

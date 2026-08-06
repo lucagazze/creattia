@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { listProductImageRows } from '../../../lib/creattia/product-media';
+import { loadWinners } from '../../../lib/creattia/winner-picker';
+import { FREE_PREVIEW_REFERENCE_PATHS, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -44,10 +46,32 @@ export const POST: APIRoute = async ({ request }) => {
 		const slides: string[] = Array.isArray(body?.referenceSlidePaths)
 			? [...new Set(body.referenceSlidePaths.map((v: unknown) => String(v || '').trim()).filter(Boolean))] as string[]
 			: [];
-		const pathPattern = /^[0-9]+\/[a-f0-9]{8,}\.(png|jpe?g|webp|avif)$/i;
 		if (slides.length < 2) return json({ error: 'Un carrusel necesita al menos 2 páginas.' }, 400);
 		if (slides.length > 12) return json({ error: 'El máximo por carrusel es 12 páginas.' }, 400);
-		if (!slides.every((path) => pathPattern.test(path))) return json({ error: 'Alguna página del carrusel no es válida.' }, 400);
+
+		// Las páginas tienen que existir en la biblioteca y estar habilitadas para
+		// el plan. Antes alcanzaba con que la ruta tuviera forma de ruta, así que
+		// una cuenta gratuita podía armar un carrusel con la biblioteca paga.
+		const siteOrigin = new URL(request.url).origin;
+		const allWinners = await loadWinners(siteOrigin);
+		const knownPaths = new Set<string>();
+		for (const winner of allWinners) {
+			knownPaths.add(winner.imagePath);
+			for (const slide of winner.metadata?.carouselImages || []) knownPaths.add(slide);
+		}
+		const unknown = slides.filter((path) => !knownPaths.has(path));
+		if (unknown.length) {
+			return json({ error: 'Alguna página del carrusel ya no está disponible en la biblioteca.' }, 400);
+		}
+		if (!hasFullLibraryAccess(access)) {
+			const locked = slides.filter((path) => !FREE_PREVIEW_REFERENCE_PATHS.has(path));
+			if (locked.length) {
+				return json({
+					error: 'Ese carrusel es parte de la biblioteca completa. Activá un plan para usarlo.',
+					code: 'LIBRARY_LOCKED',
+				}, 402);
+			}
+		}
 		if (!Number.isInteger(templateId) || templateId < 1) return json({ error: 'El carrusel elegido no es válido.' }, 400);
 
 		const productIds: string[] = Array.isArray(body?.productIds)
@@ -73,6 +97,10 @@ export const POST: APIRoute = async ({ request }) => {
 			Array.isArray(body?.logoSlideIndexes) ? body.logoSlideIndexes.map((v: unknown) => Number(v)).filter((n: number) => Number.isInteger(n) && n >= 0) : []
 		);
 		const approvedPlan = body?.approvedPlan && typeof body.approvedPlan === 'object' ? body.approvedPlan : null;
+		// Misma escala que el Studio y el lote: 'pro' renderiza en nivel alto y
+		// cuesta 3 créditos por página en vez de 1.
+		const quality = String(body?.quality || '') === 'pro' ? 'pro' : 'flash';
+		const creditsPerImage = quality === 'pro' ? 3 : 1;
 
 		// Los productos tienen que ser del usuario y tener al menos una foto real.
 		const uniqueProductIds = [...new Set(productIds)];
@@ -100,7 +128,7 @@ export const POST: APIRoute = async ({ request }) => {
 		if (!isUnlimited) {
 			const { data: reserveRes, error: creditError } = await admin.rpc('reserve_creative_credits', {
 				p_user_id: userId,
-				p_amount: count,
+				p_amount: count * creditsPerImage,
 			});
 			if (creditError) throw creditError;
 			if (reserveRes === -1) {
@@ -127,6 +155,7 @@ export const POST: APIRoute = async ({ request }) => {
 				requested_outputs: count,
 				settings_snapshot: {
 					format,
+					quality,
 					colorMode,
 					typoMode,
 					language,

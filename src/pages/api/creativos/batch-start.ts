@@ -51,6 +51,10 @@ export const POST: APIRoute = async ({ request }) => {
 		// El usuario elige explícitamente si quiere el logo en el anuncio o no —
 		// antes se agregaba solo si había uno disponible, sin preguntar.
 		const includeLogo = brandSource !== 'none' && Boolean(body?.includeLogo);
+		// Misma escala de calidad que el Studio: 'pro' renderiza en nivel alto y
+		// cuesta 3 créditos por imagen en vez de 1.
+		const quality = String(body?.quality || '') === 'pro' ? 'pro' : 'flash';
+		const creditsPerImage = quality === 'pro' ? 3 : 1;
 
 		// En modo manual se permite continuar sin foto; el nombre y la descripción
 		// siguen siendo obligatorios para que el anuncio tenga contexto.
@@ -103,18 +107,19 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const count = approved.length;
+		const creditsNeeded = count * creditsPerImage;
 
-		// Créditos: 1 por anuncio, reservados recién ahora que el usuario confirmó.
+		// Créditos reservados recién ahora que el usuario confirmó el lote.
 		if (!isUnlimited) {
 			const { data: reserveRes, error: creditError } = await admin.rpc('reserve_creative_credits', {
 				p_user_id: userId,
-				p_amount: count,
+				p_amount: creditsNeeded,
 			});
 			if (creditError) throw creditError;
 			if (reserveRes === -1) {
-				return json({ error: `No tenés créditos suficientes (${count} requeridos).`, code: 'NO_CREDITS' }, 402);
+				return json({ error: `No tenés créditos suficientes (${creditsNeeded} requeridos).`, code: 'NO_CREDITS' }, 402);
 			}
-			reserved = count;
+			reserved = creditsNeeded;
 		}
 
 		const batchId = crypto.randomUUID();
@@ -135,6 +140,7 @@ export const POST: APIRoute = async ({ request }) => {
 			requested_outputs: count,
 			settings_snapshot: {
 				format,
+				quality,
 				colorMode,
 				typoMode,
 				language,

@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { waitUntil } from '@vercel/functions';
 import { toFile } from 'openai';
-import { analyzeReferenceLayout, buildReferenceClonePrompt, normalizeImageInput, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
+import { analyzeReferenceLayout, normalizeImageInput, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import { generateAdImage } from '../../../lib/creattia/image-engines';
 import { authenticateRequest, checkRateLimit, closeGenerationsAndCountRefunds, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
@@ -11,6 +11,7 @@ import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
+import { buildClonePrompt } from '../../../lib/creattia/generation-pipeline';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -330,13 +331,15 @@ export const POST: APIRoute = async ({ request }) => {
 			storedReference = { id: null, image_path: verdict.path };
 		}
 		if (referenceId && !sourceGeneration) {
+			// Acá el cliente manda un id, no una ruta: la ruta sale de la tabla
+			// curada, con derechos verificados. No se contrasta contra el
+			// manifiesto de ganadores —son dos catálogos distintos— porque hacerlo
+			// rechazaba referencias perfectamente válidas.
 			const { data, error } = await admin.from('creative_references').select('id,image_path')
 				.eq('id', referenceId).eq('template_id', templateId).eq('is_active', true)
 				.in('rights_status', ['owned', 'licensed', 'public_domain']).maybeSingle();
 			if (error) throw error;
 			if (!data) return json({ error: 'La referencia no está disponible o todavía no tiene derechos verificados.' }, 400);
-			const verdict = await checkReferencePath(data.image_path, access, new URL(request.url).origin);
-			if (!verdict.ok) return json({ error: verdict.error, ...(verdict.code ? { code: verdict.code } : {}) }, verdict.status);
 			storedReference = data;
 		}
 
@@ -630,29 +633,26 @@ Rules:
 - Do not add publication copy, CTA buttons, offers, prices, URLs or social handles.
 The result must look like the same image with only that one adjustment applied.`;
 
-		const prompt = isExactRevision ? revisionPrompt : useClonePrompt ? buildReferenceClonePrompt({
+		// El prompt clon lo arma el módulo compartido con los lotes y carruseles:
+		// una sola definición para las tres formas de generar.
+		const cloneInput = {
 			productNames: storedProducts.map((item) => item.name),
 			productFacts: verifiedProductFacts,
 			brandName: effectiveBrandName || clean(form.get('brandName'), 80),
-			hasLogo,
 			brief: effectiveBrief,
-			analysis: layoutAnalysis,
-			languageCode: layoutAnalysis?.language || language,
-			adCopy: layoutAnalysis?.adCopy ? {
-				headline: layoutAnalysis.adCopy.headline,
-				subheadline: layoutAnalysis.adCopy.description,
-				cta: layoutAnalysis.adCopy.cta,
-				language: layoutAnalysis.language,
-			} : undefined,
+			language,
+			subjectMode,
 			colorMode,
 			typoMode,
 			brandColors: effectiveBrandColors,
 			brandTypography: effectiveBrandTypography,
 			brandPalette: effectiveBrandPalette,
-			subjectMode,
-			hasAvatarReference: avatarReferenceImages.length > 0,
 			avatarDescription,
-		}) : buildPrompt({
+			avatarImageCount: avatarReferenceImages.length,
+		};
+		const prompt = isExactRevision ? revisionPrompt : useClonePrompt
+			? buildClonePrompt(cloneInput, layoutAnalysis, hasLogo)
+			: buildPrompt({
 			templateName,
 			purpose: templatePurpose,
 			usageHint: templateUsageHint,

@@ -66,7 +66,19 @@ Después de desplegar, verificar:
 | Gasto de IA sin créditos | `checkRateLimit(..., failClosed: true)` en los endpoints que llaman modelos |
 | SSRF por URLs de sitios de terceros | `safeExternalFetch` + `readLimited` |
 
-## 4. Reportar una vulnerabilidad
+## 4. Si la generación deja de funcionar
+
+```bash
+npm run diagnose
+```
+
+Prueba de verdad cada pieza contra la configuración real —variables, funciones
+de base, manifiesto de la biblioteca, OpenAI y Gemini— e imprime el motivo de
+las últimas generaciones fallidas. No muestra ninguna credencial.
+
+El error real de cada generación también queda en `creative_generations.error_code`.
+
+## 5. Reportar una vulnerabilidad
 
 Escribir a algoritmiadesarrollos@gmail.com con el detalle y, si aplica, los pasos
 para reproducirla.

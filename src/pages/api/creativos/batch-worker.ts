@@ -6,8 +6,9 @@ import {
 	LANGUAGE_NAMES,
 	type LayoutAnalysis,
 } from '../../../lib/creattia/ad-analysis';
-import { generateAdImage, type EngineImage } from '../../../lib/creattia/image-engines';
+import type { EngineImage } from '../../../lib/creattia/image-engines';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
+import { detectImageType, renderReferenceClone } from '../../../lib/creattia/generation-pipeline';
 import { authenticateRequest, closeGenerationsAndCountRefunds, getAdminClient, json } from '../../../lib/creattia/server';
 import { readLimited, safeExternalFetch } from '../../../lib/creattia/safe-fetch';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
@@ -47,6 +48,8 @@ export const POST: APIRoute = async ({ request }) => {
 	const isUnlimited = access.isUnlimited;
 
 	let generationId = '';
+	// Se recuerda para poder reembolsar lo que realmente se cobró si algo falla.
+	let failedQuality: string = 'flash';
 	try {
 		const body = await request.json().catch(() => ({}));
 		generationId = String(body?.generationId || '').trim();
@@ -73,6 +76,7 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const snapshot: any = row.settings_snapshot || {};
+		failedQuality = snapshot.quality === 'pro' ? 'pro' : 'flash';
 		const requestedFormat = String(row.format || snapshot.format || 'original');
 		const brief = stripWebReferences(row.user_brief);
 		const subjectMode = ['product', 'service', 'saas', 'brand'].includes(String(snapshot.subjectMode))
@@ -122,6 +126,9 @@ export const POST: APIRoute = async ({ request }) => {
 		const productName = subjectMode === 'product'
 			? (productRecord?.name || snapshot.productName || row.title || 'el producto')
 			: (snapshot.productName || productRecord?.metadata?.brandFromUrl?.name || row.title || 'el servicio o la marca');
+		// Cada fila del lote (y cada página del carrusel) clona un ganador con un
+		// producto. El prompt recibe la lista igual que en el Studio.
+		const productNames = [productName];
 		// Datos verificados del producto para reconstruirlo visualmente. Nunca se
 		// completa con supuestos.
 		const productFacts = subjectMode === 'product' ? [
@@ -197,106 +204,59 @@ export const POST: APIRoute = async ({ request }) => {
 				avatarReferenceImages.push({ buffer: image.buffer, type: image.type });
 			}
 		}
-		// ── 4. Análisis visual del ganador y de las áreas de imagen ──────────────
+		// ── 4. Análisis + prompt + render ────────────────────────────────────
+		// Mismo pipeline que usa el Studio para una imagen suelta: acá vivía una
+		// segunda copia que se había quedado atrás (un solo producto, menos fotos,
+		// sin opción de calidad alta), así que un lote daba peor resultado que la
+		// misma referencia generada de a una.
 		const approvedCarouselPlan = snapshot.approvedPlan && typeof snapshot.approvedPlan === 'object'
 			? snapshot.approvedPlan as LayoutAnalysis
 			: null;
-		let analysis: LayoutAnalysis | null = approvedCarouselPlan ? {
+		const slideNumber = Number(snapshot.carouselIndex || row.output_index || 1);
+		// En un carrusel el plan aprobado cubre TODAS las páginas: se recorta a la
+		// que le toca a esta fila.
+		const approvedPlan: LayoutAnalysis | null = approvedCarouselPlan ? {
 			...approvedCarouselPlan,
-			textZones: approvedCarouselPlan.textZones?.filter((zone: any) => !zone.slide || zone.slide === Number(snapshot.carouselIndex || row.output_index || 1)),
-			people: approvedCarouselPlan.people?.filter((person: any) => !person.slide || person.slide === Number(snapshot.carouselIndex || row.output_index || 1)),
-			comparisonItems: approvedCarouselPlan.comparisonItems?.filter((item: any) => !item.slide || item.slide === Number(snapshot.carouselIndex || row.output_index || 1)),
-			creativeDecisions: approvedCarouselPlan.creativeDecisions?.filter((decision: any) => !decision.slide || decision.slide === Number(snapshot.carouselIndex || row.output_index || 1)),
+			textZones: approvedCarouselPlan.textZones?.filter((zone: any) => !zone.slide || zone.slide === slideNumber),
+			people: approvedCarouselPlan.people?.filter((person: any) => !person.slide || person.slide === slideNumber),
+			comparisonItems: approvedCarouselPlan.comparisonItems?.filter((item: any) => !item.slide || item.slide === slideNumber),
+			creativeDecisions: approvedCarouselPlan.creativeDecisions?.filter((decision: any) => !decision.slide || decision.slide === slideNumber),
 		} : null;
-		try {
-		if (!analysis) {
-			analysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
-				referenceB64: normalizedReference.buffer.toString('base64'),
-				referenceMime: normalizedReference.type,
-				productB64: productImages[0]?.buffer.toString('base64'),
-				productMime: productImages[0]?.type,
-				productName,
-				productFacts,
-				productImages: productImages.map((photo) => ({ b64: photo.buffer.toString('base64'), mime: photo.type })),
-				avatarImages: avatarReferenceImages.map((photo) => ({ b64: photo.buffer.toString('base64'), mime: photo.type })),
-				avatarDescription,
-				brandName,
-				language: snapshot.language || '',
-				subjectMode,
-				brandPalette,
-			});
-		}
-		} catch (analysisError) {
-			console.error(`[batch-worker ${generationId}] análisis de layout falló:`, analysisError);
-		}
-		const prompt = buildReferenceClonePrompt({
-			productNames: [productName],
-			brandName,
-			hasLogo,
-			brief,
-			analysis,
+
+		// Calidad: igual que en el Studio, 'pro' usa el nivel alto. `forceTier`
+		// sigue mandando para poder forzarla desde el snapshot.
+		const decision = pickQualityTier(approvedPlan, {
+			force: snapshot.forceTier || (snapshot.quality === 'pro' ? 'high' : undefined),
+		});
+		console.log(`[batch-worker ${generationId}] calidad ${decision.tier}: ${decision.reason}`);
+
+		const { buffer, engine, prompt, analysis } = await renderReferenceClone({
+			keys: { openAIKey, googleKey },
+			reference: { buffer: normalizedReference.buffer, type: normalizedReference.type },
+			productImages,
+			avatarImages: avatarReferenceImages,
+			logo: logoImage,
+			productNames,
 			productFacts: [productFacts],
-			languageCode: analysis?.language || (LANGUAGE_NAMES[snapshot.language] ? snapshot.language : undefined),
-			adCopy: analysis?.adCopy ? {
-				headline: analysis.adCopy.headline,
-				subheadline: analysis.adCopy.description,
-				cta: analysis.adCopy.cta,
-				language: analysis.language,
-			} : undefined,
+			brandName,
+			brief,
+			language: snapshot.language || '',
+			subjectMode,
 			colorMode: ['winner', 'url', 'brand'].includes(snapshot.colorMode) ? snapshot.colorMode : 'winner',
 			typoMode: ['winner', 'url', 'brand'].includes(snapshot.typoMode) ? snapshot.typoMode : 'winner',
 			brandColors,
 			brandTypography,
 			brandPalette,
-			subjectMode,
-			hasAvatarReference: avatarReferenceImages.length > 0,
 			avatarDescription,
-			carousel: snapshot.carousel ? { index: Number(snapshot.carouselIndex || row.output_index || 1), total: Number(snapshot.carouselTotal || 1) } : undefined,
-		});
-
-		// ── 5. Formato: 'original' toma la proporción real del ganador ────────
-		let format = requestedFormat;
-		if (format === 'original') {
-			format = '1:1';
-			try {
-				const sharp = (await import('sharp')).default;
-				const metadata = await sharp(normalizedReference.buffer).metadata();
-				if (metadata.width && metadata.height) format = closestFormat(metadata.width / metadata.height);
-			} catch { /* sin metadata: cuadrado */ }
-		}
-
-		// ── 6. Generar ────────────────────────────────────────────────────────
-		// Si el anuncio ganador NO muestra ningún producto (puro texto, tipografía
-		// grande sobre un fondo), se clona tal cual: solo cambia el copy. En ese
-		// caso las fotos del producto no se adjuntan, porque tenerlas a la vista
-		// hace que el modelo las pegue igual y arruine el diseño original.
-		const referenceShowsProduct = analysis?.referenceHasProduct !== false;
-		const engineImages: EngineImage[] = [
-			{ buffer: normalizedReference.buffer, type: normalizedReference.type },
-			...(referenceShowsProduct ? productImages : []),
-			...avatarReferenceImages,
-			...(logoImage ? [logoImage] : []),
-		];
-
-		// Nivel de calidad según lo que el anuncio necesite: 'low' cuesta 60% menos
-		// y alcanza salvo cuando hay letra chica en juego.
-		const decision = pickQualityTier(analysis, { force: snapshot.forceTier });
-		console.log(`[batch-worker ${generationId}] calidad ${decision.tier}: ${decision.reason}`);
-
-		const { buffer, engine } = await generateAdImage({
-			googleKey,
-			openAIKey,
-			prompt,
-			images: engineImages,
-			format,
+			approvedPlan,
+			requestedFormat,
 			tier: decision.tier,
+			carousel: snapshot.carousel ? { index: slideNumber, total: Number(snapshot.carouselTotal || 1) } : undefined,
+			logLabel: `[batch-worker ${generationId}]`,
 		});
 
-		// Gemini devuelve JPEG y OpenAI PNG: se etiqueta según los bytes reales,
-		// no a ojo, para que el navegador y la descarga reciban el tipo correcto.
-		const isPng = buffer.length > 4 && buffer[0] === 0x89 && buffer[1] === 0x50;
-		const extension = isPng ? 'png' : 'jpg';
-		const contentType = isPng ? 'image/png' : 'image/jpeg';
+		// Gemini devuelve JPEG y OpenAI PNG: se etiqueta según los bytes reales.
+		const { extension, contentType } = detectImageType(buffer);
 
 		const outputPath = `${userId}/generations/${row.batch_id || row.id}/${row.output_index || 1}.${extension}`;
 		const { error: uploadError } = await admin.storage.from(ASSETS)
@@ -346,7 +306,9 @@ export const POST: APIRoute = async ({ request }) => {
 			// fila. Si el barrido de colgadas ya la había cerrado, ya lo devolvió.
 			const closed = await closeGenerationsAndCountRefunds(admin, userId, [generationId], message);
 			if (!isUnlimited && closed.length) {
-				const { error: refundError } = await admin.rpc('refund_creative_credits', { p_user_id: userId, p_amount: 1 });
+				// Una imagen 'pro' se cobró 3 créditos: devolver 1 fijo le comía 2.
+				const refund = failedQuality === 'pro' ? 3 : 1;
+				const { error: refundError } = await admin.rpc('refund_creative_credits', { p_user_id: userId, p_amount: refund });
 				if (refundError) console.error('Refund falló:', refundError);
 			}
 		}

@@ -59,12 +59,31 @@ export async function checkRateLimit(
 			p_max_count: maxCount,
 			p_window_seconds: windowSeconds,
 		});
-		if (error) { console.error('check_rate_limit RPC error:', error); return !failClosed; }
+		if (error) {
+			// La función no existe todavía (migración sin aplicar). Eso es un
+			// problema de despliegue, no un abuso del usuario: bloquear acá dejaba
+			// la app entera sin generar. Se avisa fuerte y se deja pasar.
+			if (isMissingFunction(error)) {
+				console.error(
+					'[rate-limit] Falta la función check_rate_limit en la base. '
+					+ 'Aplicá supabase/migrations/*_rate_limit_events.sql — hasta entonces no hay tope de uso.',
+				);
+				return true;
+			}
+			console.error('check_rate_limit RPC error:', error);
+			return !failClosed;
+		}
 		return data !== false;
 	} catch (err) {
 		console.error('check_rate_limit falló:', err);
 		return !failClosed;
 	}
+}
+
+/** `undefined_function` de Postgres, o el 404 de PostgREST cuando no la encuentra. */
+function isMissingFunction(error: { code?: string; message?: string }) {
+	if (error.code === '42883' || error.code === 'PGRST202') return true;
+	return /could not find the function|does not exist/i.test(error.message || '');
 }
 
 /**
@@ -86,7 +105,7 @@ export async function closeGenerationsAndCountRefunds(
 	if (!generationIds.length) return [];
 	const { data, error } = await admin.from('creative_generations').update({
 		status: 'failed',
-		error_code: errorMessage.slice(0, 160),
+		error_code: errorMessage.slice(0, 500),
 		completed_at: new Date().toISOString(),
 	}).in('id', generationIds).eq('user_id', userId).eq('status', 'processing').select('id');
 	if (error) {
