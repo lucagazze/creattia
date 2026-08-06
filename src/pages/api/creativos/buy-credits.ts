@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { trackEvent } from '../../../lib/creattia/events';
 
 export const prerender = false;
 

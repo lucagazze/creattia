@@ -13,6 +13,7 @@ import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
 import { buildClonePrompt, mergePaletteOverride, parseBrandOverride, parsePaletteOverride, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
+import { trackEvent } from '../../../lib/creattia/events';
 
 export const prerender = false;
 export const maxDuration = 300;

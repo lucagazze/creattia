@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { analyzeReferenceLayout, normalizeImageInput } from '../../../lib/creattia/ad-analysis';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 import { SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { trackEvent } from '../../../lib/creattia/events';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -153,6 +154,7 @@ export const POST: APIRoute = async ({ request }) => {
 		});
 		if (!analysis) return json({ error: 'No pudimos analizar el anuncio. Probá de nuevo.' }, 502);
 
+		void trackEvent(admin, 'referencia_analizada', auth.user.id, { sujeto: subjectMode, idioma: language || 'auto' });
 		return json({ analysis: { ...analysis, subjectType: analysis.subjectType || subjectMode, brandPalette: analysis.brandPalette || brandPalette }, originalRatio });
 	} catch (error) {
 		return json({ error: error instanceof Error ? error.message : 'No se pudo preparar el plan.' }, 500);

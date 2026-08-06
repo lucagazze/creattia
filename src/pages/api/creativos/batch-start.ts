@@ -6,6 +6,7 @@ import { parsePaletteOverride } from '../../../lib/creattia/generation-pipeline'
 import { FREE_PREVIEW_REFERENCE_PATHS, freePreviewAngleFor, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
 import { countProductImages } from '../../../lib/creattia/product-media';
 import { SUBJECT_MODES, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { trackEvent } from '../../../lib/creattia/events';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -171,6 +172,7 @@ export const POST: APIRoute = async ({ request }) => {
 			status: 'processing',
 		}));
 
+		void trackEvent(admin, 'lote_pedido', userId, { cantidad: count, sujeto: subjectMode, formato: format });
 		const { data: inserted, error: insertError } = await admin.from('creative_generations')
 			.insert(generationRows).select('id,output_index,title,template_id,status,settings_snapshot');
 		if (insertError) {

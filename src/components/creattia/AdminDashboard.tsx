@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { Activity, CalendarDays, CircleDollarSign, CreditCard, FileText, MailCheck, ReceiptText, ShieldCheck, UserRound, WalletCards, X } from 'lucide-react';
 import './admin-dashboard.css';
+import { MetricsSection } from './MetricsSection';
 
 type AdminDashboardProps = { session: any };
-type Section = 'overview' | 'users' | 'payments' | 'activity';
+type Section = 'overview' | 'metrics' | 'users' | 'payments' | 'activity';
 type UserFilter = 'all' | 'active' | 'trial' | 'override' | 'unconfirmed';
 type UserSort = 'recent' | 'created' | 'usage' | 'payments' | 'credits';
 type ContextMenuState = { userId: string; x: number; y: number };
@@ -124,7 +125,7 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 	return (
 		<section className="admin-center">
 			<nav className="admin-tabs" aria-label="Secciones del centro admin">
-				{([['overview', 'Resumen'], ['users', 'Usuarios'], ['payments', 'Pagos'], ['activity', 'Actividad']] as Array<[Section, string]>).map(([id, label]) => <button key={id} className={section === id ? 'active' : ''} onClick={() => setSection(id)}>{label}</button>)}
+				{([['overview', 'Resumen'], ['metrics', 'Métricas'], ['users', 'Usuarios'], ['payments', 'Pagos'], ['activity', 'Actividad']] as Array<[Section, string]>).map(([id, label]) => <button key={id} className={section === id ? 'active' : ''} onClick={() => setSection(id)}>{label}</button>)}
 				<button className="admin-refresh" onClick={() => void loadOverview()} disabled={loading}>↻ Actualizar</button>
 			</nav>
 
@@ -141,6 +142,7 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 					</div>
 
 					{section === 'overview' && <OverviewSection overview={overview} onOpenUser={openUser} />}
+					{section === 'metrics' && <MetricsSection session={session} />}
 					{section === 'users' && <UsersSection users={users} selectedUserId={selectedUserId} onOpenUser={openUser} onQuickAction={applyAction} onNotice={setNotice} />}
 					{section === 'payments' && <PaymentsSection payments={overview?.recentPayments || []} />}
 					{section === 'activity' && <ActivitySection activity={overview?.activity || []} onOpenUser={openUser} />}

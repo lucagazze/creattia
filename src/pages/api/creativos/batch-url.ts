@@ -7,6 +7,7 @@ import { mirrorProductImages, mirrorProductVideos } from '../../../lib/creattia/
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
 import { countProductImages, upsertProductMediaRows } from '../../../lib/creattia/product-media';
+import { trackEvent } from '../../../lib/creattia/events';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -329,6 +330,11 @@ export const POST: APIRoute = async ({ request }) => {
 			domain: winner.metadata?.domain || '',
 		});
 
+		void trackEvent(admin, 'url_escaneada', userId, {
+			tipoPagina: scannedPage?.pageType || 'desconocido',
+			productos: (scannedPage?.products || []).length,
+			origen: 'lote',
+		});
 		return json({
 			// De qué habla la página, para que la revisión pueda ofrecer "la tienda"
 			// igual que en la generación individual.

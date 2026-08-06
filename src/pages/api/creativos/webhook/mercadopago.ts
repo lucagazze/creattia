@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { fail, getAdminClient, json } from '../../../../lib/creattia/server';
 import { planCredits } from '../../../../lib/creattia/subscription-plans';
+import { trackEvent } from '../../../../lib/creattia/events';
 
 export const prerender = false;
 
@@ -93,6 +94,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 			if (purchaseError.code === '23505') return json({ received: true, duplicated: true });
 			return fail('mercadopago-webhook', purchaseError, 'No se pudo procesar la notificación.');
 		}
+		void trackEvent(admin, 'tokens_comprados', userId, { cantidad: credits, monto: payment.transaction_amount || null });
 		const { error: creditError } = await admin.rpc('add_purchased_credits', { p_user_id: userId, p_amount: credits });
 		if (creditError) {
 			// Permitimos que Mercado Pago reintente el webhook si la acreditación

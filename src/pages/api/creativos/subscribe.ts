@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 
 import { yearlyPriceFor } from '../../../lib/creattia/subscription-plans';
+import { trackEvent } from '../../../lib/creattia/events';
 
 export const prerender = false;
 
@@ -272,6 +273,9 @@ export const POST: APIRoute = async ({ request, url }) => {
 
 	const payload = await response.json().catch(() => ({}));
 	const checkoutUrl = payload.init_point || payload.sandbox_init_point;
+	if (checkoutUrl) {
+		void trackEvent(admin, 'checkout_abierto', auth.user.id, { plan: planCode, ciclo: billingCycle, monto: transactionAmount });
+	}
 	if (!response.ok || !checkoutUrl) {
 		return json({ error: payload.message || 'Mercado Pago no pudo iniciar la suscripción.' }, 502);
 	}
@@ -325,6 +329,7 @@ export const DELETE: APIRoute = async ({ request }) => {
 
 	const response = await cancelProviderSubscription(subscription.provider_subscription_id, accessToken);
 	const payload = await response?.json().catch(() => ({})) || {};
+	if (response?.ok) void trackEvent(admin, 'plan_cancelado', auth.user.id, { plan: subscription.status });
 	if (!response?.ok) return json({ error: payload.message || 'Mercado Pago no pudo cancelar la suscripción.' }, 502);
 
 	const now = new Date().toISOString();
