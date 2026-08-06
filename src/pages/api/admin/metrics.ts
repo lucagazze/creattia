@@ -31,7 +31,7 @@ export const GET: APIRoute = async ({ request }) => {
 	const dias = [7, 30, 90, 365].includes(ventana) ? ventana : 30;
 	const inicio = desde(dias);
 
-	const [perfiles, generaciones, eventos, suscripciones, compras, cobros, bajas] = await Promise.all([
+	const [perfiles, generaciones, eventos, suscripciones, compras, cobros, bajas, errores] = await Promise.all([
 		admin.from('creative_profiles').select('user_id,created_at,credits_remaining,plan_code,subscription_status'),
 		admin.from('creative_generations').select('user_id,status,created_at,completed_at,settings_snapshot').gte('created_at', inicio),
 		admin.from('creative_events').select('user_id,event,props,created_at').gte('created_at', inicio),
@@ -39,6 +39,7 @@ export const GET: APIRoute = async ({ request }) => {
 		admin.from('creative_credit_purchases').select('user_id,credits,amount,currency,created_at'),
 		admin.from('creative_subscription_payments').select('user_id,plan_code,amount,currency,status,paid_at,created_at'),
 		admin.from('creative_cancellation_feedback').select('reason,comment,retained,plan_code,created_at'),
+		admin.from('creative_errors').select('context,message,fingerprint,user_id,created_at').gte('created_at', inicio).order('created_at', { ascending: false }).limit(2000),
 	]);
 
 	const usuarios = perfiles.data || [];
@@ -134,6 +135,33 @@ export const GET: APIRoute = async ({ request }) => {
 			})),
 		},
 		eventos: contar(evs, (e) => e.event),
+		// Agrupados por firma: lo que importa no es cuántos errores hubo sino
+		// cuáles se repiten, desde cuándo y a cuánta gente le pasan.
+		errores: (() => {
+			const porFirma = new Map<string, { contexto: string; mensaje: string; total: number; usuarios: Set<string>; ultimo: string }>();
+			for (const fila of errores.data || []) {
+				const actual = porFirma.get(fila.fingerprint) || {
+					contexto: fila.context, mensaje: fila.message, total: 0, usuarios: new Set<string>(), ultimo: fila.created_at,
+				};
+				actual.total += 1;
+				if (fila.user_id) actual.usuarios.add(fila.user_id);
+				if (fila.created_at > actual.ultimo) actual.ultimo = fila.created_at;
+				porFirma.set(fila.fingerprint, actual);
+			}
+			return {
+				total: (errores.data || []).length,
+				grupos: [...porFirma.values()]
+					.sort((a, b) => b.total - a.total)
+					.slice(0, 20)
+					.map((grupo) => ({
+						contexto: grupo.contexto,
+						mensaje: grupo.mensaje.slice(0, 180),
+						total: grupo.total,
+						usuarios: grupo.usuarios.size,
+						ultimo: grupo.ultimo,
+					})),
+			};
+		})(),
 		porDia: [...porDia.entries()]
 			.sort((a, b) => a[0].localeCompare(b[0]))
 			.map(([dia, datos]) => ({ dia, generaciones: datos.generaciones, usuarios: datos.usuarios.size })),

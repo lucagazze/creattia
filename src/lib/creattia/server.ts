@@ -120,8 +120,53 @@ export async function closeGenerationsAndCountRefunds(
  * servidor y nunca al cliente. Devolver `error.message` crudo filtraba nombres
  * de tablas, columnas y mensajes de Postgres en cada 500.
  */
-export function fail(context: string, error: unknown, message: string, status = 500) {
+/**
+ * Firma estable de un error, para poder agrupar repeticiones del mismo problema.
+ *
+ * Se le sacan los identificadores y los números: sin eso, el mismo fallo con
+ * distinto uuid cuenta como error nuevo cada vez y no se ve que se repite.
+ */
+function firmaDelError(context: string, texto: string) {
+	const normalizado = texto
+		.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<id>')
+		.replace(/\b\d+\b/g, '<n>')
+		.slice(0, 160);
+	return `${context}:${normalizado}`;
+}
+
+/**
+ * Responde con un error y lo deja registrado.
+ *
+ * Antes solo iba a console.error, o sea a los logs de Vercel: se retienen poco,
+ * no se agrupan y nadie los mira salvo que ya sepa que hay un problema. Los bugs
+ * que aparecieron hoy no dieron ninguna señal; se encontraron probando a mano.
+ *
+ * El registro nunca puede romper la respuesta: si falla el guardado, se pierde
+ * la métrica, no la petición del usuario.
+ */
+export function fail(context: string, error: unknown, message: string, status = 500, userId?: string | null) {
 	console.error(`[${context}]`, error);
+	const texto = error instanceof Error ? error.message : String(error);
+	try {
+		const admin = getAdminClient();
+		if (admin) {
+			void admin.from('creative_errors').insert({
+				context,
+				message: texto.slice(0, 1000),
+				fingerprint: firmaDelError(context, texto),
+				user_id: userId || null,
+				detail: {
+					stack: error instanceof Error ? (error.stack || '').split('\n').slice(0, 4).join(' | ').slice(0, 800) : null,
+					mensajeAlUsuario: message,
+					status,
+				},
+			}).then(({ error: fallo }) => {
+				if (fallo) console.warn(`[errores] no se pudo registrar ${context}:`, fallo.message);
+			});
+		}
+	} catch (registro) {
+		console.warn('[errores] registro no disponible:', registro instanceof Error ? registro.message : registro);
+	}
 	return json({ error: message }, status);
 }
 

@@ -193,3 +193,16 @@
 .metrics-quotes li { display: flex; flex-direction: column; gap: 3px; padding-left: 12px; border-left: 3px solid #ece3ff; }
 .metrics-quotes q { font-size: 13px; color: #2f2938; line-height: 1.45; }
 .metrics-quotes small { font-size: 11.5px; color: #8b8490; text-transform: capitalize; }
+
+/* Errores agrupados: importa cuál se repite, no el total suelto. */
+.metrics-errors { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.metrics-errors li {
+	display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+	padding: 11px 13px; border-radius: 10px; border: 1px solid #f2dede; background: #fffafa;
+}
+.metrics-errors li > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.metrics-errors strong { font-size: 12.5px; color: #b3453c; }
+.metrics-errors small { font-size: 11.5px; color: #7a6a68; line-height: 1.4; word-break: break-word; }
+.metrics-errors li > span { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.metrics-errors li > span b { font-size: 15px; color: #19171d; font-variant-numeric: tabular-nums; }
+.metrics-errors li > span em { font-style: normal; font-size: 11px; color: #8b8490; white-space: nowrap; }

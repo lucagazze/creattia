@@ -137,6 +137,31 @@ export function MetricsSection({ session }: { session: any }) {
 				</section>
 			</div>
 
+			{/* Errores: agrupados por firma, porque lo que importa es cuál se repite
+			    y a cuánta gente le pasa, no el total suelto. */}
+			<section className="metrics-block">
+				<h3>Errores del servidor</h3>
+				{datos.errores?.grupos?.length ? (
+					<>
+						<p className="metrics-nota">{datos.errores.total} en el período, agrupados en {datos.errores.grupos.length} problemas distintos.</p>
+						<ul className="metrics-errors">
+							{datos.errores.grupos.map((grupo: any, indice: number) => (
+								<li key={indice}>
+									<div>
+										<strong>{grupo.contexto}</strong>
+										<small>{grupo.mensaje}</small>
+									</div>
+									<span>
+										<b>{grupo.total}</b>
+										<em>{grupo.usuarios} {grupo.usuarios === 1 ? 'usuario' : 'usuarios'}</em>
+									</span>
+								</li>
+							))}
+						</ul>
+					</>
+				) : <p className="metrics-vacio">Ningún error registrado en el período.</p>}
+			</section>
+
 			{datos.bajas.comentarios.length > 0 && (
 				<section className="metrics-block">
 					<h3>Lo que dijeron al irse</h3>
