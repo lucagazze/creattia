@@ -155,7 +155,7 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	/** Reference photos for a person/avatar, never treated as product photos. */
 	avatarImages?: Array<{ b64: string; mime?: string }>;
 	avatarDescription?: string;
-	subjectMode?: 'product' | 'service' | 'saas' | 'brand';
+	subjectMode?: 'product' | 'service' | 'saas' | 'brand' | 'catalog';
 	brandPalette?: { background?: string; text?: string; accent?: string; secondary?: string; source?: string };
 	productName: string;
 	productFacts: string;
@@ -429,7 +429,7 @@ export function buildReferenceClonePrompt(input: {
 	brandColors?: string[];
 	brandTypography?: { headings?: string; body?: string };
 	brandPalette?: { background?: string; text?: string; accent?: string; secondary?: string; source?: string };
-	subjectMode?: 'product' | 'service' | 'saas' | 'brand';
+	subjectMode?: 'product' | 'service' | 'saas' | 'brand' | 'catalog';
 	hasAvatarReference?: boolean;
 	avatarDescription?: string;
 	includeWebsite?: boolean;
@@ -440,7 +440,8 @@ export function buildReferenceClonePrompt(input: {
 	const languageCode = input.languageCode || input.analysis?.language || input.adCopy?.language || 'es';
 	const language = LANGUAGE_NAMES[languageCode] || LANGUAGE_NAMES.es;
 	const subjectMode = input.subjectMode || 'product';
-	const isPhysicalSubject = subjectMode === 'product';
+	const isCatalogSubject = subjectMode === 'catalog';
+	const isPhysicalSubject = subjectMode === 'product' || isCatalogSubject;
 	const productLabel = input.productNames.length ? input.productNames.join(' + ') : (isPhysicalSubject ? 'the real product supplied by the user' : 'the service or SaaS offer supplied by the user');
 	const verifiedProductFacts = (input.productFacts || []).filter(Boolean);
 	const referenceHasProduct = input.analysis?.referenceHasProduct !== false;
@@ -602,6 +603,10 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 		: `\nLOGO DECISION (CRITICAL) — The winning reference has no confirmed ad-level logo slot. ${input.hasLogo
 			? 'Only include the supplied selected-identity logo if the reference has a natural, clearly visible brand position; never create a new logo lockup, badge or footer.'
 			: 'Do not add a logo, wordmark, domain, watermark or brand badge. Preserve any genuine branding printed on the TARGET PRODUCT itself because it is part of the product, not an ad overlay.'}`;
+	const catalogRule = isCatalogSubject
+		? `\nSUBJECT IS THE STORE, NOT ONE ITEM (CRITICAL) — This ad is about the business as a whole, not about a single product. The supplied photos are a SELECTION of what the store sells: show them together as a coherent group, collection or lineup, all sharing the same lighting, scale logic and surface. Never present one of them as "the" hero product with the others as accessories, never invent a product that was not supplied, and never write a price or a claim that belongs to a single item. The message must work for the whole catalogue: what the store sells, for whom, and why choose it.`
+		: '';
+
 	const qualityRule = `\nOUTPUT QUALITY (CRITICAL) — Render at the highest native resolution and quality available for this image engine; do not downscale, blur or soften the final image. Keep edges, product textures and shadows crisp and photorealistic. Render every replacement text character sharply and legibly, with correct spelling, stable letterforms, consistent kerning and no gibberish, melted letters, duplicated words or accidental symbols. Prefer clean, sufficiently large text inside its original zones over tiny unreadable text. The result must look production-ready at full resolution, suitable for a high-quality 4K export when the selected engine supports it.`;
 
 	return `The first input image is a WINNING AD TEMPLATE. It is a STRUCTURAL reference, not artwork to copy: what you must preserve is its skeleton — the layout, the composition, the proportions, the background treatment, the colour palette, the graphic devices (badges, stars, speech bubbles, banners, buttons, dividers), the position of every visual block and the visual hierarchy. What must change is everything it is ABOUT: the product, the scenes and the people all become ${productLabel}. Someone who saw both ads should recognise the same design system and never suspect they show the same subject.
@@ -619,7 +624,7 @@ ${strategyBlock}${creativeBlock}${imageSlotBlock}
 WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website. Render exactly "${input.displayWebsite}" ONCE in an existing URL or footer slot.` : 'Do not render any URL, domain, web address, social handle or QR code. Remove any website from the winning template and leave that space clean.'}
 
 4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
-${qualityRule}${TEXT_RENDERING_RULE}${semanticPaletteRule}${identityBlock}
+${catalogRule}${qualityRule}${TEXT_RENDERING_RULE}${semanticPaletteRule}${identityBlock}
 ${logoDecision}
 ${peopleBlock}${comparisonBlock}${comparisonContext}${creativeDecisionBlock}
 

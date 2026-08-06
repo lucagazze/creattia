@@ -87,8 +87,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * página ya dice sola, y si se equivocaba el creativo terminaba pidiendo una
 	 * foto de producto que no existe.
 	 */
-	const [detectedOffering, setDetectedOffering] = useState<'product' | 'service'>('product');
+	const [detectedOffering, setDetectedOffering] = useState<'product' | 'service' | 'catalog'>('product');
 	const isService = detectedOffering === 'service';
+	/** La URL era la home de la tienda o una categoría: el anuncio habla del negocio. */
+	const isCatalog = detectedOffering === 'catalog';
 	const [urls, setUrls] = useState<string[]>(['']);
 	const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 	const [importedProducts, setImportedProducts] = useState<ProductReviewItem[]>([]);
@@ -184,8 +186,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					ids.push(...payload.importedIds);
 					if (Array.isArray(payload.products)) {
 						// Lo que detectó la IA al leer la página manda sobre el default.
-						const offering = payload.products.find((item: any) => item?.metadata?.offeringType)?.metadata?.offeringType;
-						if (offering === 'service' || offering === 'product') setDetectedOffering(offering);
+						const pageType = payload.products.find((item: any) => item?.metadata?.pageType)?.metadata?.pageType;
+						if (pageType === 'service' || pageType === 'product' || pageType === 'catalog') setDetectedOffering(pageType);
 						payload.products.forEach((product: ProductReviewItem) => {
 							if (product?.id && payload.importedIds.includes(product.id)) productsById.set(product.id, product);
 						});
@@ -242,7 +244,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		setPhase('planning'); setError('');
 		try {
 			let productIds: string[] = [];
-			let offeringForSubmit: 'product' | 'service' = detectedOffering;
+			let offeringForSubmit: 'product' | 'service' | 'catalog' = detectedOffering;
+			let isCatalogSubmit = false;
 			if (productMode === 'url') {
 				const list = urls.map((u) => u.trim()).filter(Boolean);
 				if (!list.length && productMode === 'url') { setError('Pegá al menos una URL.'); setPhase('setup'); return; }
@@ -250,7 +253,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				if (productMode === 'url' && !productIds.length) { setPhase('setup'); return; }
 				// setState no se refleja en este mismo handler: se relee del producto.
 				const scanned = importedProducts.find((item: any) => productIds.includes(item.id));
-				if ((scanned as any)?.metadata?.offeringType === 'service') offeringForSubmit = 'service';
+				const scannedType = (scanned as any)?.metadata?.pageType;
+				if (scannedType === 'service' || scannedType === 'catalog') offeringForSubmit = scannedType;
+				// De un catálogo se importan varios productos: entran todos como
+				// referencia para que el anuncio muestre una selección de la tienda.
+				if (scannedType === 'catalog' && productIds.length > 1) isCatalogSubmit = true;
 			}
 			const form = new FormData();
 			form.set('referencePath', effectiveReferencePath);
@@ -260,6 +267,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('subjectMode', offeringForSubmit);
 			if (productMode === 'url' && productIds.length) {
 				form.set('productId', productIds[0]); // contexto de análisis
+				if (isCatalogSubmit) productIds.slice(0, 5).forEach((id) => form.append('productIds', id));
 			} else if (productMode === 'manual') {
 				if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
 				form.set('productName', manualProductName.trim());
@@ -397,7 +405,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		onGenerationRequested?.();
 		try {
 			let productIds: string[] = [];
-			let offeringForSubmit: 'product' | 'service' = detectedOffering;
+			let offeringForSubmit: 'product' | 'service' | 'catalog' = detectedOffering;
+			let isCatalogSubmit = false;
 			if (productMode === 'url' || (isService && urls.some((url) => url.trim()))) {
 				const list = urls.map((u) => u.trim()).filter(Boolean);
 				if (carouselSameProduct) {

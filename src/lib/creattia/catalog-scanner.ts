@@ -3,13 +3,20 @@ import { createHash } from 'node:crypto';
 import OpenAI from 'openai';
 import { normalizeExternalUrl, readLimited, safeExternalFetch } from './safe-fetch';
 
+/**
+ * Qué clase de página se analizó.
+ *
+ * - `product`: una ficha de producto concreta.
+ * - `service`: una landing de servicio, SaaS, curso o suscripción.
+ * - `catalog`: la home de la tienda o una categoría, donde no hay UN producto
+ *   sino varios. Antes caía en `product` y el scanner inventaba un "producto 1"
+ *   que en realidad era la tienda entera, con todas las fotos mezcladas.
+ */
+export type PageType = 'product' | 'service' | 'catalog';
+
 export type ScannedProduct = {
 	externalId: string;
-	/**
-	 * Qué se está vendiendo, detectado por la IA al leer la página. Antes el
-	 * usuario tenía que elegir a mano entre "producto" y "servicio / SaaS": si
-	 * una landing ofrece un servicio, la IA lo puede ver sola.
-	 */
+	/** Qué se está vendiendo, detectado por la IA al leer la página. */
 	offeringType?: 'product' | 'service';
 	name: string;
 	description: string;
@@ -21,6 +28,16 @@ export type ScannedProduct = {
 	/** Videos found in the product page/gallery. Kept optional for legacy scanners. */
 	videoUrls?: string[];
 	metadata: Record<string, unknown>;
+};
+
+/** Lo que devuelve analizar una URL: el tipo de página y lo que se encontró. */
+export type ScannedPage = {
+	pageType: PageType;
+	/** Uno para una ficha; varios cuando la página es un catálogo. */
+	products: ScannedProduct[];
+	/** El negocio dueño de la página, para cuando el anuncio habla de la tienda. */
+	store: { name: string; description: string; evidence: string };
+	sourceUrl: string;
 };
 
 export type ScannedSource = {
@@ -438,7 +455,15 @@ export async function analyzeCatalogWithAI(input: { sources: ScannedSource[]; pr
  * and uses GPT-4o-mini (with vision) to understand and structure the product information.
  * Works with any e-commerce platform without relying on platform-specific APIs.
  */
-export async function extractProductPageWithAI(rawUrl: string, apiKey: string): Promise<ScannedProduct> {
+/**
+ * Analiza una URL y devuelve QUÉ es esa página además de qué hay en ella.
+ *
+ * Devolvía siempre un solo producto: con la home de una tienda inventaba un
+ * "producto 1" que era el negocio entero, con todas las fotos mezcladas. Ahora
+ * distingue ficha de producto, landing de servicio y catálogo, y en el catálogo
+ * separa los productos que encuentra.
+ */
+export async function extractProductPageWithAI(rawUrl: string, apiKey: string): Promise<ScannedPage> {
 	const url = normalizeExternalUrl(rawUrl);
 
 	// 1. Fetch the page HTML.
@@ -632,8 +657,11 @@ Respondé SOLO con JSON válido con esta estructura exacta:
   "keyBenefits": ["beneficio 1", "beneficio 2", "beneficio 3"],
   "targetAudience": "descripción del público objetivo del producto",
   "orientationDetails": "si tiene frente, dorso o laterales: qué estampas, bordados, etiquetas o detalles pertenecen a cada lado; usá la ficha técnica y las fotos, o null si no está verificado",
-  "offeringType": "\"product\" si lo que se vende es un objeto físico que se envía o se retira; \"service\" si es un servicio, software, SaaS, curso, suscripción, consultoría, app o cualquier cosa que no sea un objeto físico. Mirá la página completa, no solo el título.",
-  "offeringEvidence": "en una frase, qué te hizo decidir ese offeringType (ej: 'tiene botón de agregar al carrito y peso de envío' o 'ofrece planes mensuales de software')"
+  "pageType": "\"product\" si la página es la ficha de UN producto concreto; \"service\" si ofrece un servicio, software, SaaS, curso, suscripción o consultoría; \"catalog\" si es la home de la tienda, una categoría o un listado donde se muestran VARIOS productos distintos y ninguno es el protagonista.",
+  "pageTypeEvidence": "en una frase, qué te hizo decidir ese pageType (ej: 'tiene botón de agregar al carrito y peso de envío', 'ofrece planes mensuales de software', 'es una grilla con 20 productos y ningún precio principal')",
+  "storeName": "nombre del negocio o la tienda dueña de la página",
+  "storeDescription": "qué vende el negocio en general, en una o dos frases. Importante cuando pageType es catalog, porque el anuncio va a hablar de la tienda y no de un producto.",
+  "catalogProducts": "SOLO si pageType es catalog: array de hasta 8 objetos {name, description, priceText} con los productos DISTINTOS que se ven en la página. Si no es catalog, array vacío []."
 }`,
 					}
 				],
@@ -671,8 +699,11 @@ Respondé SOLO con JSON válido con esta estructura exacta:
   "keyBenefits": ["beneficio 1", "beneficio 2", "beneficio 3"],
   "targetAudience": "descripción del público objetivo del producto",
   "orientationDetails": "si tiene frente, dorso o laterales: qué estampas, bordados, etiquetas o detalles pertenecen a cada lado; usá la ficha técnica y las fotos, o null si no está verificado",
-  "offeringType": "\"product\" si lo que se vende es un objeto físico que se envía o se retira; \"service\" si es un servicio, software, SaaS, curso, suscripción, consultoría, app o cualquier cosa que no sea un objeto físico. Mirá la página completa, no solo el título.",
-  "offeringEvidence": "en una frase, qué te hizo decidir ese offeringType (ej: 'tiene botón de agregar al carrito y peso de envío' o 'ofrece planes mensuales de software')"
+  "pageType": "\"product\" si la página es la ficha de UN producto concreto; \"service\" si ofrece un servicio, software, SaaS, curso, suscripción o consultoría; \"catalog\" si es la home de la tienda, una categoría o un listado donde se muestran VARIOS productos distintos y ninguno es el protagonista.",
+  "pageTypeEvidence": "en una frase, qué te hizo decidir ese pageType (ej: 'tiene botón de agregar al carrito y peso de envío', 'ofrece planes mensuales de software', 'es una grilla con 20 productos y ningún precio principal')",
+  "storeName": "nombre del negocio o la tienda dueña de la página",
+  "storeDescription": "qué vende el negocio en general, en una o dos frases. Importante cuando pageType es catalog, porque el anuncio va a hablar de la tienda y no de un producto.",
+  "catalogProducts": "SOLO si pageType es catalog: array de hasta 8 objetos {name, description, priceText} con los productos DISTINTOS que se ven en la página. Si no es catalog, array vacío []."
 }`,
 						},
 						// Attach main image for visual context if available
@@ -710,25 +741,67 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 		1600,
 	);
 
-	return {
+	const pageType: PageType = extracted.pageType === 'catalog' ? 'catalog'
+		: extracted.pageType === 'service' ? 'service'
+		: 'product';
+	const store = {
+		name: compact(extracted.storeName || extracted.brand || new URL(url).hostname.replace(/^www\./, ''), 120),
+		description: compact(extracted.storeDescription || '', 600),
+		evidence: compact(extracted.pageTypeEvidence || '', 200),
+	};
+
+	const baseMetadata = {
+		brand: compact(extracted.brand || '', 120),
+		category: compact(extracted.category || '', 100),
+		pageType,
+		offeringType: pageType === 'service' ? 'service' : 'product',
+		offeringEvidence: store.evidence,
+		store,
+		aiExtracted: true,
+		sourceUrl: url,
+	};
+
+	const mainProduct: ScannedProduct = {
 		externalId: base,
 		name,
 		description,
 		priceText: compact(extracted.price || '', 60),
 		currency: compact(extracted.currency || '', 12),
-		// Lo detecta la IA leyendo la página; el usuario ya no lo elige a mano.
-		offeringType: extracted.offeringType === 'service' ? 'service' : 'product',
+		offeringType: pageType === 'service' ? 'service' : 'product',
 		productUrl: base,
 		imageUrl: finalImages[0] || '',
 		imageUrls: finalImages,
 		videoUrls: finalVideos,
-		metadata: {
-			brand: compact(extracted.brand || '', 120),
-			category: compact(extracted.category || '', 100),
-			offeringType: extracted.offeringType === 'service' ? 'service' : 'product',
-			offeringEvidence: compact(extracted.offeringEvidence || '', 200),
-			aiExtracted: true,
-			sourceUrl: url,
-		},
+		metadata: baseMetadata,
 	};
+
+	// En una página de catálogo no hay UN producto: se devuelve uno por cada
+	// producto distinto que la IA reconoció, repartiendo las fotos encontradas.
+	// Antes todo esto entraba como un único "producto 1" con las fotos mezcladas.
+	const catalogItems: any[] = Array.isArray(extracted.catalogProducts) ? extracted.catalogProducts.slice(0, 8) : [];
+	if (pageType === 'catalog' && catalogItems.length) {
+		const products = catalogItems
+			.map((item, index): ScannedProduct | null => {
+				const itemName = compact(item?.name || '', 180);
+				if (!itemName) return null;
+				return {
+					externalId: `${base}#${index + 1}`,
+					name: itemName,
+					description: compact(item?.description || '', 1200),
+					priceText: compact(item?.priceText || '', 60),
+					currency: compact(extracted.currency || '', 12),
+					offeringType: 'product' as const,
+					productUrl: base,
+					// Una foto por producto cuando alcanzan; si no, la principal.
+					imageUrl: finalImages[index] || finalImages[0] || '',
+					imageUrls: finalImages[index] ? [finalImages[index]] : finalImages.slice(0, 1),
+					videoUrls: [],
+					metadata: { ...baseMetadata, catalogIndex: index + 1, fromCatalog: true },
+				};
+			})
+			.filter((item): item is ScannedProduct => Boolean(item));
+		if (products.length) return { pageType, products, store, sourceUrl: url };
+	}
+
+	return { pageType, products: [mainProduct], store, sourceUrl: url };
 }

@@ -126,16 +126,24 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 	const importedIds: string[] = [];
 	for (const url of urls) {
 		try {
-			// 1. Extract product data using AI (reads full page text + images)
-			const product: ScannedProduct = await extractProductPageWithAI(url, apiKey);
+			// 1. Se analiza la página: qué tipo es y qué productos tiene.
+			const page = await extractProductPageWithAI(url, apiKey);
 
-			// 2. Upsert into DB
+			// 2. Una fila por producto detectado. En una página de catálogo son
+			//    varios; en una ficha o una landing de servicio, uno solo. Antes
+			//    siempre se creaba uno y la home de una tienda entraba como un
+			//    "producto 1" con todas las fotos de la página mezcladas.
+			for (const product of page.products) {
 			const baseMetadata = {
 				...product.metadata,
 				importedFromUrl: url,
 				sourceImageUrls: product.imageUrls,
 				sourceVideoUrls: product.videoUrls || [],
 				aiExtracted: true,
+				// Contexto de la página completa: el anuncio de un catálogo habla
+				// del negocio, no de un ítem suelto.
+				pageType: page.pageType,
+				store: page.store,
 			};
 			const { data: stored, error } = await admin.from('creative_products').upsert({
 				user_id: userId,
@@ -175,10 +183,10 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 			// otra marca). Se guarda en el producto para poder ofrecer "Marca de la
 			// URL" como opción de identidad al generar el anuncio.
 			try {
-				const origin = new URL(product.productUrl || url).origin;
+				const origin = new URL(url).origin;
 				const style = await analyzeBrandStyle(origin, { openAIKey: apiKey, googleKey });
 				const brandFromUrl = {
-					name: new URL(product.productUrl || url).hostname.replace(/^www\./, ''),
+					name: new URL(url).hostname.replace(/^www\./, ''),
 					website: origin,
 					colors: (style.colors || []).slice(0, 5),
 					palette: style.palette || null,
@@ -194,6 +202,7 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 			}
 
 			importedIds.push(stored.id as string);
+			}
 		} catch (err) {
 			errors.push({ url, error: err instanceof Error ? err.message : 'No se pudo analizar el producto.' });
 		}

@@ -17,7 +17,13 @@ import type { QualityTier } from './quality-router';
  * análisis llega a las imágenes sueltas, a los lotes y a los carruseles a la vez.
  */
 
-export type SubjectMode = 'product' | 'service' | 'saas' | 'brand';
+/**
+ * De qué habla el anuncio.
+ * - `product` / `service`: de una oferta concreta.
+ * - `catalog`: del negocio en general, mostrando una selección de lo que vende.
+ *   Es lo que corresponde cuando se pasó la home de la tienda o una categoría.
+ */
+export type SubjectMode = 'product' | 'service' | 'saas' | 'brand' | 'catalog';
 export type StyleMode = 'winner' | 'url' | 'brand';
 /** Paleta detectada de la web de la marca, tal como la entiende ad-analysis. */
 export type BrandPalette = { background?: string; text?: string; accent?: string; secondary?: string; source?: string };

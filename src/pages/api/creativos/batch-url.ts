@@ -95,7 +95,11 @@ export const POST: APIRoute = async ({ request }) => {
 				metadata: { enteredManually: true },
 			};
 		} else try {
-			scannedProduct = await extractProductPageWithAI(productUrl, openAIKey);
+			// El generador por lote trabaja sobre un producto: de un catálogo se
+			// toma el primero que detectó la IA, que es el más destacado.
+			const page = await extractProductPageWithAI(productUrl, openAIKey);
+			scannedProduct = page.products[0];
+			if (!scannedProduct) throw new Error('No se encontró ningún producto en esa página.');
 		} catch (extractErr) {
 			const detail = extractErr instanceof Error ? extractErr.message : String(extractErr);
 			console.error('Fallo la extracción del producto:', extractErr);
