@@ -1,7 +1,7 @@
 import { subscriptionPlans, yearlyPriceFor, yearlySavingsFor } from '../../../lib/creattia/subscription-plans';
 import { isSupabaseConfigured, supabase } from '../../../lib/creattia/supabase-browser';
 import { Icon } from '../Icon';
-import { getSessionToken, paidSubscriptionStatuses, planRank } from '../app-session';
+import { activeSubscriptionStatuses, getSessionToken, paidSubscriptionStatuses, planRank } from '../app-session';
 import type { AppProfile, AppSession } from '../app-types';
 import { useEffect, useState } from 'react';
 /** Planes, compra de créditos y estado de la suscripción. */
@@ -121,7 +121,7 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 
 	async function subscribe(planCode: string, changeCurrent = false) {
 		if (!isSupabaseConfigured || !supabase) { setError('Para activar pagos faltan las credenciales de Supabase y Mercado Pago.'); return; }
-		if (paidSubscriptionStatuses.includes(profile.subscriptionStatus) && !changeCurrent) {
+		if (activeSubscriptionStatuses.includes(profile.subscriptionStatus) && !changeCurrent) {
 			setError('Elegí “Subir de plan” o “Bajar de plan” para modificar tu suscripción sin duplicar el cobro.');
 			return;
 		}
@@ -183,7 +183,10 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 		{notice && <p className="studio-form-notice">{notice}</p>}
 		<div className="studio-plans-grid">{subscriptionPlans.map((plan) => {
 			const isFreePlan = plan.code === 'free';
-			const hasPaidSubscription = paidSubscriptionStatuses.includes(profile.subscriptionStatus);
+			const hasPaidSubscription = activeSubscriptionStatuses.includes(profile.subscriptionStatus);
+			// Un checkout abierto y sin pagar: no es un plan vigente, es un pago a
+			// medio terminar. Se ofrece retomarlo en vez de bloquear el botón.
+			const pagoPendiente = profile.subscriptionStatus === 'pending' && profile.planCode === plan.code;
 			const currentPlan = isFreePlan
 				? (!hasPaidSubscription && (!profile.planCode || profile.planCode === 'trial' || profile.planCode === 'free'))
 				: hasPaidSubscription && profile.planCode === plan.code;
@@ -204,6 +207,9 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 						const el = document.getElementById('buy-credits-section');
 						if (el) el.scrollIntoView({ behavior: 'smooth' });
 					}
+				} else if (pagoPendiente) {
+					// changeCurrent limpia el checkout viejo antes de abrir el nuevo.
+					void subscribe(plan.code, true);
 				} else if (isPlanChange) {
 					void changePlan(plan.code, direction);
 				} else {
@@ -211,7 +217,9 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 				}
 			};
 
-			const actionLabel = currentPlan
+			const actionLabel = pagoPendiente
+				? (billing === plan.code ? 'Abriendo pago…' : 'Terminar el pago')
+				: currentPlan
 				? 'Plan actual'
 				: isFreePlan
 					? (hasPaidSubscription ? 'Bajar a Gratis' : 'Explorar gratis')
@@ -242,7 +250,7 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 					className="plan-subscribe-btn"
 					style={{ background: plan.featured ? 'linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%)' : '#744bde' }}
 					onClick={handleButtonClick}
-					disabled={Boolean(billing) || Boolean(cancelling) || currentPlan}
+					disabled={Boolean(billing) || Boolean(cancelling) || (currentPlan && !pagoPendiente)}
 				>
 					{actionLabel}
 				</button>

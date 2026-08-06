@@ -20,6 +20,16 @@ export function planLabel(profile: AppProfile) {
 export const planOrder: Record<string, number> = { free: 0, creator: 1, pro: 2, scale: 3, agency: 4 };
 export const paidSubscriptionStatuses = ['authorized', 'pending', 'paused'];
 
+/**
+ * Suscripciones que de verdad están vigentes.
+ *
+ * 'pending' significa que se abrió un checkout y todavía no se pagó, así que
+ * contarlo como plan vigente hacía que el plan elegido apareciera como "Plan
+ * actual" con el botón desactivado: quien dudaba y volvía se encontraba con que
+ * justo ese plan era el único que ya no podía contratar.
+ */
+export const activeSubscriptionStatuses = ['authorized', 'paused'];
+
 export function planRank(planCode: string) {
 	return planOrder[planCode] ?? 0;
 }
