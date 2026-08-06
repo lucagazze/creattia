@@ -80,6 +80,8 @@ export const POST: APIRoute = async ({ request }) => {
 		// desde URL" y el error real quedaba en los logs: el usuario recibía un
 		// mensaje equivocado sobre las fotos. Ahora se devuelve la causa concreta.
 		let scannedProduct: ScannedProduct;
+		/** La página entera, para saber si es una tienda o una ficha. */
+		let scannedPage: any = null;
 		if (mode !== 'url') {
 			// Sin página que leer: los datos los escribió el usuario.
 			scannedProduct = {
@@ -95,11 +97,14 @@ export const POST: APIRoute = async ({ request }) => {
 				metadata: { enteredManually: true },
 			};
 		} else try {
-			// El generador por lote trabaja sobre un producto: de un catálogo se
-			// toma el primero que detectó la IA, que es el más destacado.
+			// El lote genera con un producto de referencia, pero la página entera
+			// importa: si es la home de una tienda, el anuncio tiene que poder
+			// hablar del negocio. Antes se tomaba products[0] y se tiraba el resto,
+			// así que el flujo múltiple nunca se enteraba de que era un catálogo.
 			const page = await extractProductPageWithAI(productUrl, openAIKey);
 			scannedProduct = page.products[0];
 			if (!scannedProduct) throw new Error('No se encontró ningún producto en esa página.');
+			scannedPage = page;
 		} catch (extractErr) {
 			const detail = extractErr instanceof Error ? extractErr.message : String(extractErr);
 			console.error('Fallo la extracción del producto:', extractErr);
@@ -325,6 +330,18 @@ export const POST: APIRoute = async ({ request }) => {
 		});
 
 		return json({
+			// De qué habla la página, para que la revisión pueda ofrecer "la tienda"
+			// igual que en la generación individual.
+			page: scannedPage ? {
+				pageType: scannedPage.pageType || 'product',
+				store: scannedPage.store || null,
+				products: (scannedPage.products || []).slice(0, 8).map((item: any) => ({
+					name: item.name,
+					priceText: item.priceText || '',
+					imageUrls: [...new Set(item.imageUrls || [])].slice(0, 4),
+					productUrl: item.productUrl || productUrl,
+				})),
+			} : null,
 			product: {
 				id: storedProductId,
 				name: scannedProduct.name,

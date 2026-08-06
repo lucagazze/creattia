@@ -6023,3 +6023,12 @@
 .review-palette-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 11px; }
 .review-palette-head strong { font-size: 13px; color: #19171d; }
 .review-palette-head small { font-size: 12px; color: #716d79; line-height: 1.45; }
+
+
+/* Marca cuál opción viene detectada, sin quitarle protagonismo a la elegida. */
+.batch-detected-tag {
+	margin-left: 6px; font-style: normal; font-size: 9.5px; font-weight: 800;
+	letter-spacing: .04em; text-transform: uppercase;
+	padding: 2px 5px; border-radius: 999px; background: #ece3ff; color: #6b4bb0;
+}
+.batch-style-options button.active .batch-detected-tag { background: rgba(255, 255, 255, .25); color: #fff; }

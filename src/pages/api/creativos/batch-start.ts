@@ -5,6 +5,7 @@ import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { parsePaletteOverride } from '../../../lib/creattia/generation-pipeline';
 import { FREE_PREVIEW_REFERENCE_PATHS, freePreviewAngleFor, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
 import { countProductImages } from '../../../lib/creattia/product-media';
+import { SUBJECT_MODES, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -45,6 +46,11 @@ export const POST: APIRoute = async ({ request }) => {
 		const brandSource = brandSources.has(String(body?.brandSource)) ? String(body?.brandSource) : 'url';
 		// El estilo puede venir del ganador o de la marca elegida arriba.
 		const styleModes = new Set(['winner', 'url', 'brand']);
+		// De qué habla el lote. Sin esto el worker lo daba por 'product' y una
+		// tanda sobre la tienda salía hablando de un artículo suelto.
+		const subjectMode = SUBJECT_MODES.includes(String(body?.subjectMode) as SubjectMode)
+			? String(body.subjectMode) as SubjectMode
+			: 'product';
 		const colorMode = styleModes.has(String(body?.colorMode)) ? String(body.colorMode) : 'winner';
 		const typoMode = styleModes.has(String(body?.typoMode)) ? String(body.typoMode) : 'winner';
 		// Corrección manual de la paleta detectada, si el usuario la editó.
@@ -139,6 +145,7 @@ export const POST: APIRoute = async ({ request }) => {
 			requested_outputs: count,
 			settings_snapshot: {
 				format,
+				subjectMode,
 				paletteOverride,
 				colorMode,
 				typoMode,

@@ -516,6 +516,21 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 		$('meta[name="description"]').attr('content') || $('meta[property="og:description"]').attr('content') || '',
 		1000,
 	);
+	/**
+	 * Los encabezados visibles de la página.
+	 *
+	 * El H1 es donde suele estar la oferta real —"3x2 en toda la tienda", "Envío
+	 * gratis desde $50.000", "El cuero que usan los profesionales"— y eso es
+	 * exactamente lo que un anuncio necesita decir. Antes solo se mandaban el
+	 * title y la meta descripción, que suelen ser texto de SEO genérico, así que
+	 * la promesa que la marca eligió mostrar se perdía. Se toman también los H2
+	 * porque muchas tiendas ponen ahí la promoción y dejan el H1 con el nombre.
+	 */
+	const headings = [
+		...$('h1').map((_: number, element: any) => compact($(element).text(), 200)).toArray(),
+		...$('h2').slice(0, 6).map((_: number, element: any) => compact($(element).text(), 200)).toArray(),
+	].filter(Boolean).filter((value, index, all) => all.indexOf(value) === index).slice(0, 8);
+	const pageHeadline = headings[0] || '';
 
 	// 3. Collect product images. Structured data and an explicit product gallery
 	// are trusted first; broad page selectors are deliberately filtered so
@@ -641,6 +656,8 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 URL: ${base}
 Título: ${pageTitle}
 Meta descripción: ${pageDesc}
+Encabezados visibles (el H1 va primero: suele traer la oferta o la promesa principal de la página):
+${headings.map((h, i) => `${i === 0 ? 'H1' : 'H'} ${h}`).join('\n') || '(sin encabezados)'}
 
 Texto completo de la página:
 ---
@@ -683,6 +700,8 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 URL: ${base}
 Título: ${pageTitle}
 Meta descripción: ${pageDesc}
+Encabezados visibles (el H1 va primero: suele traer la oferta o la promesa principal de la página):
+${headings.map((h, i) => `${i === 0 ? 'H1' : 'H'} ${h}`).join('\n') || '(sin encabezados)'}
 
 Texto completo de la página:
 ---
@@ -735,6 +754,10 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 	const description = compact(
 		[
 			extracted.description,
+			// La promesa que la marca eligió mostrar arriba de todo. Va como dato
+			// verificado porque está literalmente escrita en la página: es la
+			// oferta que el anuncio debería estar comunicando.
+			pageHeadline && pageHeadline !== name ? `Promesa principal de la página (H1): ${pageHeadline}` : '',
 			extracted.keyBenefits?.length ? `Beneficios: ${extracted.keyBenefits.join(' · ')}` : '',
 			extracted.targetAudience ? `Para: ${extracted.targetAudience}` : '',
 			extracted.orientationDetails ? `Orientación del producto: ${extracted.orientationDetails}` : '',

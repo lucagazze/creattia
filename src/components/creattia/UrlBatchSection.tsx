@@ -148,6 +148,12 @@ type BatchPreview = {
 	count: number;
 	wearable?: boolean;
 	hasImage?: boolean;
+	/** La página entera: permite ofrecer "la tienda" igual que en el individual. */
+	page?: {
+		pageType?: 'product' | 'service' | 'catalog';
+		store?: { name?: string; evidence?: string; palette?: Record<string, string> } | null;
+		products?: Array<{ name: string; priceText?: string; imageUrls?: string[]; productUrl?: string }>;
+	} | null;
 };
 
 // Formatos visuales del paso final, alineados con el generador individual.
@@ -218,6 +224,14 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
 	const [colorMode, setColorMode] = useState('winner');
+	/**
+	 * De qué habla el lote y con qué colores, igual que en la generación
+	 * individual. Antes el flujo múltiple no preguntaba ninguna de las dos cosas:
+	 * la revisión mostraba un solo producto sin opciones, así que no había forma
+	 * de decir "esto habla de la tienda" ni de corregir un color mal detectado.
+	 */
+	const [subjectOverride, setSubjectOverride] = useState<'catalog' | 'product' | 'service' | null>(null);
+	const [paletteOverride, setPaletteOverride] = useState<Record<string, string>>({});
 	const [typoMode, setTypoMode] = useState('winner');
 	const [brandSource, setBrandSource] = useState('url');
 	const [includeLogo, setIncludeLogo] = useState(false);
@@ -244,6 +258,34 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [selected, setSelected] = useState<WinnerRef[]>([]);
 	// El bucket de referencias es privado: el servidor firma cada miniatura.
 	const winnerUrls = useReferenceUrls(selected.map((winner) => winner.imagePath));
+
+	/** Los colores que se detectaron en la web de la marca, si los hubo. */
+	const paletaDetectada: Record<string, string> | null = (preview?.page?.store as any)?.palette || null;
+
+	/** De qué habla el lote: lo corregido a mano, o lo que detectó el escaneo. */
+	const sujeto: 'catalog' | 'product' | 'service' =
+		subjectOverride || (preview?.page?.pageType as any) || 'product';
+
+	/**
+	 * Lo que se muestra al revisar.
+	 *
+	 * Con una ficha es el producto y sus fotos. Con una tienda son los productos
+	 * que se encontraron, para que se vea de qué se va a hablar: antes se mostraba
+	 * uno solo aunque la página tuviera veinte.
+	 */
+	const productosDetectados = (() => {
+		const delCatalogo = preview?.page?.products || [];
+		if (sujeto === 'catalog' && delCatalogo.length > 1) {
+			return delCatalogo.map((item, index) => ({
+				id: `catalogo-${index}`,
+				name: item.name,
+				price_text: item.priceText || '',
+				product_url: item.productUrl || '',
+				imageUrls: item.imageUrls || [],
+			}));
+		}
+		return preview?.product ? [preview.product as any] : [];
+	})();
 	const [spares, setSpares] = useState<WinnerRef[]>([]);
 	// Todo lo que el usuario ya vio en esta sesión de revisión: ninguna referencia
 	// se repite, ni siquiera después de descartarla.
@@ -332,7 +374,10 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			const data = await response.json();
 			if (!response.ok) throw new Error(data.error || 'No se pudo analizar el producto.');
 
-			setPreview({ product: data.product, count: data.count, wearable: data.wearable, hasImage: data.hasImage });
+			setPreview({ product: data.product, count: data.count, wearable: data.wearable, hasImage: data.hasImage, page: data.page || null });
+			// Lo detectado manda, pero se puede corregir en la revisión.
+			setSubjectOverride(null);
+			setPaletteOverride({});
 			seenPathsRef.current = new Set<string>([
 				...(data.winners || []).map((w: WinnerRef) => w.imagePath),
 				...(data.spares || []).map((w: WinnerRef) => w.imagePath),
@@ -475,6 +520,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					typoMode,
 					brandSource,
 					includeLogo,
+					subjectMode: sujeto,
+					...(Object.keys(paletteOverride).length ? { paletteOverride } : {}),
 				}),
 			});
 			const data = await response.json();
@@ -791,8 +838,15 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						</div>
 					</div>
 
-					{reviewStep === 1 && mode === 'url' && Boolean(preview.product?.media?.length) && (
-						<ProductAssetReview products={[preview.product]} />
+					{reviewStep === 1 && mode === 'url' && (Boolean(preview.product?.media?.length) || Boolean(preview.page?.products?.length)) && (
+						<ProductAssetReview
+							products={productosDetectados}
+							isCatalog={sujeto === 'catalog'}
+							storeName={preview.page?.store?.name}
+							detectionReason={(preview.page?.store as any)?.evidence}
+							subject={sujeto}
+							detectedSubject={preview.page?.pageType}
+						/>
 					)}
 
 					{reviewStep === 1 && (
@@ -871,7 +925,66 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 									</div>
 								)}
 							</div>
-							<div className="batch-style-group"><span className="picker-label">Colores</span><div className="batch-style-options">{STYLE_OPTIONS.map((option) => <button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value)} aria-pressed={colorMode === option.value}>{option.label}</button>)}</div></div>
+							{/* De qué habla el lote. Va acá, con el idioma y los colores,
+							    porque es la misma clase de decisión: primero se eligen las
+							    referencias y después cómo salen. */}
+							<div className="batch-style-group">
+								<span className="picker-label">¿De qué habla?</span>
+								<div className="batch-style-options">
+									{([
+										{ value: 'catalog', label: 'La tienda' },
+										{ value: 'product', label: 'Un producto' },
+										{ value: 'service', label: 'Un servicio' },
+									] as const).map((option) => (
+										<button
+											key={option.value}
+											type="button"
+											className={sujeto === option.value ? 'active' : ''}
+											aria-pressed={sujeto === option.value}
+											onClick={() => setSubjectOverride(option.value)}
+										>
+											{option.label}
+											{preview?.page?.pageType === option.value && <em className="batch-detected-tag">detectado</em>}
+										</button>
+									))}
+								</div>
+								<small className="batch-brand-note">
+									{sujeto === 'catalog'
+										? 'Los textos hablan de la tienda y su variedad, sin poner un producto de protagonista.'
+										: sujeto === 'service'
+											? 'Los textos hablan del servicio y su resultado, sin describir un objeto físico.'
+											: 'Los textos hablan del producto, con su nombre y sus datos reales.'}
+								</small>
+							</div>
+
+							<div className="batch-style-group">
+								<span className="picker-label">Colores</span>
+								<div className="batch-style-options">{STYLE_OPTIONS.map((option) => <button key={option.value} type="button" className={colorMode === option.value ? 'active' : ''} onClick={() => setColorMode(option.value)} aria-pressed={colorMode === option.value}>{option.label}</button>)}</div>
+								{/* Los colores detectados también se corrigen acá: el flujo
+								    múltiple no los mostraba y salía con la identidad que la
+								    detección hubiera agarrado, sin forma de revisarla. */}
+								{colorMode !== 'winner' && paletaDetectada && (
+									<div className="palette-editor">
+										<small className="batch-brand-note">Estos son los colores que detectamos. Si alguno no es el de tu marca, tocalo y cambialo.</small>
+										<div className="palette-swatches">
+											{([['background', 'Fondo'], ['accent', 'Principal'], ['secondary', 'Secundario'], ['text', 'Texto']] as const).map(([role, roleLabel]) => {
+												const value = paletteOverride[role] || paletaDetectada[role] || '';
+												if (!value) return null;
+												return (
+													<label key={role} className={`palette-swatch${paletteOverride[role] ? ' is-edited' : ''}`}>
+														<input type="color" value={value} onChange={(event) => setPaletteOverride((prev) => ({ ...prev, [role]: event.target.value }))} aria-label={`Color ${roleLabel}`} />
+														<span>{roleLabel}</span>
+														<em>{value}</em>
+													</label>
+												);
+											})}
+										</div>
+										{Object.keys(paletteOverride).length > 0 && (
+											<button type="button" className="palette-reset" onClick={() => setPaletteOverride({})}>Volver a los detectados</button>
+										)}
+									</div>
+								)}
+							</div>
 							<div className="batch-style-group"><span className="picker-label">Tipografía</span><div className="batch-style-options">{STYLE_OPTIONS.map((option) => <button key={option.value} type="button" className={typoMode === option.value ? 'active' : ''} onClick={() => setTypoMode(option.value)} aria-pressed={typoMode === option.value}>{option.label}</button>)}</div></div>
 						</div>
 
