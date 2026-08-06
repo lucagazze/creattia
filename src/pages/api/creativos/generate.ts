@@ -312,7 +312,27 @@ export const POST: APIRoute = async ({ request }) => {
 		// entrada sintética le sacaba las fotos y lo volvía un anuncio de marca.
 		if (!usesRealProducts) {
 			const serviceName = manualProductName || (brandSourceParam === 'mine' ? profile?.brand_name : brandSourceParam === 'url' ? urlBrand?.name : '') || 'el servicio o la marca';
-			const serviceFacts = manualProductFacts || urlBrand?.styleSummary || '';
+			/**
+			 * Qué sabe el modelo del servicio.
+			 *
+			 * Acá se pisaba la descripción real con `styleSummary`, que es el
+			 * resumen del ESTILO VISUAL de la marca —"la voz es directa,
+			 * profesional y confiada"— y no dice absolutamente nada de qué hace el
+			 * servicio. O sea que al elegir "servicio" se tiraba todo lo que el
+			 * escaneo había extraído de la página: la descripción, los beneficios,
+			 * para quién es y la promesa del H1.
+			 *
+			 * Sin fotos de producto —que en este modo no las hay— y sin datos, al
+			 * modelo no le queda nada concreto y termina inventando: por eso salía
+			 * más genérico, con esa cara de "hecho con IA".
+			 *
+			 * Ahora manda lo que el usuario escribió, después lo que se leyó de la
+			 * página, y el resumen de estilo queda como último recurso.
+			 */
+			const serviceFacts = manualProductFacts
+				|| storedProducts[0]?.description
+				|| urlBrand?.styleSummary
+				|| '';
 			if (storedProducts.length) {
 				storedProducts = [{ ...storedProducts[0], name: serviceName, description: serviceFacts, price_text: '', currency: '' }];
 			} else {
