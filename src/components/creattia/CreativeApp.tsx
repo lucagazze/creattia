@@ -280,6 +280,19 @@ export default function CreativeApp() {
 			return new Set(asArray);
 		});
 	};
+	/**
+	 * Lo que queda por evaluar en el descubridor.
+	 *
+	 * Se sacan los ya vistos —descartados y marcados— para que no vuelvan a
+	 * aparecer. Si se acabaron todos, se vuelve a empezar con la lista completa en
+	 * vez de dejar la sección vacía: con la biblioteca gratuita son 50 y se agotan
+	 * rápido.
+	 */
+	const swipePoolDisponible = (() => {
+		const pendientes = swipePool.filter((item) => !discoverSeen.has(item.imagePath));
+		return pendientes.length ? pendientes : swipePool;
+	})();
+
 	const [scrapedWinners, setScrapedWinners] = useState<any[]>([]);
 	const [likedScrapedPaths, setLikedScrapedPaths] = useState<Set<string>>(new Set());
 	const [preselectedWinnerPath, setPreselectedWinnerPath] = useState<string | null>(null);
@@ -709,14 +722,23 @@ export default function CreativeApp() {
 	const [winnerCatalog, setWinnerCatalog] = useState<any[]>([]);
 	const winnerCatalogRequested = useRef(false);
 	useEffect(() => {
-		if (!likedScrapedPaths.size || winnerCatalogRequested.current) return;
-		if (!isSupabaseConfigured || !supabase) return;
+		if (winnerCatalogRequested.current) return;
+		if (!isSupabaseConfigured || !supabase || !session) return;
 		winnerCatalogRequested.current = true;
 		void (async () => {
 			const items = await fetchLibraryItems(supabase!);
-			if (items.length) setWinnerCatalog(items as any[]);
+			if (!items.length) return;
+			setWinnerCatalog(items as any[]);
+			// El descubridor se alimenta de TODO lo que la cuenta puede ver, no de
+			// los cuatro de la muestra: con cuatro tarjetas se terminaba enseguida
+			// y la sección desaparecía en vez de seguir trayendo creativos.
+			const paraSwipe = (items as any[])
+				.filter((item) => item?.imagePath && (item.metadata?.mediaType === 'static_image' || item.metadata?.mediaType === 'carousel' || !item.metadata?.mediaType))
+				.filter((item, index, todos) => todos.findIndex((otro) => otro.imagePath === item.imagePath) === index)
+				.sort(() => Math.random() - 0.5);
+			if (paraSwipe.length) setSwipePool(paraSwipe);
 		})();
-	}, [likedScrapedPaths.size]);
+	}, [session]);
 
 	const winnerPool = useMemo(() => {
 		if (!winnerCatalog.length) return scrapedWinners;
@@ -1237,7 +1259,7 @@ export default function CreativeApp() {
 							}}
 							onGenerationRequested={() => setView('history')}
 							randomWinners={randomWinners}
-							swipePool={(swipePool.filter((item) => !discoverSeen.has(item.imagePath)).length >= 8 ? swipePool.filter((item) => !discoverSeen.has(item.imagePath)) : swipePool).slice(0, 40)}
+							swipePool={swipePoolDisponible}
 							onDiscoverSeen={markDiscoverSeen}
 							
 							likedWinners={likedWinners}
@@ -1310,7 +1332,7 @@ export default function CreativeApp() {
 					)}
 					{view === 'discover' && (
 						<DiscoverPage
-							pool={swipePool}
+							pool={swipePoolDisponible}
 							likedPaths={likedScrapedPaths}
 							onLike={toggleLikedScraped}
 							onUse={(path) => { setPreselectedWinnerPath(path); setView('winners'); }}

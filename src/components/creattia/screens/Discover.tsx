@@ -13,8 +13,16 @@ export function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onS
 	// El bucket de referencias es privado: las URLs se piden firmadas al servidor.
 	const signedUrls = useReferenceUrls(pool.map((item: any) => item.imagePath));
 
+	// El mazo se rearma cuando llega el pozo o cuando cambia de contenido. Antes
+	// solo se repartía la primera vez, así que al llegar el catálogo completo
+	// —que tarda más que la muestra— las cuatro tarjetas iniciales quedaban fijas.
 	useEffect(() => {
-		if (pool.length && !dealt.cards.length) setDealt({ cards: pool.slice(0, 4), cursor: 4 });
+		if (!pool.length) return;
+		setDealt((previo) => {
+			const vigentes = previo.cards.filter(Boolean);
+			if (vigentes.length) return previo;
+			return { cards: pool.slice(0, 4), cursor: 4 };
+		});
 	}, [pool]);
 
 	function resolveUrl(item: any) {
@@ -25,10 +33,20 @@ export function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onS
 		setLeaving((previous) => ({ ...previous, [path]: direction }));
 		window.setTimeout(() => {
 			setDealt((previous) => {
-				const nextCard = pool[previous.cursor];
+				// Al llegar al final se vuelve al principio del pozo en vez de dejar
+				// huecos: antes la carta siguiente era `undefined`, se filtraba, y el
+				// mazo se iba vaciando hasta que la sección entera desaparecía.
+				const enMazo = new Set(previous.cards.filter(Boolean).map((card: any) => card.imagePath));
+				let cursor = previous.cursor;
+				let siguiente = null;
+				for (let intentos = 0; intentos < pool.length && !siguiente; intentos += 1) {
+					const candidato = pool[cursor % pool.length];
+					cursor += 1;
+					if (candidato && candidato.imagePath !== path && !enMazo.has(candidato.imagePath)) siguiente = candidato;
+				}
 				return {
-					cards: previous.cards.map((card) => card.imagePath === path ? nextCard : card).filter(Boolean),
-					cursor: previous.cursor + 1,
+					cards: previous.cards.map((card) => card.imagePath === path ? siguiente : card).filter(Boolean),
+					cursor,
 				};
 			});
 			setLeaving((previous) => {
