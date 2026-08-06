@@ -92,6 +92,8 @@ export type LayoutAnalysis = {
 		description?: string;
 		question?: string;
 		defaultStrategy?: string;
+		/** Tres respuestas sugeridas, para no tener que escribir. */
+		options?: string[];
 		confidence?: 'high' | 'medium' | 'low';
 		directive?: string;
 	}>;
@@ -254,6 +256,7 @@ Return STRICT JSON:
       "where": "dónde aparece el elemento, en pocas palabras (ej: 'esquina inferior izquierda')",
       "question": "pregunta concreta para el usuario; vacía si no hace falta preguntar. Debe bastarse sola: no expliques primero el razonamiento, preguntá directo",
       "defaultStrategy": "qué debe hacer la IA si el usuario deja la aclaración vacía",
+      "options": ["3 respuestas posibles a la pregunta, cortas (máx 8 palabras), concretas y CLARAMENTE distintas entre sí, en el idioma del usuario. La primera debe ser la más segura para este anuncio. Escribilas como la elegiría alguien, no como una explicación: 'En una laptop', 'En un celular en mano', 'Sobre un monitor de escritorio'"],
       "confidence": "high|medium|low",
       "directive": "cadena vacía" }
   ],
@@ -330,6 +333,11 @@ Rules:
 				? parsed.creativeDecisions.slice(0, 5).map((decision: any) => ({
 					type: ['person', 'scene', 'styling', 'object', 'comparison', 'product-handling', 'other'].includes(decision?.type) ? decision.type : 'other',
 					title: typeof decision?.title === 'string' ? decision.title.trim().slice(0, 160) : '',
+					// Tres respuestas listas para tocar: escribir a mano una indicación
+					// era el paso donde la gente se trababa o directamente lo saltaba.
+					options: Array.isArray(decision?.options)
+						? decision.options.map((opcion: any) => String(opcion || '').trim().slice(0, 120)).filter(Boolean).slice(0, 3)
+						: [],
 					where: typeof decision?.where === 'string' ? decision.where.trim().slice(0, 240) : '',
 					description: typeof decision?.description === 'string' ? decision.description.trim().slice(0, 500) : '',
 					question: typeof decision?.question === 'string' ? decision.question.trim().slice(0, 500) : '',

@@ -188,7 +188,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [zones, setZones] = useState<Array<{ where?: string; messageRole?: string; original?: string; replacement?: string; onProduct?: boolean }>>([]);
 	const [people, setPeople] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
 	const [comparisons, setComparisons] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
-	const [creativeDecisions, setCreativeDecisions] = useState<Array<{ type?: string; title?: string; where?: string; description?: string; question?: string; defaultStrategy?: string; confidence?: string; directive?: string }>>([]);
+	const [creativeDecisions, setCreativeDecisions] = useState<Array<{ type?: string; title?: string; where?: string; description?: string; question?: string; defaultStrategy?: string; options?: string[]; confidence?: string; directive?: string }>>([]);
+	/** Qué decisiones tienen abierto el campo para escribir una respuesta propia. */
+	const [escribiendo, setEscribiendo] = useState<Set<number>>(new Set());
 	const [comparisonGuidance, setComparisonGuidance] = useState('');
 	const [error, setError] = useState('');
 	const chip = (active: boolean) => ({
@@ -419,6 +421,26 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			enviando.current = false;
 		}
 	}
+
+	/**
+	 * Los textos agrupados por página del carrusel.
+	 *
+	 * El análisis ya devuelve en qué página va cada texto, pero la lista los
+	 * mostraba todos seguidos: con un carrusel de diez páginas eran treinta
+	 * textos sin ninguna referencia de a cuál imagen pertenecía cada uno. Se
+	 * conserva el índice original de cada zona porque es el que usan la edición
+	 * y el botón de rehacer.
+	 */
+	const zonesPorPagina = (() => {
+		const mapa = new Map<number | null, Array<{ zone: any; index: number }>>();
+		zones.forEach((zone: any, index: number) => {
+			const pagina = Number.isInteger(Number(zone?.slide)) && Number(zone.slide) >= 1 ? Number(zone.slide) : null;
+			mapa.set(pagina, [...(mapa.get(pagina) || []), { zone, index }]);
+		});
+		return [...mapa.entries()]
+			.sort((a, b) => (a[0] ?? 9999) - (b[0] ?? 9999))
+			.map(([pagina, items]) => ({ pagina, items }));
+	})();
 
 	async function regenerateCopy(index: number) {
 		const zone = zones[index];
@@ -1045,20 +1067,33 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 
 						{zones.length > 0 ? (
 							<div className="detected-copy-table" style={{ background: '#fff', border: '1px solid #eee9f2', borderRadius: '12px', marginBottom: '22px', overflow: 'hidden' }}>
-								{zones.map((zone, index) => (
-									<div className="detected-copy-row" key={index} title={`${zone.where || ''}${zone.messageRole ? ` · ${zone.messageRole}` : ''}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, .8fr) minmax(220px, 1.2fr)', gap: '12px', alignItems: 'center', padding: '12px 14px', borderBottom: index < zones.length - 1 ? '1px solid #f4f0f8' : 'none' }}>
-										<div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
-											<span style={{ fontSize: '12px', fontWeight: 600, color: '#8b8490', lineHeight: 1.35, fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>“{zone.original || 'Texto detectado'}”</span>
-											{zone.messageRole && <span style={{ fontSize: '9.5px', color: '#744bde', fontWeight: 700 }}>{zone.messageRole}</span>}
-										</div>
-										<div style={{ display: 'flex', gap: '8px', alignItems: 'center', minWidth: 0 }}>
-											{copyMode === 'edit' ? (
-												<textarea value={zone.replacement || ''} rows={1} onChange={(event) => setZones((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, replacement: event.target.value } : item))} style={{ flex: 1, minHeight: '38px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e6e0ee', background: '#faf8fc', fontSize: '13.5px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.4 }} />
-											) : (
-												<span style={{ flex: 1, fontSize: '13.5px', color: '#19171d', lineHeight: 1.4 }}>{zone.replacement || 'Sin reemplazo detectado'}</span>
-											)}
-											<button type="button" onClick={() => void regenerateCopy(index)} style={{ border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', padding: '6px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }} title="Rehacer este texto con IA">✨ Rehacer</button>
-										</div>
+								{/* En un carrusel los textos se agrupan por página. Salían todos
+								    en una lista corrida y no había forma de saber cuál iba en
+								    cuál imagen: con diez páginas eran treinta textos seguidos. */}
+								{zonesPorPagina.map(({ pagina, items }) => (
+									<div key={pagina ?? 'unica'}>
+										{zonesPorPagina.length > 1 && (
+											<div className="copy-slide-head">
+												<span>{pagina ? `Imagen ${pagina}` : 'Sin página asignada'}</span>
+												<small>{items.length} {items.length === 1 ? 'texto' : 'textos'}</small>
+											</div>
+										)}
+										{items.map(({ zone, index }, posicion) => (
+											<div className="detected-copy-row" key={index} title={`${zone.where || ''}${zone.messageRole ? ` · ${zone.messageRole}` : ''}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, .8fr) minmax(220px, 1.2fr)', gap: '12px', alignItems: 'center', padding: '12px 14px', borderBottom: posicion < items.length - 1 ? '1px solid #f4f0f8' : 'none' }}>
+												<div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+													<span style={{ fontSize: '12px', fontWeight: 600, color: '#8b8490', lineHeight: 1.35, fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>“{zone.original || 'Texto detectado'}”</span>
+													{zone.messageRole && <span style={{ fontSize: '11px', color: '#744bde', fontWeight: 700 }}>{zone.messageRole}</span>}
+												</div>
+												<div style={{ display: 'flex', gap: '8px', alignItems: 'center', minWidth: 0 }}>
+													{copyMode === 'edit' ? (
+														<textarea value={zone.replacement || ''} rows={1} onChange={(event) => setZones((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, replacement: event.target.value } : item))} style={{ flex: 1, minHeight: '38px', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e6e0ee', background: '#faf8fc', fontSize: '13.5px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.4 }} />
+													) : (
+														<span style={{ flex: 1, fontSize: '13.5px', color: '#19171d', lineHeight: 1.4 }}>{zone.replacement || 'Sin reemplazo detectado'}</span>
+													)}
+													<button type="button" onClick={() => void regenerateCopy(index)} style={{ border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', padding: '6px 10px', borderRadius: '8px', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }} title="Rehacer este texto con IA">✨ Rehacer</button>
+												</div>
+											</div>
+										))}
 									</div>
 								))}
 							</div>
@@ -1090,7 +1125,43 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												{decision.where && <em style={{ fontStyle: 'normal', fontSize: '11px', fontWeight: 700, color: '#8b8490', background: '#f4f1f8', padding: '2px 7px', borderRadius: '999px' }}>{decision.where}</em>}
 											</strong>
 											<p style={{ margin: '0 0 8px', fontSize: '12.5px', lineHeight: 1.45, color: '#3f3560', fontWeight: 600 }}>{decision.question || `¿Cómo querés resolver ${decision.title?.toLowerCase() || 'este elemento'}?`}</p>
-											<input value={decision.directive || ''} onChange={(event) => setCreativeDecisions(creativeDecisions.map((current, decisionIndex) => decisionIndex === index ? { ...current, directive: event.target.value } : current))} placeholder={decision.defaultStrategy ? `Vacío = ${decision.defaultStrategy}` : 'Dejalo vacío para que la IA decida'} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '9px', border: '1px solid #e2dde9', fontSize: '13px' }} />
+											{/* Tres respuestas listas para tocar. Escribir a mano era
+											    el paso donde la gente se trababa o lo salteaba, y
+											    saltearlo significa dejar la decisión al azar. */}
+											<div className="decision-options">
+												{(decision.options || []).map((opcion) => (
+													<button
+														key={opcion}
+														type="button"
+														className={decision.directive === opcion ? 'active' : ''}
+														onClick={() => setCreativeDecisions(creativeDecisions.map((current, decisionIndex) =>
+															decisionIndex === index
+																? { ...current, directive: current.directive === opcion ? '' : opcion }
+																: current))}
+													>
+														{opcion}
+													</button>
+												))}
+												<button
+													type="button"
+													className={`decision-write${escribiendo.has(index) ? ' active' : ''}`}
+													onClick={() => setEscribiendo((actual) => {
+														const siguiente = new Set(actual);
+														if (siguiente.has(index)) siguiente.delete(index); else siguiente.add(index);
+														return siguiente;
+													})}
+												>
+													{escribiendo.has(index) ? 'Cerrar' : '✎ Escribir otra'}
+												</button>
+											</div>
+											{(escribiendo.has(index) || (decision.directive && !(decision.options || []).includes(decision.directive))) && (
+												<input
+													value={decision.directive || ''}
+													onChange={(event) => setCreativeDecisions(creativeDecisions.map((current, decisionIndex) => decisionIndex === index ? { ...current, directive: event.target.value } : current))}
+													placeholder={decision.defaultStrategy ? `Vacío = ${decision.defaultStrategy}` : 'Dejalo vacío para que la IA decida'}
+													style={{ width: '100%', boxSizing: 'border-box', marginTop: '8px', padding: '10px 12px', borderRadius: '9px', border: '1px solid #e2dde9', fontSize: '13px' }}
+												/>
+											)}
 										</div>
 									))}
 								</div>
