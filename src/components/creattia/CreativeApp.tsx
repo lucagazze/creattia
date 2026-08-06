@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, lazy, Suspense } 
 import { creativeCatalog, mapTemplateRecord, ringMeta } from '../../lib/creattia/catalog';
 import { isSupabaseConfigured, supabase } from '../../lib/creattia/supabase-browser';
 import { isAdminEmail } from '../../lib/creattia/admin';
-import { canAccessVideoFeature } from '../../lib/creattia/video-access';
 import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
 
@@ -61,7 +60,6 @@ export default function CreativeApp() {
 	const [accountError, setAccountError] = useState('');
 	const [session, setSession] = useState<AppSession | null>(null);
 	const [profile, setProfile] = useState<AppProfile>(defaultProfile);
-	const canUseVideos = canAccessVideoFeature(getSessionEmail(session));
 
 	// Presencia liviana para que el Centro admin pueda distinguir usuarios
 	// conectados ahora de quienes simplemente iniciaron sesión alguna vez.
@@ -1348,7 +1346,12 @@ export default function CreativeApp() {
 					{view === 'brand' && (
 						<div className="brand-workspace-stack">
 							<BrandsManager session={session} planCode={profile.planCode} onPlans={() => navigateTo('plans')} />
-							{canUseVideos && <AvatarManager session={session} />}
+							{/* Los avatares NO dependen de los videos: la generación de
+							    imágenes ya los usa para mantener la misma persona entre
+							    creativos. Estaban detrás del permiso de video —que todavía
+							    no es público—, así que un usuario normal no podía crear el
+							    avatar que después iba a elegir al generar una imagen. */}
+							<AvatarManager session={session} />
 						</div>
 					)}
 					{view === 'admin' && isAdminEmail(getSessionEmail(session)) && <AdminDashboard session={session} />}

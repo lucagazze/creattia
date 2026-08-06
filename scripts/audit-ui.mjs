@@ -28,6 +28,9 @@ const SCREENS = [
 	{ slug: 'ganadores', label: 'Biblioteca de ganadores' },
 	{ slug: 'guardados', label: 'Anuncios guardados' },
 	{ slug: 'mis-imagenes', label: 'Mis imágenes' },
+	// Fuera del menú principal: viven en el pie de la barra lateral.
+	{ slug: 'marca', label: 'Mi marca', selector: '.studio-brand-nav-btn' },
+	{ slug: 'planes', label: 'Ver planes', selector: '.studio-plan-card footer button' },
 ];
 
 mkdirSync(OUT, { recursive: true });
@@ -69,7 +72,10 @@ for (const vp of VIEWPORTS) {
 			// El menú se pliega desde 900px, no solo en móvil: se intenta siempre.
 			const burger = page.locator('.studio-menu-button, [aria-label="Abrir menú"]').first();
 			if (await burger.isVisible().catch(() => false)) { await burger.click(); await page.waitForTimeout(700); }
-			await page.locator(`.studio-nav button:has-text("${screen.label}")`).first().click({ timeout: 15000 });
+			const destino = screen.selector
+				? page.locator(screen.selector).first()
+				: page.locator(`.studio-nav button:has-text("${screen.label}")`).first();
+			await destino.click({ timeout: 15000 });
 			await page.waitForTimeout(4000);
 		} catch (error) {
 			console.log(`✗ ${vp.name}/${screen.slug}: no se pudo abrir (${String(error).slice(0, 80)})`);
