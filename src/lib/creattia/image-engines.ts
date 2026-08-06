@@ -1,4 +1,5 @@
 import OpenAI, { toFile } from 'openai';
+import { formatSizes } from './formats';
 
 // Motores de imagen reales, en el mismo orden que usa el Studio (generate.ts):
 // 1) Gemini image (nano-banana) — rápido, barato y el mejor con texto en la imagen.
@@ -16,10 +17,17 @@ const geminiAspectRatios: Record<string, string> = {
 // gpt-image-2 acepta cualquier tamaño divisible por 16, así que da los ratios
 // exactos. Antes acá estaba el mapa viejo de gpt-image-1, que solo tiene tres
 // tamaños: un Story 9:16 terminaba saliendo en 2:3, bastante menos alto.
-const openAISizes: Record<string, string> = {
-	'1:1': '1024x1024', '3:4': '1152x1536', '9:16': '864x1536', '4:3': '1536x1152', '16:9': '1536x864',
-	square: '1024x1024', portrait: '1152x1536', story: '864x1536', landscape: '1536x1152',
-};
+/**
+ * Los tamaños salen de formats.ts, que es la fuente única.
+ *
+ * Acá vivía una copia con el cuadrado en 1024x1024. Cuando se subió la
+ * resolución a 1536 se tocó formats.ts, pero ese archivo nunca le pasa el tamaño
+ * al motor —solo se usa para validar el formato pedido—, así que esta copia
+ * seguía mandando. El resultado: TODOS los anuncios cuadrados, que son la
+ * mayoría, se seguían generando con la mitad de píxeles por letra. Es
+ * exactamente el "se ve un poco borroso, como hecho con IA" que se reportaba.
+ */
+const openAISizes: Record<string, string> = formatSizes;
 
 // gpt-image-1 (legacy) solo acepta estos tres.
 const legacyOpenAISizes: Record<string, string> = {
