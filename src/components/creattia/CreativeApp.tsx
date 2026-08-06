@@ -349,7 +349,28 @@ export default function CreativeApp() {
 		// cada vez que cambia la sesión, para no arrastrar datos de otra cuenta.
 		setLikedImageIds(loadLocal<string[]>(`creattia_liked_images:${profileId}`, []));
 		setFolders(loadLocal<Array<{ id: string; name: string; imageIds: string[] }>>(`creattia_folders:${profileId}`, []));
-		setLikedScrapedPaths(new Set(loadLocal<string[]>(`creattia-liked-scraped-v1:${profileId}`, [])));
+		// Primero la caché local (respuesta inmediata) y después lo que hay en la
+		// cuenta, que es lo que sobrevive a limpiar el navegador o cambiar de
+		// dispositivo. Se unen: un like hecho offline no se pierde.
+		const cachedLikes = loadLocal<string[]>(`creattia-liked-scraped-v1:${profileId}`, []);
+		setLikedScrapedPaths(new Set(cachedLikes));
+		if (isSupabaseConfigured && supabase) {
+			void (async () => {
+				const { data, error } = await supabase.from('creative_winner_favorites')
+					.select('image_path').eq('user_id', profileId);
+				if (error) { console.error('No se pudieron leer los guardados de la cuenta:', error); return; }
+				const remote = (data || []).map((row) => row.image_path as string);
+				const merged = [...new Set([...cachedLikes, ...remote])];
+				setLikedScrapedPaths(new Set(merged));
+				saveLocal(`creattia-liked-scraped-v1:${profileId}`, merged);
+				// Lo que estaba solo en el navegador sube a la cuenta una vez.
+				const missing = cachedLikes.filter((path) => !remote.includes(path));
+				if (missing.length) {
+					await supabase.from('creative_winner_favorites')
+						.upsert(missing.map((path) => ({ user_id: profileId, image_path: path })), { onConflict: 'user_id,image_path' });
+				}
+			})();
+		}
 		async function loadAccount() {
 			setAccountLoading(true);
 			setAccountError('');
@@ -507,7 +528,10 @@ export default function CreativeApp() {
 			if (!token) return;
 			const stuck = rows
 				.filter((row) => row.status === 'processing' && !resumed.has(row.id))
-				.filter((row) => Date.now() - new Date(row.created_at || Date.now()).getTime() > 60_000);
+				// Una generación normal tarda ~60s y en calidad alta ~180s: con el
+				// umbral en 60s se relanzaba trabajo sano y dos workers escribían la
+				// misma imagen. Se espera bastante más que el peor caso.
+				.filter((row) => Date.now() - new Date(row.created_at || Date.now()).getTime() > 6 * 60_000);
 			if (!stuck.length) return;
 			stuck.forEach((row) => resumed.add(row.id));
 			void driveBatchWorkers(stuck.map((row) => row.id), token);
@@ -633,8 +657,22 @@ export default function CreativeApp() {
 			next.add(path);
 		}
 		setLikedScrapedPaths(next);
+		// El localStorage queda como caché para que la grilla no parpadee al
+		// recargar, pero la fuente de verdad es la cuenta.
 		saveLocal(`creattia-liked-scraped-v1:${sessionUserIdRef.current || 'anon'}`, Array.from(next));
 		setToast(wasLiked ? 'Quitado de guardados.' : 'Guardado en tu biblioteca.');
+
+		const userId = sessionUserIdRef.current;
+		if (!isSupabaseConfigured || !supabase || !userId) return;
+		void (async () => {
+			const result = wasLiked
+				? await supabase.from('creative_winner_favorites').delete().eq('user_id', userId).eq('image_path', path)
+				: await supabase.from('creative_winner_favorites').upsert({ user_id: userId, image_path: path }, { onConflict: 'user_id,image_path' });
+			if (result.error) {
+				console.error('No se pudo guardar el favorito en la cuenta:', result.error);
+				setToast('Se guardó en este dispositivo, pero no pudimos sincronizarlo con tu cuenta.');
+			}
+		})();
 	};
 
 	const likedWinners = useMemo(() => {

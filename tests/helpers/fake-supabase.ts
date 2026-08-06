@@ -10,7 +10,7 @@
  */
 
 type Row = Record<string, any>;
-type Filter = { op: 'eq' | 'in' | 'lt' | 'neq'; column: string; value: any };
+type Filter = { op: 'eq' | 'in' | 'lt' | 'neq'; column: string; value: any } | { op: 'or'; conditions: string };
 
 export type RpcHandler = (args: Record<string, any>) => { data?: any; error?: any } | Promise<{ data?: any; error?: any }>;
 
@@ -21,8 +21,22 @@ export type FakeSupabaseOptions = {
 	rpc?: Record<string, RpcHandler>;
 };
 
+/** `claimed_at.is.null,claimed_at.lt.2026-01-01` → pasa si CUALQUIERA se cumple. */
+function matchesOr(row: Row, conditions: string) {
+	return conditions.split(',').some((condition) => {
+		const [column, op, ...rest] = condition.split('.');
+		const value = row[column];
+		const operand = rest.join('.');
+		if (op === 'is') return operand === 'null' ? value === null || value === undefined : String(value) === operand;
+		if (op === 'lt') return value != null && String(value) < operand;
+		if (op === 'eq') return String(value) === operand;
+		return false;
+	});
+}
+
 function matches(row: Row, filters: Filter[]) {
 	return filters.every((filter) => {
+		if (filter.op === 'or') return matchesOr(row, filter.conditions);
 		const value = row[filter.column];
 		if (filter.op === 'eq') return value === filter.value;
 		if (filter.op === 'neq') return value !== filter.value;
@@ -106,6 +120,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
 			eq(column: string, value: any) { filters.push({ op: 'eq', column, value }); return chain; },
 			neq(column: string, value: any) { filters.push({ op: 'neq', column, value }); return chain; },
 			in(column: string, value: any[]) { filters.push({ op: 'in', column, value }); return chain; },
+			or(conditions: string) { filters.push({ op: 'or', conditions }); return chain; },
 			lt(column: string, value: any) { filters.push({ op: 'lt', column, value }); return chain; },
 			order() { return chain; },
 			limit() { return chain; },

@@ -337,3 +337,28 @@ describe('POST /api/creativos/batch-worker', () => {
 		expect(generateAdImage).not.toHaveBeenCalled();
 	});
 });
+
+describe('un solo worker por generación', () => {
+	test('si la fila ya está tomada, el segundo worker no genera nada', async () => {
+		// Era el bug de "la imagen cambió sola": el front relanzaba trabajo que
+		// seguía en curso y el segundo worker pisaba el archivo del primero en
+		// Storage, porque los dos suben a la misma ruta con upsert.
+		setup({
+			tables: {
+				creative_generations: [batchRow({ claimed_at: new Date().toISOString() })],
+			},
+		});
+		const response = await batchWorker({ request: workerRequest() } as any);
+		const payload = await response.json();
+		assert.equal(payload.alreadyRunning, true);
+		expect(generateAdImage).not.toHaveBeenCalled();
+	});
+
+	test('un lock viejo se libera y permite reintentar', async () => {
+		const hace20Minutos = new Date(Date.now() - 20 * 60_000).toISOString();
+		setup({ tables: { creative_generations: [batchRow({ claimed_at: hace20Minutos })] } });
+		const response = await batchWorker({ request: workerRequest() } as any);
+		assert.equal(response.status, 200);
+		expect(generateAdImage).toHaveBeenCalledOnce();
+	});
+});

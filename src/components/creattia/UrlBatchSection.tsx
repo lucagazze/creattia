@@ -213,7 +213,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [manualName, setManualName] = useState('');
 	const [manualDescription, setManualDescription] = useState('');
 	const [manualPrice, setManualPrice] = useState('');
-	const [count, setCount] = useState(10);
+	const [count, setCount] = useState(5);
 	const [format, setFormat] = useState('original');
 	const [language, setLanguage] = useState('es');
 	const [colorMode, setColorMode] = useState('winner');
@@ -611,7 +611,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 					<div className="wiz-body">
 						<label className="picker-label">¿Cuántos anuncios querés crear?</label>
 						<div className="picker-options">
-							{[5, 10, 20, 30].map((num) => (
+							{[3, 5, 10, 15].map((num) => (
 								<button
 									key={num}
 									type="button"

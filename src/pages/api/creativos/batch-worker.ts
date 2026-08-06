@@ -21,6 +21,8 @@ export const prerender = false;
 export const maxDuration = 300;
 
 const ASSETS = 'creative-assets';
+/** Cuánto se respeta el lock de un worker antes de permitir un reintento. */
+const CLAIM_TIMEOUT_MS = 8 * 60 * 1000;
 const REFERENCES = 'creative-references';
 
 
@@ -71,6 +73,24 @@ export const POST: APIRoute = async ({ request }) => {
 		// imágenes gratis.
 		if (row.status !== 'processing') {
 			return json({ error: 'Esta generación ya fue cerrada. Volvé a lanzarla desde el lote.', code: 'NOT_PROCESSING' }, 409);
+		}
+
+		// Se toma la fila de forma atómica antes de gastar un token. Sin esto, dos
+		// workers sobre la misma fila generaban en paralelo y el segundo pisaba en
+		// Storage la imagen que el usuario ya estaba viendo (upsert:true sobre la
+		// misma ruta): la imagen "cambiaba sola" un rato después.
+		const claimCutoff = new Date(Date.now() - CLAIM_TIMEOUT_MS).toISOString();
+		const { data: claimed, error: claimError } = await admin.from('creative_generations')
+			.update({ claimed_at: new Date().toISOString() })
+			.eq('id', generationId).eq('user_id', userId).eq('status', 'processing')
+			.or(`claimed_at.is.null,claimed_at.lt.${claimCutoff}`)
+			.select('id').maybeSingle();
+		// Si la columna todavía no existe (migración sin aplicar), se sigue sin
+		// lock en vez de dejar la app sin generar.
+		const claimUnavailable = claimError?.code === '42703' || /claimed_at/.test(claimError?.message || '');
+		if (claimError && !claimUnavailable) throw claimError;
+		if (!claimUnavailable && !claimed) {
+			return json({ ok: true, id: generationId, alreadyRunning: true, message: 'Esta imagen ya se está generando.' }, 202);
 		}
 
 		const snapshot: any = row.settings_snapshot || {};
