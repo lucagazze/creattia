@@ -658,7 +658,7 @@ Respondé SOLO con JSON válido con esta estructura exacta:
   "keyBenefits": ["beneficio 1", "beneficio 2", "beneficio 3"],
   "targetAudience": "descripción del público objetivo del producto",
   "orientationDetails": "si tiene frente, dorso o laterales: qué estampas, bordados, etiquetas o detalles pertenecen a cada lado; usá la ficha técnica y las fotos, o null si no está verificado",
-  "pageType": "\"product\" si la página es la ficha de UN producto concreto; \"service\" si ofrece un servicio, software, SaaS, curso, suscripción o consultoría; \"catalog\" si es la home de la tienda, una categoría o un listado donde se muestran VARIOS productos distintos y ninguno es el protagonista.",
+  "pageType": "OJO con la portada de un sitio: puede ser una tienda con muchos productos O la landing de un producto único (marcas que venden una sola cosa). Mirá cuántos productos DISTINTOS se ofrecen realmente, no cuántas fotos hay: si todo gira alrededor de un mismo artículo —un precio, un botón de compra, fotos del mismo objeto— es \"product\" aunque sea la home. \"product\" si la página es la ficha o la landing de UN producto concreto; \"service\" si ofrece un servicio, software, SaaS, curso, suscripción o consultoría; \"catalog\" si es la home de la tienda, una categoría o un listado donde se muestran VARIOS productos distintos y ninguno es el protagonista.",
   "pageTypeEvidence": "en una frase, qué te hizo decidir ese pageType (ej: 'tiene botón de agregar al carrito y peso de envío', 'ofrece planes mensuales de software', 'es una grilla con 20 productos y ningún precio principal')",
   "storeName": "nombre del negocio o la tienda dueña de la página",
   "storeDescription": "qué vende el negocio en general, en una o dos frases. Importante cuando pageType es catalog, porque el anuncio va a hablar de la tienda y no de un producto.",
@@ -700,7 +700,7 @@ Respondé SOLO con JSON válido con esta estructura exacta:
   "keyBenefits": ["beneficio 1", "beneficio 2", "beneficio 3"],
   "targetAudience": "descripción del público objetivo del producto",
   "orientationDetails": "si tiene frente, dorso o laterales: qué estampas, bordados, etiquetas o detalles pertenecen a cada lado; usá la ficha técnica y las fotos, o null si no está verificado",
-  "pageType": "\"product\" si la página es la ficha de UN producto concreto; \"service\" si ofrece un servicio, software, SaaS, curso, suscripción o consultoría; \"catalog\" si es la home de la tienda, una categoría o un listado donde se muestran VARIOS productos distintos y ninguno es el protagonista.",
+  "pageType": "OJO con la portada de un sitio: puede ser una tienda con muchos productos O la landing de un producto único (marcas que venden una sola cosa). Mirá cuántos productos DISTINTOS se ofrecen realmente, no cuántas fotos hay: si todo gira alrededor de un mismo artículo —un precio, un botón de compra, fotos del mismo objeto— es \"product\" aunque sea la home. \"product\" si la página es la ficha o la landing de UN producto concreto; \"service\" si ofrece un servicio, software, SaaS, curso, suscripción o consultoría; \"catalog\" si es la home de la tienda, una categoría o un listado donde se muestran VARIOS productos distintos y ninguno es el protagonista.",
   "pageTypeEvidence": "en una frase, qué te hizo decidir ese pageType (ej: 'tiene botón de agregar al carrito y peso de envío', 'ofrece planes mensuales de software', 'es una grilla con 20 productos y ningún precio principal')",
   "storeName": "nombre del negocio o la tienda dueña de la página",
   "storeDescription": "qué vende el negocio en general, en una o dos frases. Importante cuando pageType es catalog, porque el anuncio va a hablar de la tienda y no de un producto.",
@@ -750,7 +750,10 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 		: extracted.pageType === 'product' ? 'product'
 		: null;
 	const urlVerdict = pageTypeFromUrl(url);
-	const resolved = resolvePageType(urlVerdict, fromModel);
+	const catalogCount = Array.isArray(extracted.catalogProducts)
+		? extracted.catalogProducts.filter((item: any) => item?.name).length
+		: 0;
+	const resolved = resolvePageType(urlVerdict, fromModel, catalogCount);
 	const pageType: PageType = resolved.pageType;
 	const store = {
 		name: compact(extracted.storeName || extracted.brand || new URL(url).hostname.replace(/^www\./, ''), 120),

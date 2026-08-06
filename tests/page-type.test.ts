@@ -8,11 +8,14 @@ import { pageTypeFromUrl, resolvePageType } from '../src/lib/creattia/page-type'
  * como protagonista, mientras que "/" no admite interpretación.
  */
 describe('tipo de página según la URL', () => {
-	test('la raíz del dominio es la tienda, nunca una ficha', () => {
+	test('la raíz sugiere tienda, pero sin imponerlo', () => {
+		// Una home puede ser una tienda con 40 productos O la landing de un
+		// producto único. Eso solo se ve en el contenido, así que la ruta sugiere
+		// y deja decidir al modelo.
 		for (const url of ['https://www.theskirtingfactoryllc.com/', 'https://tienda.com', 'https://x.com/?utm=1']) {
 			const v = pageTypeFromUrl(url);
 			assert.equal(v.pageType, 'catalog', url);
-			assert.equal(v.confidence, 'alta');
+			assert.equal(v.confidence, 'media', 'la home no puede pisar al modelo');
 		}
 	});
 
@@ -34,10 +37,27 @@ describe('tipo de página según la URL', () => {
 	});
 
 	test('una señal fuerte de la ruta le gana al modelo', () => {
-		// El caso reportado: home de tienda, el modelo dice "producto".
-		const r = resolvePageType(pageTypeFromUrl('https://www.theskirtingfactoryllc.com/'), 'product');
+		// /collections/ es inequívoco: un listado nunca es una ficha.
+		const r = resolvePageType(pageTypeFromUrl('https://t.com/collections/cueros'), 'product');
 		assert.equal(r.pageType, 'catalog');
 		assert.match(r.reason, /ruta pesa más/);
+	});
+
+	test('en una home, el modelo decide: tienda si vio varios productos', () => {
+		const r = resolvePageType(pageTypeFromUrl('https://tienda.com/'), 'catalog', 8);
+		assert.equal(r.pageType, 'catalog');
+	});
+
+	test('una landing de producto único en la home NO se trata como tienda', () => {
+		// Marcas que venden una sola cosa: la home ES la ficha. Antes la ruta la
+		// forzaba a "tienda" y el anuncio hablaba de un catálogo de un solo ítem.
+		const r = resolvePageType(pageTypeFromUrl('https://unsoloproducto.com/'), 'product');
+		assert.equal(r.pageType, 'product');
+
+		// Y si el modelo dice "catálogo" pero solo encontró un producto, tampoco.
+		const r2 = resolvePageType(pageTypeFromUrl('https://unsoloproducto.com/'), 'catalog', 1);
+		assert.equal(r2.pageType, 'product');
+		assert.match(r2.reason, /un solo producto/);
 	});
 
 	test('sin señales en la ruta, manda el modelo, que sí vio el contenido', () => {
