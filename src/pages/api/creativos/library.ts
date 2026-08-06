@@ -10,6 +10,45 @@ const MANIFEST_PATH = 'manifests/starter-static-50.json';
 const PREVIEW_PER_ANGLE = 5;
 const PAID_PLAN_CODES = new Set(['creator', 'pro', 'scale', 'agency']);
 const STATIC_MEDIA_TYPES = new Set(['static_image', 'carousel']);
+
+/**
+ * El manifiesto, cacheado en el proceso.
+ *
+ * Son 3.182 anuncios que se bajaban de Storage y se parseaban en CADA carga de
+ * la app y de CADA usuario, aunque el arranque solo necesite cuatro para el
+ * panel. Era la petición más lenta del arranque (~580 ms) y la que retrasaba
+ * que el menú fuera tocable.
+ *
+ * El contenido cambia solo cuando se republica la biblioteca, así que un TTL
+ * corto es suficiente: la primera petición de cada instancia lo baja y el resto
+ * lo reusa. No se cachea por usuario —el filtrado por plan sigue ocurriendo en
+ * cada pedido—, solo el archivo.
+ */
+const MANIFEST_TTL_MS = 5 * 60 * 1000;
+let manifestCache: { items: any[]; expira: number } | null = null;
+let manifestEnVuelo: Promise<any[]> | null = null;
+
+async function loadManifestItems(admin: ReturnType<typeof getAdminClient>): Promise<any[]> {
+	if (manifestCache && manifestCache.expira > Date.now()) return manifestCache.items;
+	// Si varias peticiones entran a la vez, una sola baja el archivo.
+	if (manifestEnVuelo) return manifestEnVuelo;
+	manifestEnVuelo = (async () => {
+		const { data, error } = await admin!.storage.from(BUCKET).download(MANIFEST_PATH);
+		if (error || !data) throw new Error('manifiesto no disponible');
+		const parsed = JSON.parse(await data.text());
+		const items = (parsed.items || []).filter((item: any) => {
+			const mediaType = item.metadata?.mediaType || 'static_image';
+			return item.imagePath && STATIC_MEDIA_TYPES.has(mediaType);
+		});
+		manifestCache = { items, expira: Date.now() + MANIFEST_TTL_MS };
+		return items;
+	})();
+	try {
+		return await manifestEnVuelo;
+	} finally {
+		manifestEnVuelo = null;
+	}
+}
 const ANGLES = new Set([
 	'producto',
 	'competencia',
@@ -106,14 +145,12 @@ export const GET: APIRoute = async ({ request }) => {
 	const access = await getEffectiveAccess(admin, auth.user.id, auth.user.email);
 	const isPaid = access.isPaidLibrary || (PAID_PLAN_CODES.has(access.planCode) && access.subscriptionStatus === 'authorized');
 	const isDiscoverPreview = new URL(request.url).searchParams.get('discover') === '1';
-	const { data: manifestFile, error: manifestError } = await admin.storage.from(BUCKET).download(MANIFEST_PATH);
-	if (manifestError || !manifestFile) return json({ error: 'No se pudo cargar la biblioteca de ganadores.' }, 502);
-
-	const manifest = JSON.parse(await manifestFile.text());
-	const allItems = (manifest.items || []).filter((item: any) => {
-		const mediaType = item.metadata?.mediaType || 'static_image';
-		return item.imagePath && STATIC_MEDIA_TYPES.has(mediaType);
-	});
+	let allItems: any[];
+	try {
+		allItems = await loadManifestItems(admin);
+	} catch {
+		return json({ error: 'No se pudo cargar la biblioteca de ganadores.' }, 502);
+	}
 
 	if (isDiscoverPreview) {
 		const discoverAngles = ['producto', 'competencia', 'resenas', 'precio'];

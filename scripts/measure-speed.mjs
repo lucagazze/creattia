@@ -54,6 +54,15 @@ for (const perfil of [
 		usable = Date.now() - inicio;
 	} catch { /* no llegó */ }
 
+	const peticiones = await page.evaluate(() => {
+		// Qué se pide antes de que la app sea usable, y cuánto tarda cada una.
+		return performance.getEntriesByType('resource')
+			.filter((r) => /supabase\.co|\/api\//.test(r.name))
+			.map((r) => ({ url: r.name.replace(/^https?:\/\/[^/]+/, '').slice(0, 58), inicio: Math.round(r.startTime), ms: Math.round(r.duration) }))
+			.sort((a, b) => a.inicio - b.inicio)
+			.slice(0, 10);
+	});
+
 	const m = await page.evaluate(() => {
 		const nav = performance.getEntriesByType('navigation')[0];
 		const fcp = performance.getEntriesByName('first-contentful-paint')[0];
@@ -71,6 +80,10 @@ for (const perfil of [
 	console.log(`   primer pintado         ${m.primerPintado} ms`);
 	console.log(`   DOM listo              ${m.domListo} ms`);
 	console.log(`   menú tocable           ${usable === null ? 'NO LLEGÓ' : usable + ' ms'}`);
+	if (peticiones.length) {
+		console.log('   esperando a:');
+		for (const r of peticiones) console.log(`      +${String(r.inicio).padStart(5)}ms  ${String(r.ms).padStart(5)}ms  ${r.url}`);
+	}
 	console.log(`   descargado             ${kb(pesos.total)}  (js ${kb(pesos.js)} · css ${kb(pesos.css)} · img ${kb(pesos.img)} · fuentes ${kb(pesos.fuente)})`);
 	await ctx.close();
 }
