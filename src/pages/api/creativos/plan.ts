@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { analyzeReferenceLayout, normalizeImageInput } from '../../../lib/creattia/ad-analysis';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
+import { SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -44,7 +45,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		const brandSource = ['url', 'mine', 'none'].includes(brandSourceParam) ? brandSourceParam : 'mine';
 		const subjectModeParam = clean(form.get('subjectMode'), 12);
-		const subjectMode = ['product', 'service', 'saas', 'brand'].includes(subjectModeParam) ? subjectModeParam as 'product' | 'service' | 'saas' | 'brand' : 'product';
+		const subjectMode = SUBJECT_MODES.includes(subjectModeParam as SubjectMode) ? subjectModeParam as SubjectMode : 'product';
 
 		if (!referencePath || !referencePaths.length || !referencePaths.every((path) => /^[0-9]+\/[a-f0-9]{8,}\.(png|jpe?g|webp|avif)$/i.test(path))) {
 			return json({ error: 'Elegí un anuncio ganador válido.' }, 400);
@@ -89,7 +90,7 @@ export const POST: APIRoute = async ({ request }) => {
 			productName = stored.name;
 			productFacts = [stored.description, stored.price_text && `${stored.price_text} ${stored.currency || ''}`, stored.analysis?.category].filter(Boolean).join(' · ');
 			brandFromUrl = (stored.metadata as any)?.brandFromUrl || null;
-			if (stored.image_path && subjectMode === 'product') {
+			if (stored.image_path && usesRealProductPhotos(subjectMode)) {
 				const { data: photoBlob } = await admin.storage.from('creative-assets').download(stored.image_path);
 				const normalized = photoBlob ? await normalizeImageInput(Buffer.from(await photoBlob.arrayBuffer())) : null;
 				if (normalized) {
@@ -114,7 +115,7 @@ export const POST: APIRoute = async ({ request }) => {
 			productName = clean(form.get('productName'), 120);
 			productFacts = clean(form.get('productFacts'), 1200);
 		}
-		if (subjectMode !== 'product') {
+		if (!usesRealProductPhotos(subjectMode)) {
 			const suppliedName = clean(form.get('productName'), 120);
 			const suppliedFacts = clean(form.get('productFacts'), 1200);
 			productName = suppliedName || brandFromUrl?.name || productName || 'el servicio o la marca';
