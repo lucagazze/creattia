@@ -55,9 +55,16 @@ export function History({
 		return true;
 	});
 
-	const hasContent = filteredHistory.length > 0 || Boolean(pending);
-	const pendingPlaceholders = pending && filteredHistory.length === 0
-		? Array.from({ length: Math.min(Math.max(pending.count, 1), 40) })
+	// Lo que se está generando pertenece a "Todas", no a un filtro.
+	//
+	// La condición solo miraba si la lista filtrada estaba vacía, sin importar
+	// cuál era el filtro: parado en Favoritas y sin favoritos, aparecían las
+	// tarjetas de "generando" de un anuncio que no es favorito de nadie. Y el
+	// vacío propio de Favoritas quedaba tapado.
+	const mostrarPendientes = Boolean(pending) && currentFolderId === 'all';
+	const hasContent = filteredHistory.length > 0 || mostrarPendientes;
+	const pendingPlaceholders = mostrarPendientes && filteredHistory.length === 0
+		? Array.from({ length: Math.min(Math.max(pending!.count, 1), 40) })
 		: [];
 
 	const historyGroups = useMemo(() => groupCarouselHistory(filteredHistory), [filteredHistory]);
