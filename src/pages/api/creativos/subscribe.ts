@@ -14,11 +14,16 @@ export const prerender = false;
  * Mercado Pago. Con estos precios el margen queda por encima del 50% incluso si
  * el usuario consume el 100% de sus créditos:
  *
- * Costo real por imagen: USD 0.086 (0.082 de gpt-image-2 medium + 0.004 del
- * análisis del ganador). TODAS las imágenes salen en el mismo nivel, sin nivel
- * elegible por el usuario: 'low' degradaba la letra chica de las etiquetas y
- * 'high' tardaba 180s contra 60s —con maxDuration de 300 dejaba generaciones
- * colgadas— sin una mejora medida que lo justifique. Una imagen, un crédito.
+ * Costo real por imagen: USD 0.24 (0.236 de gpt-image-2 'high' + 0.004 del
+ * análisis del ganador). TODAS las imágenes salen en 'high', sin nivel elegible
+ * por el usuario: en 'medium' el texto sale con bordes blandos y el modelo le
+ * agrega sombras y halos, que es justo lo que delata a un anuncio hecho con IA.
+ * Una imagen, un crédito.
+ *
+ * OJO CON EL MARGEN: a este costo, los créditos sueltos (USD 0.30) dejan 20% y
+ * Agency (USD 0.326 por crédito) deja 26%. Pro y Scale (USD 0.417) quedan en
+ * 42%. Si hace falta recuperar margen, las palancas son subir el precio del
+ * crédito suelto y el de Agency — no bajar la calidad.
  *
  *   Básico    USD 9.99/mes  ->   5 créditos  -> precio de entrada del lanzamiento
  *   Pro       USD 24.99/mes -> 60 créditos  -> costo 5.16  -> margen 79.4%

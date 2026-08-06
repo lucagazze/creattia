@@ -1,12 +1,13 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
-import { checkReferencePath } from '../../../lib/creattia/library-access';
+import { filterAllowedReferencePaths } from '../../../lib/creattia/library-access';
 
 export const prerender = false;
 
 const BUCKET = 'creative-references';
-const MAX_PATHS = 60;
+// Una pantalla de biblioteca son ~20 tarjetas, algunas con páginas de carrusel.
+const MAX_PATHS = 250;
 
 /**
  * Firma URLs de la biblioteca de ganadores para el front.
@@ -29,10 +30,8 @@ export const POST: APIRoute = async ({ request }) => {
 		if (!paths.length) return json({ urls: {} });
 
 		const access = await getEffectiveAccess(admin, auth.user.id, auth.user.email);
-		const siteOrigin = new URL(request.url).origin;
-		const verdicts = await Promise.all(paths.map((path) => checkReferencePath(path, access, siteOrigin)));
-		const allowed = verdicts.filter((verdict) => verdict.ok).map((verdict) => (verdict as { path: string }).path);
-		if (!allowed.length) return json({ urls: {}, locked: paths.length });
+		const { allowed, locked } = await filterAllowedReferencePaths(paths, access, new URL(request.url).origin);
+		if (!allowed.length) return json({ urls: {}, locked });
 
 		const { data: signed, error } = await admin.storage.from(BUCKET).createSignedUrls(allowed, 60 * 60);
 		if (error) return fail('reference-urls', error, 'No se pudieron preparar las referencias.');
@@ -42,7 +41,7 @@ export const POST: APIRoute = async ({ request }) => {
 			const path = row.path || allowed[index];
 			if (row.signedUrl) urls[path] = row.signedUrl;
 		});
-		return json({ urls, locked: paths.length - allowed.length });
+		return json({ urls, locked });
 	} catch (error) {
 		return fail('reference-urls', error, 'No se pudieron preparar las referencias.');
 	}

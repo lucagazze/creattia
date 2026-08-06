@@ -47,25 +47,54 @@ function sortForPreview(left: any, right: any) {
 	return String(left.imagePath || '').localeCompare(String(right.imagePath || ''));
 }
 
-async function signReference(admin: NonNullable<ReturnType<typeof getAdminClient>>, path: string) {
-	if (!path || path.startsWith('http')) return path;
-	const { data, error } = await admin.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
-	return error || !data?.signedUrl ? '' : data.signedUrl;
+/**
+ * Firma en lote todas las rutas de una tanda.
+ *
+ * Antes se firmaba de a una: para una cuenta paga eso son más de 3.000 llamadas
+ * a Storage en un solo request, que lo dejaban colgado. `createSignedUrls` firma
+ * hasta cientos por llamada; se trocea para no mandar un cuerpo gigante.
+ */
+const SIGN_BATCH = 200;
+/** Hasta acá se firma en el mismo request; más arriba lo hace el front por tanda. */
+const SIGN_INLINE_LIMIT = 120;
+
+async function signAll(admin: NonNullable<ReturnType<typeof getAdminClient>>, paths: string[]) {
+	const signed = new Map<string, string>();
+	const pending = [...new Set(paths.filter((path) => path && !path.startsWith('http')))];
+	for (let index = 0; index < pending.length; index += SIGN_BATCH) {
+		const chunk = pending.slice(index, index + SIGN_BATCH);
+		const { data, error } = await admin.storage.from(BUCKET).createSignedUrls(chunk, 60 * 60);
+		if (error) {
+			console.error('[library] no se pudieron firmar referencias:', error);
+			continue;
+		}
+		(data || []).forEach((row, position) => {
+			const path = row.path || chunk[position];
+			if (row.signedUrl) signed.set(path, row.signedUrl);
+		});
+	}
+	return signed;
 }
 
 async function addAccessUrls(admin: NonNullable<ReturnType<typeof getAdminClient>>, items: any[]) {
-	return Promise.all(items.map(async (item) => {
-		const imageUrl = await signReference(admin, item.imagePath);
+	const paths = items.flatMap((item) => [
+		item.imagePath,
+		...(Array.isArray(item.metadata?.carouselImages) ? item.metadata.carouselImages : []),
+	]);
+	const signed = await signAll(admin, paths);
+	const resolve = (path: string) => (path?.startsWith('http') ? path : signed.get(path) || '');
+
+	return items.map((item) => {
 		const metadata = item.metadata || {};
 		const carouselImages = Array.isArray(metadata.carouselImages)
-			? await Promise.all(metadata.carouselImages.map((path: string) => signReference(admin, path)))
+			? metadata.carouselImages.map(resolve)
 			: undefined;
 		return {
 			...item,
-			imageUrl,
+			imageUrl: resolve(item.imagePath),
 			metadata: carouselImages ? { ...metadata, carouselImages } : metadata,
 		};
-	}));
+	});
 }
 
 export const GET: APIRoute = async ({ request }) => {
@@ -129,10 +158,13 @@ export const GET: APIRoute = async ({ request }) => {
 	}
 
 	const items = isPaid ? allItems.map((item: any) => ({ ...item, category: angleFor(item) })) : previewItems;
-	// Se firman siempre, también para las cuentas pagas: el bucket
-	// `creative-references` dejó de ser público, así que el front ya no puede
-	// armar la URL por su cuenta.
-	const accessibleItems = await addAccessUrls(admin, items);
+	// El preview gratuito son ~50 items y se firman acá. El catálogo completo son
+	// más de 6.500 rutas: firmarlas todas tardaba 20 segundos para mostrar 20
+	// imágenes. Las cuentas pagas reciben la lista sin firmar y el front pide las
+	// URLs de lo que realmente se ve, por tanda, a /api/creativos/reference-urls.
+	const accessibleItems = items.length <= SIGN_INLINE_LIMIT
+		? await addAccessUrls(admin, items)
+		: items;
 	const lockedCount = isPaid ? 0 : Math.max(0, allItems.length - previewPaths.size);
 
 	return json({

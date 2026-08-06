@@ -2,7 +2,17 @@ import OpenAI from 'openai';
 import { normalizeAdCopy, stripWebReferences, type AdaptedAdCopy } from './ad-copy';
 
 const TEXT_RENDERING_RULE = `
-TEXT RENDERING QUALITY (CRITICAL) — Treat publication text as clean, flat graphic typography, not as a glowing object. Use opaque, solid letterforms with crisp vector-like edges, correct kerning and even anti-aliasing. Do not add a white halo, white ghost copy, blurred outline, glow, bevel, extrusion, duplicated offset, feathering or fuzzy bloom behind any letter. Do not invent a text shadow; preserve a shadow only when it is clearly present in the winning reference and reproduce it subtly, with the same colour and direction. Keep every line fully inside its original zone and never sacrifice legibility for a decorative effect.`;
+TEXT RENDERING QUALITY (CRITICAL — HIGHEST PRIORITY, overrides fidelity to the template) — Every letter of publication text must be rendered as clean, flat, vector-like graphic typography: opaque solid fill, razor-sharp edges, correct kerning, even anti-aliasing, no softness anywhere.
+
+ABSOLUTELY FORBIDDEN on publication text, even if the winning reference clearly shows it — do NOT reproduce these from the template under any circumstance:
+- drop shadows, cast shadows or any offset copy of a letter
+- glows, outer glows, blurred outlines, white halos, ghost copies, feathering or fuzzy bloom
+- bevels, embossing, extrusions, 3D depth or gradients inside the letterform
+- any blur, softening, motion blur or depth-of-field applied to a letter
+
+If the template's text has a shadow or glow, render the SAME text WITHOUT it: flat and clean. Losing a decorative shadow is always preferable to a dirty, blurry or amateur-looking letter — soft text is the single clearest sign of an AI-generated ad and makes the whole creative look unprofessional.
+
+Text must read as if it were typed in a design tool and exported at full resolution: perfectly crisp at 100% zoom, with a hard edge between the letter and the background. Keep every line fully inside its original zone and never sacrifice legibility for a decorative effect. This rule does NOT apply to text physically printed on the real product packaging, which keeps its natural photographic appearance.`;
 
 // ── Compartido entre /api/creativos/plan y /api/creativos/generate ──────────
 

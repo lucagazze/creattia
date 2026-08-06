@@ -211,17 +211,16 @@ describe('POST /api/creativos/generate', () => {
 		assert.equal(payload.code, 'LIBRARY_LOCKED');
 	});
 
-	test('todas las imágenes salen en el mismo nivel de calidad y cuestan 1 crédito', async () => {
-		// Ya no hay nivel elegible: 'high' tarda 180s contra 60s y con
-		// maxDuration=300 dejaba generaciones colgadas, sin una mejora medida que
-		// lo justifique. Pedirlo por parámetro no puede cambiar ni el nivel ni el
-		// precio.
+	test('todas las imágenes salen en el nivel más alto y cuestan 1 crédito', async () => {
+		// El nivel no es elegible por el usuario: todas van en 'high', que es donde
+		// las letras salen con filo de vector. Mandar quality por parámetro no
+		// cambia ni el nivel ni el precio.
 		const { creditsNow } = setup();
 		const response = await generate({ request: generateRequest({ ...baseFields, quality: 'pro' }) } as any);
 		assert.equal(response.status, 202);
 		assert.equal(creditsNow(), 49, 'sigue costando 1 crédito');
 		await settleBackgroundWork();
-		assert.equal(generateAdImage.mock.calls[0]?.[0].tier, 'medium');
+		assert.equal(generateAdImage.mock.calls[0]?.[0].tier, 'high');
 	});
 
 	test('varias imágenes en un lote reservan y generan todas', async () => {
@@ -311,7 +310,7 @@ describe('POST /api/creativos/batch-worker', () => {
 			},
 		});
 		await batchWorker({ request: workerRequest() } as any);
-		assert.equal(generateAdImage.mock.calls[0]![0].tier, 'medium');
+		assert.equal(generateAdImage.mock.calls[0]![0].tier, 'high');
 	});
 
 	test('no vuelve a generar una fila ya cerrada', async () => {

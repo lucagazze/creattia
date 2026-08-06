@@ -24,19 +24,23 @@ export type TierDecision = {
 const COST: Record<QualityTier, number> = { low: 0.035, medium: 0.082, high: 0.236 };
 
 /**
- * Por defecto TODAS las imágenes salen en 'medium'.
+ * Por defecto TODAS las imágenes salen en 'high'.
  *
- * El ruteo automático ahorraba entre 14% y 29%, pero 'low' degrada justo donde
- * más se nota — la letra chica de las etiquetas — y no vale la pena arriesgar la
- * calidad de un anuncio por unos centavos. Se prioriza que todas salgan bien.
+ * En 'medium' el texto sale con bordes blandos y el modelo agrega sombras y
+ * halos que ensucian la tipografía: es lo que delata que un anuncio lo hizo una
+ * IA. 'high' es el nivel donde las letras salen con filo de vector.
+ *
+ * Se paga en tiempo: ~180s por imagen contra ~60s. Entra en el maxDuration de
+ * 300s de las funciones, pero deja menos margen; si una generación se pasa, el
+ * barrido de colgadas la cierra y devuelve el crédito.
  *
  * El nivel no es elegible por el usuario: una imagen cuesta siempre 1 crédito.
  * Para mover el nivel de TODA la app está IMAGE_QUALITY_TIER (low|medium|high|auto),
  * y para forzar una generación puntual, `forceTier` en el snapshot.
  */
 function configuredTier(): QualityTier | 'auto' {
-	const raw = (process.env.IMAGE_QUALITY_TIER || import.meta.env.IMAGE_QUALITY_TIER || 'medium').toLowerCase();
-	return raw === 'auto' || raw === 'low' || raw === 'medium' || raw === 'high' ? raw : 'medium';
+	const raw = (process.env.IMAGE_QUALITY_TIER || import.meta.env.IMAGE_QUALITY_TIER || 'high').toLowerCase();
+	return raw === 'auto' || raw === 'low' || raw === 'medium' || raw === 'high' ? raw : 'high';
 }
 
 export function pickQualityTier(analysis: LayoutAnalysis | null, options?: { force?: QualityTier }): TierDecision {
@@ -48,8 +52,8 @@ export function pickQualityTier(analysis: LayoutAnalysis | null, options?: { for
 		return { tier: configured, reason: `nivel fijo ${configured}`, estimatedCost: COST[configured] };
 	}
 	return {
-		tier: 'medium',
-		reason: analysis ? 'análisis visual listo para imagen estática' : 'sin análisis previo, se usa el nivel seguro',
-		estimatedCost: COST.medium,
+		tier: 'high',
+		reason: analysis ? 'análisis visual listo, se prioriza tipografía limpia' : 'sin análisis previo, se usa el nivel más alto',
+		estimatedCost: COST.high,
 	};
 }

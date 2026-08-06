@@ -101,3 +101,41 @@ export async function checkReferencePath(
 	}
 	return { ok: true, path };
 }
+
+/**
+ * Igual que `checkReferencePath` pero para muchas rutas: arma el índice del
+ * manifiesto una sola vez. Lo usa el endpoint que firma las miniaturas visibles,
+ * que se llama en cada scroll de la biblioteca.
+ */
+export async function filterAllowedReferencePaths(
+	rawPaths: string[],
+	access: EffectiveAccess,
+	siteOrigin: string,
+): Promise<{ allowed: string[]; locked: number }> {
+	const paths = [...new Set(rawPaths.map((path) => String(path || '').trim()).filter(Boolean))];
+	if (!paths.length) return { allowed: [], locked: 0 };
+
+	let winners: Awaited<ReturnType<typeof loadWinners>>;
+	try {
+		winners = await loadWinners(siteOrigin);
+	} catch (error) {
+		console.error('[library-access] no se pudo leer el manifiesto de ganadores', error);
+		return { allowed: [], locked: paths.length };
+	}
+
+	const known = new Set<string>();
+	const freePreview = new Set<string>(FREE_PREVIEW_REFERENCE_PATHS);
+	for (const winner of winners) {
+		known.add(winner.imagePath);
+		// Las páginas de un carrusel son parte de la misma pieza.
+		for (const slide of winner.metadata?.carouselImages || []) known.add(slide);
+		if (freePreviewAngleFor(winner)) {
+			freePreview.add(winner.imagePath);
+			for (const slide of winner.metadata?.carouselImages || []) freePreview.add(slide);
+		}
+	}
+
+	const full = hasFullLibraryAccess(access);
+	const allowed = paths.filter((path) => known.has(path) && (full || freePreview.has(path)));
+	return { allowed, locked: paths.length - allowed.length };
+}

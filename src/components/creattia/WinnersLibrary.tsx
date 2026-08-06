@@ -7,6 +7,7 @@ import { isAdminEmail } from '../../lib/creattia/admin';
 import { canAccessVideoFeature } from '../../lib/creattia/video-access';
 import CreationFlow from './CreationFlow';
 import VideoCreationFlow from './VideoCreationFlow';
+import { useReferenceUrls } from '../../lib/creattia/reference-urls';
 
 function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number; fill?: string }) {
 	const common = { width: size, height: size, viewBox: '0 0 24 24', fill, stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
@@ -548,11 +549,8 @@ export default function WinnersLibrary({
 	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
 	// imagen al instante en vez de esperar a que baje cada foto de a una.
 	useEffect(() => {
-		// El bucket de referencias es privado: /api/creativos/library ya devuelve
-		// cada portada y cada página de carrusel con su URL firmada. Construirla
-		// a mano acá daba un 400 y, cuando el bucket era público, salteaba el
-		// control de acceso.
-		const urlFor = (path: string) => (path.startsWith('http') ? path : '');
+		// El bucket es privado: las URLs las firma el servidor.
+		const urlFor = (path: string) => (path.startsWith('http') ? path : signedUrls[path] || '');
 		filteredItems.slice(0, visibleCount).forEach((item) => {
 			const slides = item.metadata?.carouselImages;
 			if (!Array.isArray(slides) || slides.length < 2) return;
@@ -599,6 +597,12 @@ export default function WinnersLibrary({
 		}
 	}, [filteredItems.length, lockedTotalForSelection, lockedVisibleCount, visibleCount]);
 	const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
+	// El catálogo completo llega sin firmar (son más de 6.500 rutas): se piden
+	// las URLs de las tarjetas que se están viendo, y del carrusel abierto.
+	const signedUrls = useReferenceUrls([
+		...visibleItems.flatMap((item: any) => [item.imagePath, ...(item.metadata?.carouselImages || []).slice(0, 2)]),
+		...(activeAd ? [activeAd.imagePath, ...((activeAd as any).metadata?.carouselImages || [])] : []),
+	]);
 	const lockedItems = useMemo<WinnerItem[]>(() => {
 		if (!selectedLockedAngles.length || !lockedVisibleCount) return [];
 		const selectedAngles = selectedLockedAngles;
@@ -1132,8 +1136,7 @@ export default function WinnersLibrary({
 						const hasFailed = item.imagePath ? failedImages.has(item.imagePath) : false;
 						if (hasFailed) return null; // imagen rota: no mostrar placeholder genérico
 						const isVideo = item.metadata?.mediaType === 'video';
-						// Ya vienen firmadas desde la API (ver comentario de arriba).
-						const urlFor = (path: string) => (path.startsWith('http') ? path : '');
+						const urlFor = (path: string) => (path.startsWith('http') ? path : signedUrls[path] || '');
 						const imageUrl = item.imageUrl || urlFor(item.imagePath);
 						if (!imageUrl) return null; // sin URL firmada no hay nada que mostrar
 
