@@ -855,13 +855,8 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 				if (applyBrandStyle) { form.set('colorMode', 'url'); form.set('typoMode', 'url'); }
 			}
 
-			// Handle product override based on selected mode
-			if (productMode === 'catalog') {
-				if (!catalogProductId) {
-					throw new Error('Por favor, selecciona un producto del catálogo.');
-				}
-				form.append('productIds', catalogProductId);
-			} else if (productMode === 'manual') {
+			// De dónde sale el producto de la nueva versión.
+			if (productMode === 'manual') {
 				if (!manualProductName.trim()) {
 					throw new Error('Por favor, ingresa el nombre de tu producto o servicio.');
 				}
@@ -1003,13 +998,12 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 										<strong>{keptProductName}</strong>
 										<small>Se mantiene el mismo producto de esta imagen.</small>
 									</p>
-									<button type="button" onClick={() => setProductMode(localProducts.length ? 'catalog' : 'url')}>Cambiar</button>
+									<button type="button" onClick={() => setProductMode('url')}>Cambiar</button>
 								</div>
 							) : (
 								<div className="regen-product-change">
 									<div className="regen-product-tabs" role="tablist" aria-label="De dónde sale el producto">
 										{[
-											...(localProducts.length ? [{ id: 'catalog', label: 'De los míos' }] : []),
 											{ id: 'url', label: 'Desde una URL' },
 											{ id: 'manual', label: 'Subir fotos' },
 										].map((m) => (
@@ -1027,19 +1021,6 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 										<button type="button" className="regen-product-cancel" onClick={() => setProductMode('keep')}>Cancelar</button>
 									</div>
 								</div>
-							)}
-
-							{productMode === 'catalog' && (
-								<select
-									value={catalogProductId}
-									onChange={(e) => setCatalogProductId(e.target.value)}
-									style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid #dcd5e4', padding: '0 8px', fontSize: '13px', background: '#fff', color: '#19171d' }}
-								>
-									<option value="">-- Selecciona un producto --</option>
-									{localProducts.map(p => (
-										<option key={p.id} value={p.id}>{p.name} {p.id === originalProductId ? '(Original)' : ''}</option>
-									))}
-								</select>
 							)}
 
 							{productMode === 'url' && (

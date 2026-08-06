@@ -251,9 +251,8 @@ Return STRICT JSON:
   "creativeDecisions": [
     { "slide": 1, "type": "person|scene|styling|object|comparison|product-handling|other",
       "title": "título corto y claro para la decisión",
-      "where": "dónde aparece el elemento",
-      "description": "qué detectaste y por qué puede cambiar la generación",
-      "question": "pregunta concreta para el usuario; vacía si no hace falta preguntar",
+      "where": "dónde aparece el elemento, en pocas palabras (ej: 'esquina inferior izquierda')",
+      "question": "pregunta concreta para el usuario; vacía si no hace falta preguntar. Debe bastarse sola: no expliques primero el razonamiento, preguntá directo",
       "defaultStrategy": "qué debe hacer la IA si el usuario deja la aclaración vacía",
       "confidence": "high|medium|low",
       "directive": "cadena vacía" }
@@ -617,9 +616,12 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 
 	// No limitar la ayuda contextual a comparaciones: una persona, una escena o
 	// un objeto secundario también puede necesitar una decisión del usuario.
+	// `description` ya no se pide —era un párrafo de razonamiento que se mostraba
+	// arriba de la pregunta y decía lo mismo— pero se sigue leyendo: los análisis
+	// guardados antes de este cambio la traen.
 	const creativeDecisions = (input.analysis?.creativeDecisions || []).filter((decision) => decision && (decision.description || decision.question || decision.defaultStrategy || decision.directive));
 	const creativeDecisionBlock = creativeDecisions.length
-		? `\nCONTEXTUAL CREATIVE DECISIONS — The visual analysis identified details that may materially affect fidelity or believability. Preserve the template structure, but apply the user's direction when present. If a direction is empty, use the safe default and do not invent an unrelated subject, brand or claim:\n${creativeDecisions.map((decision, index) => `   - Decision ${index + 1} [${decision.type || 'other'}]${decision.title ? ` ${decision.title}` : ''}${decision.where ? ` (${decision.where})` : ''}: detected — ${decision.description || 'contextual visual element'}. User direction: ${decision.directive?.trim() || 'none'}. Default: ${decision.defaultStrategy || 'make the most natural, same-category and production-ready choice.'}`).join('\n')}`
+		? `\nCONTEXTUAL CREATIVE DECISIONS — The visual analysis identified details that may materially affect fidelity or believability. Preserve the template structure, but apply the user's direction when present. If a direction is empty, use the safe default and do not invent an unrelated subject, brand or claim:\n${creativeDecisions.map((decision, index) => `   - Decision ${index + 1} [${decision.type || 'other'}]${decision.title ? ` ${decision.title}` : ''}${decision.where ? ` (${decision.where})` : ''}: detected — ${decision.description || decision.question || 'contextual visual element'}. User direction: ${decision.directive?.trim() || 'none'}. Default: ${decision.defaultStrategy || 'make the most natural, same-category and production-ready choice.'}`).join('\n')}`
 		: '';
 	const typoRule = input.typoMode !== 'winner' && (input.brandTypography?.headings || input.brandTypography?.body)
 		? `TYPOGRAPHY — Use the selected brand typography: headings in ${input.brandTypography?.headings || 'the brand font'}, body text in ${input.brandTypography?.body || 'the brand font'}, keeping the same sizes, weights and hierarchy as the template.`

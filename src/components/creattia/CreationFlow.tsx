@@ -28,7 +28,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	onToast?: (message: string) => void;
 	onGenerationStarted?: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void;
 	onGenerationRequested?: () => void;
-	onBack: () => void;
+	/**
+	 * Cierra el flujo. `traGenerar` avisa que se acaba de mandar una generación:
+	 * en ese caso NO hay que volver a la pantalla de la que se venía, porque el
+	 * usuario ya fue llevado a "Mis imágenes" a ver lo que se está creando.
+	 */
+	onBack: (opciones?: { trasGenerar?: boolean }) => void;
 }) {
 	const token = session?.access_token || '';
 
@@ -405,7 +410,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					referenceUrl,
 					count,
 				});
-				onBack();
+				onBack({ trasGenerar: true });
 			}
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la generación.');
@@ -541,7 +546,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					count: payload.count,
 				});
 			}
-			onBack();
+			onBack({ trasGenerar: true });
 			void driveBatchWorkers((payload.generations || []).map((g: any) => g.id), token);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la generación del carrusel.');
@@ -558,7 +563,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 
 	return (
 		<div style={{ width: '100%' }}>
-			<button onClick={onBack} style={{ border: 0, background: 'transparent', color: '#716d79', cursor: 'pointer', fontSize: '14px', padding: 0, marginBottom: '16px' }}>← Volver a la biblioteca</button>
+			<button onClick={() => onBack()} style={{ border: 0, background: 'transparent', color: '#716d79', cursor: 'pointer', fontSize: '14px', padding: 0, marginBottom: '16px' }}>← Volver a la biblioteca</button>
 			<div className="creation-flow-layout">
 
 				{/* Referencia a la izquierda: en un carrusel se puede pasar de página
@@ -1074,9 +1079,17 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								<div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 									{creativeDecisions.map((decision, index) => (
 										<div key={index} style={{ padding: '12px 14px', border: '1px solid #eee6f2', borderRadius: '11px', background: '#fff' }}>
-											<strong style={{ display: 'block', fontSize: '13px', color: '#3f3560', marginBottom: '3px' }}>{creativeDecisionIcon(decision.type)} {decision.title || 'Elemento visual detectado'}</strong>
-											{(decision.where || decision.description) && <p style={{ margin: '0 0 7px', fontSize: '12px', lineHeight: 1.4, color: '#5f5a67' }}>{decision.where ? `${decision.where}${decision.description ? ' · ' : ''}` : ''}{decision.description || ''}</p>}
-											<p style={{ margin: '0 0 8px', fontSize: '12px', lineHeight: 1.4, color: '#744bde', fontWeight: 600 }}>{decision.question || `¿Cómo querés resolver ${decision.title?.toLowerCase() || 'este elemento'}?`}</p>
+											{/* Sin la descripción: explicaba el razonamiento de la IA
+											    —"el producto original es un electrodoméstico, el tuyo es
+											    software, necesitamos representarlo…"— y era un párrafo
+											    entero para llegar a la misma pregunta que ya está abajo.
+											    Del contexto queda solo dónde está el elemento, que es lo
+											    único que ayuda a ubicarlo en el anuncio. */}
+											<strong style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#3f3560', marginBottom: '5px' }}>
+												<span>{creativeDecisionIcon(decision.type)} {decision.title || 'Elemento visual detectado'}</span>
+												{decision.where && <em style={{ fontStyle: 'normal', fontSize: '11px', fontWeight: 700, color: '#8b8490', background: '#f4f1f8', padding: '2px 7px', borderRadius: '999px' }}>{decision.where}</em>}
+											</strong>
+											<p style={{ margin: '0 0 8px', fontSize: '12.5px', lineHeight: 1.45, color: '#3f3560', fontWeight: 600 }}>{decision.question || `¿Cómo querés resolver ${decision.title?.toLowerCase() || 'este elemento'}?`}</p>
 											<input value={decision.directive || ''} onChange={(event) => setCreativeDecisions(creativeDecisions.map((current, decisionIndex) => decisionIndex === index ? { ...current, directive: event.target.value } : current))} placeholder={decision.defaultStrategy ? `Vacío = ${decision.defaultStrategy}` : 'Dejalo vacío para que la IA decida'} style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '9px', border: '1px solid #e2dde9', fontSize: '13px' }} />
 										</div>
 									))}

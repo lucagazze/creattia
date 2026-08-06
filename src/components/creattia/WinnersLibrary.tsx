@@ -875,9 +875,12 @@ export default function WinnersLibrary({
 				session={session}
 				onToast={onToast}
 				onGenerationStarted={onGenerationStarted}
-				onBack={() => {
+				onBack={(opciones) => {
 					setActiveAd(null);
-					if (onBackToPreviousView) {
+					// Tras generar, el usuario ya está en "Mis imágenes" viendo cómo se
+					// crean sus creativos: devolverlo a la pantalla de la que venía
+					// —guardados, inicio— lo sacaba justo de donde quería estar.
+					if (onBackToPreviousView && !opciones?.trasGenerar) {
 						onBackToPreviousView();
 					}
 				}}
