@@ -87,13 +87,28 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * página ya dice sola, y si se equivocaba el creativo terminaba pidiendo una
 	 * foto de producto que no existe.
 	 */
-	const [detectedOffering, setDetectedOffering] = useState<'product' | 'service' | 'catalog'>('product');
-	const isService = detectedOffering === 'service';
-	/** La URL era la home de la tienda o una categoría: el anuncio habla del negocio. */
-	const isCatalog = detectedOffering === 'catalog';
+	const [scannedOffering, setScannedOffering] = useState<'product' | 'service' | 'catalog'>('product');
 	const [urls, setUrls] = useState<string[]>(['']);
 	const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 	const [importedProducts, setImportedProducts] = useState<ProductReviewItem[]>([]);
+
+	/**
+	 * Se deriva de los productos elegidos, no del último escaneo.
+	 *
+	 * Antes era estado que solo se seteaba al escanear una URL: si se generaba
+	 * desde productos ya importados —sin volver a pegar la URL— quedaba en
+	 * 'product' y el anuncio de un catálogo terminaba tratado como una ficha.
+	 */
+	const detectedOffering: 'product' | 'service' | 'catalog' = (() => {
+		const elegidos = importedProducts.filter((item: any) => selectedProductIds.includes(item.id));
+		const desdeProductos = (elegidos.length ? elegidos : importedProducts)
+			.map((item: any) => item?.metadata?.pageType)
+			.find((tipo: string) => tipo === 'catalog' || tipo === 'service' || tipo === 'product');
+		return (desdeProductos as any) || scannedOffering;
+	})();
+	const isService = detectedOffering === 'service';
+	/** La URL era la home de la tienda o una categoría: el anuncio habla del negocio. */
+	const isCatalog = detectedOffering === 'catalog';
 	const [uploadFiles, setUploadFiles] = useState<File[]>([]);
 	const [uploadPreviews, setUploadPreviews] = useState<string[]>([]);
 	const [parsingDoc, setParsingDoc] = useState(false);
@@ -198,7 +213,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					if (Array.isArray(payload.products)) {
 						// Lo que detectó la IA al leer la página manda sobre el default.
 						const pageType = payload.products.find((item: any) => item?.metadata?.pageType)?.metadata?.pageType;
-						if (pageType === 'service' || pageType === 'product' || pageType === 'catalog') setDetectedOffering(pageType);
+						if (pageType === 'service' || pageType === 'product' || pageType === 'catalog') setScannedOffering(pageType);
 						payload.products.forEach((product: ProductReviewItem) => {
 							if (product?.id && payload.importedIds.includes(product.id)) productsById.set(product.id, product);
 						});
