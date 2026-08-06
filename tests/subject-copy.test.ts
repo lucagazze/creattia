@@ -129,3 +129,39 @@ describe('la fuerza del ganador llega al render', () => {
 		assert.doesNotMatch(prompt, /WHY THIS AD PERFORMS/);
 	});
 });
+
+/**
+ * El prompt del render no puede crecer sin control.
+ *
+ * Cada regla nueva se suma a un texto que ya ronda los 13.000 caracteres. Los
+ * modelos de imagen diluyen las instrucciones cuando el prompt es muy largo: la
+ * regla número treinta compite con la primera. Esto no dice cuál es el tamaño
+ * ideal —eso solo se sabe generando y mirando— pero avisa si alguien duplica el
+ * prompt sin darse cuenta.
+ */
+describe('tamaño del prompt de render', () => {
+	test('se mantiene dentro de lo razonable', () => {
+		const analisis: any = {
+			referenceHasProduct: true,
+			productHasPackaging: true,
+			templateHasLogoSlot: true,
+			messageStrategy: 'Dispara deseo mostrando el resultado antes que el producto.',
+			creative: {
+				adType: 'testimonial', styleFamily: 'Skincare', photographyStyle: 'packshot',
+				lighting: 'suave difusa', depth: 'fondo desenfocado', composition: '50/50',
+				colorPsychology: 'rosa de cuidado', emotion: 'deseo', designPattern: 'producto derecha, reseña izquierda',
+				scoreReasons: ['contraste alto', 'CTA visible', 'jerarquía clara'],
+			},
+			textZones: Array.from({ length: 6 }, (_, i) => ({ where: `zona ${i}`, original: `O${i}`, replacement: `N${i}` })),
+		};
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, true);
+		assert.ok(prompt.length < 20000, `el prompt creció a ${prompt.length} caracteres`);
+	});
+
+	test('no le pide al modelo una resolución que no va a producir', () => {
+		// Pedía "exportación 4K" mientras el motor renderiza a 1536: una
+		// instrucción que no se puede cumplir y solo agrega ruido.
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, { referenceHasProduct: true } as any, false);
+		assert.doesNotMatch(prompt, /4K/);
+	});
+});
