@@ -34,3 +34,4 @@ scripts/_*.log
 comparacion-calidad/
 matriz/
 matriz-antes/
+.claves-anteriores.json

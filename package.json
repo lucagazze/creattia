@@ -26,7 +26,8 @@
     "references:import-angles": "node --env-file=.env.local scripts/import-user-angle-library.mjs",
     "references:curate": "node --env-file=.env.local scripts/curate-winner-library.mjs",
     "references:verify": "node --env-file=.env.local scripts/verify-curated-library.mjs",
-    "references:manifest": "node scripts/build-reference-starter-manifest.mjs"
+    "references:manifest": "node scripts/build-reference-starter-manifest.mjs",
+    "claves": "node --env-file=.env.deploy scripts/migrar-claves.mjs"
   },
   "dependencies": {
     "@astrojs/react": "6.0.1",
