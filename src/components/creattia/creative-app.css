@@ -6439,3 +6439,54 @@
 	.library-card-esqueleto { animation: none; }
 	.library-card-imagen { opacity: 1; transition: none; }
 }
+
+/* ── Mis imágenes y anuncios guardados, en masonry ──────────────────────── */
+/*
+ * Eran una grilla de columnas fijas, así que cada fila se alineaba a la tarjeta
+ * más alta y quedaba aire muerto debajo de las demás. Los creativos vienen en
+ * proporciones muy distintas —cuadrados, verticales de historia, horizontales—
+ * y con altura fija todos terminan recortados o rodeados de blanco.
+ *
+ * Con columnas CSS el navegador equilibra por ALTURA, que es lo que hace falta,
+ * y cada imagen se muestra entera en su proporción real.
+ */
+.studio-history-grid {
+	display: block !important;
+	column-count: 4;
+	column-gap: 15px;
+	grid-template-columns: none !important;
+}
+
+.studio-history-grid > * {
+	display: block;
+	width: 100%;
+	margin: 0 0 15px;
+	/* Sin esto una tarjeta se parte entre el pie de una columna y la cabeza de
+	   la siguiente. */
+	break-inside: avoid;
+	-webkit-column-break-inside: avoid;
+}
+
+@media (max-width: 1200px) {
+	.studio-history-grid { column-count: 3; }
+}
+
+@media (max-width: 900px) {
+	.studio-history-grid { column-count: 2; }
+}
+
+@media (max-width: 560px) {
+	.studio-history-grid { column-count: 2; column-gap: 10px; }
+	.studio-history-grid > * { margin-bottom: 10px; }
+}
+
+/* En masonry la imagen manda la altura de la tarjeta, así que va entera y en su
+   proporción real: nada de recortarla a una caja fija. */
+.studio-history-grid article > img,
+.studio-history-grid article > a > img,
+.studio-history-grid article > div > img {
+	width: 100%;
+	height: auto;
+	display: block;
+	object-fit: contain;
+}
