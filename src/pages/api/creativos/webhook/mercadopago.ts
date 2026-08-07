@@ -148,7 +148,13 @@ export const POST: APIRoute = async ({ request, url }) => {
 			if (purchaseError.code === '23505') return json({ received: true, duplicated: true });
 			return fail('mercadopago-webhook', purchaseError, 'No se pudo procesar la notificación.');
 		}
-		void trackEvent(admin, 'tokens_comprados', userId, { cantidad: credits, monto: payment.transaction_amount || null });
+		// El id del pago hace de clave del evento: si el webhook se reintenta —o si
+		// el navegador también lo reporta— Meta lo cuenta una sola vez.
+		void trackEvent(admin, 'tokens_comprados', userId, { cantidad: credits, monto: payment.transaction_amount || null, paymentId: String(payment.id) }, {
+			valor: Number(payment.transaction_amount) || 0,
+			moneda: payment.currency_id || 'USD',
+			email: payment.payer?.email || null,
+		});
 		const { error: creditError } = await admin.rpc('add_purchased_credits', { p_user_id: userId, p_amount: credits });
 		if (creditError) {
 			// Permitimos que Mercado Pago reintente el webhook si la acreditación

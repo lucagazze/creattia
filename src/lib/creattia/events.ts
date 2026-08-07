@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { sendMetaEvent, type DatosCompra } from './meta-capi';
 
 /**
  * Registro de eventos de producto.
@@ -41,7 +42,12 @@ export async function trackEvent(
 	event: ProductEvent,
 	userId?: string | null,
 	props: Record<string, unknown> = {},
+	/** Valor y comprador, para los eventos que Meta necesita costear. */
+	compra: DatosCompra = {},
 ): Promise<void> {
+	// El envío a Meta va acá y no en cada endpoint a propósito: si algo quedó
+	// anotado en la base, salió también hacia Meta. Una sola lista que mantener.
+	void sendMetaEvent(event, userId, props, compra);
 	if (!admin) return;
 	try {
 		await admin.from('creative_events').insert({

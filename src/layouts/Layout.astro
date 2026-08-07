@@ -42,6 +42,9 @@ const jsonLd = {
     description: 'Tres generaciones gratis para probar la plataforma.',
   },
 };
+
+/** Píxel de Meta. Es público por diseño: viaja en el navegador de cualquier visitante. */
+const META_PIXEL_ID = '2762379017476910';
 ---
 
 <!doctype html>
@@ -80,6 +83,26 @@ const jsonLd = {
     <meta name="twitter:image" content={socialImageURL} />
     <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     <slot name="head" />
+    {/* Píxel de Meta. El identificador es público —viaja en el navegador de
+        cualquiera que entre— así que va en el código; el token de la API de
+        conversiones, que sí es secreto, vive solo en el servidor.
+
+        Acá se manda únicamente PageView y lo que ocurre antes de tocar el
+        servidor. El resto del embudo, incluido el pago, sale desde el servidor:
+        el navegador no llega a reportar una compra que se confirma por webhook
+        cuando la persona ya cerró la pestaña, y los bloqueadores se comen otra
+        parte. */}
+    <script is:inline define:vars={{ pixelId: META_PIXEL_ID }}>
+      if (pixelId) {
+        !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+        n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+        n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+        t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}
+        (window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+        fbq('init', pixelId);
+        fbq('track', 'PageView');
+      }
+    </script>
   </head>
   <body>
     <slot />
