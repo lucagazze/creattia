@@ -403,3 +403,95 @@ describe('cada sujeto recibe solo las reglas que le corresponden', () => {
 		assert.doesNotMatch(prompt, /identity master for this same product/);
 	});
 });
+
+/**
+ * Defectos que aparecieron al ampliar la matriz a doce casos.
+ *
+ * Los tres se vieron generando: un ganador que susurra una oferta al oído y
+ * muestra la piel erizada volvió como dos fotos del producto, un titular terminó
+ * en "CON CAM" contra el borde derecho, y un cuero liso salió repujado con flores
+ * que no existen en la foto ni en la ficha.
+ */
+describe('lo que se rompió al probar más casos', () => {
+	const base4 = { ...base, subjectMode: 'product' as const, productNames: ['Cubos modulares'] };
+
+	/**
+	 * Un anuncio puede ser una idea, no un producto.
+	 *
+	 * La maqueta se copiaba perfecta y el anuncio moría igual: la reacción, la
+	 * metáfora o el chiste es lo único que lo hacía funcionar, y se reemplazaba
+	 * por una foto del producto nuevo.
+	 */
+	test('la idea de un área se marca como obligatoria', () => {
+		const analisis: any = {
+			referenceHasProduct: true,
+			textZones: [],
+			imageSlots: [{ where: 'panel superior', showsNow: 'boca susurrando al oído', idea: 'la reacción física a escuchar una oferta', replaceWith: 'alguien susurrando la nueva oferta' }],
+		};
+		const prompt = buildClonePrompt(base4, analisis, false);
+		assert.match(prompt, /THE IDEA THIS AREA CARRIES, which must survive: la reacción física/);
+		assert.match(prompt, /do not replace it with a product photo/);
+	});
+
+	test('sin idea declarada no se agrega el aviso', () => {
+		const analisis: any = {
+			referenceHasProduct: true,
+			textZones: [],
+			imageSlots: [{ where: 'foto principal', showsNow: 'una cartera', replaceWith: 'un cubo modular' }],
+		};
+		assert.doesNotMatch(buildClonePrompt(base4, analisis, false), /THE IDEA THIS AREA CARRIES/);
+	});
+
+	/** "ANTES DE REINVENTARTE CON CAM": la palabra se cortó contra el borde. */
+	test('prohíbe cortar una palabra para que entre', () => {
+		const prompt = buildClonePrompt(base4, { referenceHasProduct: true, textZones: [] } as any, false);
+		assert.match(prompt, /MARGINS ARE PART OF THE DESIGN/);
+		assert.match(prompt, /never truncate one/);
+		assert.match(prompt, /No letter may touch, overlap or cross an edge/);
+	});
+
+	/** Un cuero liso salió repujado: eso es un producto que el usuario no vende. */
+	test('prohíbe decorar una superficie que en la foto está lisa', () => {
+		const prompt = buildClonePrompt(base4, { referenceHasProduct: true, textZones: [] } as any, false);
+		assert.match(prompt, /NOTHING MAY BE ADDED EITHER/);
+		assert.match(prompt, /A plain surface stays plain/);
+	});
+
+	test('la tienda también lo prohíbe', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'catalog' }, { referenceHasProduct: true, textZones: [] } as any, false);
+		assert.match(prompt, /A plain hide stays plain/);
+	});
+});
+
+/**
+ * Dos reglas mías peleándose.
+ *
+ * Para que el clon no heredara la escena del ganador —un cuero flotando sobre
+ * agua, que era el fondo del anuncio de colágeno— se puso que lo propuesto para
+ * cada área manda sobre todo lo demás. Con eso, cuando el análisis proponía para
+ * una grilla de tienda "incluir partes del proceso y herramientas", esa frase le
+ * ganaba a la regla que exige que todas las celdas sean packshots. La grilla
+ * salía distinta en cada corrida no por el modelo, sino porque el prompt decía
+ * las dos cosas.
+ */
+describe('qué manda cuando dos reglas se cruzan', () => {
+	const conSlots: any = {
+		referenceHasProduct: true,
+		textZones: [],
+		imageSlots: [{ where: 'grilla 3x3', showsNow: 'relojes', replaceWith: 'texturas de cuero y escenas de taller con herramientas' }],
+	};
+
+	test('lo propuesto para un área manda sobre el ESCENARIO, no sobre el contenido', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'catalog', productNames: ['Cuero negro', 'Cuero rosa', 'Doble hombro'] } as any, conSlots, false);
+		assert.match(prompt, /On the SETTING these replacements have the last word/);
+		assert.match(prompt, /never authorise changing WHICH products appear/);
+	});
+
+	test('la uniformidad de la grilla gana explícitamente', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'catalog', productNames: ['Cuero negro', 'Cuero rosa', 'Doble hombro'] } as any, conSlots, false);
+		assert.match(prompt, /KEEP THE GRID UNIFORM — This rule overrides anything said earlier/);
+		assert.match(prompt, /No cell may show hands, a person, a tool, a workbench/);
+		// Y el orden importa: la regla que gana tiene que ir después de la que pierde.
+		assert.ok(prompt.indexOf('KEEP THE GRID UNIFORM') > prompt.indexOf('On the SETTING these replacements'), 'la regla que gana quedó antes que la que pierde');
+	});
+});
