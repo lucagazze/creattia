@@ -194,7 +194,13 @@ export const POST: APIRoute = async ({ request, url }) => {
 		const { data: currentProfile, error: profileReadError } = await admin.from('creative_profiles')
 			.select('subscription_status,subscription_period_end')
 			.eq('user_id', userId).maybeSingle();
-		if (profileReadError || !currentProfile) return fail('mercadopago-webhook', profileReadError, 'Perfil no encontrado.');
+		if (profileReadError) return fail('mercadopago-webhook', profileReadError, 'No se pudo leer el perfil.', 500, userId);
+		// Sin perfil no hay nada que actualizar, y no es un error nuestro: pasa con
+		// las notificaciones de prueba del panel —que traen usuarios inventados— y
+		// con cuentas borradas. Responder 500 hacía que Mercado Pago reintentara
+		// una y otra vez el mismo aviso imposible: los cuatro errores seguidos del
+		// registro son un solo aviso reintentado.
+		if (!currentProfile) return json({ received: true, ignored: 'perfil inexistente' });
 
 		const nextPeriod = subscription.next_payment_date || null;
 		const periodChanged = Boolean(nextPeriod && nextPeriod !== currentProfile.subscription_period_end);
@@ -241,7 +247,8 @@ export const POST: APIRoute = async ({ request, url }) => {
 		}
 		const { data: updatedProfile, error: profileUpdateError } = await admin.from('creative_profiles')
 			.update(profileUpdate).eq('user_id', userId).select('user_id').maybeSingle();
-		if (profileUpdateError || !updatedProfile) return fail('mercadopago-webhook', profileUpdateError, 'Perfil no encontrado.');
+		if (profileUpdateError) return fail('mercadopago-webhook', profileUpdateError, 'No se pudo actualizar el perfil.', 500, userId);
+		if (!updatedProfile) return json({ received: true, ignored: 'perfil inexistente' });
 		return json({ received: true, refilled: shouldRefill ? monthlyCredits : 0 });
 	}
 
@@ -281,7 +288,13 @@ export const POST: APIRoute = async ({ request, url }) => {
 		const { data: currentProfile, error: profileReadError } = await admin.from('creative_profiles')
 			.select('subscription_status,subscription_period_end')
 			.eq('user_id', userId).maybeSingle();
-		if (profileReadError || !currentProfile) return fail('mercadopago-webhook', profileReadError, 'Perfil no encontrado.');
+		if (profileReadError) return fail('mercadopago-webhook', profileReadError, 'No se pudo leer el perfil.', 500, userId);
+		// Sin perfil no hay nada que actualizar, y no es un error nuestro: pasa con
+		// las notificaciones de prueba del panel —que traen usuarios inventados— y
+		// con cuentas borradas. Responder 500 hacía que Mercado Pago reintentara
+		// una y otra vez el mismo aviso imposible: los cuatro errores seguidos del
+		// registro son un solo aviso reintentado.
+		if (!currentProfile) return json({ received: true, ignored: 'perfil inexistente' });
 		const periodChanged = Boolean(nextPeriod && nextPeriod !== currentProfile?.subscription_period_end);
 		const shouldRefill = status === 'authorized' && (currentProfile?.subscription_status !== 'authorized' || periodChanged);
 		// Anual: se acreditan los 12 meses juntos en cada renovación anual.
@@ -312,7 +325,8 @@ export const POST: APIRoute = async ({ request, url }) => {
 		if (subscriptionError) return fail('mercadopago-webhook', subscriptionError, 'No se pudo procesar la notificación.');
 		const { data: updatedProfile, error: profileUpdateError } = await admin.from('creative_profiles')
 			.update(profileUpdate).eq('user_id', userId).select('user_id').maybeSingle();
-		if (profileUpdateError || !updatedProfile) return fail('mercadopago-webhook', profileUpdateError, 'Perfil no encontrado.');
+		if (profileUpdateError) return fail('mercadopago-webhook', profileUpdateError, 'No se pudo actualizar el perfil.', 500, userId);
+		if (!updatedProfile) return json({ received: true, ignored: 'perfil inexistente' });
 	}
 
 	return json({ received: true });
