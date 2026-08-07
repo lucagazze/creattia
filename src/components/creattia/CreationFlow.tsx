@@ -470,7 +470,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (payload.async && payload.batchId && onGenerationStarted) {
 				onGenerationStarted({
 					batchId: payload.batchId,
-					title: manualProductName.trim() ? `${manualProductName.trim()} · ${ad.name}` : ad.name,
+					// El título llevaba el nombre del ganador —"Nosotros vs Ellos (75)"—,
+					// que es el nombre del archivo en la biblioteca y no le dice nada a
+					// nadie. Lo que identifica a una imagen generada es de qué es.
+					title: manualProductName.trim() || 'Creativo',
 					referenceUrl,
 					count,
 				});
@@ -639,7 +642,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (onGenerationStarted) {
 				onGenerationStarted({
 					batchId: payload.batchId,
-					title: `${ad.name} · carrusel`,
+					title: manualProductName.trim() ? `${manualProductName.trim()} · carrusel` : 'Carrusel',
 					referenceUrl,
 					count: payload.count,
 				});
@@ -684,7 +687,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							</>
 						)}
 					</div>
-					<p style={{ margin: '12px 0 0', fontSize: '14px', color: '#716d79' }}>Anuncio ganador: <b style={{ color: '#19171d' }}>{ad.name}</b></p>
+					{/* Decía "Anuncio ganador: Nosotros vs Ellos (75)". Ese nombre es el
+					    del archivo en la biblioteca —queda del scrapeo— y no significa
+					    nada para quien lo está por usar. */}
 					{isCarouselAd && carouselMode === 'single' && (
 						<p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#744bde', fontWeight: 700 }}>✓ Vas a clonar esta página</p>
 					)}

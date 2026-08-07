@@ -1563,7 +1563,7 @@ export default function WinnersLibrary({
 					onContextMenu={(e) => e.preventDefault()}
 				>
 					<div style={{ padding: '6px 10px', fontSize: '11px', color: '#8b8490', fontWeight: 'bold', borderBottom: '1px solid #f4eff6', marginBottom: '4px' }}>
-						{cardContextMenu.item.name}
+						{categoryLabels[cardContextMenu.item.category || 'producto'] || 'Anuncio ganador'}
 					</div>
 					{cardContextMenu.item.metadata?.mediaType === 'video' ? (
 						<>

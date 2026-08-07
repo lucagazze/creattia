@@ -132,9 +132,6 @@ export function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onS
 								<img src={resolveUrl(item)} alt={item.name || ''} loading="lazy" draggable={false} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
 								<span style={{ position: 'absolute', top: '16px', left: '14px', zIndex: 4, padding: '6px 12px', borderRadius: '9px', border: '3px solid #16a34a', color: '#16a34a', fontWeight: 900, fontSize: '15px', letterSpacing: '.05em', transform: 'rotate(-12deg)', background: 'rgba(255,255,255,0.88)', opacity: drag !== null ? Math.min(1, Math.max(0, -drag / 90)) : 0, pointerEvents: 'none' }}>ME GUSTA</span>
 								<span style={{ position: 'absolute', top: '16px', right: '14px', zIndex: 4, padding: '6px 12px', borderRadius: '9px', border: '3px solid #dc2626', color: '#dc2626', fontWeight: 900, fontSize: '15px', letterSpacing: '.05em', transform: 'rotate(12deg)', background: 'rgba(255,255,255,0.88)', opacity: drag !== null ? Math.min(1, Math.max(0, drag / 90)) : 0, pointerEvents: 'none' }}>PASO</span>
-								{item.name && (
-									<span style={{ position: 'absolute', left: '10px', bottom: '10px', padding: '5px 11px', borderRadius: '8px', background: 'rgba(12,10,16,0.72)', color: '#fff', fontSize: '12px', fontWeight: 700, backdropFilter: 'blur(6px)', zIndex: 2 }}>{item.name}</span>
-								)}
 							</div>
 							<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', padding: '12px' }}>
 								<button onClick={() => pass(item)} aria-label="Pasar" style={{ width: '44px', height: '44px', borderRadius: '50%', border: '2px solid #f1d5d5', background: '#fff', color: '#dc2626', fontSize: '18px', cursor: 'pointer' }}>✕</button>
@@ -283,9 +280,6 @@ export function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved 
 							<img src={resolveUrl(current)} alt={current.name || ''} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '20px', boxShadow: '0 26px 60px rgba(25,23,29,0.24)', pointerEvents: 'none' }} />
 							<span style={{ position: 'absolute', top: '20px', left: '18px', padding: '8px 16px', borderRadius: '11px', border: '3.5px solid #16a34a', color: '#16a34a', fontWeight: 900, fontSize: '21px', letterSpacing: '.06em', transform: 'rotate(-12deg)', background: 'rgba(255,255,255,0.88)', opacity: likeOpacity }}>ME GUSTA</span>
 							<span style={{ position: 'absolute', top: '20px', right: '18px', padding: '8px 16px', borderRadius: '11px', border: '3.5px solid #dc2626', color: '#dc2626', fontWeight: 900, fontSize: '21px', letterSpacing: '.06em', transform: 'rotate(12deg)', background: 'rgba(255,255,255,0.88)', opacity: passOpacity }}>PASO</span>
-							{current.name && (
-								<span style={{ position: 'absolute', left: '14px', bottom: '14px', padding: '7px 14px', borderRadius: '10px', background: 'rgba(12,10,16,0.72)', color: '#fff', fontSize: '13px', fontWeight: 700, backdropFilter: 'blur(6px)' }}>{current.name}</span>
-							)}
 						</div>
 					</div>
 					<div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginTop: '22px' }}>
