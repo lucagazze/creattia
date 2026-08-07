@@ -190,7 +190,25 @@ describe('encaje del texto y tipografía', () => {
 		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false);
 		// 34 caracteres: el dato que permite decidir si hay que acortar.
 		assert.match(prompt, /the original is 34 characters/);
-		assert.match(prompt, /SAME number of lines/);
+	});
+
+	/**
+	 * Las líneas se cuentan mirando el ganador, no el texto.
+	 *
+	 * Se deducían de los saltos de línea de `original`, que el análisis nunca
+	 * devuelve: todo daba 1. Comparando un clon contra su original se vio el daño
+	 * — un titular partido en tres líneas recibía la orden de ocupar una sola, y
+	 * salía en dos. El prompt rompía justo lo que quería copiar.
+	 */
+	test('pide las líneas que el análisis contó en la imagen', () => {
+		const conLineas = { ...analisis, textZones: [{ ...analisis.textZones[0], lines: 3 }] };
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, conLineas, false);
+		assert.match(prompt, /EXACTLY 3 lines/);
+	});
+
+	test('sin ese dato no inventa un número de líneas', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false);
+		assert.doesNotMatch(prompt, /EXACTLY \d+ lines?/);
 	});
 
 	test('prohíbe reflujo y pide acortar', () => {
@@ -200,10 +218,21 @@ describe('encaje del texto y tipografía', () => {
 		assert.match(prompt, /do not shrink the type/i);
 	});
 
-	test('la tipografía observada del ganador llega al prompt', () => {
+	test('la regla tipográfica es explícita', () => {
 		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false);
-		assert.match(prompt, /Grotesca condensada pesada/);
 		assert.match(prompt, /do not substitute a generic sans-serif/i);
+	});
+
+	/**
+	 * `styleNotes` describe fondo, paleta y recursos gráficos, no la letra. Se lo
+	 * pegaba bajo "TYPOGRAPHY" como sustituto de una descripción tipográfica real,
+	 * y con eso se colaba la ESCENA del ganador en el render: de ahí salió un
+	 * cuero flotando sobre agua, que era el fondo del anuncio de colágeno.
+	 */
+	test('la descripción del fondo no se cuela en la regla de tipografía', () => {
+		const conFondo = { ...analisis, styleNotes: 'fondo acuático turquesa para dar frescura' };
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, conFondo, false);
+		assert.doesNotMatch(prompt, /fondo acuático/);
 	});
 
 	test('con tipografía de marca elegida, manda esa', () => {
@@ -247,5 +276,82 @@ describe('caja del texto', () => {
 			textZones: [{ where: 'dato', original: '50% BETTER PERFORMANCE', replacement: '3x más rápido' }],
 		};
 		assert.match(buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false), /RENDER IT IN ALL CAPS/);
+	});
+});
+
+/**
+ * Lo que se midió del ganador tiene que llegar al render.
+ *
+ * Se generaron ocho anuncios cruzando tipos de ganador (testimonial, comparativa,
+ * antes/después, grilla de precio, listado, ficha de características, dato duro)
+ * con tipos de sujeto (producto, catálogo, servicio, marca), y se compararon uno
+ * a uno contra su original. Los defectos que aparecieron no eran de maqueta: eran
+ * datos que el análisis devolvía mal o que el prompt no usaba.
+ */
+describe('lo medido en el ganador llega al render', () => {
+	const base2 = { ...base, subjectMode: 'product' as const };
+
+	/**
+	 * La letra, en atributos y no en sensación.
+	 *
+	 * `styleNotes` devolvía "tipografía elegante" y con eso el modelo elegía
+	 * cualquier grotesca: un ganador de letra liviana, extendida y muy espaciada
+	 * salía clonado en una condensada pesada. Todo igual menos la letra, que es lo
+	 * primero que se nota al poner las dos imágenes al lado.
+	 */
+	test('la tipografía observada viaja como atributos', () => {
+		const analisis: any = {
+			referenceHasProduct: true,
+			typography: { headline: 'sans, light, extended, ALL CAPS, very wide letter-spacing', body: 'sans, regular, normal', pairing: 'el título cuadruplica al cuerpo' },
+			textZones: [{ where: 'título', original: 'THE PERFECT SIDE-KICK', replacement: 'El compañero perfecto' }],
+		};
+		const prompt = buildClonePrompt(base2, analisis, false);
+		assert.match(prompt, /MEASURED IN THIS TEMPLATE/);
+		assert.match(prompt, /light, extended, ALL CAPS/);
+		assert.match(prompt, /el título cuadruplica al cuerpo/);
+	});
+
+	/**
+	 * Un rótulo con línea guía solo funciona si señala algo.
+	 *
+	 * En la ficha de características los rótulos quedaron apuntando al aire: uno
+	 * decía "cable HDMI incluido" con la línea terminando en el canto de la
+	 * consola. El ganador funciona porque cada línea cae sobre la pieza que nombra.
+	 */
+	test('un rótulo pide que su línea caiga sobre la pieza equivalente', () => {
+		const analisis: any = {
+			referenceHasProduct: true,
+			textZones: [{ where: 'rótulo izquierdo', original: 'REINFORCED CARRY STRAPS', labels: 'las correas de transporte', replacement: 'Diseño delgado' }],
+		};
+		const prompt = buildClonePrompt(base2, analisis, false);
+		assert.match(prompt, /callout labelling las correas de transporte/);
+		assert.match(prompt, /label a different real feature rather than pointing the line at nothing/);
+	});
+
+	/**
+	 * Una tienda se muestra por su variedad.
+	 *
+	 * La grilla de nueve relojes de distintos colores se clonó con tres cueros
+	 * distintos y salieron nueve celdas del mismo negro. La estructura estaba
+	 * perfecta y el anuncio ya no vendía una tienda: vendía un producto repetido.
+	 */
+	test('en modo catálogo exige que cada producto conserve lo suyo', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'catalog', productNames: ['Cuero negro', 'Cuero rosa', 'Doble hombro'] } as any, { referenceHasProduct: true, textZones: [] } as any, false);
+		assert.match(prompt, /THE RANGE HAS TO BE VISIBLE/);
+		assert.match(prompt, /none may be recoloured or reshaped to match another/);
+		assert.match(prompt, /never fill every cell with the same one/);
+	});
+
+	/**
+	 * Un número inventado es el defecto más caro de todos.
+	 *
+	 * El clon de un anuncio que prometía "resolvé el 50%" devolvió "incrementá tu
+	 * ROAS un 45% en 90 días" con un tablero de métricas inventado. Se ve bien y
+	 * es una promesa que el anunciante no puede sostener.
+	 */
+	test('prohíbe escribir cifras que no estén en los reemplazos', () => {
+		const prompt = buildClonePrompt(base2, { referenceHasProduct: true, textZones: [] } as any, false);
+		assert.match(prompt, /never write a number that is not literally present in the replacements/);
+		assert.match(prompt, /guarantees/);
 	});
 });
