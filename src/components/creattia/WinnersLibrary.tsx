@@ -590,14 +590,26 @@ export default function WinnersLibrary({
 	const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
 	// El catálogo completo llega sin firmar (son más de 6.500 rutas): se piden
 	// las URLs de las tarjetas que se están viendo, y del carrusel abierto.
-	// Se firman TODAS las páginas de cada carrusel visible, no las dos primeras.
-	// Con el tope anterior, un carrusel de diez tenía URL para dos: la precarga
-	// no encontraba nada que precargar y a partir de la tercera había que esperar
-	// a que se firmara y bajara la imagen en el momento de pasarla.
-	const signedUrls = useReferenceUrls([
-		...visibleItems.flatMap((item: any) => [item.imagePath, ...(item.metadata?.carouselImages || []).slice(0, 12)]),
-		...(activeAd ? [activeAd.imagePath, ...((activeAd as any).metadata?.carouselImages || [])] : []),
-	]);
+	/**
+	 * Qué URLs se piden firmadas, y en qué orden.
+	 *
+	 * El servidor firma como mucho 250 rutas por pedido. Al empezar a firmar las
+	 * doce páginas de cada carrusel, veinte tarjetas visibles llegaban a pedir 260
+	 * y las últimas quedaban fuera del corte: tarjetas en blanco, sin siquiera su
+	 * portada, porque los carruseles del principio se comían todo el presupuesto.
+	 *
+	 * Ahora van PRIMERO todas las portadas —sin portada no hay tarjeta— y recién
+	 * después las páginas para precargar, que son una mejora y no un requisito.
+	 * Si el presupuesto no alcanza, se pierde fluidez al pasar páginas, nunca una
+	 * imagen visible.
+	 */
+	const signedUrls = useReferenceUrls(useMemo(() => {
+		const portadas = visibleItems.map((item: any) => item.imagePath);
+		const paginas = visibleItems.flatMap((item: any) => (item.metadata?.carouselImages || []).slice(0, 12));
+		const abierto = activeAd ? [activeAd.imagePath, ...((activeAd as any).metadata?.carouselImages || [])] : [];
+		// El anuncio abierto va junto a las portadas: es lo que se está mirando.
+		return [...portadas, ...abierto, ...paginas];
+	}, [visibleItems, activeAd]));
 	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
 	// imagen al instante en vez de esperar a que baje cada foto de a una.
 	//
