@@ -495,3 +495,32 @@ describe('qué manda cuando dos reglas se cruzan', () => {
 		assert.ok(prompt.indexOf('KEEP THE GRID UNIFORM') > prompt.indexOf('On the SETTING these replacements'), 'la regla que gana quedó antes que la que pierde');
 	});
 });
+
+/**
+ * Un sitio sin fotos de producto no es un error del usuario.
+ *
+ * Pegando puertasblindadasjack.com.ar en el flujo de muchas imágenes, la
+ * generación se cayó entera con "Puertas Blindadas JACK todavía no tiene una
+ * foto disponible". Pero de ese sitio se puede hacer un aviso perfecto: hablando
+ * del negocio en lugar de un artículo. Lo que hay que conservar es el ALCANCE
+ * que la persona eligió —general sigue siendo general— y cambiar solo lo que
+ * depende de tener fotos.
+ */
+describe('degradado cuando no hay fotos de producto', () => {
+	test('una ficha sin fotos pasa a servicio, no falla', () => {
+		assert.equal(subjectModeDesde(alcanceDesde('product'), false), 'service');
+	});
+
+	test('una tienda sin fotos pasa a marca, no a producto', () => {
+		// Lo importante: sigue hablando del negocio entero, que es lo que se pidió.
+		assert.equal(subjectModeDesde(alcanceDesde('catalog'), false), 'brand');
+	});
+
+	test('el degradado conserva el alcance elegido', () => {
+		for (const modo of ['product', 'catalog', 'service', 'brand'] as const) {
+			const degradado = subjectModeDesde(alcanceDesde(modo), false);
+			assert.equal(alcanceDesde(degradado), alcanceDesde(modo), modo);
+			assert.equal(usesRealProductPhotos(degradado), false, modo);
+		}
+	});
+});

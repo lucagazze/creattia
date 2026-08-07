@@ -8,7 +8,7 @@ import {
 } from '../../../lib/creattia/ad-analysis';
 import type { EngineImage } from '../../../lib/creattia/image-engines';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
-import { detectImageType, mergePaletteOverride, renderReferenceClone, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, detectImageType, mergePaletteOverride, renderReferenceClone, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { authenticateRequest, closeGenerationsAndCountRefunds, getAdminClient, json } from '../../../lib/creattia/server';
 import { readLimited, safeExternalFetch } from '../../../lib/creattia/safe-fetch';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
@@ -96,7 +96,9 @@ export const POST: APIRoute = async ({ request }) => {
 		const snapshot: any = row.settings_snapshot || {};
 		const requestedFormat = String(row.format || snapshot.format || 'original');
 		const brief = stripWebReferences(row.user_brief);
-		const subjectMode = SUBJECT_MODES.includes(String(snapshot.subjectMode) as SubjectMode)
+		// `let` porque puede degradarse: si no hay ninguna foto real, el anuncio
+		// pasa a hablar del negocio en vez de cortar el lote entero.
+		let subjectMode = SUBJECT_MODES.includes(String(snapshot.subjectMode) as SubjectMode)
 			? String(snapshot.subjectMode) as SubjectMode
 			: 'product';
 
@@ -136,11 +138,22 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 		// En modo texto no hay fotos y está bien: se clonan ganadores que no
 		// muestran producto y la composición visual se clona tal como está.
-		const textMode = snapshot.textMode === true || !usesRealProductPhotos(subjectMode) || !productId;
-		const allowNoProductImage = snapshot.allowNoProductImage === true;
-		if (!productImages.length && !textMode && !allowNoProductImage) {
-			throw new Error('No hay ninguna foto real del producto disponible para clonar el anuncio.');
+		/**
+		 * Sin una sola foto real, el anuncio habla del negocio.
+		 *
+		 * Antes esto cortaba la generación. Pegar la URL de un sitio que no
+		 * publica fotos de producto —una empresa de servicios, una fábrica, un
+		 * estudio— hacía fallar el lote entero con "no hay ninguna foto real del
+		 * producto". Pero de ese sitio se puede hacer un aviso perfecto: hablando
+		 * del negocio en lugar de un artículo. Se conserva el ALCANCE elegido y
+		 * solo se cambia lo que depende de tener fotos.
+		 */
+		if (usesRealProductPhotos(subjectMode) && !productImages.length) {
+			const degradado = subjectModeDesde(alcanceDesde(subjectMode), false);
+			console.log(`[batch-worker ${generationId}] sin fotos de producto: el anuncio pasa de ${subjectMode} a ${degradado}`);
+			subjectMode = degradado;
 		}
+		const textMode = snapshot.textMode === true || !usesRealProductPhotos(subjectMode) || !productId;
 
 		const productName = usesRealProductPhotos(subjectMode)
 			? (productRecord?.name || snapshot.productName || row.title || 'el producto')

@@ -97,7 +97,7 @@ export function AuthScreen({ onSession }: { onSession: (session: AppSession) => 
 						<div className="studio-auth-divider"><span>o</span></div>
 						<form onSubmit={submit}>
 							{mode === 'signup' && <label>Tu nombre<input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="¿Cómo te llamás?" autoComplete="name" required /></label>}
-							<label>Correo electrónico<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="negocio@gmail.com" autoComplete="email" required /></label>
+							<label>Correo electrónico<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tumail@gmail.com" autoComplete="email" required /></label>
 							<label>Contraseña<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required /></label>
 							{error && <p className="studio-form-error">{error}</p>}
 							{notice && <p className="studio-form-notice">{notice}</p>}

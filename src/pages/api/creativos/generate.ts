@@ -11,7 +11,7 @@ import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
-import { buildClonePrompt, mergePaletteOverride, parseBrandOverride, parsePaletteOverride, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, buildClonePrompt, mergePaletteOverride, parseBrandOverride, parsePaletteOverride, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
 
@@ -299,9 +299,11 @@ export const POST: APIRoute = async ({ request }) => {
 		// salvo que se pida otro: sin esto, una imagen de la tienda se rehacía
 		// como si hablara de un solo producto, porque el default es 'product'.
 		const heredado = String((sourceGeneration as any)?.settings_snapshot?.subjectMode || '');
-		const subjectMode: SubjectMode = requestedSubjectMode
+		// `let` porque puede degradarse más abajo: si al final ningún producto
+		// tiene foto, el anuncio pasa a hablar del negocio en vez de fallar.
+		let subjectMode: SubjectMode = requestedSubjectMode
 			|| (SUBJECT_MODES.includes(heredado as SubjectMode) ? heredado as SubjectMode : 'product');
-		const usesRealProducts = usesRealProductPhotos(subjectMode);
+		let usesRealProducts = usesRealProductPhotos(subjectMode);
 
 		// ── De quién es el anuncio: la marca del sitio del producto, la guardada
 		// en "Mi marca", o ninguna. Se resuelve acá para no repetir profile?.x
@@ -515,8 +517,29 @@ export const POST: APIRoute = async ({ request }) => {
 				storedProduct.image_path,
 				...(productImagesById.get(storedProduct.id) || []).map((row) => row.storage_path),
 			].filter(Boolean) as string[])];
-			if (!paths.length) throw new Error(`${storedProduct.name} todavía no tiene una foto disponible.`);
+			// Un producto sin foto ya no corta la generación: se lo saltea. Lo que
+			// se hace después depende de si quedó alguno con foto o ninguno.
+			if (!paths.length) continue;
 			productInputPlan.push({ product: storedProduct, path: paths[0], photoIndex: 1 });
+		}
+
+		/**
+		 * Sin una sola foto, el anuncio habla del negocio.
+		 *
+		 * Pegar la URL de un sitio que no publica fotos de producto —una empresa
+		 * de servicios, una fábrica, un estudio— terminaba en "todavía no tiene
+		 * una foto disponible" y la generación se caía entera. Pero eso no es un
+		 * error del usuario: es un sitio del que se puede hacer un aviso perfecto,
+		 * solo que hablando del negocio y no de un artículo.
+		 *
+		 * Se conserva el ALCANCE que había elegido —si pidió algo general sigue
+		 * siendo general— y solo se cambia lo que depende de tener fotos.
+		 */
+		if (usesRealProducts && !productInputPlan.length) {
+			const degradado = subjectModeDesde(alcanceDesde(subjectMode), false);
+			console.log(`[generate] ningún producto tiene foto: el anuncio pasa de ${subjectMode} a ${degradado}`);
+			subjectMode = degradado;
+			usesRealProducts = false;
 		}
 		if (usesRealProducts) for (const storedProduct of storedProducts) {
 			if (storedProduct.id === 'manual') continue;
