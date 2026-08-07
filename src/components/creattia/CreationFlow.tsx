@@ -153,6 +153,16 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [typoMode, setTypoMode] = useState<'winner' | 'url' | 'brand'>('winner');
 	const [brandSource, setBrandSource] = useState('url');
 	const [includeLogo, setIncludeLogo] = useState(false);
+	/**
+	 * Si el usuario ya decidió a mano sobre el logo.
+	 *
+	 * El valor por defecto sigue siendo "sin logo": alguna vez fue al revés y
+	 * varios flujos terminaban agregando el logo guardado sin que nadie lo
+	 * pidiera. Lo que cambia es que ahora, cuando el análisis ve que el ganador
+	 * lleva marca, se pre-elige la opción recomendada — pero solo si la persona
+	 * todavía no tocó nada, para no pisar una decisión suya.
+	 */
+	const logoElegidoAMano = useRef(false);
 	// Carrusel completo: en cuáles páginas va el logo. Vacío = en ninguna.
 	const [logoCarouselPages, setLogoCarouselPages] = useState<Set<number>>(new Set());
 	const count = wantsFullCarousel ? carouselSlides.length : 1;
@@ -353,6 +363,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			setComparisons(Array.isArray(analysis.comparisonItems) ? analysis.comparisonItems.map((c: any) => ({ ...c, directive: '' })) : []);
 			setCreativeDecisions(Array.isArray(analysis.creativeDecisions) ? analysis.creativeDecisions.map((decision: any) => ({ ...decision, directive: '' })) : []);
 			setComparisonGuidance('');
+			// El ganador lleva marca: se sugiere poner la propia en ese lugar.
+			if (!logoElegidoAMano.current && analysis?.templateHasLogoSlot && brandSource !== 'none') {
+				setIncludeLogo(true);
+			}
 			setPhase('review');
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo analizar la referencia.');
@@ -883,17 +897,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									</div>
 								)}
 
-								{!wantsFullCarousel && brandSource !== 'none' && (
-									<div className="batch-style-group" style={{ marginBottom: '4px' }}>
-										<span className="picker-label">¿Incluir el logo?</span>
-										<div className="batch-style-options">
-											<button type="button" className={!includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(false)}>Sin logo</button>
-										<button type="button" className={includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(true)}>Con logo de {brandSource === 'mine' ? 'Mi marca' : 'la URL'}</button>
-										</div>
-										<small className="batch-brand-note">Usamos el logo oficial de la marca elegida. Por defecto no se agrega.</small>
-									</div>
-								)}
-
 								<div className="batch-style-groups creation-style-source-groups">
 									<div className="batch-style-group">
 										<span className="picker-label">Colores</span>
@@ -1048,22 +1051,40 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								)}
 							</section>
 						)}
-						{plan.templateHasLogoSlot && includeLogo && (
-							<div style={{
-								display: 'flex',
-								alignItems: 'center',
-								gap: '8px',
-								padding: '12px 16px',
-								background: '#e8f9f0',
-								border: '1px solid #c1eed6',
-								borderRadius: '11px',
-								marginBottom: '16px',
-								fontSize: '13.5px',
-								color: '#1e7e4a',
-								fontWeight: 600
-							}}>
-								<span>✓ Incluiremos el logo de tu marca en el espacio del diseño.</span>
-							</div>
+						{/* El logo se decide ACÁ, no antes.
+						    La pregunta estaba en el paso de estilo, donde todavía no se
+						    había analizado nada: había que elegir a ciegas si poner una
+						    marca sin saber si el ganador tenía un lugar para ella. Recién
+						    después del análisis se sabe, y se puede recomendar. */}
+						{brandSource !== 'none' && !wantsFullCarousel && (
+							<section className="logo-decision" aria-label="Logo en el anuncio">
+								<div className="logo-decision-head">
+									<strong>¿Incluir tu logo?</strong>
+									<small>
+										{plan.templateHasLogoSlot
+											? `El anuncio ganador lleva su marca${plan.logoDescription ? ` (${plan.logoDescription})` : ''}. Te conviene poner la tuya en ese mismo lugar: si queda vacío, el aviso se ve incompleto.`
+											: 'El anuncio ganador no muestra ninguna marca. Agregarla sumaría un elemento que el diseño original no tiene.'}
+									</small>
+								</div>
+								<div className="logo-decision-options" role="radiogroup" aria-label="Incluir logo">
+									<button
+										type="button" role="radio" aria-checked={includeLogo}
+										className={includeLogo ? 'active' : ''}
+										onClick={() => { logoElegidoAMano.current = true; setIncludeLogo(true); }}
+									>
+										Con logo de {brandSource === 'mine' ? 'Mi marca' : 'la URL'}
+										{plan.templateHasLogoSlot && <em>recomendado</em>}
+									</button>
+									<button
+										type="button" role="radio" aria-checked={!includeLogo}
+										className={!includeLogo ? 'active' : ''}
+										onClick={() => { logoElegidoAMano.current = true; setIncludeLogo(false); }}
+									>
+										Sin logo
+										{!plan.templateHasLogoSlot && <em>recomendado</em>}
+									</button>
+								</div>
+							</section>
 						)}
 
 						<div className="detected-copy-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
