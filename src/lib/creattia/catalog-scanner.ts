@@ -696,7 +696,7 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 					}
 				],
 				response_format: { type: 'json_object' },
-				max_tokens: 1000,
+				max_tokens: 2500,
 			});
 			extracted = JSON.parse(aiResponse.choices[0]?.message?.content || '{}');
 		} else {
@@ -753,7 +753,7 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 				model: 'gpt-4o-mini',
 				messages,
 				response_format: { type: 'json_object' },
-				max_tokens: 1000,
+				max_tokens: 2500,
 			});
 			extracted = JSON.parse(aiResponse.choices[0]?.message?.content || '{}');
 		}
@@ -888,7 +888,9 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 						// La IA ordenó el catálogo por cuánto representa al negocio y
 						// marcó los primeros: se usa para elegir solos los que entran al
 						// anuncio, en vez de hacer que el usuario descarte ocho a mano.
-						representative: item?.representative === true,
+						// El modelo devuelve el booleano a veces como texto: se aceptan
+						// las dos formas en vez de descartarlo en silencio.
+						representative: item?.representative === true || String(item?.representative).toLowerCase() === 'true',
 						// Si la foto se emparejó con el nombre o le tocó la que quedaba
 						// libre. Sirve para elegir sola las que de verdad corresponden.
 						photoMatched: matchedImage.emparejada,
