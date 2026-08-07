@@ -273,9 +273,33 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			}
 			if (!ids.length) throw new Error('No pudimos analizar ninguna de las URLs.');
 			const uniqueIds = [...new Set(ids)];
-			setImportedProducts([...productsById.values()]);
-			// Por defecto usamos todos los productos que el usuario pidió
-			// explícitamente; después puede dejar solo uno desde el carrusel.
+			const importados = [...productsById.values()];
+			setImportedProducts(importados);
+			/**
+			 * Qué productos entran al anuncio, elegidos solos.
+			 *
+			 * Antes entraban TODOS. Con la home de una tienda eso son ocho, y como
+			 * el anuncio habla del negocio en general, el usuario tenía que
+			 * desmarcar a mano los que no quería: se le pedía curar un catálogo
+			 * para hacer un aviso que ni siquiera va a nombrar productos.
+			 *
+			 * Ahora, cuando la página es una tienda, se eligen hasta cuatro y se
+			 * prefieren aquellos cuya foto se pudo emparejar con su nombre. Los que
+			 * quedaron con una foto que no les corresponde van al final: mostrar
+			 * cuero de suela diciendo que es otra cosa es peor que no mostrarlo.
+			 * Sigue siendo editable, pero ya no hace falta tocarlo.
+			 */
+			const esTienda = importados.some((item: any) => item?.metadata?.pageType === 'catalog');
+			if (esTienda && importados.length > 1) {
+				// Primero lo que la IA marcó como representativo del negocio, y entre
+				// esos los que tienen una foto que de verdad les corresponde.
+				const puntaje = (item: any) =>
+					(item?.metadata?.representative ? 2 : 0) + (item?.metadata?.photoMatched ? 1 : 0);
+				const ordenados = [...importados].sort((a: any, b: any) => puntaje(b) - puntaje(a));
+				const elegidos = ordenados.slice(0, 4).map((item: any) => item.id);
+				setSelectedProductIds(elegidos);
+				return uniqueIds;
+			}
 			setSelectedProductIds(uniqueIds);
 			return uniqueIds;
 		} catch (cause) {

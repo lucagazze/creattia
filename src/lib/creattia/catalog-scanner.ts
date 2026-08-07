@@ -691,7 +691,7 @@ Respondé SOLO con JSON válido con esta estructura exacta:
   "pageTypeEvidence": "en una frase, qué te hizo decidir ese pageType (ej: 'tiene botón de agregar al carrito y peso de envío', 'ofrece planes mensuales de software', 'es una grilla con 20 productos y ningún precio principal')",
   "storeName": "nombre del negocio o la tienda dueña de la página",
   "storeDescription": "qué vende el negocio en general, en una o dos frases. Importante cuando pageType es catalog, porque el anuncio va a hablar de la tienda y no de un producto.",
-  "catalogProducts": "SOLO si pageType es catalog: array de hasta 8 objetos {name, description, priceText} con los productos DISTINTOS que se ven en la página. Si no es catalog, array vacío []."
+  "catalogProducts": "SOLO si pageType es catalog: array de hasta 8 objetos {name, description, priceText, representative} con los productos DISTINTOS que se ven en la página. ORDENALOS del que mejor representa al negocio al que menos: primero los que un cliente reconocería como lo que esta tienda vende, los más vendidos o destacados, y los visualmente más claros; al final las variantes repetidas de lo mismo y lo accesorio. Marcá representative:true en los 3 o 4 primeros, false en el resto. Si no es catalog, array vacío []."
 }`,
 					}
 				],
@@ -735,7 +735,7 @@ Respondé SOLO con JSON válido con esta estructura exacta:
   "pageTypeEvidence": "en una frase, qué te hizo decidir ese pageType (ej: 'tiene botón de agregar al carrito y peso de envío', 'ofrece planes mensuales de software', 'es una grilla con 20 productos y ningún precio principal')",
   "storeName": "nombre del negocio o la tienda dueña de la página",
   "storeDescription": "qué vende el negocio en general, en una o dos frases. Importante cuando pageType es catalog, porque el anuncio va a hablar de la tienda y no de un producto.",
-  "catalogProducts": "SOLO si pageType es catalog: array de hasta 8 objetos {name, description, priceText} con los productos DISTINTOS que se ven en la página. Si no es catalog, array vacío []."
+  "catalogProducts": "SOLO si pageType es catalog: array de hasta 8 objetos {name, description, priceText, representative} con los productos DISTINTOS que se ven en la página. ORDENALOS del que mejor representa al negocio al que menos: primero los que un cliente reconocería como lo que esta tienda vende, los más vendidos o destacados, y los visualmente más claros; al final las variantes repetidas de lo mismo y lo accesorio. Marcá representative:true en los 3 o 4 primeros, false en el resto. Si no es catalog, array vacío []."
 }`,
 						},
 						// Attach main image for visual context if available
@@ -844,10 +844,21 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 			if (score > bestScore) { bestScore = score; best = candidate; }
 		}
 		// Se exige alguna coincidencia real, no una letra suelta.
-		if (best && bestScore >= 5) { usedImages.add(best); return best; }
+		if (best && bestScore >= 5) { usedImages.add(best); return { url: best, emparejada: true }; }
+		/**
+		 * Sin coincidencia se cae a "la próxima foto libre", y eso miente.
+		 *
+		 * En una tienda de cueros, cuatro productos distintos terminaban con la
+		 * misma pila de suelas porque ninguno matcheaba su archivo y a cada uno le
+		 * tocó lo que había suelto. Una foto que no es del producto es peor que no
+		 * tener foto: el anuncio muestra otra cosa con total seguridad.
+		 *
+		 * Se sigue devolviendo para no perder el producto, pero marcada como no
+		 * emparejada, para poder no elegirla cuando hay mejores.
+		 */
 		const fallback = finalImages.find((candidate) => !usedImages.has(candidate)) || finalImages[index] || finalImages[0] || '';
 		if (fallback) usedImages.add(fallback);
-		return fallback;
+		return { url: fallback, emparejada: false };
 	};
 
 	// En una página de catálogo no hay UN producto: se devuelve uno por cada
@@ -867,10 +878,21 @@ Respondé SOLO con JSON válido con esta estructura exacta:
 					currency: compact(extracted.currency || '', 12),
 					offeringType: 'product' as const,
 					productUrl: base,
-					imageUrl: matchedImage,
-					imageUrls: matchedImage ? [matchedImage] : [],
+					imageUrl: matchedImage.url,
+					imageUrls: matchedImage.url ? [matchedImage.url] : [],
 					videoUrls: [],
-					metadata: { ...baseMetadata, catalogIndex: index + 1, fromCatalog: true },
+					metadata: {
+						...baseMetadata,
+						catalogIndex: index + 1,
+						fromCatalog: true,
+						// La IA ordenó el catálogo por cuánto representa al negocio y
+						// marcó los primeros: se usa para elegir solos los que entran al
+						// anuncio, en vez de hacer que el usuario descarte ocho a mano.
+						representative: item?.representative === true,
+						// Si la foto se emparejó con el nombre o le tocó la que quedaba
+						// libre. Sirve para elegir sola las que de verdad corresponden.
+						photoMatched: matchedImage.emparejada,
+					},
 				};
 			})
 			.filter((item): item is ScannedProduct => Boolean(item));
