@@ -37,6 +37,20 @@ function resolvePlan(subscription: any) {
 	};
 }
 
+/**
+ * Verifica la firma de Mercado Pago.
+ *
+ * El manifiesto se armaba de una sola forma —id, request-id y ts— y se rechazaba
+ * todo lo que no coincidiera. Pero Mercado Pago no manda `x-request-id` en todas
+ * las notificaciones, y cuando no lo manda su propio manifiesto no lleva esa
+ * parte. Con el formato fijo, esas llamadas devolvían 401: verificado contra la
+ * prueba del panel, que llegaba firmada y se rechazaba igual. Eso mismo le
+ * habría pasado a cada pago real.
+ *
+ * Se prueban las variantes que Mercado Pago documenta y se acepta si alguna
+ * coincide. Sigue siendo estricto: sin firma válida en ninguna forma, no pasa.
+ * La comparación es de tiempo constante en todos los casos.
+ */
 function verifySignature(request: Request, dataId: string, secret: string) {
 	const signature = request.headers.get('x-signature') || '';
 	const requestId = request.headers.get('x-request-id') || '';
@@ -46,13 +60,24 @@ function verifySignature(request: Request, dataId: string, secret: string) {
 	}));
 	const timestamp = parts.ts;
 	const received = parts.v1;
-	if (!timestamp || !received || !requestId || !dataId) return false;
+	if (!timestamp || !received || !dataId) return false;
 
-	const manifest = `id:${dataId};request-id:${requestId};ts:${timestamp};`;
-	const expected = createHmac('sha256', secret).update(manifest).digest('hex');
-	const expectedBuffer = Buffer.from(expected, 'utf8');
+	// El id alfanumérico va en minúsculas según la documentación; el numérico no
+	// cambia, así que probar ambos no debilita nada.
+	const ids = [...new Set([String(dataId), String(dataId).toLowerCase()])];
+	const candidatos: string[] = [];
+	for (const id of ids) {
+		if (requestId) candidatos.push(`id:${id};request-id:${requestId};ts:${timestamp};`);
+		candidatos.push(`id:${id};ts:${timestamp};`);
+	}
+
 	const receivedBuffer = Buffer.from(received, 'utf8');
-	return expectedBuffer.length === receivedBuffer.length && timingSafeEqual(expectedBuffer, receivedBuffer);
+	for (const manifest of candidatos) {
+		const expected = createHmac('sha256', secret).update(manifest).digest('hex');
+		const expectedBuffer = Buffer.from(expected, 'utf8');
+		if (expectedBuffer.length === receivedBuffer.length && timingSafeEqual(expectedBuffer, receivedBuffer)) return true;
+	}
+	return false;
 }
 
 export const POST: APIRoute = async ({ request, url }) => {
@@ -83,7 +108,17 @@ export const POST: APIRoute = async ({ request, url }) => {
 		dataId: String(dataId).slice(0, 40),
 	});
 
-	if (!verifySignature(request, String(dataId), secret)) return json({ error: 'Firma inválida.' }, 401);
+	const firmaValida = verifySignature(request, String(dataId), secret);
+	if (!firmaValida) {
+		// Una firma rechazada teniendo x-signature es un problema nuestro, no de
+		// Mercado Pago: queda anotado para poder verlo desde el panel.
+		void trackEvent(getAdminClient(), 'webhook_firma_rechazada', null, {
+			topic: String(topic).slice(0, 40),
+			conRequestId: Boolean(request.headers.get('x-request-id')),
+			dataId: String(dataId).slice(0, 40),
+		});
+		return json({ error: 'Firma inválida.' }, 401);
+	}
 
 	// ── Pago único de créditos (pago por imagen) ─────────────────────────
 	if (topic === 'payment' && dataId) {

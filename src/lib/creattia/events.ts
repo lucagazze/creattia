@@ -28,6 +28,7 @@ export type ProductEvent =
 	| 'tokens_comprados'
 	| 'plan_cancelado'
 	| 'webhook_recibido'
+	| 'webhook_firma_rechazada'
 	| 'marca_analizada'
 	| 'avatar_guardado';
 
