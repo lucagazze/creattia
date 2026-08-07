@@ -339,7 +339,11 @@ describe('lo medido en el ganador llega al render', () => {
 		const prompt = buildClonePrompt({ ...base, subjectMode: 'catalog', productNames: ['Cuero negro', 'Cuero rosa', 'Doble hombro'] } as any, { referenceHasProduct: true, textZones: [] } as any, false);
 		assert.match(prompt, /THE RANGE HAS TO BE VISIBLE/);
 		assert.match(prompt, /none may be recoloured or reshaped to match another/);
-		assert.match(prompt, /never fill every cell with the same one/);
+		// Se le dice en qué orden repartirlos, para que la grilla no dependa del azar.
+		assert.match(prompt, /\(1\) Cuero negro, \(2\) Cuero rosa, \(3\) Doble hombro/);
+		assert.match(prompt, /consecutive cells never repeat/);
+		// Y que la grilla no se rompa con una foto de ambiente en una sola celda.
+		assert.match(prompt, /KEEP THE GRID UNIFORM/);
 	});
 
 	/**
@@ -353,5 +357,49 @@ describe('lo medido en el ganador llega al render', () => {
 		const prompt = buildClonePrompt(base2, { referenceHasProduct: true, textZones: [] } as any, false);
 		assert.match(prompt, /never write a number that is not literally present in the replacements/);
 		assert.match(prompt, /guarantees/);
+	});
+});
+
+/**
+ * Reglas que se contradicen entre sí.
+ *
+ * El prompt creció regla sobre regla y algunas quedaron aplicándose a sujetos
+ * para los que no fueron escritas. Un servicio recibía "no muestres ningún
+ * producto" y a renglón seguido mil doscientos caracteres pidiendo conservar la
+ * silueta exacta, las costuras y el packaging de un producto que no existe.
+ * Cuando dos instrucciones se pelean, el modelo elige distinto en cada corrida.
+ */
+describe('cada sujeto recibe solo las reglas que le corresponden', () => {
+	const base3 = { ...base, productNames: ['Viajes Personalizados'], productFacts: ['Agencia de viajes.'] };
+	const sinProducto = { referenceHasProduct: false, textZones: [] } as any;
+
+	test('un servicio no recibe reglas de fidelidad de producto', () => {
+		const prompt = buildClonePrompt({ ...base3, subjectMode: 'service' }, sinProducto, false);
+		assert.match(prompt, /NO PRODUCT INSERTION/);
+		assert.doesNotMatch(prompt, /ONE SAME SKU/);
+		assert.doesNotMatch(prompt, /preserve the exact silhouette/);
+		assert.doesNotMatch(prompt, /PRODUCT ORIENTATION AND GRAPHICS/);
+		// Las excepciones "salvo lo impreso en el producto" también sobraban: son
+		// un permiso para inventar un envase donde se dijo que no hay ninguno.
+		assert.doesNotMatch(prompt, /supplied product packaging/);
+		assert.doesNotMatch(prompt, /TARGET PRODUCT itself/);
+	});
+
+	test('una marca sin fotos tampoco', () => {
+		const prompt = buildClonePrompt({ ...base3, subjectMode: 'brand' }, sinProducto, false);
+		assert.doesNotMatch(prompt, /ONE SAME SKU/);
+	});
+
+	test('una ficha de producto sí las recibe', () => {
+		const prompt = buildClonePrompt({ ...base3, subjectMode: 'product' }, { referenceHasProduct: true, textZones: [] } as any, false);
+		assert.match(prompt, /ONE SAME SKU/);
+		assert.match(prompt, /TRUE SIZE AND BELIEVABLE HANDLING/);
+	});
+
+	test('un carrusel de servicio conserva el mundo visual, no un SKU', () => {
+		const prompt = buildClonePrompt({ ...base3, subjectMode: 'service', carousel: { index: 2, total: 4 } } as any, sinProducto, false);
+		assert.match(prompt, /CAROUSEL CONSISTENCY/);
+		assert.match(prompt, /the same palette, the same typography/);
+		assert.doesNotMatch(prompt, /identity master for this same product/);
 	});
 });

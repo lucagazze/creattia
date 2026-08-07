@@ -85,6 +85,26 @@ const CASOS = [
 		porque: 'Anuncio de dato duro con captura de interfaz para una agencia. Prueba el modo servicio cuando el ganador sí muestra pantalla.',
 		ref: '40/e099f54ca0fd425a.webp', modo: 'saas', marca: 'Algoritmia', productos: ['algoritmia'], sinFotos: true,
 	},
+	{
+		id: '09', nombre: 'enfasis-parcial',
+		porque: 'Lista de beneficios con palabras sueltas en negrita y un resaltado. El énfasis parcial es lo que dirige el ojo, y era lo que se venía perdiendo.',
+		ref: '1/4d90175f50495299.webp', modo: 'product', marca: 'Camelot', productos: ['cubos'],
+	},
+	{
+		id: '10', nombre: 'prenda-sobre-el-cuerpo',
+		porque: 'El ganador muestra el producto puesto y el nuevo TAMBIÉN se puede usar puesto. La regla de wearability tiene que dejarlo pasar, no forzar un packshot.',
+		ref: '13/752d9347314f7a19.webp', modo: 'product', marca: 'Farniente', productos: ['remera'],
+	},
+	{
+		id: '11', nombre: 'cuadrado-a-vertical',
+		porque: 'Un ganador cuadrado pedido en 9:16, que es lo que pasa cuando alguien elige formato de historia. Hay que rearmar la composición, no recortarla.',
+		ref: '40/9805bc99ac9bd675.webp', modo: 'product', marca: 'Camelot', productos: ['cubos'], formato: '1024x1536',
+	},
+	{
+		id: '12', nombre: 'carrusel-tres-paginas',
+		porque: 'Tres páginas del mismo carrusel: el producto tiene que ser idéntico entre páginas y cada una conservar su propia maqueta.',
+		ref: '40/ff3e7cde644121e0.webp', modo: 'product', marca: 'Mercado Libre', productos: ['ps5'], carrusel: 3,
+	},
 ];
 
 const pedidos = process.argv.slice(2);
@@ -164,20 +184,33 @@ async function correr(caso) {
 
 	const metadata = await sharp(referencia.buffer).metadata();
 	const proporcion = metadata.width / metadata.height;
-	const size = proporcion > 1.2 ? '1536x1024' : proporcion < 0.85 ? '1024x1536' : '1536x1536';
+	const size = caso.formato || (proporcion > 1.2 ? '1536x1024' : proporcion < 0.85 ? '1024x1536' : '1536x1536');
 
-	const resultado = await openai.images.edit({
-		model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2',
-		image: archivos,
-		prompt,
-		size,
-		quality: 'medium',
-		n: 1,
-	});
-	const buffer = Buffer.from(resultado.data[0].b64_json, 'base64');
+	// Un carrusel se genera página por página con el MISMO producto: lo que se
+	// mira acá es si el producto se mantiene idéntico de una página a la otra.
+	const paginas = caso.carrusel || 1;
+	const buffers = [];
+	for (let pagina = 1; pagina <= paginas; pagina += 1) {
+		const promptPagina = paginas > 1
+			? buildClonePrompt({ ...producto, carousel: { index: pagina, total: paginas } }, analisis, false)
+			: prompt;
+		const resultado = await openai.images.edit({
+			model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2',
+			image: archivos,
+			prompt: promptPagina,
+			size,
+			quality: 'medium',
+			n: 1,
+		});
+		buffers.push(Buffer.from(resultado.data[0].b64_json, 'base64'));
+	}
+	const buffer = buffers[0];
 	const archivo = `${OUT}/${caso.id}-${caso.nombre}.png`;
-	fs.writeFileSync(archivo, buffer);
+	buffers.forEach((datos, indice) => fs.writeFileSync(paginas > 1 ? `${OUT}/${caso.id}-${caso.nombre}.p${indice + 1}.png` : archivo, datos));
 	await ladoALado(referencia.buffer, buffer, `${OUT}/${caso.id}-${caso.nombre}.comparado.png`);
+	// Las páginas del carrusel se miran entre sí, no contra el ganador: el punto
+	// es si el producto sobrevive igual de una a la otra.
+	if (paginas > 1) await ladoALado(buffers[0], buffers[1], `${OUT}/${caso.id}-${caso.nombre}.paginas.png`);
 
 	return {
 		caso,

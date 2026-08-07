@@ -38,11 +38,26 @@ describe('anuncio de catálogo', () => {
 	});
 
 	test('el catálogo trata las fotos como productos reales, no como decorado', () => {
-		// Se apoya en la misma rama que 'product': hay objetos físicos que hay que
-		// reproducir con fidelidad, aunque el mensaje sea de la tienda.
 		const catalogo = buildClonePrompt({ ...base, subjectMode: 'catalog' }, null, false);
-		const producto = buildClonePrompt({ ...base, subjectMode: 'product' }, null, false);
-		assert.match(catalogo, /PRODUCT/);
-		assert.ok(catalogo.length > producto.length, 'el catálogo suma reglas, no las reemplaza');
+		assert.match(catalogo, /PRODUCT SWAP/);
+		assert.match(catalogo, /SUBJECT IS THE STORE, NOT ONE ITEM/);
+	});
+
+	/**
+	 * La tienda tiene su propio bloque de producto, no el de una ficha.
+	 *
+	 * Antes heredaba el de producto único, escrito palabra por palabra para UN
+	 * objeto: pedía renderizar "ONE single coherent object" y tratar todas las
+	 * fotos como vistas del mismo SKU, mientras la regla de tienda pedía lo
+	 * contrario. Con las dos órdenes juntas el modelo resolvía distinto en cada
+	 * corrida, y la misma grilla salía a veces con toda la variedad y a veces con
+	 * nueve celdas iguales.
+	 */
+	test('el catálogo no arrastra las reglas de producto único', () => {
+		const catalogo = buildClonePrompt({ ...base, subjectMode: 'catalog' }, null, false);
+		assert.doesNotMatch(catalogo, /ONE single coherent object/);
+		assert.doesNotMatch(catalogo, /ONE SAME SKU/);
+		// Y el nombre de la etiqueta no puede ser la concatenación de varios.
+		assert.doesNotMatch(catalogo, /the product name is literally/);
 	});
 });
