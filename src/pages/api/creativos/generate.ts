@@ -748,16 +748,31 @@ The result must look like the same image with only that one adjustment applied.`
 		// estado compartido): generarlas en paralelo en vez de una por una es
 		// la diferencia entre esperar N veces el tiempo de una sola imagen o
 		// esperar solo una vez.
+		const tier = pickQualityTier(layoutAnalysis).tier;
+		// Se deja constancia de lo que se pidió ANTES de pedirlo: si el motor se
+		// cuelga o el proceso muere, el intento igual quedó registrado. Midiendo
+		// solo los finales, un problema del motor se ve como menos demanda.
+		void trackEvent(admin, 'generacion_pedida', auth.user!.id, { cantidad: count, formato: effectiveFormat, tier, sujeto: subjectMode });
 		const outputBuffers: Buffer[] = await Promise.all(Array.from({ length: count }, async (_, index) => {
-			const { buffer, engine } = await generateAdImage({
+			const { buffer, engine, usage } = await generateAdImage({
 				googleKey,
 				openAIKey,
 				prompt,
 				images: inputBuffers,
 				format: effectiveFormat,
-				tier: pickQualityTier(layoutAnalysis).tier,
+				tier,
 			});
-			stamp(`imagen ${index + 1}/${count} generada con ${engine}`);
+			stamp(`imagen ${index + 1}/${count} generada con ${engine}${usage ? ` (${usage.salida} tokens de salida)` : ''}`);
+			// El consumo que informa el motor es lo único que permite costear un
+			// creativo sin ir al panel de OpenAI. Venía en cada respuesta y se
+			// descartaba, así que no había forma de saber cuánto cuesta una imagen.
+			void trackEvent(admin, 'generacion_lista', auth.user!.id, {
+				motor: engine,
+				formato: effectiveFormat,
+				tier,
+				promptCaracteres: prompt.length,
+				...(usage ? { tokensEntrada: usage.entrada, tokensSalida: usage.salida, tokensEntradaImagen: usage.entradaImagen, tokensEntradaTexto: usage.entradaTexto } : {}),
+			});
 			return buffer;
 		}));
 
@@ -842,6 +857,10 @@ The result must look like the same image with only that one adjustment applied.`
 		const message = error instanceof Error ? error.message : 'No se pudo generar el creativo.';
 		console.error('[generate]', error);
 		const failedIds = generationIds.filter((id) => !completedIds.has(id));
+		// Las fallas se contaban solas en la tabla de generaciones, pero no en la
+		// serie de eventos, así que en las métricas una caída del motor se veía
+		// como un bajón de demanda y no como lo que era.
+		void trackEvent(admin, 'generacion_fallida', auth.user.id, { motivo: message.slice(0, 300), cantidad: failedIds.length });
 		const closed = await closeGenerationsAndCountRefunds(admin, auth.user.id, failedIds, message);
 		const refundAmount = Math.min(
 			Math.max(0, reservedCount - completedIds.size * creditsPerImage),

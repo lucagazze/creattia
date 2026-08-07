@@ -9,6 +9,16 @@ import { formatSizes } from './formats';
 
 export type EngineImage = { buffer: Buffer; type: string };
 
+/**
+ * Lo que consumió una generación, en tokens.
+ *
+ * No se guardaba nada, así que la pregunta "¿cuánto me cuesta una imagen?" solo
+ * se podía responder mirando el panel de OpenAI, y nunca por creativo. Con esto
+ * cada generación deja su consumo real: los tokens de salida escalan con los
+ * píxeles y son la diferencia entre una imagen a 1024 y la misma a 1536.
+ */
+export type EngineUsage = { entrada: number; salida: number; entradaImagen: number; entradaTexto: number };
+
 const geminiAspectRatios: Record<string, string> = {
 	'1:1': '1:1', '3:4': '3:4', '9:16': '9:16', '4:3': '4:3', '16:9': '16:9',
 	square: '1:1', portrait: '3:4', story: '9:16', landscape: '4:3',
@@ -76,7 +86,7 @@ async function generateWithOpenAI(input: {
 	 * el nombre del envase, y 'high' se va a 225s.
 	 */
 	openAIQuality?: 'low' | 'medium' | 'high';
-}): Promise<Buffer> {
+}): Promise<{ buffer: Buffer; usage?: EngineUsage }> {
 	const openai = new OpenAI({ apiKey: input.apiKey });
 	const model = input.model;
 	const quality = input.openAIQuality || 'high';
@@ -107,7 +117,7 @@ async function generateWithOpenAI(input: {
 		} as any);
 		const b64 = result.data?.[0]?.b64_json;
 		if (!b64) throw new Error('OpenAI no devolvió imagen.');
-		return Buffer.from(b64, 'base64');
+		return { buffer: Buffer.from(b64, 'base64'), usage: leerConsumo(result) };
 	}
 	const result = await openai.images.generate({
 		model,
@@ -118,7 +128,26 @@ async function generateWithOpenAI(input: {
 	});
 	const b64 = result.data?.[0]?.b64_json;
 	if (!b64) throw new Error('OpenAI no devolvió imagen.');
-	return Buffer.from(b64, 'base64');
+	return { buffer: Buffer.from(b64, 'base64'), usage: leerConsumo(result) };
+}
+
+/**
+ * Lo que consumió la generación, tal como lo informa la API.
+ *
+ * Venía en cada respuesta y se descartaba, así que no había forma de responder
+ * cuánto cuesta una imagen sin ir al panel de OpenAI. Los tokens de salida son
+ * los que mandan: escalan con los píxeles, y son la diferencia entre una imagen
+ * a 1024 y la misma a 1536.
+ */
+function leerConsumo(resultado: any): EngineUsage | undefined {
+	const uso = resultado?.usage;
+	if (!uso) return undefined;
+	return {
+		entrada: Number(uso.input_tokens) || 0,
+		salida: Number(uso.output_tokens) || 0,
+		entradaImagen: Number(uso.input_tokens_details?.image_tokens) || 0,
+		entradaTexto: Number(uso.input_tokens_details?.text_tokens) || 0,
+	};
 }
 
 /**
@@ -135,7 +164,7 @@ export async function generateAdImage(input: {
 	format: string;
 	/** Nivel de calidad de gpt-image-2. Lo decide quality-router.ts. */
 	tier?: 'low' | 'medium' | 'high';
-}): Promise<{ buffer: Buffer; engine: string }> {
+}): Promise<{ buffer: Buffer; engine: string; usage?: EngineUsage }> {
 	const images = input.images || [];
 	const failures: string[] = [];
 
@@ -157,7 +186,7 @@ export async function generateAdImage(input: {
 		const model = process.env.OPENAI_IMAGE_MODEL || import.meta.env.OPENAI_IMAGE_MODEL || 'gpt-image-2';
 		const sizeMap = model === 'gpt-image-1' ? legacyOpenAISizes : openAISizes;
 		try {
-			const buffer = await generateWithOpenAI({
+			const { buffer, usage } = await generateWithOpenAI({
 				apiKey: input.openAIKey,
 				model,
 				prompt: input.prompt,
@@ -165,7 +194,7 @@ export async function generateAdImage(input: {
 				size: sizeMap[input.format] || '1024x1024',
 				openAIQuality: input.tier || 'medium',
 			});
-			if (buffer.length > 1024) return { buffer, engine: `${model} (${input.tier || 'medium'})` };
+			if (buffer.length > 1024) return { buffer, engine: `${model} (${input.tier || 'medium'})`, usage };
 			failures.push(`${model}: respuesta vacía`);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);

@@ -1,5 +1,5 @@
 import { analyzeReferenceLayout, buildReferenceClonePrompt, LANGUAGE_NAMES, type LayoutAnalysis } from './ad-analysis';
-import { generateAdImage, type EngineImage } from './image-engines';
+import { generateAdImage, type EngineImage, type EngineUsage } from './image-engines';
 import { closestFormat } from './formats';
 import type { QualityTier } from './quality-router';
 
@@ -162,6 +162,8 @@ export type ReferenceCloneInput = ClonePromptInput & {
 export type ReferenceCloneResult = {
 	buffer: Buffer;
 	engine: string;
+	/** Consumo real informado por el motor, para poder costear cada creativo. */
+	usage?: EngineUsage;
 	prompt: string;
 	analysis: LayoutAnalysis | null;
 	format: string;
@@ -264,7 +266,7 @@ export async function renderReferenceClone(input: ReferenceCloneInput): Promise<
 	const images = buildEngineImages(input, analysis);
 
 	console.log(`${label} generando en ${format} (${images.length} imágenes de entrada, calidad ${input.tier})`);
-	const { buffer, engine } = await generateAdImage({
+	const { buffer, engine, usage } = await generateAdImage({
 		googleKey: input.keys.googleKey,
 		openAIKey: input.keys.openAIKey,
 		prompt,
@@ -273,7 +275,7 @@ export async function renderReferenceClone(input: ReferenceCloneInput): Promise<
 		tier: input.tier,
 	});
 
-	return { buffer, engine, prompt, analysis, format };
+	return { buffer, engine, prompt, analysis, format, usage };
 }
 
 /**
