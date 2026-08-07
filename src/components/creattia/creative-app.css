@@ -6327,3 +6327,115 @@
 	border-radius: 50%;
 	animation: studio-spin 0.7s linear infinite;
 }
+
+/* ── Biblioteca de ganadores: legibilidad y llamada a la acción ─────────── */
+
+/* El botón late siempre, muy suave, para que se note que es la acción de la
+   pantalla. En hover no se veía hasta que el mouse pasaba por encima, que es
+   justo cuando ya no hace falta llamar la atención. */
+@keyframes library-cta-latido {
+	0%, 100% { transform: scale(1); }
+	50% { transform: scale(1.035); }
+}
+
+.library-access-banner-cta {
+	animation: library-cta-latido 2.6s ease-in-out infinite;
+	will-change: transform;
+}
+
+.library-access-banner-cta:hover { animation-play-state: paused; }
+
+/* Respeta a quien pidió menos movimiento en el sistema. */
+@media (prefers-reduced-motion: reduce) {
+	.library-access-banner-cta { animation: none; }
+}
+
+.library-access-banner-icon svg { display: block; }
+.library-access-banner-copy b { font-weight: 800; color: #43307a; }
+
+/* El borrar del admin vivía en una fila arriba de cada tarjeta junto al nombre
+   del archivo. Sacado el nombre, el botón pasa a flotar sobre la imagen. */
+.library-card-admin-delete {
+	position: absolute;
+	top: 8px;
+	left: 8px;
+	z-index: 6;
+	display: grid;
+	place-items: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, .92);
+	color: #dc2626;
+	cursor: pointer;
+	box-shadow: 0 2px 8px rgba(43, 28, 71, .18);
+}
+
+/* La tarjeta bloqueada es toda el botón: antes la acción estaba en un pie que
+   en pantallas chicas quedaba fuera de la vista. */
+.library-locked-art strong {
+	font-size: 15px;
+	font-weight: 800;
+	letter-spacing: .01em;
+}
+
+.library-locked-art small {
+	max-width: 88%;
+	font-size: 12px;
+	line-height: 1.35;
+}
+
+/* ── Responsive: un poco de aire ────────────────────────────────────────── */
+@media (max-width: 720px) {
+	/* La grilla iba pegada a los bordes y las tarjetas entre sí. Un respiro
+	   chico alcanza para que se lea como una grilla y no como un bloque. */
+	.library-masonry { column-gap: 12px !important; padding-inline: 2px; }
+	.library-masonry > * { margin-bottom: 12px; }
+
+	.library-access-banner {
+		flex-wrap: wrap;
+		gap: 10px;
+		padding: 14px;
+	}
+	/* En pantalla chica el botón pasa a ocupar el ancho completo: antes quedaba
+	   apretado contra el texto y se cortaba. */
+	.library-access-banner-cta { flex: 1 0 100%; justify-content: center; }
+	.library-access-banner-copy span { font-size: 12.5px; line-height: 1.4; }
+
+	.library-locked-art { min-height: 170px; }
+}
+
+/* El hueco que ocupa una tarjeta mientras no llegó su URL firmada. Sin esto la
+   grilla no crecía hasta que volvían las 20 firmas juntas, y entonces las 20
+   tarjetas entraban de una: ese salto es el tirón al scrollear. */
+.library-card-esqueleto {
+	display: block;
+	width: 100%;
+	height: 280px;
+	margin-bottom: 16px;
+	border-radius: 12px;
+	background: linear-gradient(100deg, #f4f1f8 30%, #ebe5f3 50%, #f4f1f8 70%);
+	background-size: 220% 100%;
+	animation: library-esqueleto 1.5s ease-in-out infinite;
+	break-inside: avoid;
+}
+
+@keyframes library-esqueleto {
+	from { background-position: 180% 0; }
+	to { background-position: -60% 0; }
+}
+
+/* La imagen entra con un fundido en vez de aparecer de golpe. */
+.library-card-imagen {
+	opacity: 0;
+	transition: opacity .28s ease;
+}
+
+.library-card-imagen.cargada { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+	.library-card-esqueleto { animation: none; }
+	.library-card-imagen { opacity: 1; transition: none; }
+}

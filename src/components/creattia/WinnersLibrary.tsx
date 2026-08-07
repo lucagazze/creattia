@@ -928,9 +928,9 @@ export default function WinnersLibrary({
 
 			{!libraryAccess.isPaid && !isAdmin && !loading && (
 				<section className="library-access-banner">
-					<div className="library-access-banner-icon">✦</div>
-					<div className="library-access-banner-copy"><strong>Estás viendo una selección gratuita</strong><span>{libraryAccess.accessibleCount} creativos seleccionados · {libraryAccess.lockedCount} más esperan ser desbloqueados</span></div>
-					<button type="button" onClick={() => setShowUpgradePrompt(true)}>Ver biblioteca completa <Icon name="arrow" size={15} /></button>
+					<div className="library-access-banner-icon"><Icon name="spark" size={20} /></div>
+					<div className="library-access-banner-copy"><strong>Estás viendo una selección gratuita</strong><span>{libraryAccess.accessibleCount} creativos seleccionados · <b>{libraryAccess.lockedCount.toLocaleString('es-AR')} más</b> esperan ser desbloqueados</span></div>
+					<button type="button" className="library-access-banner-cta" onClick={() => setShowUpgradePrompt(true)}>Ver biblioteca completa <Icon name="arrow" size={15} /></button>
 				</section>
 			)}
 
@@ -1197,8 +1197,17 @@ export default function WinnersLibrary({
 					{columnItems.map((item, idx) => {
 						if (item.isLocked) return (
 							<article key={item.imagePath} className="library-locked-card" onClick={() => setShowUpgradePrompt(true)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setShowUpgradePrompt(true); }}>
-								<div className="library-locked-art"><span className="library-locked-noise" /><span className="library-locked-lock">⌑</span><strong>Creativo premium</strong><small>{item.lockedCount || 'Más'} referencias en este ángulo</small></div>
-								<footer><span>{categoryLabels[item.category || 'producto'] || 'Ángulo premium'}</span><button type="button" onClick={(event) => { event.stopPropagation(); setShowUpgradePrompt(true); }}>Desbloquear</button></footer>
+								{/* Decía "570 referencias en este ángulo" en TODAS las tarjetas
+								    bloqueadas del mismo ángulo: el número es el total del ángulo, no
+								    el de esa tarjeta, así que repetido pierde sentido y confunde.
+								    Y el botón quedaba abajo, fuera de la vista en responsive. Ahora
+								    la tarjeta entera es el botón y dice lo único que importa. */}
+								<div className="library-locked-art">
+									<span className="library-locked-noise" />
+									<span className="library-locked-lock"><Icon name="spark" size={22} /></span>
+									<strong>Desbloquear</strong>
+									<small>{categoryLabels[item.category || 'producto'] || 'Ángulo premium'}</small>
+								</div>
 							</article>
 						);
 						const hasFailed = item.imagePath ? failedImages.has(item.imagePath) : false;
@@ -1206,7 +1215,18 @@ export default function WinnersLibrary({
 						const isVideo = item.metadata?.mediaType === 'video';
 						const urlFor = (path: string) => (path.startsWith('http') ? path : signedUrls[path] || '');
 						const imageUrl = item.imageUrl || urlFor(item.imagePath);
-						if (!imageUrl) return null; // sin URL firmada no hay nada que mostrar
+						/**
+						 * Mientras no llegó la URL firmada, la tarjeta ocupa su lugar.
+						 *
+						 * Antes se devolvía null: el bloque de 20 no renderizaba NADA hasta
+						 * que volvían las firmas y ahí aparecían las 20 de golpe, empujando
+						 * la grilla. Eso es el tirón al scrollear. Con un hueco del alto
+						 * aproximado de una tarjeta, la grilla crece cuando entra el bloque
+						 * y cada imagen aparece sobre su propio lugar, sin mover el resto.
+						 */
+						if (!imageUrl) return (
+							<article key={item.imagePath || idx} className="library-card-esqueleto" aria-hidden="true" />
+						);
 
 						// Carrusel: varias páginas para navegar dentro de la misma tarjeta.
 						const slides = item.metadata?.mediaType === 'carousel' && Array.isArray(item.metadata.carouselImages) && item.metadata.carouselImages.length > 1
@@ -1277,62 +1297,20 @@ export default function WinnersLibrary({
 										{isSelected ? '✓' : ''}
 									</div>
 								)}
-								{/* Card header (Social Proof looks like FB ad) */}
-								<div 
-									style={{ 
-										padding: '12px', 
-										display: 'flex', 
-										alignItems: 'center', 
-										gap: '10px', 
-										borderBottom: '1px solid #f3eff6' 
-									}}
-								>
-									<span 
-										style={{ 
-											width: '32px', 
-											height: '32px', 
-											borderRadius: '50%', 
-											background: '#ece7f4', 
-											color: '#19171d', 
-											fontWeight: 'bold', 
-											display: 'grid', 
-											placeItems: 'center',
-											fontSize: '11px',
-											overflow: 'hidden'
-										}}
+								{/* El encabezado mostraba el nombre del archivo del ganador —"Nosotros vs
+								    ellos (9)"— que es un nombre interno de la biblioteca y no le dice
+								    nada a nadie. Ocupaba lugar arriba de cada tarjeta y ensuciaba la
+								    grilla. Lo único que valía la pena de esa fila era el borrar del
+								    admin, que ahora vive sobre la imagen. */}
+								{isAdmin && (
+									<button
+										onClick={(e) => { e.stopPropagation(); handleDeleteItem(item); }}
+										className="library-card-admin-delete"
+										title="Eliminar ganador"
 									>
-										{item.metadata?.logoUrl ? (
-											<img src={item.metadata.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-										) : (
-											item.name.slice(0, 1).toUpperCase()
-										)}
-									</span>
-									<div style={{ flex: 1, minWidth: 0 }}>
-										<strong style={{ display: 'block', fontSize: '11.5px', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-											{item.name}
-										</strong>
-									</div>
-
-									{isAdmin && (
-										<button
-											onClick={(e) => {
-												e.stopPropagation();
-											handleDeleteItem(item);
-											}}
-											style={{ 
-												border: 0, 
-												background: 'transparent', 
-												color: '#dc2626', 
-												cursor: 'pointer',
-												padding: '4px',
-												zIndex: 5
-											}}
-											title="Eliminar ganador"
-										>
-											<Icon name="close" size={16} />
-										</button>
-									)}
-								</div>
+										<Icon name="close" size={14} />
+									</button>
+								)}
 
 								{/* Image visual with download protection */}
 								<div 
@@ -1460,9 +1438,11 @@ export default function WinnersLibrary({
 									<img
 										src={slideUrl}
 										alt={item.name}
+										className="library-card-imagen"
 										style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }}
 										loading={idx < 2 ? 'eager' : 'lazy'}
 										decoding="async"
+										onLoad={(event) => event.currentTarget.classList.add('cargada')}
 										onError={(event) => {
 											// Reintento único: el CDN a veces devuelve 429 bajo carga.
 											const img = event.currentTarget;
