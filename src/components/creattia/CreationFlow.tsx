@@ -353,9 +353,23 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
-			const response = await fetch('/api/creativos/plan', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
-			const payload = await response.json();
-			if (!response.ok) throw new Error(payload.error || 'No se pudo analizar la referencia.');
+			// Tope propio del navegador: si el servidor se cuelga o la conexión se
+			// corta, el fetch puede no resolver nunca y la pantalla queda girando
+			// sin decir nada. Es lo que pasaba cuando el análisis excedía el límite
+			// de la función: el trabajo terminaba y la respuesta no llegaba.
+			const corte = new AbortController();
+			const reloj = window.setTimeout(() => corte.abort(), 300000);
+			let response: Response;
+			try {
+				response = await fetch('/api/creativos/plan', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form, signal: corte.signal });
+			} catch (fallo) {
+				if ((fallo as any)?.name === 'AbortError') throw new Error('El análisis tardó demasiado. Probá de nuevo, y si se repite elegí otro anuncio de referencia.');
+				throw new Error('Se cortó la conexión mientras analizábamos la referencia. Probá de nuevo.');
+			} finally {
+				window.clearTimeout(reloj);
+			}
+			const payload = await response.json().catch(() => ({}));
+			if (!response.ok) throw new Error((payload as any).error || 'No se pudo analizar la referencia.');
 			const analysis = payload.analysis || {};
 			setPlan(analysis);
 			setZones((analysis.textZones || []).filter((zone: any) => analysis.productHasPackaging ? true : !zone.onProduct));

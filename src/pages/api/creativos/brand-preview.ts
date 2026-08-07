@@ -4,7 +4,9 @@ import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
-export const maxDuration = 60;
+// Mismo trabajo que /brands —escanear un sitio entero y pasarlo por un modelo—
+// que tiene 120. Con 60 se cortaba a mitad de camino en sitios pesados.
+export const maxDuration = 120;
 
 /**
  * Lee la identidad visual de una URL y la devuelve SIN guardar nada.

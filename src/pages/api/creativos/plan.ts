@@ -5,7 +5,16 @@ import { SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../..
 import { trackEvent } from '../../../lib/creattia/events';
 
 export const prerender = false;
-export const maxDuration = 60;
+/**
+ * Cinco minutos, igual que generar.
+ *
+ * Estaba en 60 segundos y hace exactamente el mismo análisis de visión que
+ * `generate` y el worker de lotes, que tienen 300. Cuando el análisis se pasaba
+ * del minuto —una referencia con muchas zonas de texto, o un carrusel— Vercel
+ * cortaba la función: el trabajo se completaba del lado del servidor, pero la
+ * respuesta nunca llegaba y la pantalla quedaba girando para siempre.
+ */
+export const maxDuration = 300;
 
 function clean(value: FormDataEntryValue | null, max = 500) {
 	return typeof value === 'string' ? value.trim().slice(0, max) : '';
