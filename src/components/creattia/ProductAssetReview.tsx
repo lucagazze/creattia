@@ -68,7 +68,19 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 	onChangeSubject?: (subject: SubjectChoice) => void;
 }) {
 	const [expanded, setExpanded] = useState<string | null>(null);
+	/**
+	 * Por defecto no se muestra el catálogo entero.
+	 *
+	 * Se listaban los ocho productos con nombre, precio y foto grande, y había que
+	 * revisarlos uno por uno. Para un anuncio del negocio eso es trabajo que no
+	 * cambia el resultado: alcanza con ver qué imágenes se van a usar. La lista
+	 * completa queda a un toque, para quien quiera elegir a mano.
+	 */
+	const [eligiendoAMano, setEligiendoAMano] = useState(false);
 	if (!products.length) return null;
+
+	const elegidos = products.filter((product) => selectedProductIds.includes(product.id));
+	const enAutomatico = Boolean(onToggleProduct) && !eligiendoAMano && elegidos.length > 0;
 
 	const selectable = Boolean(onToggleProduct);
 	const allSelected = products.length > 0 && products.every((product) => selectedProductIds.includes(product.id));
@@ -138,6 +150,38 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 				</div>
 			</div>
 
+			{enAutomatico ? (
+				<div className="asset-auto">
+					<div className="asset-auto-thumbs">
+						{elegidos.slice(0, 6).map((product) => {
+							const media = mediaFor(product);
+							const cover = media.find((item) => item.type !== 'video') || media[0];
+							return (
+								<span className="asset-auto-thumb" key={product.id} title={product.name}>
+									{cover
+										? <img src={cover.url} alt="" loading="lazy" decoding="async" />
+										: <em>{(product.name || '?').slice(0, 2)}</em>}
+								</span>
+							);
+						})}
+					</div>
+					<div className="asset-auto-copy">
+						<strong>
+							{isCatalog
+								? `Elegimos ${elegidos.length} ${elegidos.length === 1 ? 'imagen' : 'imágenes'} para representar tu negocio`
+								: elegidos[0]?.name || 'Producto elegido'}
+						</strong>
+						<small>
+							{isCatalog
+								? 'Son las que mejor muestran lo que vendés.'
+								: 'Detectado en la URL que pasaste.'}
+						</small>
+					</div>
+					<button type="button" className="asset-auto-manual" onClick={() => setEligiendoAMano(true)}>
+						Elegir a mano
+					</button>
+				</div>
+			) : (
 			<div className="asset-grid">
 				{products.map((product, index) => {
 					const media = mediaFor(product);
@@ -186,6 +230,7 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 					);
 				})}
 			</div>
+			)}
 		</section>
 	);
 }
