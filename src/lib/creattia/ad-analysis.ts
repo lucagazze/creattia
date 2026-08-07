@@ -214,7 +214,7 @@ Return STRICT JSON:
     "cta": "short adapted action, maximum 30 characters"
   },
   "textZones": [
-    { "slide": 1, "where": "PRECISE position: which corner or edge, and whether the block sits over the photo or outside it (e.g. 'white box overlapping the bottom-LEFT of the photo', 'red breadcrumb line above the headline')", "onProduct": true|false, "original": "exact text visibly present in the winning image", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product. LENGTH IS A HARD CONSTRAINT: stay within ±15% of the original character count and never use more lines than the original. If the honest message does not fit, cut it down until it does — a shorter phrase that keeps the design intact beats a complete one that breaks it", "emphasis": "null, or the visual emphasis applied to PART of this text and WHICH words carry it: highlighter/marker background (say the colour), underline, heavier weight, a different colour, or a boxed word. Example: 'marker highlight in soft yellow over \"62 and have $1.3 million saved up\"'" }
+    { "slide": 1, "where": "PRECISE position: which corner or edge, and whether the block sits over the photo or outside it (e.g. 'white box overlapping the bottom-LEFT of the photo', 'red breadcrumb line above the headline')", "onProduct": true|false, "original": "exact text visibly present in the winning image", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product. COPY THE CASE OF THE ORIGINAL EXACTLY: if the original is ALL CAPS the replacement is ALL CAPS, if it is Title Case it is Title Case, if it is sentence case it is sentence case. La caja es parte del diseño, no del contenido: cambiarla desarma la jerarquía aunque el texto sea correcto. LENGTH IS ALSO A HARD CONSTRAINT: stay within ±15% of the original character count and never use more lines than the original. If the honest message does not fit, cut it down until it does — a shorter phrase that keeps the design intact beats a complete one that breaks it", "emphasis": "null, or the visual emphasis applied to PART of this text and WHICH words carry it: highlighter/marker background (say the colour), underline, heavier weight, a different colour, or a boxed word. Example: 'marker highlight in soft yellow over \"62 and have $1.3 million saved up\"'" }
   ],
   "referenceHasProduct": true|false,
   "templateHasLogoSlot": true|false — does the template visibly display a brand logo or brand wordmark (a natural spot where the advertiser brand belongs)?,
@@ -528,9 +528,14 @@ export function buildReferenceClonePrompt(input: {
 			// original obliga a que el texto pase a dos líneas, y ahí se desarma el
 			// ritmo de toda la columna aunque la maqueta se haya respetado.
 			const largo = (zone.original || '').trim().length;
+			// La caja del original: en mayúsculas o no. Es lo primero que se pierde
+			// al reemplazar un texto y lo que más cambia la jerarquía de un anuncio.
+			const soloLetras = (zone.original || '').replace(/[^\p{L}]/gu, '');
+			const enMayusculas = soloLetras.length > 2 && soloLetras === soloLetras.toUpperCase();
+			const caja = enMayusculas ? ' — RENDER IT IN ALL CAPS, exactly like the original' : '';
 			const encaje = largo
-				? ` — the original is ${largo} characters on ${(zone.original || '').split('\n').length} line(s); the replacement must occupy the SAME number of lines at the same size`
-				: '';
+				? ` — the original is ${largo} characters on ${(zone.original || '').split('\n').length} line(s); the replacement must occupy the SAME number of lines at the same size${caja}`
+				: caja;
 			return `${index + 1}. [${zone.where || 'text zone'}${zone.messageRole ? ` — persuasive job: ${zone.messageRole}` : ''}] Replace "${zone.original || ''}" with "${zone.replacement}"${encaje}${emphasis}`;
 		}).join('\n');
 	}

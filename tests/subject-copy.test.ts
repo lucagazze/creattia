@@ -211,3 +211,41 @@ describe('encaje del texto y tipografía', () => {
 		assert.match(prompt, /Poppins/);
 	});
 });
+
+/**
+ * La caja del texto original es parte del diseño.
+ *
+ * Se comprobó generando el mismo anuncio con el prompt anterior y con el nuevo:
+ * el ganador tenía el subtítulo en MAYÚSCULAS y la versión nueva lo devolvió en
+ * minúsculas, más liviano y en dos líneas en vez de tres. El texto era correcto
+ * y la jerarquía del anuncio se desarmó igual. La regla de acortar empujaba en
+ * esa dirección sin que nada compensara.
+ */
+describe('caja del texto', () => {
+	test('un original en mayúsculas se pide en mayúsculas', () => {
+		const analisis: any = {
+			referenceHasProduct: true,
+			textZones: [{ where: 'subtítulo', original: 'THE ALWAYS PAN 2.0 HAS A NEW TOXIN-FREE NONSTICK', replacement: 'Creattia usa IA para generar anuncios' }],
+		};
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false);
+		assert.match(prompt, /RENDER IT IN ALL CAPS/);
+	});
+
+	test('un original en minúsculas no fuerza mayúsculas', () => {
+		const analisis: any = {
+			referenceHasProduct: true,
+			textZones: [{ where: 'bajada', original: 'The majority of other nonstick pans use toxic materials', replacement: 'La mayoría de las herramientas son complejas' }],
+		};
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false);
+		assert.doesNotMatch(prompt, /RENDER IT IN ALL CAPS/);
+	});
+
+	test('los signos y números no confunden la detección', () => {
+		// "50% BETTER PERFORMANCE" es mayúsculas aunque tenga dígitos y símbolos.
+		const analisis: any = {
+			referenceHasProduct: true,
+			textZones: [{ where: 'dato', original: '50% BETTER PERFORMANCE', replacement: '3x más rápido' }],
+		};
+		assert.match(buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false), /RENDER IT IN ALL CAPS/);
+	});
+});
