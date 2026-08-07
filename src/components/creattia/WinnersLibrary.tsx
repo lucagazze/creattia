@@ -141,12 +141,6 @@ function getTags(item: any, category: string): string[] {
 
 // Masonry con orden horizontal: reparte round-robin en N columnas flex,
 // así las tarjetas se compactan sin huecos y el orden sigue siendo por filas.
-function splitColumns<T>(items: T[], count: number): T[][] {
-	const columns: T[][] = Array.from({ length: Math.max(1, count) }, () => []);
-	items.forEach((item, index) => { columns[index % columns.length].push(item); });
-	return columns;
-}
-
 type WinnerItem = {
 	templateId: number;
 	name: string;
@@ -656,7 +650,6 @@ export default function WinnersLibrary({
 		return result;
 	}, [libraryAccess, lockedVisibleCount, selectedLockedAngles]);
 	const displayItems = useMemo(() => [...visibleItems, ...lockedItems], [visibleItems, lockedItems]);
-	const visibleColumns = useMemo(() => splitColumns(displayItems, columnCount), [displayItems, columnCount]);
 	const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
 	// Al volver de "Crear con este diseño" a la grilla, restaura el scroll
 	// guardado en handleUseIdea en vez de dejar la página arriba de todo.
@@ -1168,9 +1161,16 @@ export default function WinnersLibrary({
 					<button onClick={() => { setSelectedCategories(['todos']); setSelectedFormat('todos'); setSavedOnly(false); setQuery(''); }}>Limpiar filtros</button>
 				</div>
 			) : (<>
-				<div ref={gridRef} className="library-masonry-columns" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-					{visibleColumns.map((columnItems, columnIndex) => (
-					<div key={columnIndex} className="library-masonry-column" style={{ flex: '1 1 0%', minWidth: 0, maxWidth: `${100 / columnCount}%`, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+				{/* Columnas CSS en vez de repartir a mano.
+				    Se repartían por turnos —uno a cada columna— y eso equilibra la
+				    CANTIDAD, no la altura. Con anuncios de proporciones muy distintas
+				    una columna terminaba mucho más larga que las otras, y al scrollear
+				    las cortas se acababan: quedaba una sola columna con todo el ancho
+				    vacío al costado. El navegador equilibra por altura, que es lo que
+				    hace falta y no requiere conocer el alto de cada imagen. */}
+				<div ref={gridRef} className="library-masonry" style={{ columnCount, columnGap: '16px' }}>
+					{[displayItems].map((columnItems, columnIndex) => (
+					<React.Fragment key={columnIndex}>
 					{columnItems.map((item, idx) => {
 						if (item.isLocked) return (
 							<article key={item.imagePath} className="library-locked-card" onClick={() => setShowUpgradePrompt(true)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setShowUpgradePrompt(true); }}>
@@ -1507,7 +1507,7 @@ export default function WinnersLibrary({
 							</article>
 						);
 					})}
-					</div>
+					</React.Fragment>
 					))}
 				</div>
 				{hasMoreItems && (

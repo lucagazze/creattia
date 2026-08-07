@@ -6227,3 +6227,17 @@
 	flex: 0 0 auto; min-height: 38px; padding: 0 16px; border: 0; border-radius: 10px;
 	background: #fff; color: #19171d; font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
 }
+
+
+/* ─── Grilla de la biblioteca ─────────────────────────────────────────
+   Las tarjetas se repartían por turnos, una a cada columna, y eso equilibra la
+   cantidad y no la altura: con anuncios de proporciones muy distintas una
+   columna quedaba mucho más larga y, al scrollear, las cortas se terminaban y
+   quedaba una sola con todo el ancho vacío al costado. Las columnas CSS
+   equilibran por altura, que es lo que hace falta. */
+.library-masonry > * {
+	break-inside: avoid;
+	-webkit-column-break-inside: avoid;
+	page-break-inside: avoid;
+	margin-bottom: 16px;
+}
