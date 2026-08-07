@@ -165,3 +165,49 @@ describe('tamaño del prompt de render', () => {
 		assert.doesNotMatch(prompt, /4K/);
 	});
 });
+
+/**
+ * Que el texto entre donde va, y que la letra sea la del ganador.
+ *
+ * Comparando un clon contra su original se veían dos diferencias que no eran de
+ * maqueta: la tipografía no coincidía, y varios textos pasaban a dos líneas donde
+ * el original usaba una, lo que corría todo hacia abajo y rompía el ritmo de la
+ * columna. La maqueta estaba bien reproducida y el anuncio se veía mal igual.
+ *
+ * Las dos causas eran de instrucción. `styleNotes` —que describe la sensación
+ * tipográfica del ganador— se extraía y no se usaba, así que "copiá la tipografía
+ * del template" era una orden sin contenido. Y del largo solo se pedía que fuera
+ * "similar", sin decir contra qué.
+ */
+describe('encaje del texto y tipografía', () => {
+	const analisis: any = {
+		referenceHasProduct: true,
+		styleNotes: 'Grotesca condensada pesada en los títulos, itálica liviana en las aclaraciones',
+		textZones: [{ where: 'lista izquierda', original: 'Glycerin – helps in deep hydration', replacement: 'Glicerina – hidratación profunda' }],
+	};
+
+	test('se le dice el largo exacto del original', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false);
+		// 34 caracteres: el dato que permite decidir si hay que acortar.
+		assert.match(prompt, /the original is 34 characters/);
+		assert.match(prompt, /SAME number of lines/);
+	});
+
+	test('prohíbe reflujo y pide acortar', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false);
+		assert.match(prompt, /TEXT FIT \(CRITICAL\)/);
+		assert.match(prompt, /SHORTEN it/);
+		assert.match(prompt, /do not shrink the type/i);
+	});
+
+	test('la tipografía observada del ganador llega al prompt', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false);
+		assert.match(prompt, /Grotesca condensada pesada/);
+		assert.match(prompt, /do not substitute a generic sans-serif/i);
+	});
+
+	test('con tipografía de marca elegida, manda esa', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product', typoMode: 'brand', brandTypography: { headings: 'Poppins' } } as any, analisis, false);
+		assert.match(prompt, /Poppins/);
+	});
+});

@@ -79,6 +79,8 @@ export type LayoutAnalysis = {
 		scoreReasons?: string[];
 	};
 	creativeOptions?: string[];
+	/** Sensación tipográfica, paleta y recursos gráficos observados en el ganador. */
+	styleNotes?: string;
 	language?: string;
 	// Personas visibles en el anuncio (el usuario puede indicar cómo se reconstruyen).
 	people?: Array<{ slide?: number; where?: string; description?: string; role?: string; directive?: string }>;
@@ -212,7 +214,7 @@ Return STRICT JSON:
     "cta": "short adapted action, maximum 30 characters"
   },
   "textZones": [
-    { "slide": 1, "where": "PRECISE position: which corner or edge, and whether the block sits over the photo or outside it (e.g. 'white box overlapping the bottom-LEFT of the photo', 'red breadcrumb line above the headline')", "onProduct": true|false, "original": "exact text visibly present in the winning image", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product, similar length", "emphasis": "null, or the visual emphasis applied to PART of this text and WHICH words carry it: highlighter/marker background (say the colour), underline, heavier weight, a different colour, or a boxed word. Example: 'marker highlight in soft yellow over \"62 and have $1.3 million saved up\"'" }
+    { "slide": 1, "where": "PRECISE position: which corner or edge, and whether the block sits over the photo or outside it (e.g. 'white box overlapping the bottom-LEFT of the photo', 'red breadcrumb line above the headline')", "onProduct": true|false, "original": "exact text visibly present in the winning image", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product. LENGTH IS A HARD CONSTRAINT: stay within ±15% of the original character count and never use more lines than the original. If the honest message does not fit, cut it down until it does — a shorter phrase that keeps the design intact beats a complete one that breaks it", "emphasis": "null, or the visual emphasis applied to PART of this text and WHICH words carry it: highlighter/marker background (say the colour), underline, heavier weight, a different colour, or a boxed word. Example: 'marker highlight in soft yellow over \"62 and have $1.3 million saved up\"'" }
   ],
   "referenceHasProduct": true|false,
   "templateHasLogoSlot": true|false — does the template visibly display a brand logo or brand wordmark (a natural spot where the advertiser brand belongs)?,
@@ -332,6 +334,8 @@ Rules:
 				...item,
 				slide: Number.isInteger(Number(item?.slide)) && Number(item.slide) >= 1 ? Number(item.slide) : undefined,
 			})) : [];
+			parsed.styleNotes = typeof parsed.styleNotes === 'string' ? parsed.styleNotes.trim().slice(0, 400) : '';
+
 			// El bloque creativo entra tal cual al prompt del render: se acota acá
 			// para que una respuesta larga o rara del analizador no se cuele ni
 			// infle el prompt sin control.
@@ -520,7 +524,14 @@ export function buildReferenceClonePrompt(input: {
 			const emphasis = typeof (zone as any).emphasis === 'string' && (zone as any).emphasis.trim() && (zone as any).emphasis.trim().toLowerCase() !== 'null'
 				? ` — KEEP THIS FORMATTING: ${(zone as any).emphasis.trim()}. Apply the same treatment to the equivalent words of the new text.`
 				: '';
-			return `${index + 1}. [${zone.where || 'text zone'}${zone.messageRole ? ` — persuasive job: ${zone.messageRole}` : ''}] Replace "${zone.original || ''}" with "${zone.replacement}"${emphasis}`;
+			// El largo importa tanto como el contenido: un reemplazo más largo que el
+			// original obliga a que el texto pase a dos líneas, y ahí se desarma el
+			// ritmo de toda la columna aunque la maqueta se haya respetado.
+			const largo = (zone.original || '').trim().length;
+			const encaje = largo
+				? ` — the original is ${largo} characters on ${(zone.original || '').split('\n').length} line(s); the replacement must occupy the SAME number of lines at the same size`
+				: '';
+			return `${index + 1}. [${zone.where || 'text zone'}${zone.messageRole ? ` — persuasive job: ${zone.messageRole}` : ''}] Replace "${zone.original || ''}" with "${zone.replacement}"${encaje}${emphasis}`;
 		}).join('\n');
 	}
 
@@ -675,9 +686,28 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 	const creativeDecisionBlock = creativeDecisions.length
 		? `\nCONTEXTUAL CREATIVE DECISIONS — The visual analysis identified details that may materially affect fidelity or believability. Preserve the template structure, but apply the user's direction when present. If a direction is empty, use the safe default and do not invent an unrelated subject, brand or claim:\n${creativeDecisions.map((decision, index) => `   - Decision ${index + 1} [${decision.type || 'other'}]${decision.title ? ` ${decision.title}` : ''}${decision.where ? ` (${decision.where})` : ''}: detected — ${decision.description || decision.question || 'contextual visual element'}. User direction: ${decision.directive?.trim() || 'none'}. Default: ${decision.defaultStrategy || 'make the most natural, same-category and production-ready choice.'}`).join('\n')}`
 		: '';
+	/**
+	 * La tipografía que el análisis observó en el ganador.
+	 *
+	 * `styleNotes` describe la sensación tipográfica y los recursos gráficos del
+	 * anuncio, y se venía extrayendo sin usarse. Sin ese dato, "copiá la
+	 * tipografía del template" es una instrucción sin contenido: el modelo termina
+	 * eligiendo una grotesca cualquiera y el clon se parece en todo menos en la
+	 * letra, que es lo primero que se nota al comparar.
+	 */
 	const typoRule = input.typoMode !== 'winner' && (input.brandTypography?.headings || input.brandTypography?.body)
 		? `TYPOGRAPHY — Use the selected brand typography: headings in ${input.brandTypography?.headings || 'the brand font'}, body text in ${input.brandTypography?.body || 'the brand font'}, keeping the same sizes, weights and hierarchy as the template.`
-		: `Match the template's typographic style, weight and case exactly (if the template headline is heavy condensed uppercase, keep it heavy condensed uppercase).`;
+		: `TYPOGRAPHY (CRITICAL) — Reproduce the template's typeface characteristics exactly: the same width (condensed, normal or extended), the same weight, the same case, the same letter-spacing and the same relationship between the heading and the body text. Look at the letterforms in the reference image and match them; do not substitute a generic sans-serif. If the template pairs a heavy condensed heading with a light italic annotation, the new ad must pair a heavy condensed heading with a light italic annotation.${input.analysis?.styleNotes ? ` Observed in this template: ${input.analysis.styleNotes}` : ''}`;
+
+	/**
+	 * Que el texto entre donde va, sin reflujo.
+	 *
+	 * La maqueta puede reproducirse perfecta y el anuncio verse mal igual: si un
+	 * reemplazo es más largo que el original, pasa a dos líneas, empuja lo de
+	 * abajo y rompe el ritmo de la columna. Es más importante que el texto encaje
+	 * a que diga todo.
+	 */
+	const encajeRule = `\nTEXT FIT (CRITICAL) — Every replacement must occupy the same space as the text it replaces: same number of lines, same font size, same block height. Do NOT reflow the layout to fit a longer text, do not shrink the type to squeeze it in, and do not let a line wrap where the original did not wrap. If a replacement does not fit, SHORTEN it — cut words until it fits. A shorter phrase that preserves the rhythm of the design beats a complete sentence that breaks it.`;
 	const strategyBlock = input.analysis?.messageStrategy
 		? `\nMESSAGE STRATEGY OF THE WINNING AD — preserve the same persuasion, adapted to ${productLabel}: ${input.analysis.messageStrategy}\n`
 		: '';
@@ -711,7 +741,7 @@ ${strategyBlock}${creativeBlock}${imageSlotBlock}
 WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website. Render exactly "${input.displayWebsite}" ONCE in an existing URL or footer slot.` : 'Do not render any URL, domain, web address, social handle or QR code. Remove any website from the winning template and leave that space clean.'}
 
 4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
-${layoutFidelityRule}${catalogRule}${qualityRule}${TEXT_RENDERING_RULE}${semanticPaletteRule}${identityBlock}
+${layoutFidelityRule}${encajeRule}${catalogRule}${qualityRule}${TEXT_RENDERING_RULE}${semanticPaletteRule}${identityBlock}
 ${logoDecision}
 ${peopleBlock}${comparisonBlock}${comparisonContext}${creativeDecisionBlock}
 
