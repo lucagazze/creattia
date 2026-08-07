@@ -6313,3 +6313,17 @@
 @media (max-width: 640px) {
 	.asset-auto-manual { width: 100%; }
 }
+
+/* Indica que un texto se está rehaciendo. Sin esto el botón no cambiaba nada
+   hasta que llegaba el texto nuevo, y la reacción natural era volver a tocarlo. */
+.rehaciendo-spinner {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	margin-right: 2px;
+	vertical-align: -1px;
+	border: 2px solid rgba(116, 75, 222, 0.28);
+	border-top-color: #744bde;
+	border-radius: 50%;
+	animation: studio-spin 0.7s linear infinite;
+}

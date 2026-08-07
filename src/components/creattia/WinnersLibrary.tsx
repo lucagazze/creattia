@@ -609,12 +609,23 @@ export default function WinnersLibrary({
 	 * Si el presupuesto no alcanza, se pierde fluidez al pasar páginas, nunca una
 	 * imagen visible.
 	 */
+	/**
+	 * Solo lo que se ve, y las páginas del que está abierto.
+	 *
+	 * Acá se pedían además hasta 12 páginas de CADA carrusel visible: con 20
+	 * tarjetas en pantalla eso son 260 firmas para mostrar 20 imágenes. De ahí
+	 * salía la espera larga al entrar a la biblioteca y al cambiar un filtro,
+	 * porque hasta que no volvía toda esa tanda no aparecía ninguna portada.
+	 *
+	 * Precargar las páginas de carruseles que nadie abrió es una comodidad —que
+	 * las flechas respondan al instante— y se estaba pagando con el tiempo de
+	 * carga de todos. Ahora las páginas se firman cuando el anuncio se abre, que
+	 * son unas pocas y llegan enseguida.
+	 */
 	const signedUrls = useReferenceUrls(useMemo(() => {
 		const portadas = visibleItems.map((item: any) => item.imagePath);
-		const paginas = visibleItems.flatMap((item: any) => (item.metadata?.carouselImages || []).slice(0, 12));
 		const abierto = activeAd ? [activeAd.imagePath, ...((activeAd as any).metadata?.carouselImages || [])] : [];
-		// El anuncio abierto va junto a las portadas: es lo que se está mirando.
-		return [...portadas, ...abierto, ...paginas];
+		return [...portadas, ...abierto];
 	}, [visibleItems, activeAd]));
 	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
 	// imagen al instante en vez de esperar a que baje cada foto de a una.
@@ -624,19 +635,19 @@ export default function WinnersLibrary({
 	// URL y no volvía a intentarlo nunca. Ahora se ejecuta también cuando las
 	// firmas aparecen, que es cuando realmente se puede precargar algo.
 	useEffect(() => {
+		// Solo el anuncio abierto: es el único cuyas páginas se firman ahora, y el
+		// único cuyas flechas alguien puede llegar a tocar.
+		const slides = (activeAd as any)?.metadata?.carouselImages;
+		if (!Array.isArray(slides) || slides.length < 2) return;
 		// El bucket es privado: las URLs las firma el servidor.
 		const urlFor = (path: string) => (path.startsWith('http') ? path : signedUrls[path] || '');
-		filteredItems.slice(0, visibleCount).forEach((item) => {
-			const slides = item.metadata?.carouselImages;
-			if (!Array.isArray(slides) || slides.length < 2) return;
-			slides.slice(1).forEach((path) => {
-				const url = urlFor(path);
-				if (!url) return;
-				const img = new Image();
-				img.src = url;
-			});
+		slides.slice(1).forEach((path: string) => {
+			const url = urlFor(path);
+			if (!url) return;
+			const img = new Image();
+			img.src = url;
 		});
-	}, [filteredItems, visibleCount, signedUrls]);
+	}, [activeAd, signedUrls]);
 	const lockedItems = useMemo<WinnerItem[]>(() => {
 		if (!selectedLockedAngles.length || !lockedVisibleCount) return [];
 		const selectedAngles = selectedLockedAngles;

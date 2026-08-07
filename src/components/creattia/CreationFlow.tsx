@@ -504,9 +504,21 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			.map(([pagina, items]) => ({ pagina, items }));
 	})();
 
+	/**
+	 * Qué texto se está rehaciendo, si es que alguno.
+	 *
+	 * El botón disparaba la llamada y no cambiaba nada en pantalla hasta que el
+	 * texto se reemplazaba solo, varios segundos después. Sin señal de que algo
+	 * estaba pasando, lo natural es volver a tocarlo: se pedían dos reescrituras
+	 * y ganaba la que llegaba última.
+	 */
+	const [rehaciendo, setRehaciendo] = useState<number | null>(null);
+
 	async function regenerateCopy(index: number) {
 		const zone = zones[index];
 		if (!zone) return;
+		if (rehaciendo !== null) return;
+		setRehaciendo(index);
 		try {
 			const response = await fetch('/api/creativos/rewrite', {
 				method: 'POST',
@@ -526,6 +538,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			onToast?.('Texto regenerado con éxito.');
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo reescribir el texto.');
+		} finally {
+			setRehaciendo(null);
 		}
 	}
 
@@ -1128,7 +1142,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 						<div className="detected-copy-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
 							<strong style={{ ...label, marginBottom: 0 }}>Textos detectados del anuncio</strong>
 							<div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-								{zones.length > 0 && <button type="button" onClick={regenerateAllCopies} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>✨ Rehacer todos</button>}
+								{zones.length > 0 && <button type="button" onClick={regenerateAllCopies} disabled={rehaciendo !== null} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', fontSize: '13px', fontWeight: 700, cursor: rehaciendo !== null ? 'wait' : 'pointer', opacity: rehaciendo !== null ? 0.45 : 1 }}>✨ Rehacer todos</button>}
 								<button type="button" onClick={() => setCopyMode('auto')} style={chip(copyMode === 'auto')}>✨ Automáticos</button>
 								<button type="button" onClick={() => setCopyMode('edit')} style={chip(copyMode === 'edit')}>✏️ Editarlos yo</button>
 							</div>
@@ -1159,7 +1173,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 													) : (
 														<span style={{ flex: 1, fontSize: '13.5px', color: '#19171d', lineHeight: 1.4 }}>{zone.replacement || 'Sin reemplazo detectado'}</span>
 													)}
-													<button type="button" onClick={() => void regenerateCopy(index)} style={{ border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', padding: '6px 10px', borderRadius: '8px', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }} title="Rehacer este texto con IA">✨ Rehacer</button>
+													<button type="button" onClick={() => void regenerateCopy(index)} disabled={rehaciendo !== null} style={{ border: '1px solid #dcd5e4', background: '#fff', color: '#744bde', padding: '6px 10px', borderRadius: '8px', fontSize: '11.5px', fontWeight: 700, cursor: rehaciendo !== null ? 'wait' : 'pointer', opacity: rehaciendo !== null && rehaciendo !== index ? 0.45 : 1, whiteSpace: 'nowrap' }} title="Rehacer este texto con IA">{rehaciendo === index ? <><span className="rehaciendo-spinner" aria-hidden="true" /> Rehaciendo…</> : '✨ Rehacer'}</button>
 												</div>
 											</div>
 										))}
