@@ -1,13 +1,23 @@
 import type { APIRoute } from 'astro';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
-import { freePreviewAngleFor } from '../../../lib/creattia/library-access';
+import { buildDiscoverDeck, freePreviewAngleFor } from '../../../lib/creattia/library-access';
 
 export const prerender = false;
 
 const BUCKET = 'creative-references';
 const MANIFEST_PATH = 'manifests/starter-static-50.json';
 const PREVIEW_PER_ANGLE = 5;
+
+/**
+ * Tarjetas que arranca mostrando el descubridor.
+ *
+ * No es un tope de lo que la cuenta puede ver: apenas cargue el catálogo
+ * completo, el front reemplaza este mazo por todo lo permitido. Es cuántas
+ * necesita para que la sección tenga sentido desde el primer segundo sin
+ * demorar la carga del inicio. Con 50 cubre la muestra gratuita entera.
+ */
+const DISCOVER_DECK = 50;
 const PAID_PLAN_CODES = new Set(['creator', 'pro', 'scale', 'agency']);
 const STATIC_MEDIA_TYPES = new Set(['static_image', 'carousel']);
 
@@ -153,12 +163,19 @@ export const GET: APIRoute = async ({ request }) => {
 	}
 
 	if (isDiscoverPreview) {
-		const discoverAngles = ['producto', 'competencia', 'resenas', 'precio'];
+		/**
+		 * El mazo del descubridor.
+		 *
+		 * Devolvía UN anuncio por ángulo y solo de cuatro ángulos: cuatro tarjetas
+		 * para todo el mundo, pagara o no. En una cuenta gratuita eso dejaba fuera
+		 * 46 de los 50 creativos que sí puede usar, y en una paga escondía la
+		 * biblioteca entera detrás de cuatro imágenes. Ahora entra todo lo que la
+		 * cuenta tiene permitido, repartido por ángulo para que las primeras
+		 * tarjetas no sean todas del mismo tipo.
+		 */
 		const candidates = (isPaid ? allItems : allItems.filter((item: any) => freePreviewAngleFor(item)))
 			.map((item: any) => ({ ...item, category: isPaid ? angleFor(item) : (freePreviewAngleFor(item) || angleFor(item)) }));
-		const discoverItems = discoverAngles
-			.map((angle) => candidates.filter((item: any) => item.category === angle).sort(sortForPreview)[0])
-			.filter(Boolean);
+		const discoverItems = buildDiscoverDeck([...candidates].sort(sortForPreview), DISCOVER_DECK);
 		const accessibleItems = await addAccessUrls(admin, discoverItems);
 		return json({
 			items: accessibleItems,

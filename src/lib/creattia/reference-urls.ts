@@ -68,17 +68,34 @@ let queued = new Set<string>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 const waiters = new Set<() => void>();
 
+/**
+ * El servidor firma como mucho 250 rutas por pedido y descarta el resto en
+ * silencio. Acá se mandaba la cola entera en una sola llamada, así que en una
+ * cuenta paga —donde la biblioteca son miles— volvían 250 URLs y las demás se
+ * marcaban abajo como "sin URL" de forma PERMANENTE. De ahí salía el síntoma:
+ * las primeras tarjetas cargaban y de ahí en adelante todo quedaba en blanco
+ * hasta recargar la página.
+ *
+ * Se corta en tandas del tamaño que el servidor acepta, y cada tanda solo da por
+ * perdidas las rutas que ella misma pidió.
+ */
+const TANDA = 250;
+
 function flushQueue() {
 	flushTimer = null;
 	const paths = [...queued];
 	queued = new Set();
 	if (!paths.length || !supabase) return;
-	void fetchReferenceUrls(supabase, paths).then((urls) => {
-		for (const [path, url] of Object.entries(urls)) signedCache.set(path, url);
-		// Las que el servidor no autorizó se marcan igual, para no volver a pedirlas.
-		for (const path of paths) if (!signedCache.has(path)) signedCache.set(path, '');
-		for (const notify of waiters) notify();
-	});
+	for (let desde = 0; desde < paths.length; desde += TANDA) {
+		const tanda = paths.slice(desde, desde + TANDA);
+		void fetchReferenceUrls(supabase, tanda).then((urls) => {
+			for (const [path, url] of Object.entries(urls)) signedCache.set(path, url);
+			// Solo las de ESTA tanda: marcar las de otra sería darlas por perdidas
+			// antes de haberlas pedido.
+			for (const path of tanda) if (!signedCache.has(path)) signedCache.set(path, '');
+			for (const notify of waiters) notify();
+		});
+	}
 }
 
 function requestSigning(paths: string[]) {

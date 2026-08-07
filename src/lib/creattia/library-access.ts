@@ -52,6 +52,39 @@ export function freePreviewAngleFor(item: { metadata?: { originalFileName?: stri
 	return FREE_PREVIEW_REFERENCE_PATHS.has(String(item.imagePath || '')) ? 'producto' : null;
 }
 
+/**
+ * Arma el mazo del descubridor alternando ángulos.
+ *
+ * Antes se tomaba UN anuncio de cada uno de cuatro ángulos fijos: cuatro
+ * tarjetas para todo el mundo, pagara o no. Una cuenta gratuita se perdía 46 de
+ * los 50 creativos que sí puede usar, y una paga veía la biblioteca entera
+ * reducida a cuatro imágenes.
+ *
+ * Se reparte por vueltas —uno de cada ángulo, después el segundo de cada uno—
+ * para que el mazo alterne en vez de arrancar con veinte testimonios seguidos.
+ */
+export function buildDiscoverDeck<T extends { category?: string }>(candidates: T[], limit: number): T[] {
+	const porAngulo = new Map<string, T[]>();
+	for (const item of candidates) {
+		const angulo = item.category || 'producto';
+		porAngulo.set(angulo, [...(porAngulo.get(angulo) || []), item]);
+	}
+	const deck: T[] = [];
+	const angulos = [...porAngulo.keys()];
+	for (let vuelta = 0; deck.length < limit; vuelta += 1) {
+		let agregado = false;
+		for (const angulo of angulos) {
+			const item = porAngulo.get(angulo)?.[vuelta];
+			if (!item) continue;
+			deck.push(item);
+			agregado = true;
+			if (deck.length >= limit) break;
+		}
+		if (!agregado) break;
+	}
+	return deck;
+}
+
 /** ¿Esta cuenta puede usar la biblioteca completa? */
 export function hasFullLibraryAccess(access: EffectiveAccess) {
 	return access.isPaidLibrary;
