@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { ProductEvent } from './events';
+import { META_PIXEL_ID } from './meta-pixel';
 
 /**
  * Los eventos que ya se registran, también hacia Meta.
@@ -16,11 +17,16 @@ import type { ProductEvent } from './events';
 
 const API_VERSION = 'v21.0';
 
-/** El identificador y el token no viven en el código: se configuran por entorno. */
+/**
+ * El token es lo único que se configura por entorno.
+ *
+ * El identificador del píxel se exigía también por variable y eso dejó los
+ * envíos mudos: estaba el token cargado y faltaba el id, así que no salía nada
+ * y no había forma de notarlo. Es un dato público, no una credencial.
+ */
 function config() {
-	const pixelId = process.env.META_PIXEL_ID || (typeof import.meta !== 'undefined' && (import.meta as any).env?.META_PIXEL_ID) || '';
 	const token = process.env.META_CAPI_TOKEN || (typeof import.meta !== 'undefined' && (import.meta as any).env?.META_CAPI_TOKEN) || '';
-	return { pixelId: String(pixelId), token: String(token) };
+	return { pixelId: META_PIXEL_ID, token: String(token) };
 }
 
 /**

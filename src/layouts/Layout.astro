@@ -43,8 +43,9 @@ const jsonLd = {
   },
 };
 
-/** Píxel de Meta. Es público por diseño: viaja en el navegador de cualquier visitante. */
-const META_PIXEL_ID = '2762379017476910';
+// El identificador del píxel, compartido con los envíos del servidor para que
+// no puedan quedar apuntando a píxeles distintos.
+import { META_PIXEL_ID } from '../lib/creattia/meta-pixel';
 ---
 
 <!doctype html>
