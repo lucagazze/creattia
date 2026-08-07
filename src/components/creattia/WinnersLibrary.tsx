@@ -535,7 +535,19 @@ export default function WinnersLibrary({
 	// Lazy load: primeras 20 tarjetas y +20 al acercarse al final del scroll.
 	const [visibleCount, setVisibleCount] = useState(20);
 	const [lockedVisibleCount, setLockedVisibleCount] = useState(8);
+	/**
+	 * Evita pedir dos bloques a la vez mientras React todavía no renderizó.
+	 *
+	 * Se trababa y no se soltaba nunca: solo se liberaba al cambiar un filtro. O
+	 * sea que el scroll infinito cargaba UN bloque y se moría — bajabas hasta el
+	 * final, no aparecían más imágenes, y la única forma de destrabarlo era tocar
+	 * un filtro. Ahora se libera en cuanto entra el bloque nuevo, que es el
+	 * momento en que de verdad se puede volver a pedir.
+	 */
 	const loadMoreLock = useRef(false);
+	useEffect(() => {
+		loadMoreLock.current = false;
+	}, [visibleCount, lockedVisibleCount]);
 	useEffect(() => {
 		loadMoreLock.current = false;
 		setVisibleCount(20);

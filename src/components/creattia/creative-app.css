@@ -5234,9 +5234,13 @@
 /* Colores y tipografía comparten el mismo ancho visual. En escritorio sus
    tres orígenes quedan siempre en una fila; en pantallas angostas vuelven a
    flex-wrap para que ningún botón se aplaste ni desborde. */
-.creation-style-source-groups { gap: 18px; }
+/* Colores y Tipografía, uno debajo del otro.
+   Lado a lado quedaban seis botones repartidos en dos columnas angostas: los
+   textos se cortaban con puntos suspensivos y había que adivinar cuál era cuál.
+   Apilados, cada fila tiene el ancho completo y las tres opciones se leen. */
+.creation-style-source-groups { grid-template-columns: 1fr; gap: 16px; }
 .creation-style-source-groups .batch-style-options { display: flex; flex-wrap: wrap; gap: 8px; }
-.creation-style-source-groups .batch-style-options button { min-width: 0; flex: 1 1 0; padding-inline: 8px; overflow: hidden; text-overflow: ellipsis; }
+.creation-style-source-groups .batch-style-options button { min-width: 0; flex: 1 1 auto; padding-inline: 14px; white-space: normal; }
 
 @media (max-width: 980px) {
 	.batch-format-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
