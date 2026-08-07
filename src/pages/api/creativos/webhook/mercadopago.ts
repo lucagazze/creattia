@@ -62,9 +62,28 @@ export const POST: APIRoute = async ({ request, url }) => {
 
 	const body = await request.json().catch(() => ({}));
 	const dataId = url.searchParams.get('data.id') || url.searchParams.get('data_id') || body?.data?.id || '';
-	if (!verifySignature(request, String(dataId), secret)) return json({ error: 'Firma inválida.' }, 401);
-
 	const topic = url.searchParams.get('type') || body?.type || '';
+
+	/**
+	 * Constancia de que Mercado Pago llamó.
+	 *
+	 * Un cliente pagó, se le debitó y nunca recibió sus tokens: el webhook no
+	 * estaba registrado en Mercado Pago, así que jamás se ejecutó. Desde afuera
+	 * eso es indistinguible de que se ejecute y falle —en los dos casos el
+	 * resultado es "no llegaron los tokens"—, y no había forma de saber cuál de
+	 * las dos cosas pasaba.
+	 *
+	 * Ahora queda registrada TODA llamada entrante, incluso las que se rechazan
+	 * por firma. Si no hay ninguna, el problema es la configuración; si las hay,
+	 * el problema es nuestro y se ve cuál.
+	 */
+	void trackEvent(getAdminClient(), 'webhook_recibido', null, {
+		topic: String(topic).slice(0, 40),
+		conFirma: Boolean(request.headers.get('x-signature')),
+		dataId: String(dataId).slice(0, 40),
+	});
+
+	if (!verifySignature(request, String(dataId), secret)) return json({ error: 'Firma inválida.' }, 401);
 
 	// ── Pago único de créditos (pago por imagen) ─────────────────────────
 	if (topic === 'payment' && dataId) {

@@ -27,6 +27,7 @@ export type ProductEvent =
 	| 'checkout_duplicado'
 	| 'tokens_comprados'
 	| 'plan_cancelado'
+	| 'webhook_recibido'
 	| 'marca_analizada'
 	| 'avatar_guardado';
 
