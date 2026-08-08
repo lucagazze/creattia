@@ -45,10 +45,40 @@ export type LayoutAnalysis = {
 	 * la letra, que es lo primero que se nota al comparar las dos imágenes.
 	 */
 	typography?: { headline?: string; body?: string; pairing?: string };
+	/**
+	 * Con qué está HECHA la imagen del ganador: foto, render 3D, ilustración.
+	 *
+	 * El prompt del render pedía "photorealistic" en cinco lugares distintos, sin
+	 * mirar el ganador. Con una referencia que es un dibujo 3D —un husky de
+	 * caricatura, por ejemplo— eso ordena literalmente lo contrario de copiarla: el
+	 * clon salía con una foto de producto donde el ganador tenía el personaje, y
+	 * ahí se pierde de golpe casi todo el parecido. Ahora el medio se observa y
+	 * manda sobre cualquier default.
+	 */
+	renderingMedium?: string;
+	/**
+	 * La GEOMETRÍA del ganador en números: dónde cae la división, qué fracción
+	 * del alto ocupa cada banda, qué tan grande es el titular respecto del ancho.
+	 *
+	 * "Misma composición" es una instrucción sin contenido si no se dice en
+	 * proporciones: el modelo la cumple a ojo y el resultado tiene los bloques en
+	 * el orden correcto pero con otros tamaños, que es exactamente lo que hace que
+	 * el clon "no se parezca" aunque cada elemento esté.
+	 */
+	compositionGeometry?: string;
 	productHasPackaging?: boolean;
 	referenceHasProduct?: boolean;
 	templateHasLogoSlot?: boolean;
 	logoDescription?: string;
+	/**
+	 * La marca del ganador está escrita como TEXTO, no dibujada como logo.
+	 *
+	 * Si no se distingue, al pedir "incluir logo" se pega el archivo de logo del
+	 * cliente —un escudo, un sello— donde el ganador solo tenía el nombre en
+	 * tipografía limpia. Queda un bloque gráfico pesado en un lugar pensado para
+	 * una línea de texto, y es de lo primero que se ve como "mal hecho".
+	 */
+	logoIsWordmark?: boolean;
 	productPlacement?: string;
 	/**
 	 * TODAS las apariciones del producto del ganador, no solo la principal.
@@ -336,7 +366,10 @@ Return STRICT JSON:
     { "slide": 1, "where": "PRECISE position: which corner or edge, and whether the block sits over the photo or outside it (e.g. 'white box overlapping the bottom-LEFT of the photo', 'red breadcrumb line above the headline')", "onProduct": true|false, "original": "exact text visibly present in the winning image", "lines": how many lines this block actually occupies in the template image, counted with your eyes (a headline broken across three lines is 3, not 1), "labels": "if this text is a callout that names a part of the product (usually joined to it by a leader line or an arrow), name the part it points at; otherwise null", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product. NO INVENTED FIGURES: this string may contain a number, percentage, price, discount, timeframe, rating, review count or guarantee ONLY if that exact figure appears in the verified facts above. The template's own figures are NOT verified and must not be reused or adapted — if the original says 50%, the replacement says neither 50% nor 45%. Carry the same persuasive force with a qualitative claim instead. COPY THE CASE OF THE ORIGINAL EXACTLY: if the original is ALL CAPS the replacement is ALL CAPS, if it is Title Case it is Title Case, if it is sentence case it is sentence case. La caja es parte del diseño, no del contenido: cambiarla desarma la jerarquía aunque el texto sea correcto. LENGTH IS ALSO A HARD CONSTRAINT: stay within ±15% of the original character count and never use more lines than the original. If the honest message does not fit, cut it down until it does — a shorter phrase that keeps the design intact beats a complete one that breaks it", "emphasis": "the visual emphasis applied to PART of this text and WHICH words carry it. The most common by far is a few words set in a HEAVIER WEIGHT than the rest of the same line, and it is the easiest one to miss: compare the stroke thickness of each word against its neighbours before deciding there is none. Also look for highlighter/marker background (say the colour), underline, a different colour, italics, a larger size or a boxed word. Write null ONLY when every word in this block is genuinely identical in weight, colour and size. Examples: 'the words \"10g\" and \"7 days\" are bold, the rest of the line is regular'; 'marker highlight in soft yellow over \"62 and have $1.3 million saved up\"'" }
   ],
   "referenceHasProduct": true|false,
+  "renderingMedium": "WHAT THIS IMAGE IS MADE OF, judged by looking at it, not by what it advertises. Be specific and name the medium first: 'photograph' / '3D cartoon render (Pixar-like stylised characters)' / '3D product render' / 'flat vector illustration' / 'hand-drawn illustration' / 'comic-book art' / '3D render composited with photographic elements' / 'screenshot or UI mockup' / 'photo collage with cut-out edges' / 'typographic poster, no imagery'. If characters or animals appear, say explicitly whether they are REAL PHOTOGRAPHED ones or STYLISED/ILLUSTRATED ones and describe the style (proportions, outlines, shading, eyes). This field decides how the whole new ad is rendered, so an error here makes the clone look like a different ad even when every block is in place.",
+  "compositionGeometry": "THE LAYOUT IN PROPORTIONS, as fractions of the canvas, so it can be rebuilt exactly. State: where the canvas is divided and by how much (e.g. 'a vertical divider at exactly 50% splits the canvas into two equal halves'); for each horizontal band, what it holds and what fraction of the height it takes (e.g. 'headline block occupies the top 18%, the two subjects the middle 62%, the closing text the bottom 20%'); the cap-height of the headline as a fraction of the canvas width; and the outer margin as a fraction of the width. Measure with your eyes against the edges of the image — do not estimate from memory of similar ads.",
   "templateHasLogoSlot": true|false — does the template visibly display a brand logo or brand wordmark (a natural spot where the advertiser brand belongs)?,
+  "logoIsWordmark": true|false — is that brand mark simply the BRAND NAME SET IN TYPE (letters only, no emblem, shield, crest, seal, badge or pictorial symbol)? A name written in a styled typeface is still a wordmark → true. Only an actual drawn symbol, or a symbol locked up with the name, is false. Null if there is no brand mark at all.,
   "logoDescription": "if templateHasLogoSlot is true, briefly describe the logo/wordmark and WHERE it sits (e.g. 'small wordmark bottom-right'); else null",
   "productHasPackaging": true|false,
   "productPlacement": "precise description of where/how the template's MAIN product sits: position, scale relative to canvas, angle, cropping, lighting, shadow — or null if the template shows no product",
@@ -416,6 +449,8 @@ Rules:
 - "referenceHasProduct": true only if the TEMPLATE visibly features a physical product shot (box, bottle, object). Lifestyle/person-only or pure-text ads → false.
 - "productInstances" (CRITICAL): list EVERY separate place where the TEMPLATE'S OWN product is visible — not just the hero shot. Count the product worn by a model, on someone's feet, held in a hand, repeated as colour variants, shown again small in a corner, or duplicated across a grid. If the same product appears 6 times in a circle, that is 6 instances (or one instance describing the whole arrangement, but say so explicitly). Missing one means it survives into the final ad and the ad ends up selling two different products at once.
 - "productOnBody": true if ANY instance is worn on / used on a human body (garment, underwear, shoes, jewellery, a patch on skin). This decides whether the layout can host a product that cannot be worn.
+- "renderingMedium" (CRITICAL): this is the single field that most often ruins a clone. Decide it by LOOKING at the pixels, never by assuming an ad must be a photograph. Stylised 3D characters, illustrated animals, vector shapes and comic art are extremely common in winning ads, and rendering them as photographs produces a completely different piece. If the template's subjects are illustrated, say so plainly and describe the illustration style precisely enough that it could be matched.
+- "compositionGeometry" (CRITICAL): give proportions, not adjectives. "Split in two" is useless; "a vertical divider at exactly 50%, headline band across the top 18%, subjects in the middle 62%, closing line in the bottom 20%" can be rebuilt. This is what keeps the clone from drifting into a similar-but-different layout.
 - DESCRIBE THE TEMPLATE, NOT THE AD YOU WOULD MAKE (CRITICAL): "styleNotes", "typography" and every field inside "creative" describe THE TEMPLATE IMAGE EXACTLY AS IT IS. They are the only record of what the winner looks like, and they are handed to the renderer as the art direction to reproduce — so a wrong word there actively pushes the new ad away from the winner. If the template is a black ad and the target product is warm and homely, the palette is still BLACK. If the template is lit hard and dramatic, the lighting is still hard and dramatic. Never let the target product, its colours, its category or the ad you are imagining for it leak into these fields, and never write an instruction ("keeps the comparison layout") where a description belongs.
 - NUMBERS AND CLAIMS MUST BE VERIFIED (CRITICAL): a percentage, price, discount, rating, review count, timeframe, quantity, award, certification or guarantee may appear in a replacement ONLY if it is present in the verified facts supplied to you. Never invent one, never adapt the template's number into a similar-looking new one ("50%" → "45%"), and never write a guarantee or a promise of results. If the winner's persuasion rests on a number you do not have, keep the same emotional force with a qualitative claim that is true instead — a strong honest line beats a fabricated statistic that the advertiser cannot back up and could be held to.
 - "creative": read the ad the way a senior art director would. This is not decoration: "designPattern" and "styleFamily" have to be precise enough that another designer could rebuild the ad from them, and "score" has to be honest — a weak ad gets a low number even if it is in the library.
@@ -464,6 +499,11 @@ Rules:
 				slide: Number.isInteger(Number(item?.slide)) && Number(item.slide) >= 1 ? Number(item.slide) : undefined,
 			})) : [];
 			parsed.styleNotes = typeof parsed.styleNotes === 'string' ? parsed.styleNotes.trim().slice(0, 400) : '';
+			// El medio y la geometría entran tal cual al render, así que se acotan
+			// igual que el resto de los campos descriptivos.
+			parsed.renderingMedium = typeof parsed.renderingMedium === 'string' ? parsed.renderingMedium.trim().slice(0, 300) : '';
+			parsed.compositionGeometry = typeof parsed.compositionGeometry === 'string' ? parsed.compositionGeometry.trim().slice(0, 700) : '';
+			parsed.logoIsWordmark = parsed.logoIsWordmark === true;
 			// La tipografía observada, en atributos. Se acota igual que el bloque
 			// creativo porque también entra tal cual al prompt del render.
 			if (parsed.typography && typeof parsed.typography === 'object') {
@@ -652,6 +692,51 @@ export function buildReferenceClonePrompt(input: {
 	const verifiedProductFacts = (input.productFacts || []).filter(Boolean);
 	const referenceHasProduct = input.analysis?.referenceHasProduct !== false;
 
+	/**
+	 * Con qué está hecho el ganador, y con qué hay que hacer el clon.
+	 *
+	 * Antes el prompt exigía "photorealistic" en cuatro lugares distintos sin
+	 * mirar la referencia. Cuando el ganador es un dibujo —un personaje 3D, una
+	 * ilustración plana— eso ordena lo contrario de copiarlo: el clon reemplaza al
+	 * personaje por una foto del producto y deja de parecerse al anuncio que se
+	 * eligió, aunque la maqueta esté bien. El medio observado manda siempre.
+	 */
+	const medium = (input.analysis?.renderingMedium || '').trim();
+	const looksIllustrated = /illustrat|cartoon|vector|render|3d|comic|drawn|anime|clay|claymation|stylis|stylized|flat art|collage|graphic|mockup|screenshot/i.test(medium);
+	const mediumWord = medium
+		? `rendered in EXACTLY the same medium as the template — ${medium}`
+		: 'photorealistic';
+	const mediumRule = medium
+		? `
+RENDERING MEDIUM (CRITICAL — READ BEFORE ANYTHING ELSE) — The template is: ${medium}. The new ad must be made the SAME WAY. This decides more of the resemblance than any other single instruction: an illustrated ad redrawn as a photograph, or a photographic ad redrawn as an illustration, reads as a completely different piece even when every block sits in the right place.${looksIllustrated
+			? ` This template is NOT a photograph. Do NOT render photographic subjects. Every character, animal, object and scene must be drawn in that same style, with the same proportions, the same outline treatment, the same shading and the same level of stylisation. Where the template shows an illustrated character, the new ad shows an illustrated character too — replacing it with a real photograph of a product is a hard failure. If the user's product photo is a real photograph, RE-DRAW the product in the template's style instead of pasting the photo${isPhysicalSubject ? ', keeping its true silhouette, colours, materials and identifying details recognisable through the stylisation' : ''}.`
+			: ' This template IS photographic: render photographic scenes, not illustrations, drawings, 3D renders or vector art.'}`
+		: '';
+
+	/**
+	 * La maqueta en proporciones. "Misma composición" se cumple a ojo y da
+	 * bloques bien ordenados con otros tamaños, que es justo lo que hace que un
+	 * clon correcto no se parezca al original.
+	 */
+	const geometryRule = input.analysis?.compositionGeometry
+		? `
+GEOMETRY LOCK (CRITICAL) — Rebuild the template's layout at these exact proportions, measured on the template itself: ${input.analysis.compositionGeometry}
+Treat these as fixed dimensions, not as suggestions. Any divider stays at its exact position; every band keeps its share of the height; the headline keeps its size relative to the canvas width; the outer margins stay the same. Do not enlarge the type "so it reads better", do not grow a subject until it fills more of the frame, and do not shift a divider to make something fit. If content does not fit in its band, shorten the content — never resize the band.`
+		: '';
+
+	/**
+	 * Comparación partida: cada lado se queda de su lado.
+	 *
+	 * Un producto que cruza la división rompe justo lo que hace legible a una
+	 * comparativa, y el texto positivo cayendo sobre la mitad "mala" invierte el
+	 * sentido del anuncio: se lee como que lo bueno es lo que hay que evitar.
+	 */
+	const splitComparisonRule = input.analysis?.comparison?.detected
+		? `
+SPLIT INTEGRITY (CRITICAL) — This is a comparison and the two sides must stay separated exactly as the template separates them. Each side's subject stays ENTIRELY inside its own half: nothing crosses, overlaps, leans into or covers the divider or the opposite half, at any size. The divider itself stays at the position given above, full length, in the same style.
+SIDE MEANING MUST NOT FLIP — Whatever the template puts on the negative/"before"/"other option" side stays on that side, and whatever it puts on the positive/"our product" side stays on that side. Every text block keeps the side it had: a positive line ("choose ours", "the better way") may never end up over the negative half, and a problem statement may never end up over the hero half. Read each replacement, decide which side it argues for, and place it on the same side the template placed its equivalent. If the template's bottom-left line is a transition that spans both sides, keep it spanning both sides in the same place — do not turn it into a one-sided claim.`
+		: '';
+
 	// Zonas de texto: son las palabras que sí deben volver a aparecer dentro del
 	// creativo. Las zonas impresas sobre un producto sin packaging no se inventan.
 	const isJunkReplacement = (value?: string) => {
@@ -756,7 +841,7 @@ WEARABILITY CONFLICT — In the template the product is worn on a body. Decide h
 		? `
 0. RE-SHOOT EVERY IMAGE AREA — This ad works because of its structure and its idea: the layout, the visual rhythm and where it sends the eye. You are keeping that skeleton and replacing what fills it. The template's own photos, models, scenes and subjects have NOTHING to do with ${productLabel} and must not survive anywhere in the output. Re-photograph each area as follows, keeping the SAME frame, crop, angle, tilt, scale, lighting mood and position as the template so the composition still reads the same:
 ${slots.map((slot, index) => `   ${index + 1}. [${slot.where || 'image area'}] now shows: ${slot.showsNow || 'unspecified'}${slot.idea ? ` — THE IDEA THIS AREA CARRIES, which must survive: ${slot.idea}. Keep the idea, change only what it is about; do not replace it with a product photo` : ''} → must show instead: ${slot.replaceWith}`).join('\n')}
-Every scene you render must be photorealistic, plausible and clearly about ${productLabel}, its maker, its user or its result. Do not leave a single frame showing the template's original subject, and do not blur or crop it away — replace it with real content.
+Every scene you render must be ${mediumWord}, plausible and clearly about ${productLabel}, its maker, its user or its result. Do not leave a single frame showing the template's original subject, and do not blur or crop it away — replace it with real content.
 On the SETTING these replacements have the last word: what stays is the palette, the layout and the graphic devices; what does not stay is the surface, the props and the environment the template's photos happened to use. If the template shot its product floating on water, the new product does NOT go on water unless that scene is named above. That is the only thing they override — they never authorise changing WHICH products appear, how many, or the kind of shot each area holds. Where a later rule fixes the contents or the uniformity of a grid, a row or a lineup, that rule wins over anything written here.`
 		: '';
 
@@ -856,7 +941,7 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 		: `\nVISUAL IDENTITY — No person/avatar reference was selected. Do not invent a recurring human face or mascot. For a service/SaaS offer, prefer the logo, interface, result or an abstract brand-led visual unless the template clearly requires a generic contextual person.`;
 	const people = (input.analysis?.people || []).filter((p) => p && (p.description || p.directive || p.where));
 	const peopleBlock = people.length
-		? `\n5. PEOPLE — The ad shows ${people.length === 1 ? 'a person' : 'people'}. For each, follow the direction:\n${people.map((p, i) => `   - Person ${i + 1}${p.where ? ` (${p.where})` : ''}: ${p.directive?.trim() ? `render them as — ${p.directive.trim()}. Make it photorealistic and coherent with the scene.` : 'keep them essentially as in the template (same apparent gender, age and role), only refreshed to look natural in the new ad.'}`).join('\n')}\nKeep any person photorealistic, well-integrated into the scene lighting, never distorted.`
+		? `\n5. PEOPLE — The ad shows ${people.length === 1 ? 'a person' : 'people'}. For each, follow the direction:\n${people.map((p, i) => `   - Person ${i + 1}${p.where ? ` (${p.where})` : ''}: ${p.directive?.trim() ? `render them as — ${p.directive.trim()}. Render them ${mediumWord}, coherent with the scene.` : 'keep them essentially as in the template (same apparent gender, age and role), only refreshed to look natural in the new ad.'}`).join('\n')}\nRender every person in the template's own medium (${medium || 'photographic'}), well-integrated into the scene lighting, never distorted.`
 		: '';
 
 	// Comparación: qué poner en los ítems que NO son el producto héroe.
@@ -913,9 +998,23 @@ MARGINS ARE PART OF THE DESIGN — Keep the same clear space between every text 
 	const strategyBlock = input.analysis?.messageStrategy
 		? `\nMESSAGE STRATEGY OF THE WINNING AD — preserve the same persuasion, adapted to ${productLabel}: ${input.analysis.messageStrategy}\n`
 		: '';
+	/**
+	 * El ganador escribía la marca, no la dibujaba.
+	 *
+	 * Con "incluir logo" tildado se pegaba el archivo del cliente igual —un
+	 * escudo, un sello— en un lugar pensado para una línea de texto. Queda un
+	 * bloque gráfico pesado que la referencia no tenía y desarma la esquina
+	 * entera. Si el ganador firma con tipografía, el clon también.
+	 */
+	const marcaComoTexto = input.analysis?.logoIsWordmark === true;
+	const wordmarkInstruction = input.brandName
+		? `THE TEMPLATE'S BRAND MARK IS A WORDMARK — the name set in type, with no emblem — so the new ad signs the same way: WRITE "${input.brandName}" as clean typography in that same position, at the same relative size, with the same weight, case, letter-spacing, colour and alignment the template gives its own name. Do NOT paste the supplied logo image here, and do NOT add a shield, seal, badge, medallion, ribbon, laurel, crest or any container shape around it: the template has none, and adding one is instantly visible as wrong. The supplied logo image is context for the brand's colours only — it must not be drawn into the ad.`
+		: 'The template signs with a WORDMARK set in type, not with a graphic mark. Do not paste a logo image, emblem, shield or seal into that slot; leave the space clean rather than introducing a mark the template does not have.';
 	const logoDecision = input.analysis?.templateHasLogoSlot
 		? `\nLOGO DECISION (CRITICAL) — The winning reference contains an ad-level brand mark${input.analysis.logoDescription ? ` (${input.analysis.logoDescription})` : ''}. Do not copy that original logo, wordmark, domain or watermark literally. ${input.hasLogo
-			? 'Replace it with the supplied selected-identity logo, in the same structural role, scale and visual balance, exactly once. The selected logo is the only advertiser logo allowed.'
+			? (marcaComoTexto
+				? wordmarkInstruction
+				: 'Replace it with the supplied selected-identity logo, in the same structural role, scale and visual balance, exactly once. Match the size the template gives its own mark: it is a small signature, not a hero element — do not enlarge it, do not centre it, do not let it compete with the headline, and keep the same clear space around it. The selected logo is the only advertiser logo allowed.')
 			: 'Remove it cleanly and preserve the surrounding spacing and hierarchy. Do not invent a replacement name, icon or badge just to fill the gap.'} If the mark is printed on the TARGET PRODUCT itself (its packaging, label, garment, hardware or other physical surface), that is product identity and must remain faithful; this rule applies only to the winning ad\'s brand marks.`
 		: `\nLOGO DECISION (CRITICAL) — The winning reference has no confirmed ad-level logo slot. ${input.hasLogo
 			? 'Only include the supplied selected-identity logo if the reference has a natural, clearly visible brand position; never create a new logo lockup, badge or footer.'
@@ -929,9 +1028,14 @@ MARGINS ARE PART OF THE DESIGN — Keep the same clear space between every text 
    KEEP THE GRID UNIFORM — This rule overrides anything said earlier about re-shooting the image areas. If the template's cells are packshots on a plain background, EVERY cell stays a packshot on a plain background: same framing, same distance, same shadow, same margin. No cell may show hands, a person, a tool, a workbench, a step of the process or a lifestyle scene — a catalogue grid shows the PRODUCTS FOR SALE and nothing else — and the background may not vary between cells. The grid reads as a catalogue because it is regular; one different cell breaks it.` : ''}`
 		: '';
 
-	const qualityRule = `\nOUTPUT QUALITY (CRITICAL) — Do not downscale, blur or soften the final image. Keep edges, product textures and shadows crisp and photorealistic. Render every replacement text character sharply and legibly, with correct spelling, stable letterforms, consistent kerning and no gibberish, melted letters, duplicated words or accidental symbols. Prefer clean, sufficiently large text inside its original zones over tiny unreadable text. The result must look production-ready and stay perfectly crisp when viewed at 100% zoom.`;
+	const qualityRule = `\nOUTPUT QUALITY (CRITICAL) — Do not downscale, blur or soften the final image. Keep edges, textures and shadows crisp and cleanly rendered in the template's own medium. Render every replacement text character sharply and legibly, with correct spelling, stable letterforms, consistent kerning and no gibberish, melted letters, duplicated words or accidental symbols. Prefer clean, sufficiently large text inside its original zones over tiny unreadable text. The result must look production-ready and stay perfectly crisp when viewed at 100% zoom.`;
 
-	return `The first input image is a WINNING AD TEMPLATE. It is a STRUCTURAL reference, not artwork to copy: what you must preserve is its skeleton — the layout, the composition, the proportions, the background treatment, the colour palette, the graphic devices (badges, stars, speech bubbles, banners, buttons, dividers), the position of every visual block and the visual hierarchy. What must change is everything it is ABOUT: the product, the scenes and the people all become ${productLabel}. Someone who saw both ads should recognise the same design system and never suspect they show the same subject.
+	return `The first input image is a WINNING AD TEMPLATE. Your job is to REMAKE THAT EXACT AD for a different advertiser — not to design a new ad inspired by it.
+
+Build the same piece again: same medium, same geometry, same proportions, same layout, same background treatment, same colour palette, same graphic devices (badges, stars, speech bubbles, banners, buttons, dividers, arrows, leader lines), same position and same size for every visual block, same type scale and same visual hierarchy. Only the SUBJECT changes: the product, the scenes and the people all become ${productLabel}.
+
+THE TEST THIS OUTPUT MUST PASS — put the template and your result side by side. Every block must land in the same place, at the same size, in the same style, and the two must look like the same ad in two languages about two different things. If someone would call them "similar ads" rather than "the same ad remade", you have drifted too far and the result is a failure. When any instruction below leaves room for interpretation, choose the option that stays closer to the template.
+${mediumRule}${geometryRule}${splitComparisonRule}
 ${strategyBlock}${creativeBlock}${imageSlotBlock}
 	${productSwap}${orientationRule}${carouselRule}
 
@@ -941,7 +1045,7 @@ ${strategyBlock}${creativeBlock}${imageSlotBlock}
 		: `- Adapt every template text block honestly to ${productLabel}, in ${language}, keeping the same message structure.`)}
 	If a visible text block has no replacement listed, adapt its message honestly to ${productLabel}. Do not invent prices, percentages, reviews, certifications, guarantees or claims, and never write a number that is not literally present in the replacements listed above — not even one adapted from the template's own figure. Never carry over the template's guarantees, discounts, shipping promises, review counts, ratings, certifications, awards or deadlines unless they are verified for the target product. Keep the SAME NUMBER of text blocks as the template, no more. Render every replacement sharp, correctly spelled and fully inside its original card, bubble or badge. Never duplicate a line or let text overflow.${isPhysicalSubject ? ' Text physically printed on the supplied product or inside its official logo must remain faithful to those supplied assets.' : ''}
 
-3. BRAND SWAP — ERASE every trace of the template's own brand. Its wordmark, logo, emblem, monogram and brand name must NOT appear anywhere in the output, in any size, not even faintly, partially, redrawn or stylised, and never merged with other text. Scan the whole canvas for it: corners, footer, badges, the product itself and any watermark. That brand belongs to a different company — leaving it in makes the ad unusable. ${input.hasLogo ? 'The user explicitly selected INCLUDE LOGO. If the layout needs a brand mark, place the provided brand logo (last input image) in that same spot, ONCE, small and discreet. Reproduce that logo image EXACTLY as supplied and complete: it may itself contain more than one element (a shield plus a seal, a symbol plus a wordmark, several marks side by side) — keep every element it contains, in the same arrangement and proportions, and render any text inside it letter for letter. Never redraw, recolour, restyle, split or simplify it. Do NOT add any badge, seal, medallion, ribbon, star rating, laurel or certification stamp that is not part of that logo image.' : (input.brandName ? `The user selected NO LOGO IMAGE, but the ad still has to carry the brand. Do NOT draw a logo, emblem, monogram, shield, crest, badge, seal, medallion, ribbon, laurel or coat of arms. Instead, WRITE the brand name "${input.brandName}" as plain, clean typography in the exact spot where the template placed its brand mark — same position, same relative size, same alignment — using a simple weight of the ad's own typeface, with no icon, no container shape and no decoration around it. A finished ad that shows no brand at all looks unfinished, so the name must be there and be legible.` : 'The user explicitly selected NO ADDED LOGO and no brand name is available. Do not add a separate logo, wordmark, emblem, monogram, initials, shield, crest, badge, seal, medallion, ribbon, laurel, star mark, coat of arms or certification stamp, and do not invent a brand name. Leave that area clean.') + (isPhysicalSubject ? ' This does not remove the real label or branding physically printed on the supplied product packaging, which must remain faithful to the product photo.' : '')}
+3. BRAND SWAP — ERASE every trace of the template's own brand. Its wordmark, logo, emblem, monogram and brand name must NOT appear anywhere in the output, in any size, not even faintly, partially, redrawn or stylised, and never merged with other text. Scan the whole canvas for it: corners, footer, badges, the product itself and any watermark. That brand belongs to a different company — leaving it in makes the ad unusable. ${input.hasLogo ? (marcaComoTexto ? wordmarkInstruction : 'The user explicitly selected INCLUDE LOGO. If the layout needs a brand mark, place the provided brand logo (last input image) in that same spot, ONCE, small and discreet — the same size the template gives its own mark, never bigger. Reproduce that logo image EXACTLY as supplied and complete: it may itself contain more than one element (a shield plus a seal, a symbol plus a wordmark, several marks side by side) — keep every element it contains, in the same arrangement and proportions, and render any text inside it letter for letter. Never redraw, recolour, restyle, split or simplify it. Do NOT add any badge, seal, medallion, ribbon, star rating, laurel or certification stamp that is not part of that logo image.') : (input.brandName ? `The user selected NO LOGO IMAGE, but the ad still has to carry the brand. Do NOT draw a logo, emblem, monogram, shield, crest, badge, seal, medallion, ribbon, laurel or coat of arms. Instead, WRITE the brand name "${input.brandName}" as plain, clean typography in the exact spot where the template placed its brand mark — same position, same relative size, same alignment — using a simple weight of the ad's own typeface, with no icon, no container shape and no decoration around it. A finished ad that shows no brand at all looks unfinished, so the name must be there and be legible.` : 'The user explicitly selected NO ADDED LOGO and no brand name is available. Do not add a separate logo, wordmark, emblem, monogram, initials, shield, crest, badge, seal, medallion, ribbon, laurel, star mark, coat of arms or certification stamp, and do not invent a brand name. Leave that area clean.') + (isPhysicalSubject ? ' This does not remove the real label or branding physically printed on the supplied product packaging, which must remain faithful to the product photo.' : '')}
 
 WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website. Render exactly "${input.displayWebsite}" ONCE in an existing URL or footer slot.` : 'Do not render any URL, domain, web address, social handle or QR code. Remove any website from the winning template and leave that space clean.'}
 
