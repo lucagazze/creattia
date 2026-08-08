@@ -86,8 +86,18 @@ export const POST: APIRoute = async ({ request, url }) => {
 	if (!secret || !accessToken) return json({ error: 'Webhook no configurado.' }, 503);
 
 	const body = await request.json().catch(() => ({}));
-	const dataId = url.searchParams.get('data.id') || url.searchParams.get('data_id') || body?.data?.id || '';
-	const topic = url.searchParams.get('type') || body?.type || '';
+	const dataId = url.searchParams.get('data.id') || url.searchParams.get('data_id') || url.searchParams.get('id') || body?.data?.id || '';
+	/**
+	 * Mercado Pago manda el tipo de aviso de dos formas.
+	 *
+	 * Las notificaciones modernas traen `type`; las que el panel llama "Pagos
+	 * (legacy)" —que están tildadas en la configuración— traen `topic`. Leyendo
+	 * solo `type`, un aviso legacy caía al final del archivo y salía con
+	 * `{received:true}` y estado 200: Mercado Pago lo daba por entregado, no lo
+	 * reintentaba nunca, y el pago quedaba cobrado sin acreditar. Un 200 que no
+	 * hizo nada es el peor resultado posible acá, porque no deja rastro de error.
+	 */
+	const topic = url.searchParams.get('type') || url.searchParams.get('topic') || body?.type || body?.topic || '';
 
 	/**
 	 * Constancia de que Mercado Pago llamó.

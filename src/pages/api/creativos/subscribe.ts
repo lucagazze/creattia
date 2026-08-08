@@ -3,6 +3,13 @@ import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from 
 
 import { yearlyPriceFor } from '../../../lib/creattia/subscription-plans';
 import { trackEvent } from '../../../lib/creattia/events';
+import {
+	esAutoPago,
+	getMercadoPagoAccount,
+	MENSAJE_AUTOPAGO,
+	resolverMonto,
+	tipoDeCambioConfigurado,
+} from '../../../lib/creattia/mercadopago';
 
 export const prerender = false;
 
@@ -72,19 +79,21 @@ const plans = {
 	},
 } as const;
 
-const subscriptionCurrency = String(
-	import.meta.env.MERCADO_PAGO_SUBSCRIPTION_CURRENCY
-	|| import.meta.env.MERCADO_PAGO_CURRENCY
-	|| 'USD'
-).toUpperCase();
-const arsPerUsd = Number(import.meta.env.MERCADO_PAGO_ARS_PER_USD || 0);
-
-function providerAmount(usdPrice: number) {
-	if (subscriptionCurrency !== 'ARS') return usdPrice;
-	if (!Number.isFinite(arsPerUsd) || arsPerUsd <= 0) {
-		throw new Error('Falta configurar MERCADO_PAGO_ARS_PER_USD para cobrar suscripciones en pesos.');
-	}
-	return Math.round(usdPrice * arsPerUsd * 100) / 100;
+/**
+ * La moneda de la suscripción sale de la cuenta de Mercado Pago.
+ *
+ * Antes se elegía por variable de entorno y solo se convertía cuando decía
+ * exactamente 'ARS'. Con cualquier otro valor —incluido el 'USD' que quedó
+ * cargado sobre una cuenta argentina— el precio viajaba en dólares a una cuenta
+ * que solo liquida pesos, y el cobro se rechazaba al confirmar.
+ */
+function monedaDeCobro(account: { currency: string } | null) {
+	return account?.currency
+		|| String(
+			import.meta.env.MERCADO_PAGO_SUBSCRIPTION_CURRENCY
+			|| import.meta.env.MERCADO_PAGO_CURRENCY
+			|| 'USD',
+		).toUpperCase();
 }
 
 async function cancelProviderSubscription(subscriptionId: string, accessToken: string) {
@@ -139,13 +148,20 @@ export const POST: APIRoute = async ({ request, url }) => {
 	if (!accessToken) {
 		return json({ error: 'Mercado Pago todavía no está configurado.', requiresConfiguration: true }, 503);
 	}
+	const account = await getMercadoPagoAccount(accessToken);
+	const subscriptionCurrency = monedaDeCobro(account);
+	// Nadie puede suscribirse a su propia cuenta: Mercado Pago lo rechaza con un
+	// mensaje de seguridad que no dice cuál es la causa.
+	if (esAutoPago(account, auth.user.email)) {
+		return json({ error: MENSAJE_AUTOPAGO, code: 'SELF_PAYMENT' }, 409);
+	}
 	// El anual se cobra de una por los meses que valga el año.
 	const precioDelCiclo = billingCycle === 'yearly' ? yearlyPriceFor(plan.price) : plan.price;
 	let transactionAmount: number = precioDelCiclo;
 	try {
-		transactionAmount = providerAmount(precioDelCiclo);
+		transactionAmount = resolverMonto(precioDelCiclo, subscriptionCurrency, tipoDeCambioConfigurado()).amount;
 	} catch (error) {
-		return json({ error: error instanceof Error ? error.message : 'La conversión de moneda no está configurada.' }, 503);
+		return json({ error: error instanceof Error ? error.message : 'La conversión de moneda no está configurada.', requiresConfiguration: true }, 503);
 	}
 
 	const admin = getAdminClient();
