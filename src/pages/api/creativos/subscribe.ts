@@ -203,6 +203,12 @@ export const POST: APIRoute = async ({ request, url }) => {
 			external_reference: `${auth.user.id}:${planCode}:${billingCycle}`,
 			back_url: `${siteUrl}/app/?subscription=return`,
 			auto_recurring: {
+				// La frecuencia viajaba sin declarar, así que Mercado Pago dejaba la
+				// que ya tenía la suscripción. Pasar de mensual a anual mandaba el
+				// precio del año entero sobre una recurrencia de un mes: diez veces
+				// el importe, todos los meses. Al revés, cobraba un mes por año.
+				frequency: billingCycle === 'yearly' ? 12 : 1,
+				frequency_type: 'months',
 				transaction_amount: transactionAmount,
 				currency_id: subscriptionCurrency,
 			},

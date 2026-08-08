@@ -124,6 +124,17 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 
 	// AI-first extraction: each URL is analyzed independently by GPT-4o-mini
 	const importedIds: string[] = [];
+	/**
+	 * El estilo de cada sitio, analizado una sola vez.
+	 *
+	 * El análisis vivía dentro del bucle de productos, así que una URL de catálogo
+	 * con ocho artículos lo corría ocho veces sobre EL MISMO dominio: ocho veces
+	 * bajar la home, sus páginas internas y sus hojas de estilo, más ocho pares de
+	 * llamadas al modelo. Además de pagar ocho veces lo mismo, la suma de esperas
+	 * se iba por encima del techo de la función y Vercel la cortaba: la persona
+	 * veía un error con los productos importados a medias.
+	 */
+	const marcaPorOrigen = new Map<string, Record<string, unknown> | null>();
 	for (const url of urls) {
 		try {
 			// 1. Se analiza la página: qué tipo es y qué productos tiene.
@@ -184,21 +195,33 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 			// URL" como opción de identidad al generar el anuncio.
 			try {
 				const origin = new URL(url).origin;
-				const style = await analyzeBrandStyle(origin, { openAIKey: apiKey, googleKey });
-				const brandFromUrl = {
-					name: new URL(url).hostname.replace(/^www\./, ''),
-					website: origin,
-					colors: (style.colors || []).slice(0, 5),
-					palette: style.palette || null,
-					typography: style.typography || null,
-					styleSummary: style.styleSummary || '',
-					logoUrl: style.logoUrl || '',
-				};
-				await admin.from('creative_products')
-					.update({ metadata: { ...baseMetadata, brandFromUrl } })
-					.eq('id', stored.id).eq('user_id', userId);
+				if (!marcaPorOrigen.has(origin)) {
+					try {
+						const style = await analyzeBrandStyle(origin, { openAIKey: apiKey, googleKey });
+						marcaPorOrigen.set(origin, {
+							name: new URL(url).hostname.replace(/^www\./, ''),
+							website: origin,
+							colors: (style.colors || []).slice(0, 5),
+							palette: style.palette || null,
+							typography: style.typography || null,
+							styleSummary: style.styleSummary || '',
+							logoUrl: style.logoUrl || '',
+						});
+					} catch (styleError) {
+						// Queda anotado el fallo para no reintentarlo con cada producto
+						// del mismo sitio, que es lo que hacía crecer la espera.
+						marcaPorOrigen.set(origin, null);
+						console.warn('No se pudo detectar la marca del sitio:', styleError);
+					}
+				}
+				const brandFromUrl = marcaPorOrigen.get(origin);
+				if (brandFromUrl) {
+					await admin.from('creative_products')
+						.update({ metadata: { ...baseMetadata, brandFromUrl } })
+						.eq('id', stored.id).eq('user_id', userId);
+				}
 			} catch (brandError) {
-				console.warn('No se pudo detectar la marca del sitio:', brandError);
+				console.warn('No se pudo guardar la marca del sitio:', brandError);
 			}
 
 			importedIds.push(stored.id as string);
