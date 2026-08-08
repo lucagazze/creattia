@@ -460,10 +460,24 @@ export default function CreativeApp() {
 		if (!supabase) return () => { active = false; };
 		const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
 			const nextUserId = nextSession?.user?.id;
-			if (sessionUserIdRef.current !== nextUserId) {
-				setAccountLoading(Boolean(nextSession));
-				setSession(nextSession);
-			}
+			/**
+			 * El token nuevo tiene que llegar al estado SIEMPRE.
+			 *
+			 * Acá solo se guardaba la sesión cuando cambiaba el usuario, así que el
+			 * aviso de token renovado —mismo usuario, token nuevo— se descartaba y el
+			 * estado se quedaba con el access_token viejo. supabase-js renueva el JWT
+			 * por su cuenta cada hora, pero todas las llamadas leen el token de este
+			 * estado: con la pestaña abierta más de una hora, generar una imagen,
+			 * abrir el checkout o cualquier otra acción respondía "la sesión venció"
+			 * estando la persona perfectamente logueada, y solo se arreglaba
+			 * recargando la página.
+			 *
+			 * Lo que sigue atado al cambio de usuario es volver a cargar la cuenta:
+			 * eso sí depende de QUIÉN es, no de qué token trae.
+			 */
+			const cambioDeUsuario = sessionUserIdRef.current !== nextUserId;
+			if (cambioDeUsuario) setAccountLoading(Boolean(nextSession));
+			setSession(nextSession);
 		});
 		return () => { active = false; listener.subscription.unsubscribe(); };
 	}, []);
