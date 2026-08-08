@@ -5997,6 +5997,12 @@
 	transition: background .15s ease, color .15s ease;
 }
 .history-filter-pill:hover { background: #e6e1ee; }
+/* Avisa de algo pendiente, así que lleva el ámbar de advertencia — pero la
+   misma altura y el mismo radio que el resto de la fila. */
+.history-filter-pill.is-warning {
+	border: 1.5px solid #f0d8a8; background: #fff9ee; color: #9a6b12; font-weight: 800;
+}
+.history-filter-pill.is-warning:hover { background: #fdf2dd; }
 .history-filter-pill.is-active { background: #744bde; color: #fff; }
 .history-filter-pill.is-liked.is-active { background: #ff4185; }
 .history-filter-pill.is-active:hover { filter: brightness(1.06); }

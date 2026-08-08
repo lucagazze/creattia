@@ -139,16 +139,15 @@ export function History({
 					❤️ Favoritas ({history.filter(h => likedImageIds.includes(h.id)).length})
 				</button>
 
+				{/* Comparte la forma de las otras píldoras en vez de traer su propio
+				    tamaño: tenía un margen inferior de 20px que, en una fila centrada,
+				    lo empujaba hacia arriba y lo dejaba fuera de línea. */}
 				{Boolean(stuckCount) && onCleanupStuck && (
 					<button
 						type="button"
 						onClick={() => onCleanupStuck()}
 						title="Cierra las generaciones que quedaron a medias y te devuelve los créditos"
-						style={{
-							padding: '8px 14px', borderRadius: '10px', border: '1.5px solid #f0d8a8',
-							background: '#fff9ee', color: '#9a6b12', fontSize: '12.5px', fontWeight: 800,
-							cursor: 'pointer', fontFamily: 'inherit', marginBottom: '20px',
-						}}
+						className="history-filter-pill is-warning"
 					>
 						🧹 Limpiar {stuckCount} {stuckCount === 1 ? 'pendiente' : 'pendientes'}
 					</button>
