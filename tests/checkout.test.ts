@@ -73,8 +73,32 @@ function setup(overrides: FakeSupabaseOptions = {}) {
 		rpc: {
 			add_purchased_credits: ({ p_user_id, p_amount }) => {
 				const perfil = fake.tables.creative_profiles.find((row: any) => row.user_id === p_user_id);
-				if (perfil) perfil.credits_remaining = Number(perfil.credits_remaining || 0) + Number(p_amount);
+				if (perfil) {
+					perfil.credits_remaining = Number(perfil.credits_remaining || 0) + Number(p_amount);
+					// Lo comprado se recuerda aparte: es lo que NO caduca con el mes.
+					perfil.credits_purchased = Number(perfil.credits_purchased || 0) + Number(p_amount);
+				}
 				return { data: perfil?.credits_remaining ?? 0 };
+			},
+			/**
+			 * La recarga del mes, igual que en la base.
+			 *
+			 * Antes el endpoint escribía `credits_remaining = plan` directo en el
+			 * update del perfil. Eso borraba los créditos comprados sueltos, así que
+			 * ahora lo resuelve una función de Postgres y esta copia reproduce su
+			 * comportamiento para poder ejercitarlo.
+			 */
+			apply_subscription_refill: ({ p_user_id, p_monthly }) => {
+				const perfil = fake.tables.creative_profiles.find((row: any) => row.user_id === p_user_id);
+				if (!perfil) return { data: -1 };
+				const sobreviven = Math.min(
+					Number(perfil.credits_purchased || 0),
+					Math.max(Number(perfil.credits_remaining || 0), 0),
+				);
+				perfil.credits_remaining = Number(p_monthly) + sobreviven;
+				perfil.credits_purchased = sobreviven;
+				perfil.last_credit_refill_at = new Date().toISOString();
+				return { data: perfil.credits_remaining };
 			},
 			...overrides.rpc,
 		},
@@ -320,6 +344,55 @@ describe('suscripción', () => {
 		await webhook({ request: notificacion('subscription_authorized_payment', 'factura-nueva'), url: new URL('https://creattia.app/api/creativos/webhook/mercadopago?type=subscription_authorized_payment&data.id=factura-nueva') } as any);
 
 		assert.equal(perfil().credits_remaining, 40, 'el cliente pagó el mes y no recibió sus tokens');
+	});
+
+	test('los créditos comprados sueltos sobreviven a la renovación del plan', async () => {
+		/**
+		 * Se pagaba dos veces y se perdía lo más caro.
+		 *
+		 * La compra suelta SUMA a credits_remaining, pero la renovación escribía
+		 * `credits_remaining = créditos del plan`: una asignación absoluta. Quien
+		 * compraba 100 imágenes y después renovaba su plan Pro se quedaba con 40.
+		 * Sin error y sin aviso: la única forma de notarlo era mirar el saldo antes
+		 * y después.
+		 */
+		perfil().subscription_status = 'authorized';
+		perfil().subscription_period_end = '2026-09-07T00:00:00Z';
+		// 100 comprados + 12 que le quedaban del mes.
+		perfil().credits_remaining = 112;
+		perfil().credits_purchased = 100;
+		respuestasMP = [
+			{ contiene: '/authorized_payments/', body: {
+				preapproval_id: 'sub-1',
+				payment: { status: 'approved', transaction_amount: 24.99, currency_id: 'USD' },
+			} },
+			preapproval({ next_payment_date: '2026-10-07T00:00:00Z' }),
+		];
+
+		await webhook({ request: notificacion('subscription_authorized_payment', 'factura-con-comprados'), url: new URL('https://creattia.app/api/creativos/webhook/mercadopago?type=subscription_authorized_payment&data.id=factura-con-comprados') } as any);
+
+		assert.equal(perfil().credits_remaining, 140, 'la renovación borró los créditos que el cliente había comprado');
+		assert.equal(perfil().credits_purchased, 100, 'lo comprado tiene que seguir marcado como comprado');
+	});
+
+	test('lo comprado que ya se gastó no revive en la renovación', async () => {
+		// Si compró 100 y gastó 95, no le quedan 100 esperando: sobrevive lo que
+		// realmente quedaba sin usar.
+		perfil().subscription_status = 'authorized';
+		perfil().subscription_period_end = '2026-09-07T00:00:00Z';
+		perfil().credits_remaining = 5;
+		perfil().credits_purchased = 100;
+		respuestasMP = [
+			{ contiene: '/authorized_payments/', body: {
+				preapproval_id: 'sub-1',
+				payment: { status: 'approved', transaction_amount: 24.99, currency_id: 'USD' },
+			} },
+			preapproval({ next_payment_date: '2026-10-07T00:00:00Z' }),
+		];
+
+		await webhook({ request: notificacion('subscription_authorized_payment', 'factura-gastados'), url: new URL('https://creattia.app/api/creativos/webhook/mercadopago?type=subscription_authorized_payment&data.id=factura-gastados') } as any);
+
+		assert.equal(perfil().credits_remaining, 45, 'sobreviven los 5 que quedaban, no los 100 originales');
 	});
 
 	test('la misma factura reintentada no regala un mes extra', async () => {

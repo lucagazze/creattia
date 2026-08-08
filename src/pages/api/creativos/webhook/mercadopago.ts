@@ -290,14 +290,16 @@ export const POST: APIRoute = async ({ request, url }) => {
 			mercado_pago_subscription_id: subscription.id,
 			updated_at: now,
 		};
-		if (shouldRefill) {
-			profileUpdate.credits_remaining = monthlyCredits;
-			profileUpdate.last_credit_refill_at = now;
-		}
 		const { data: updatedProfile, error: profileUpdateError } = await admin.from('creative_profiles')
 			.update(profileUpdate).eq('user_id', userId).select('user_id').maybeSingle();
 		if (profileUpdateError) return fail('mercadopago-webhook', profileUpdateError, 'No se pudo actualizar el perfil.', 500, userId);
 		if (!updatedProfile) return json({ received: true, ignored: 'perfil inexistente' });
+		// La recarga va aparte y en la base: escribir `credits_remaining = plan`
+		// desde acá borraba los créditos que la persona hubiera comprado sueltos.
+		if (shouldRefill) {
+			const { error: refillError } = await admin.rpc('apply_subscription_refill', { p_user_id: userId, p_monthly: monthlyCredits });
+			if (refillError) return fail('mercadopago-webhook', refillError, 'No se pudieron acreditar los créditos del mes.', 500, userId);
+		}
 		// Cobro de suscripción confirmado: es una compra y se reporta como tal. El
 		// id de la factura hace de clave del evento, así que un reintento del
 		// webhook no la cuenta dos veces.
@@ -379,10 +381,6 @@ export const POST: APIRoute = async ({ request, url }) => {
 			updated_at: new Date().toISOString(),
 		};
 		if (nextPeriod) profileUpdate.subscription_period_end = nextPeriod;
-		if (shouldRefill) {
-			profileUpdate.credits_remaining = monthlyCredits;
-			profileUpdate.last_credit_refill_at = new Date().toISOString();
-		}
 		const { error: subscriptionError } = await admin.from('creative_subscriptions').upsert({
 			user_id: userId,
 			provider: 'mercado_pago',
@@ -401,6 +399,12 @@ export const POST: APIRoute = async ({ request, url }) => {
 			.update(profileUpdate).eq('user_id', userId).select('user_id').maybeSingle();
 		if (profileUpdateError) return fail('mercadopago-webhook', profileUpdateError, 'No se pudo actualizar el perfil.', 500, userId);
 		if (!updatedProfile) return json({ received: true, ignored: 'perfil inexistente' });
+		// Igual que en la renovación: la recarga la hace la base, para no pisar los
+		// créditos comprados sueltos.
+		if (shouldRefill) {
+			const { error: refillError } = await admin.rpc('apply_subscription_refill', { p_user_id: userId, p_monthly: monthlyCredits });
+			if (refillError) return fail('mercadopago-webhook', refillError, 'No se pudieron acreditar los créditos del plan.', 500, userId);
+		}
 		/**
 		 * La primera autorización de la suscripción: acá es donde se convierte.
 		 *
