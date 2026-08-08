@@ -1,4 +1,11 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://creattia.app/sitemap-index.xml
+# La aplicación y la API no son contenido: son pantallas privadas detrás del
+# login y endpoints que devuelven JSON. Rastrearlas no aporta nada al buscador y
+# gasta el presupuesto de rastreo que debería ir a la landing y al blog.
+Disallow: /app
+Disallow: /api/
+Disallow: /auth/
+
+Sitemap: https://www.creattia.app/sitemap-index.xml

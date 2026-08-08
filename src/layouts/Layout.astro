@@ -19,7 +19,10 @@ const {
   noindex = false,
   ogTitle = 'Creattia | Imágenes con IA que venden',
   ogDescription = 'Elegí una idea, sumá tu producto y generá una imagen lista para publicar. Sin diseñar ni escribir prompts.',
-  ogImage = '/images/creattia/avatar-nobg.webp',
+  // 1200x630 real. Antes apuntaba al avatar, que es cuadrado de 500px: las
+  // etiquetas declaraban 1200x630 y WhatsApp, Facebook y X recortaban o
+  // directamente descartaban la miniatura por no coincidir con lo declarado.
+  ogImage = '/images/creattia/og-image.png',
   favicon = '/images/creattia/favicon.ico',
   appleTouchIcon = '/images/creattia/apple-touch-icon.png',
   manifest = '/creattia.webmanifest',
