@@ -12,6 +12,8 @@
     "preview": "astro preview",
     "check": "astro check",
     "test": "vitest run",
+    "qa:fidelidad": "vitest run scripts/qa-fidelidad-clon.test.ts",
+    "test": "vitest run",
     "test:watch": "vitest",
     "diagnose": "node --env-file-if-exists=.env scripts/diagnose-generation.mjs",
     "compare-quality": "node --env-file-if-exists=.env.deploy scripts/compare-quality.mjs",
@@ -59,6 +61,7 @@
     "@types/react-dom": "18.3.7",
     "playwright": "^1.61.1",
     "typescript": "5.9.3",
+    "vitest": "^4.1.10",
     "vitest": "^3.2.7"
   },
   "overrides": {

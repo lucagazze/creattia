@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { analyzeReferenceLayout, normalizeImageInput } from '../../../lib/creattia/ad-analysis';
-import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { trackEvent } from '../../../lib/creattia/events';
 
@@ -91,6 +91,11 @@ export const POST: APIRoute = async ({ request }) => {
 		const productImages: Array<{ b64: string; mime: string }> = [];
 		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
 		let brandFromUrl: { name?: string; website?: string } | null = null;
+		// Un identificador que no tiene forma de uuid ni siquiera llega a la
+		// consulta: Postgres lo rechaza por tipo y eso viajaba como error 500.
+		if (productId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productId)) {
+			return json({ error: 'El producto elegido no existe.' }, 400);
+		}
 		if (productId) {
 			const { data: stored, error } = await admin.from('creative_products')
 				.select('id,name,description,price_text,currency,image_path,analysis,metadata')
@@ -166,6 +171,10 @@ export const POST: APIRoute = async ({ request }) => {
 		void trackEvent(admin, 'referencia_analizada', auth.user.id, { sujeto: subjectMode, idioma: language || 'auto' });
 		return json({ analysis: { ...analysis, subjectType: analysis.subjectType || subjectMode, brandPalette: analysis.brandPalette || brandPalette }, originalRatio });
 	} catch (error) {
-		return json({ error: error instanceof Error ? error.message : 'No se pudo preparar el plan.' }, 500);
+		// El mensaje crudo del error salía al cliente: con un productId que no es
+		// un uuid, Postgres devuelve "invalid input syntax for type uuid" y eso
+		// terminaba impreso en la pantalla del usuario, con el nombre del tipo y
+		// de la columna. Un error de entrada tampoco es un 500 nuestro.
+		return fail('plan', error, 'No se pudo preparar el plan. Probá de nuevo.');
 	}
 };
