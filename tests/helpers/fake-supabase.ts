@@ -111,9 +111,13 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
 			}
 			if (mode === 'delete') {
 				const kept = rows.filter((row) => !matches(row, filters));
-				const removed = rows.length - kept.length;
+				// `delete().select()` devuelve las filas borradas, igual que el cliente
+				// real. Sin esto no se puede comprobar QUÉ se borró, que es justamente
+				// lo que hace falta cuando el borrado puede alcanzar cero filas.
+				const borradas = rows.filter((row) => matches(row, filters));
 				tables[tableName] = kept;
-				return { data: null, error: null, count: removed };
+				const data = wantsSingle ? borradas[0] ?? null : borradas;
+				return { data: returning || wantsSingle ? data : null, error: null, count: borradas.length };
 			}
 			const found = rows.filter((row) => matches(row, filters));
 			if (wantsSingle === 'maybe') return { data: found[0] ?? null, error: null };

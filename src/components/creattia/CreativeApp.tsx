@@ -214,17 +214,39 @@ export default function CreativeApp() {
 		if (!confirmDelete) return;
 
 		try {
-			if (isSupabaseConfigured && supabase) {
-				const { error } = await supabase.from('creative_generations').delete().in('id', ids);
-				if (error) throw error;
+			/**
+			 * El borrado lo hace el servidor.
+			 *
+			 * Antes se pedía directo desde acá contra la tabla, pero la tabla tiene
+			 * RLS y su única política es de lectura: el borrado no alcanzaba ninguna
+			 * fila y eso NO es un error para PostgREST, así que el catch nunca se
+			 * activaba y se anunciaba "imagen eliminada correctamente". Un par de
+			 * segundos después el sondeo del historial las traía de vuelta y las
+			 * imágenes reaparecían solas.
+			 *
+			 * Ahora la pantalla solo saca lo que el servidor confirma que borró.
+			 */
+			let borradas = ids;
+			if (isSupabaseConfigured) {
+				const token = getSessionToken(session);
+				if (!token) throw new Error('La sesión venció. Volvé a ingresar.');
+				const response = await fetch('/api/creativos/generations', {
+					method: 'DELETE',
+					headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+					body: JSON.stringify({ ids }),
+				});
+				const payload = await response.json().catch(() => ({}));
+				if (!response.ok) throw new Error(payload.error || 'No pudimos borrar las imágenes.');
+				borradas = Array.isArray(payload.borradas) ? payload.borradas : [];
+				if (!borradas.length) throw new Error('No pudimos borrar las imágenes. Probá de nuevo.');
 			}
-			const idSet = new Set(ids);
+			const idSet = new Set(borradas);
 			const nextHistory = history.filter(item => !idSet.has(item.id));
 			setHistory(nextHistory);
 			if (!isSupabaseConfigured) {
 				saveLocal(HISTORY_KEY, nextHistory);
 			}
-			setToast(ids.length > 1 ? `${ids.length} imágenes eliminadas.` : "Imagen eliminada correctamente.");
+			setToast(borradas.length > 1 ? `${borradas.length} imágenes eliminadas.` : "Imagen eliminada correctamente.");
 		} catch (err) {
 			alert(err instanceof Error ? err.message : "Error al eliminar la imagen.");
 		}
