@@ -1,26 +1,61 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 
+function isPrivateIPv4(address: string) {
+	const [a, b] = address.split('.').map(Number);
+	return a === 0 || a === 10 || a === 127 || a >= 224
+		|| (a === 100 && b >= 64 && b <= 127)
+		|| (a === 169 && b === 254)
+		|| (a === 172 && b >= 16 && b <= 31)
+		|| (a === 192 && (b === 0 || b === 168))
+		|| (a === 198 && (b === 18 || b === 19));
+}
+
+/**
+ * La dirección IPv4 escondida dentro de una IPv6, si la hay.
+ *
+ * Hay tres formas de escribir una IPv4 como IPv6 y las tres llegan al mismo
+ * lugar: la mapeada (`::ffff:169.254.169.254`), la de NAT64 (`64:ff9b::`) y la
+ * de 6to4 (`2002::`). Se comparaba por prefijo de texto contra cuatro casos
+ * sueltos, así que alcanzaba con publicar un registro AAAA apuntando al
+ * servicio de metadatos de la nube para que el filtro lo diera por pública y el
+ * servidor fuera a buscarlo. Cualquiera podía pegar esa URL como sitio de su
+ * marca.
+ */
+function ipv4Escondida(address: string): string | null {
+	const mapeada = address.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+	if (mapeada) return mapeada[1];
+	// Las mismas direcciones también se escriben en hexadecimal.
+	const hex = address.match(/^(?:::ffff:|64:ff9b::|2002:)([0-9a-f]{1,4}):([0-9a-f]{1,4})/);
+	if (hex) {
+		const alto = parseInt(hex[1], 16);
+		const bajo = parseInt(hex[2], 16);
+		return `${alto >> 8}.${alto & 255}.${bajo >> 8}.${bajo & 255}`;
+	}
+	return null;
+}
+
 function isPrivateAddress(address: string) {
 	const normalized = address.toLowerCase().split('%')[0];
-	if (isIP(normalized) === 4) {
-		const [a, b] = normalized.split('.').map(Number);
-		return a === 0 || a === 10 || a === 127 || a >= 224
-			|| (a === 100 && b >= 64 && b <= 127)
-			|| (a === 169 && b === 254)
-			|| (a === 172 && b >= 16 && b <= 31)
-			|| (a === 192 && (b === 0 || b === 168))
-			|| (a === 198 && (b === 18 || b === 19));
-	}
+	if (isIP(normalized) === 4) return isPrivateIPv4(normalized);
 	if (isIP(normalized) === 6) {
-		return normalized === '::' || normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd')
-			|| normalized.startsWith('fe8') || normalized.startsWith('fe9') || normalized.startsWith('fea')
-			|| normalized.startsWith('feb') || normalized.startsWith('::ffff:127.')
-			|| normalized.startsWith('::ffff:10.') || normalized.startsWith('::ffff:172.')
-			|| normalized.startsWith('::ffff:192.168.');
+		const escondida = ipv4Escondida(normalized);
+		// Una IPv4 disfrazada pasa por el chequeo IPv4 COMPLETO, no por una lista
+		// de prefijos: es el mismo destino escrito de otra manera.
+		if (escondida && isPrivateIPv4(escondida)) return true;
+		// NAT64 y 6to4 son túneles hacia IPv4: sin poder leer el destino, no se
+		// puede afirmar que sea público.
+		if (/^(64:ff9b:|2002:)/.test(normalized)) return true;
+		return normalized === '::' || normalized === '::1'
+			|| normalized.startsWith('fc') || normalized.startsWith('fd')
+			// fe80::/10 son las link-local: fe8, fe9, fea y feb.
+			|| /^fe[89ab]/.test(normalized);
 	}
 	return true;
 }
+
+/** Solo para las pruebas: el filtro de direcciones, sin resolver DNS. */
+export const esPrivadaParaPruebas = isPrivateAddress;
 
 export function normalizeExternalUrl(raw: string, kind: 'website' | 'instagram' = 'website') {
 	let value = raw.trim();
