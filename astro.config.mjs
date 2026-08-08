@@ -21,7 +21,9 @@ export default defineConfig({
     // prohíben indexarse es una contradicción que Search Console reporta como
     // error, y gasta presupuesto de rastreo en pantallas privadas.
     sitemap({
-      filter: (page) => !/\/(app|auth|404)\/?$/.test(new URL(page).pathname),
+      // Se excluye la RAMA entera, no la página exacta: con el final de la ruta
+      // se colaba /auth/callback/, que está a un nivel más de profundidad.
+      filter: (page) => !/^\/(app|auth|404)(\/|$)/.test(new URL(page).pathname),
     }),
   ],
   prefetch: {
