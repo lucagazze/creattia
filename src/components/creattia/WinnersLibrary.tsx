@@ -545,43 +545,6 @@ export default function WinnersLibrary({
 	// Lazy load: primer bloque de tarjetas y otro más al acercarse al final.
 	const [visibleCount, setVisibleCount] = useState(BLOQUE);
 	const [lockedVisibleCount, setLockedVisibleCount] = useState(8);
-	/**
-	 * Evita pedir dos bloques a la vez mientras React todavía no renderizó.
-	 *
-	 * Se trababa y no se soltaba nunca: solo se liberaba al cambiar un filtro. O
-	 * sea que el scroll infinito cargaba UN bloque y se moría — bajabas hasta el
-	 * final, no aparecían más imágenes, y la única forma de destrabarlo era tocar
-	 * un filtro. Ahora se libera en cuanto entra el bloque nuevo, que es el
-	 * momento en que de verdad se puede volver a pedir.
-	 */
-	const loadMoreLock = useRef(false);
-	useEffect(() => {
-		loadMoreLock.current = false;
-	}, [visibleCount, lockedVisibleCount]);
-	useEffect(() => {
-		loadMoreLock.current = false;
-		setVisibleCount(BLOQUE);
-		setLockedVisibleCount(8);
-	}, [selectedCategories, selectedFormat, savedOnly, query]);
-
-	const gridRef = React.useRef<HTMLDivElement | null>(null);
-	const [columnCount, setColumnCount] = useState(4);
-	useEffect(() => {
-		const element = gridRef.current;
-		if (!element) return;
-		// Mínimo 2 columnas siempre, también en celular.
-		const update = () => {
-			const width = element.clientWidth;
-			// Al abrir un creador la grilla sale del DOM. ResizeObserver puede
-			// informar ancho 0 durante ese desmontaje: no convertirlo en 2 columnas.
-			if (!element.isConnected || width <= 0) return;
-			setColumnCount(Math.max(2, Math.min(6, Math.floor(width / 300))));
-		};
-		update();
-		const observer = new ResizeObserver(update);
-		observer.observe(element);
-		return () => observer.disconnect();
-	}, [activeAd, videoCreationRef, loading, filteredItems.length]);
 	const selectedLockedAngles = useMemo(() => {
 		if (libraryAccess.isPaid || savedOnly || query.trim()) return [];
 		return selectedCategories.includes('todos') ? winnersCategories.map((angle) => angle.id) : selectedCategories;
@@ -727,6 +690,89 @@ export default function WinnersLibrary({
 		return result;
 	}, [libraryAccess, lockedVisibleCount, selectedLockedAngles]);
 	const displayItems = useMemo(() => [...visibleItems, ...lockedItems], [visibleItems, lockedItems]);
+
+	/**
+	 * Evita pedir dos bloques a la vez mientras React todavía no renderizó.
+	 *
+	 * Se trababa y no se soltaba nunca: solo se liberaba al cambiar un filtro. O
+	 * sea que el scroll infinito cargaba UN bloque y se moría — bajabas hasta el
+	 * final, no aparecían más imágenes, y la única forma de destrabarlo era tocar
+	 * un filtro. Ahora se libera en cuanto entra el bloque nuevo, que es el
+	 * momento en que de verdad se puede volver a pedir.
+	 */
+	const loadMoreLock = useRef(false);
+	useEffect(() => {
+		loadMoreLock.current = false;
+	}, [visibleCount, lockedVisibleCount]);
+	useEffect(() => {
+		loadMoreLock.current = false;
+		setVisibleCount(BLOQUE);
+		setLockedVisibleCount(8);
+	}, [selectedCategories, selectedFormat, savedOnly, query]);
+
+	const gridRef = React.useRef<HTMLDivElement | null>(null);
+	const [columnCount, setColumnCount] = useState(4);
+	useEffect(() => {
+		const element = gridRef.current;
+		if (!element) return;
+		// Mínimo 2 columnas siempre, también en celular.
+		const update = () => {
+			const width = element.clientWidth;
+			// Al abrir un creador la grilla sale del DOM. ResizeObserver puede
+			// informar ancho 0 durante ese desmontaje: no convertirlo en 2 columnas.
+			if (!element.isConnected || width <= 0) return;
+			setColumnCount(Math.max(2, Math.min(6, Math.floor(width / 300))));
+		};
+		update();
+		const observer = new ResizeObserver(update);
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, [activeAd, videoCreationRef, loading, filteredItems.length]);
+
+	/**
+	 * El escalonado del masonry, sin perder el orden por filas.
+	 *
+	 * La grilla reparte filas de 1px y cada tarjeta declara cuántas ocupa según
+	 * su alto real. Así el recorrido sigue siendo izquierda→derecha —que es como
+	 * se mira una grilla y el orden en que tienen que aparecer las novedades— y
+	 * las tarjetas de distinta proporción siguen encajando sin dejar huecos.
+	 *
+	 * Se mide en `useLayoutEffect` para que el span quede puesto antes de que el
+	 * navegador pinte: hacerlo en un `useEffect` normal muestra un cuadro con
+	 * todas las tarjetas de una fila y después salta al alto correcto.
+	 */
+	React.useLayoutEffect(() => {
+		const grid = gridRef.current;
+		if (!grid) return;
+		let frame = 0;
+		const medir = () => {
+			frame = 0;
+			if (!grid.isConnected) return;
+			const separacion = parseFloat(getComputedStyle(grid).getPropertyValue('--masonry-gap')) || 16;
+			for (const tarjeta of Array.from(grid.children) as HTMLElement[]) {
+				const alto = tarjeta.getBoundingClientRect().height;
+				// Alto 0 es una tarjeta que todavía no se dibujó: dejarla sin span
+				// hasta la próxima medición es mejor que fijarle una fila de 1px.
+				if (alto <= 0) continue;
+				tarjeta.style.gridRowEnd = `span ${Math.max(1, Math.ceil(alto + separacion))}`;
+			}
+		};
+		// Las imágenes terminan de decodificar en cualquier momento y cambian el
+		// alto de su tarjeta: agrupar las mediciones en un frame evita recalcular
+		// la grilla entera una vez por imagen.
+		const programar = () => { if (!frame) frame = requestAnimationFrame(medir); };
+		programar();
+		const observer = new ResizeObserver(programar);
+		observer.observe(grid);
+		for (const tarjeta of Array.from(grid.children)) observer.observe(tarjeta);
+		return () => {
+			observer.disconnect();
+			if (frame) cancelAnimationFrame(frame);
+		};
+		// Los cambios de ALTO ya los cubre el ResizeObserver; esto solo se rehace
+		// cuando cambia el conjunto de tarjetas, que es cuando hay elementos
+		// nuevos que observar.
+	}, [displayItems, columnCount, cargandoImagenes]);
 	const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
 	// Al volver de "Crear con este diseño" a la grilla, restaura el scroll
 	// guardado en handleUseIdea en vez de dejar la página arriba de todo.
@@ -1238,14 +1284,18 @@ export default function WinnersLibrary({
 					<button onClick={() => { setSelectedCategories(['todos']); setSelectedFormat('todos'); setSavedOnly(false); setQuery(''); }}>Limpiar filtros</button>
 				</div>
 			) : (<>
-				{/* Columnas CSS en vez de repartir a mano.
-				    Se repartían por turnos —uno a cada columna— y eso equilibra la
-				    CANTIDAD, no la altura. Con anuncios de proporciones muy distintas
-				    una columna terminaba mucho más larga que las otras, y al scrollear
-				    las cortas se acababan: quedaba una sola columna con todo el ancho
-				    vacío al costado. El navegador equilibra por altura, que es lo que
-				    hace falta y no requiere conocer el alto de cada imagen. */}
-				<div ref={gridRef} className="library-masonry" style={{ columnCount, columnGap: '16px' }}>
+				{/* Grilla real, recorrida por filas.
+				    Con columnas CSS el navegador llena una columna completa antes de
+				    empezar la siguiente: la segunda tarjeta caía DEBAJO de la primera y
+				    no al lado, así que lo nuevo aparecía bajando en vertical en vez de
+				    completar la fila de arriba. Acá cada tarjeta ocupa tantas filas de
+				    1px como mide (lo calcula `useLayoutEffect` más arriba), que
+				    conserva el escalonado del masonry sin perder el orden de lectura. */}
+				<div
+					ref={gridRef}
+					className="library-masonry"
+					style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
+				>
 					{[displayItems].map((columnItems, columnIndex) => (
 					<React.Fragment key={columnIndex}>
 					{columnItems.map((item, idx) => {

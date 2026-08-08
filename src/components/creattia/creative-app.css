@@ -6256,16 +6256,32 @@
 
 
 /* ─── Grilla de la biblioteca ─────────────────────────────────────────
-   Las tarjetas se repartían por turnos, una a cada columna, y eso equilibra la
-   cantidad y no la altura: con anuncios de proporciones muy distintas una
-   columna quedaba mucho más larga y, al scrollear, las cortas se terminaban y
-   quedaba una sola con todo el ancho vacío al costado. Las columnas CSS
-   equilibran por altura, que es lo que hace falta. */
+   Masonry por FILAS, no por columnas.
+
+   Con columnas CSS el navegador llena una columna entera antes de pasar a la
+   siguiente: la primera imagen queda arriba a la izquierda y la SEGUNDA queda
+   justo abajo, no al lado. O sea que el orden de lectura —y el orden en que
+   aparecen las novedades— baja en vertical, que es exactamente al revés de como
+   se mira una grilla.
+
+   Acá es una grilla de verdad: las filas se completan de izquierda a derecha y
+   recién ahí se baja. El efecto escalonado se conserva dando a cada tarjeta un
+   `grid-row-end: span N` calculado con su alto real (lo hace el componente),
+   sobre filas de 1px. Por eso `row-gap` es 0: la separación vertical ya está
+   incluida en el span de cada tarjeta. */
+.library-masonry {
+	--masonry-gap: 16px;
+	display: grid;
+	grid-auto-rows: 1px;
+	column-gap: var(--masonry-gap);
+	row-gap: 0;
+	/* Sin esto las tarjetas se estiran hasta el alto del span y el alto medido
+	   deja de ser el del contenido: la medición se realimenta y no converge. */
+	align-items: start;
+	width: 100%;
+}
 .library-masonry > * {
-	break-inside: avoid;
-	-webkit-column-break-inside: avoid;
-	page-break-inside: avoid;
-	margin-bottom: 16px;
+	margin-bottom: 0;
 }
 
 
@@ -6413,8 +6429,9 @@
 @media (max-width: 720px) {
 	/* La grilla iba pegada a los bordes y las tarjetas entre sí. Un respiro
 	   chico alcanza para que se lea como una grilla y no como un bloque. */
-	.library-masonry { column-gap: 12px !important; padding-inline: 2px; }
-	.library-masonry > * { margin-bottom: 12px; }
+	/* La separación se declara como variable porque el span de cada tarjeta la
+	   suma: si acá se cambiara solo el column-gap, el aire vertical no seguiría. */
+	.library-masonry { --masonry-gap: 12px; padding-inline: 2px; }
 
 	.library-access-banner {
 		flex-wrap: wrap;
