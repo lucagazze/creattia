@@ -45,6 +45,56 @@ test('una suscripción cancelada pierde el acceso a la biblioteca', async () => 
 	assert.equal(access.isPaidLibrary, false);
 });
 
+// ── El período pagado manda, no el estado guardado ───────────────────────────
+// El acceso se resolvía solo con `subscription_status === 'authorized'`, y eso
+// se equivoca en los dos sentidos: cierra la biblioteca al cancelar aunque el
+// mes esté pagado, y la deja abierta para siempre si el período vence sin que
+// llegue ningún aviso de Mercado Pago.
+
+const enDias = (dias: number) => new Date(Date.now() + dias * 24 * 60 * 60 * 1000).toISOString();
+
+test('quien canceló conserva la biblioteca hasta el día que pagó', async () => {
+	const cancelada = { ...paidProfile, subscription_status: 'cancelled', subscription_period_end: enDias(9) };
+	const access = await getEffectiveAccess(fakeAdmin(cancelada), 'user-6', 'sebaja@example.com');
+	assert.equal(access.isPaidLibrary, true, 'pagó el mes: la biblioteca tiene que seguir abierta hasta el final');
+	assert.equal(access.planCode, 'pro');
+	assert.equal(access.monthlyCredits, 60, 'todavía es del plan, así que su carga mensual sigue siendo la del plan');
+});
+
+test('pasado el día pagado, la cuenta cae al plan gratis', async () => {
+	const vencida = { ...paidProfile, subscription_status: 'cancelled', subscription_period_end: enDias(-1) };
+	const access = await getEffectiveAccess(fakeAdmin(vencida), 'user-7', 'sebaja@example.com');
+	assert.equal(access.isPaidLibrary, false);
+	assert.equal(access.planCode, 'trial');
+	assert.equal(access.monthlyCredits, 0, 'ya no le corresponde ninguna carga mensual');
+	assert.equal(access.credits, 10, 'los tokens que ya tenía se pagaron: no se le quitan');
+});
+
+test('un plan vencido no da biblioteca aunque el estado siga en "authorized"', async () => {
+	// El escenario del webhook perdido o la tarjeta que dejó de funcionar: sin
+	// esto, la cuenta se queda con acceso pago gratis para siempre.
+	const colgada = { ...paidProfile, subscription_period_end: enDias(-40) };
+	const access = await getEffectiveAccess(fakeAdmin(colgada), 'user-8', 'colgada@example.com');
+	assert.equal(access.isPaidLibrary, false);
+	assert.equal(access.planCode, 'trial');
+});
+
+test('el día de la renovación no se le corta el servicio a quien sí paga', async () => {
+	const renovando = { ...paidProfile, subscription_period_end: enDias(-1) };
+	const access = await getEffectiveAccess(fakeAdmin(renovando), 'user-9', 'aldia@example.com');
+	assert.equal(access.isPaidLibrary, true, 'una demora de Mercado Pago no puede dejar sin servicio a un cliente al día');
+});
+
+test('un acceso otorgado a mano desde el panel no depende de Mercado Pago', async () => {
+	const access = await getEffectiveAccess(
+		fakeAdmin(freeProfile, { access_mode: 'plan', plan_code: 'scale', credits_override: 25 }),
+		'user-10',
+		'invitado@example.com',
+	);
+	assert.equal(access.isPaidLibrary, true);
+	assert.equal(access.planCode, 'scale');
+});
+
 test('el admin siempre queda como ilimitado', async () => {
 	const access = await getEffectiveAccess(fakeAdmin(freeProfile), 'user-4', 'algoritmiadesarrollos@gmail.com');
 	assert.equal(access.isUnlimited, true);

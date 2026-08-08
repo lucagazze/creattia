@@ -1,4 +1,5 @@
 import type { Creativo } from '../../../data/creativos50';
+import { imagenFallada, usePrefijoListo } from '../../../lib/creattia/image-ready';
 import { useReferenceUrls } from '../../../lib/creattia/reference-urls';
 import { Icon } from '../Icon';
 import { UrlBatchSection } from '../UrlBatchSection';
@@ -56,6 +57,12 @@ export function Dashboard({
 }) {
 	// El bucket de referencias es privado: las miniaturas se piden firmadas.
 	const likedWinnerUrls = useReferenceUrls(likedWinners.map((winner: any) => winner.imagePath));
+	// Las tarjetas entran en orden y con la imagen ya pintada, igual que en el
+	// resto de la app: sin esto la fila de guardados se armaba vacía y se iba
+	// llenando de a una, moviendo todo lo que tenía debajo.
+	const urlDeGuardado = (winner: any) => winner?.imageUrl || likedWinnerUrls[winner?.imagePath] || '';
+	const guardadosListos = usePrefijoListo(likedWinners.map(urlDeGuardado));
+	const guardadosVisibles = likedWinners.slice(0, guardadosListos).filter((winner) => !imagenFallada(urlDeGuardado(winner)));
 	// Se precarga una sola vez: si el usuario la borra o la cambia, no se le
 	// vuelve a imponer en la próxima visita.
 	useEffect(() => {
@@ -126,8 +133,8 @@ export function Dashboard({
 						</button>
 					</div>
 					<div className="library-ad-grid-masonry dashboard-masonry" style={{ columnGap: '16px' }}>
-						{likedWinners.map((winner, idx) => {
-							const imageUrl = winner.imageUrl || likedWinnerUrls[winner.imagePath] || '';
+						{guardadosVisibles.map((winner, idx) => {
+							const imageUrl = urlDeGuardado(winner);
 							const isLiked = likedScrapedPaths.has(winner.imagePath);
 
 							return (
@@ -225,7 +232,8 @@ export function Dashboard({
 											src={imageUrl}
 											alt={winner.name}
 											style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }}
-											loading="lazy"
+											loading="eager"
+											decoding="async"
 											onContextMenu={(e) => e.preventDefault()}
 											onDragStart={(e) => e.preventDefault()}
 										/>

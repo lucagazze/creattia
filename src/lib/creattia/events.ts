@@ -27,6 +27,16 @@ export type ProductEvent =
 	| 'checkout_abierto'
 	| 'checkout_duplicado'
 	| 'tokens_comprados'
+	/**
+	 * El cobro de una suscripción, tanto el primero como cada renovación.
+	 *
+	 * Faltaba, y era el agujero grande de la medición: la suscripción es el
+	 * ingreso principal y no reportaba NADA —ni a la tabla de eventos ni a Meta—.
+	 * O sea que las campañas se optimizaban con la única compra que sí se
+	 * reportaba, la de créditos sueltos, que es la venta chica. Ahora cada cobro
+	 * confirmado por Mercado Pago sale como Purchase con su importe real.
+	 */
+	| 'suscripcion_pagada'
 	| 'plan_cancelado'
 	| 'webhook_recibido'
 	| 'webhook_firma_rechazada'

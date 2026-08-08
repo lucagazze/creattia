@@ -5,7 +5,7 @@ import { isCompatible, screenWinners } from '../../../lib/creattia/winner-screen
 import { analyzeBrandStyle } from '../../../lib/creattia/brand-style';
 import { mirrorProductImages, mirrorProductVideos } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 import { countProductImages, upsertProductMediaRows } from '../../../lib/creattia/product-media';
 import { trackEvent } from '../../../lib/creattia/events';
 
@@ -60,6 +60,26 @@ export const POST: APIRoute = async ({ request }) => {
 		if (mode === 'url' && !rawUrl) return json({ error: 'Ingresá la URL del producto.' }, 400);
 		if (mode === 'manual' && !manualName) {
 			return json({ error: 'Escribí al menos el nombre de lo que querés promocionar.' }, 400);
+		}
+
+		/**
+		 * Tope de uso: este es el endpoint caro que NO gasta créditos.
+		 *
+		 * Escanear una URL baja una página ajena, la pasa por un modelo para
+		 * extraer el producto, analiza el estilo de la marca con otro modelo y
+		 * copia las fotos a nuestro Storage. Todo eso es plata real por llamada, y
+		 * era gratis e ilimitado para cualquier cuenta —y crear una cuenta gratuita
+		 * lo puede hacer cualquiera—. Un bucle acá es una factura de IA abierta y
+		 * de paso llena el bucket.
+		 *
+		 * Treinta por hora es holgado para alguien probando productos de verdad y
+		 * corta en seco el uso automatizado. Cierra por defecto (`failClosed`): si
+		 * el limitador no está disponible no se deja pasar, porque lo que hay del
+		 * otro lado es gasto sin techo.
+		 */
+		const dentroDelLimite = await checkRateLimit(admin, userId, 'batch-url-scan', 30, 3600, true);
+		if (!dentroDelLimite) {
+			return json({ error: 'Escaneaste muchos productos seguidos. Esperá unos minutos y volvé a intentar.' }, 429);
 		}
 
 		let productUrl = '';

@@ -1,4 +1,5 @@
 import type { AppProfile, AppSession } from './app-types';
+import { resolverSuscripcion } from '../../lib/creattia/subscription-state';
 
 /** Lectura de la sesión y del plan: lo usan todas las pantallas. */
 
@@ -7,13 +8,27 @@ export function firstName(profile: AppProfile, email = '') {
 }
 
 export function planLabel(profile: AppProfile) {
+	const nombres: Record<string, string> = { creator: 'Básico', pro: 'Pro', scale: 'Scale', agency: 'Agency' };
+	const suscripcion = resolverSuscripcion(profile);
+
+	/**
+	 * Un plan dado de baja pero todavía vigente sigue siendo ese plan.
+	 *
+	 * Decía "Plan cancelado" desde el segundo en que confirmabas la baja, aunque
+	 * el mes estuviera pagado y siguieras teniendo todo. Leído desde el menú
+	 * parecía que ya te habían cortado el servicio.
+	 */
+	if (suscripcion.activa) {
+		const nombre = nombres[suscripcion.planCode] || suscripcion.planCode.charAt(0).toUpperCase() + suscripcion.planCode.slice(1);
+		return suscripcion.enBaja ? `Plan ${nombre} · hasta el fin del período` : `Plan ${nombre}`;
+	}
+	if (profile.subscriptionStatus === 'authorized' && profile.planCode === 'admin') return 'Plan Admin';
 	if (profile.subscriptionStatus === 'authorized') {
-		const names: Record<string, string> = { creator: 'Básico', pro: 'Pro', scale: 'Scale', agency: 'Agency' };
-		return `Plan ${names[profile.planCode] || profile.planCode.charAt(0).toUpperCase() + profile.planCode.slice(1)}`;
+		const nombre = nombres[profile.planCode] || profile.planCode.charAt(0).toUpperCase() + profile.planCode.slice(1);
+		return `Plan ${nombre}`;
 	}
 	if (profile.subscriptionStatus === 'pending') return 'Activación pendiente';
-	if (profile.subscriptionStatus === 'paused') return 'Plan pausado';
-	if (profile.subscriptionStatus === 'cancelled') return 'Plan cancelado';
+	// Vencida, cancelada y fuera de período, o nunca pagó: todas son el plan gratis.
 	return 'Plan Gratis';
 }
 

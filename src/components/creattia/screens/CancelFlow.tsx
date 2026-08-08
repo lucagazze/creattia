@@ -186,15 +186,19 @@ export function CancelFlow({ profile, userId, periodEnd, onClose, onConfirm, onV
 						<h2 id="cancel-title">Confirmá la cancelación</h2>
 						<ul className="cancel-consequences">
 							<li>
-								<strong>Seguís con el plan {planActual?.name || 'actual'}{hasta ? ` hasta el ${hasta}` : ' hasta que termine el período pagado'}.</strong>
-								<span>No perdés nada de lo que ya pagaste.</span>
+								<strong>No se te vuelve a cobrar.</strong>
+								<span>Este es el único paso que corta el cobro mensual; después de esto no hay ningún débito más.</span>
+							</li>
+							<li>
+								<strong>Seguís con el plan {planActual?.name || 'actual'} completo{hasta ? ` hasta el ${hasta}` : ' hasta que termine el período pagado'}.</strong>
+								<span>Con la biblioteca entera y todo lo demás: ya lo pagaste, así que no se toca.</span>
 							</li>
 							<li>
 								<strong>Tus tokens actuales siguen disponibles.</strong>
 								<span>Lo que no se renueva es la carga mensual.</span>
 							</li>
 							<li>
-								<strong>Después pasás al plan Gratis.</strong>
+								<strong>Ese día pasás al plan Gratis.</strong>
 								<span>La biblioteca completa se bloquea y quedan las 50 de muestra. Tus imágenes y marcas se conservan.</span>
 							</li>
 						</ul>

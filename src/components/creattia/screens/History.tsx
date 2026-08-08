@@ -1,3 +1,4 @@
+import { imagenLista, precargarImagen, precargarImagenes, useAvisoDeCarga } from '../../../lib/creattia/image-ready';
 import { useReferenceUrl } from '../../../lib/creattia/reference-urls';
 import UrlInput from '../UrlInput';
 import { Icon } from '../Icon';
@@ -335,8 +336,21 @@ export function GenerationCard({
 	// en ese momento y se sentía trabado en vez de pasar al toque.
 	useEffect(() => {
 		if (!isCarousel) return;
-		slides!.forEach((slide) => { if (slide.imageUrl) { const img = new Image(); img.src = slide.imageUrl; } });
+		precargarImagenes(slides!.map((slide) => slide.imageUrl));
 	}, [isCarousel, slides]);
+	/**
+	 * La imagen recién terminada no se muestra hasta estar pintada.
+	 *
+	 * Al terminar una generación el sondeo le pone la URL a la tarjeta y el `<img>`
+	 * arrancaba vacío: la tarjeta se quedaba un instante en blanco justo en el
+	 * momento que la persona estaba esperando. Se mantiene el aviso de "generando"
+	 * unos milisegundos más y la imagen entra ya completa.
+	 */
+	useAvisoDeCarga();
+	useEffect(() => {
+		precargarImagen(active.imageUrl, true);
+	}, [active.imageUrl]);
+	const imagenPintada = imagenLista(active.imageUrl);
 	const goToSlide = (delta: number) => {
 		if (!isCarousel) return;
 		setSlideIndex((prev) => (prev + delta + slides!.length) % slides!.length);
@@ -488,7 +502,7 @@ export function GenerationCard({
 						<small>{active.error || 'Probá de nuevo en unos segundos.'}</small>
 						{onCancel && <button type="button" onClick={(event) => { event.stopPropagation(); onCancel(); }}>Limpiar</button>}
 					</div>
-				) : !active.imageUrl ? (
+				) : !imagenPintada ? (
 					<div
 						style={{
 							width: '100%',
@@ -507,8 +521,8 @@ export function GenerationCard({
 						}}
 					>
 						<span className="studio-spinner" style={{ width: '28px', height: '28px' }} />
-						<strong style={{ fontSize: '12.5px', color: '#19171d' }}>Generando anuncio…</strong>
-						{onCancel && (
+						<strong style={{ fontSize: '12.5px', color: '#19171d' }}>{active.imageUrl ? 'Casi listo…' : 'Generando anuncio…'}</strong>
+						{onCancel && !active.imageUrl && (
 							<button
 								type="button"
 								onClick={(event) => { event.stopPropagation(); onCancel(); }}
@@ -524,7 +538,9 @@ export function GenerationCard({
 					</div>
 				) : (
 					<>
-						<img src={active.imageUrl} alt={item.title} loading="lazy"/>
+						{/* Precargada arriba: `lazy` retrasaría por nada una imagen que ya
+						    está decodificada en memoria. */}
+						<img src={active.imageUrl} alt={item.title} loading="eager" decoding="async"/>
 						{isCarousel && (
 							<>
 								<button type="button" className="carousel-arrow carousel-arrow-prev" aria-label="Página anterior" onClick={(event) => { event.preventDefault(); event.stopPropagation(); goToSlide(-1); }}>‹</button>

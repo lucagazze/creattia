@@ -242,6 +242,42 @@ describe('POST /api/creativos/generate', () => {
 		assert.equal(fake.tables.creative_generations[0].status, 'failed');
 		assert.equal(creditsNow(), 50, 'el crédito no usado tiene que volver');
 	});
+
+	test('si falla UNA imagen del lote, las demás se entregan igual', async () => {
+		/**
+		 * El lote se generaba con `Promise.all`: un solo rechazo —un 500 del motor,
+		 * un filtro de contenido— tiraba abajo la promesa entera, se descartaban las
+		 * imágenes que YA estaban generadas y el lote completo quedaba fallido. El
+		 * usuario esperaba dos minutos para no recibir nada, y las que sí salieron
+		 * se pagaron igual en la API.
+		 */
+		const { creditsNow } = setup();
+		generateAdImage.mockRejectedValueOnce(new Error('el modelo se cayó en la segunda'));
+
+		const response = await generate({ request: generateRequest({ ...baseFields, count: '3' }) } as any);
+		assert.equal(response.status, 202);
+		await settleBackgroundWork();
+
+		const filas = fake.tables.creative_generations;
+		const completadas = filas.filter((fila: any) => fila.status === 'completed');
+		const fallidas = filas.filter((fila: any) => fila.status === 'failed');
+		assert.equal(completadas.length, 2, 'las imágenes que salieron bien se perdían con el lote');
+		assert.equal(fallidas.length, 1);
+		// Se descontaron 3 y se devuelve solo la que no salió.
+		assert.equal(creditsNow(), 48, 'tiene que devolver exactamente el crédito de la que falló');
+	});
+
+	test('si fallan todas, el lote entero se cierra y se devuelven todos los créditos', async () => {
+		const { creditsNow } = setup();
+		generateAdImage.mockRejectedValue(new Error('el motor está caído'));
+
+		await generate({ request: generateRequest({ ...baseFields, count: '3' }) } as any);
+		await settleBackgroundWork();
+
+		assert.equal(fake.tables.creative_generations.every((fila: any) => fila.status === 'failed'), true);
+		assert.equal(creditsNow(), 50, 'no se puede cobrar un lote que no produjo nada');
+		generateAdImage.mockReset();
+	});
 });
 
 // ── Lotes y carruseles: el mismo pipeline ────────────────────────────────────

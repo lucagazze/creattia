@@ -85,8 +85,14 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
 				// La tabla real tiene `created_at timestamptz default now()`. Sin
 				// esto, cualquier consulta que filtre por fecha no encontraba nada
 				// acá aunque en producción sí encuentre.
-				const inserted = payload.map((row) => ({
-					id: row.id ?? `row-${rows.length + 1}`,
+				// El índice dentro del lote es imprescindible: `rows.length` todavía
+				// no cambió —el push viene después—, así que insertar tres filas de
+				// una les daba el MISMO id a las tres. Después un
+				// `update().eq('id', …)` sobre una sola tocaba las tres, y un lote
+				// con una imagen fallida se veía como un lote entero completado.
+				// La tabla real tiene clave primaria: esto emula esa garantía.
+				const inserted = payload.map((row, index) => ({
+					id: row.id ?? `row-${rows.length + index + 1}`,
 					created_at: new Date().toISOString(),
 					...row,
 				}));

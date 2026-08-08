@@ -1843,10 +1843,18 @@
 
 /* Topbar override */
 .studio-topbar {
+	/* `sticky` con `top: 0` acompaña el scroll en cualquier ancho. El `!important`
+	   es para que ningún override posterior la devuelva a estática: es la barra
+	   que tiene los créditos y el menú, y tiene que estar siempre al alcance. */
+	position: sticky !important;
+	top: 0 !important;
 	background: rgba(255, 255, 255, 0.88) !important;
 	border-bottom: 1px solid #e9e6ed !important;
 	color: #19171d !important;
 	backdrop-filter: blur(18px) !important;
+	/* Sin esto, el desenfoque de fondo se aplica pero el contenido que pasa por
+	   detrás se ve nítido en los bordes en Safari. */
+	-webkit-backdrop-filter: blur(18px);
 }
 .studio-mode-badge {
 	border: 1px solid #e2dee5 !important;
@@ -3391,6 +3399,22 @@
 	.discover-grid { grid-template-columns: 1fr; }
 	.discover-grid article:nth-child(n+2) { display: none; }
 }
+
+/* El lugar que ocupa una tarjeta del descubridor mientras baja su imagen. Las
+   reglas de arriba esconden las tarjetas que sobran por ancho de pantalla, así
+   que los esqueletos siguen la misma cuenta y no aparece uno de más. */
+.discover-card-esqueleto {
+	aspect-ratio: 4 / 5;
+	border-radius: 16px;
+	border: 1px solid #e9e6ed;
+	background: linear-gradient(100deg, #f6f4f9 30%, #eee9f4 50%, #f6f4f9 70%);
+	background-size: 220% 100%;
+	animation: library-esqueleto 1.5s ease-in-out infinite;
+}
+@media (max-width: 1250px) { .discover-grid > .discover-card-esqueleto:nth-child(n+4) { display: none; } }
+@media (max-width: 900px) { .discover-grid > .discover-card-esqueleto:nth-child(n+3) { display: none; } }
+@media (max-width: 580px) { .discover-grid > .discover-card-esqueleto:nth-child(n+2) { display: none; } }
+@media (prefers-reduced-motion: reduce) { .discover-card-esqueleto { animation: none; } }
 
 
 /* Filas del editor de textos: 2 columnas en desktop, apiladas en mobile */
@@ -5073,10 +5097,22 @@
 	font-weight: 800;
 }
 
-/* Legibilidad y responsive final del flujo de referencias. */
+/* ─── Contención horizontal SIN romper el navbar fijo ─────────────────────
+   Acá había `overflow-x: hidden`, y eso era lo que dejaba la barra de arriba
+   suelta al scrollear. Cuando un eje es `hidden` y el otro `visible`, la regla
+   de CSS convierte el otro en `auto`: `.studio-main` pasaba a ser un contenedor
+   de scroll propio, y `position: sticky` se ancla al contenedor de scroll más
+   cercano, no al viewport. Como el que scrollea de verdad es el documento, la
+   barra se quedaba pegada al tope de `.studio-main` y se iba con la página —el
+   síntoma que se ve en el teléfono—.
+
+   `clip` recorta igual el desborde horizontal pero NO crea contenedor de
+   scroll ni toca el otro eje, así que el sticky vuelve a anclarse al viewport.
+   También arregla los `position: sticky` de adentro (el panel de resultado, el
+   árbol de categorías), que estaban rotos por lo mismo. */
 .creative-app-shell,
 .studio-main,
-.studio-content { min-width: 0; overflow-x: hidden; }
+.studio-content { min-width: 0; overflow-x: clip; }
 .batch-status-header { flex-wrap: wrap; gap: 10px 18px; }
 .batch-status-info p { font-weight: 550; }
 .batch-status-info p strong,
@@ -5708,7 +5744,10 @@
 /* Mobile final pass: every layer of the creation flow must shrink with the
    viewport. Horizontal scrolling remains reserved for intentional media rails. */
 @media (max-width: 700px) {
-	html, body { width: 100%; min-width: 0; max-width: 100%; overflow-x: hidden; }
+	/* `clip` y no `hidden`: en la raíz, `overflow-x: hidden` también deja el
+	   sticky de la barra superior anclado a un contenedor de scroll que no es el
+	   viewport, y la barra se va con la página. */
+	html, body { width: 100%; min-width: 0; max-width: 100%; overflow-x: clip; }
 	.creative-app-shell,
 	.studio-main,
 	.studio-content,
@@ -6212,25 +6251,8 @@
 	.cancel-flow { max-width: 100%; }
 }
 
-/* ─── Aviso de "sitio para computadora" ───────────────────────────────
-   En ese modo el navegador ignora el viewport y dibuja a ~980px: todo queda
-   diminuto y hay que arrastrar la pantalla. Se ve como una app rota sin que
-   haya nada roto, y desde el código no se puede desactivar. */
-.aviso-escritorio {
-	position: fixed; z-index: 300; left: 12px; right: 12px; bottom: 12px;
-	display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-	padding: 14px 16px; border-radius: 14px;
-	background: #19171d; color: #fff;
-	box-shadow: 0 18px 45px rgba(15, 11, 18, .35);
-}
-.aviso-escritorio > div { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 4px; }
-.aviso-escritorio strong { font-size: 14px; }
-.aviso-escritorio span { font-size: 12.5px; line-height: 1.5; color: #cfc9d6; }
-.aviso-escritorio b { color: #fff; font-weight: 700; }
-.aviso-escritorio button {
-	flex: 0 0 auto; min-height: 38px; padding: 0 16px; border: 0; border-radius: 10px;
-	background: #fff; color: #19171d; font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
-}
+/* El aviso de "sitio para computadora" se mudó al layout (`#aviso-escritorio`),
+   para que aparezca en todas las páginas y también antes de iniciar sesión. */
 
 
 /* ─── Grilla de la biblioteca ─────────────────────────────────────────
@@ -6407,13 +6429,15 @@
 	.library-locked-art { min-height: 170px; }
 }
 
-/* El hueco que ocupa una tarjeta mientras no llegó su URL firmada. Sin esto la
-   grilla no crecía hasta que volvían las 20 firmas juntas, y entonces las 20
-   tarjetas entraban de una: ese salto es el tirón al scrollear. */
+/* ─── Lo que se ve mientras baja el bloque siguiente ──────────────────────
+   Los esqueletos van SIEMPRE al final de la grilla, nunca intercalados entre
+   las tarjetas: ahí crecer y desaparecer no mueve nada de lo que ya estás
+   mirando. Cuando el bloque termina de decodificarse, las tarjetas entran
+   juntas y ya con su altura final, así que no hay ningún salto de layout. */
 .library-card-esqueleto {
 	display: block;
 	width: 100%;
-	height: 280px;
+	aspect-ratio: 4 / 5;
 	margin-bottom: 16px;
 	border-radius: 12px;
 	background: linear-gradient(100deg, #f4f1f8 30%, #ebe5f3 50%, #f4f1f8 70%);
@@ -6427,7 +6451,21 @@
 	to { background-position: -60% 0; }
 }
 
-/* La imagen entra con un fundido en vez de aparecer de golpe. */
+/* Aviso discreto de que hay más en camino: sin esto, mientras se prepara un
+   bloque la pantalla parece terminada y da la sensación de que se colgó. */
+.library-cargando-aviso {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 9px;
+	margin: 4px 0 0;
+	color: #8b8490;
+	font-size: 12.5px;
+	font-weight: 700;
+}
+
+/* La imagen entra con un fundido cuando no estaba precargada (páginas de un
+   carrusel). Las portadas llegan ya decodificadas y se montan con `cargada`. */
 .library-card-imagen {
 	opacity: 0;
 	transition: opacity .28s ease;

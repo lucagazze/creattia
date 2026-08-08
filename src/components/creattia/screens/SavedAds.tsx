@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { imagenFallada, usePrefijoListo } from '../../../lib/creattia/image-ready';
 import { useReferenceUrls } from '../../../lib/creattia/reference-urls';
 import { Icon } from '../Icon';
 import type { Generation } from '../app-types';
@@ -47,6 +48,18 @@ export function SavedAds({
 	const likedScrapedUrls = useReferenceUrls(likedScrapedItems.map((winner: any) => winner.imagePath));
 	const hasContent = likedGenerations.length > 0 || likedScrapedItems.length > 0;
 
+	/**
+	 * Las tarjetas guardadas entran en orden y con su imagen ya pintada.
+	 *
+	 * `usePrefijoListo` corta en la primera que todavía no bajó, así que la lista
+	 * crece de arriba hacia abajo y nada de lo que ya estás mirando se mueve de
+	 * lugar cuando llega una imagen.
+	 */
+	const urlDe = (winner: any) => winner?.imageUrl || likedScrapedUrls[winner?.imagePath] || '';
+	const listasHasta = usePrefijoListo(likedScrapedItems.map(urlDe));
+	const guardadosVisibles = likedScrapedItems.slice(0, listasHasta).filter((winner) => !imagenFallada(urlDe(winner)));
+	const faltanGuardados = listasHasta < likedScrapedItems.length;
+
 	return (
 		<>
 			<div className="studio-page-heading">
@@ -83,8 +96,8 @@ export function SavedAds({
 						<div>
 							<h2 style={{ fontSize: '18px', fontWeight: 800, color: '#744bde', marginBottom: '14px' }}>Ideas de la biblioteca guardadas</h2>
 							<div className="studio-history-grid">
-								{likedScrapedItems.map((winner, idx) => {
-									const imageUrl = winner.imageUrl || likedScrapedUrls[winner.imagePath] || '';
+								{guardadosVisibles.map((winner, idx) => {
+									const imageUrl = urlDe(winner);
 									return (
 										<article
 											className="studio-generation-card"
@@ -117,7 +130,7 @@ export function SavedAds({
 												>
 													<Icon name="heart" size={13} fill="#ff4185" />
 												</button>
-												<img src={imageUrl} alt="" style={{ width: '100%', height: 'auto', display: 'block' }} />
+												<img src={imageUrl} alt="" loading="eager" decoding="async" style={{ width: '100%', height: 'auto', display: 'block' }} />
 											</div>
 											<footer style={{ padding: '12px' }}>
 												<h3 style={{ fontSize: '14.5px', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -127,6 +140,11 @@ export function SavedAds({
 										</article>
 									);
 								})}
+								{/* Los huecos van al final de la grilla: es el único lugar donde
+								    crecer no empuja lo que ya estás mirando. */}
+								{faltanGuardados && [0, 1].map((hueco) => (
+									<article key={`esqueleto-${hueco}`} className="library-card-esqueleto" aria-hidden="true" />
+								))}
 							</div>
 						</div>
 					)}

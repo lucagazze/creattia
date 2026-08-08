@@ -1,5 +1,6 @@
 import type { Creativo } from '../../../data/creativos50';
 import { catalogTaxonomy, creativeNumber, referenceImagePath, ringMeta, templatePath } from '../../../lib/creattia/catalog';
+import { imagenFallada, usePrefijoListo } from '../../../lib/creattia/image-ready';
 import { fetchLibraryItems, fetchReferenceUrls } from '../../../lib/creattia/reference-urls';
 import { isSupabaseConfigured, supabase } from '../../../lib/creattia/supabase-browser';
 import { Icon } from '../Icon';
@@ -63,6 +64,23 @@ export function Library({ items, favorites, onChoose, onToggleFavorite }: { item
 		return matchesFavorite && matchesGroup && matchesBranch && matchesLeaf && haystack.includes(query.toLowerCase().trim());
 	}).sort((a, b) => sort === 'newest' ? b.id - a.id : Number(Boolean(b.featured)) - Number(Boolean(a.featured)) || (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id)), [items, favorites, scope, groupId, branchId, leafId, activeBranch, activeLeaf, query, sort]);
 
+	/**
+	 * Las tarjetas del catálogo aparecen con su imagen ya pintada.
+	 *
+	 * Cada tarjeta arrancaba con el `<img>` vacío mientras bajaba su referencia:
+	 * con un filtro puesto entraban veinte marcos y las imágenes iban cayendo
+	 * después, cada una empujando la grilla. Se muestran de a bloques, en orden y
+	 * ya decodificadas.
+	 */
+	const urlDe = (creative: Creativo) => referenceImages[creative.id] || referenceImagePath(creative);
+	const listasHasta = usePrefijoListo(filtered.map(urlDe), 24);
+	const visibles = useMemo(
+		() => filtered.slice(0, listasHasta).filter((creative) => !imagenFallada(urlDe(creative))),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[filtered, listasHasta, referenceImages],
+	);
+	const faltanImagenes = listasHasta < filtered.length;
+
 	function chooseGroup(id: string) {
 		setGroupId(id); setBranchId(''); setLeafId(''); setScope('all');
 	}
@@ -92,13 +110,13 @@ export function Library({ items, favorites, onChoose, onToggleFavorite }: { item
 			{activeBranch && <div><small>TIPO</small>{activeBranch.leaves.map((leaf) => <button key={leaf.id} className={leafId === leaf.id ? 'active' : ''} onClick={() => setLeafId(leaf.id)}>{leaf.label}</button>)}</div>}
 		</div>}
 		<div className="library-results-heading new-library-heading"><div><strong>{scope === 'favorites' ? 'Tus anuncios guardados' : activeLeaf?.label || activeBranch?.label || activeGroup?.label || 'Todos los anuncios'}</strong><small>Elegí una referencia para abrir el generador paso a paso.</small></div>{(groupId || scope === 'favorites' || query) && <button onClick={clearFilters}>Limpiar filtros</button>}</div>
-		<div className="library-ad-grid">{filtered.map((creative) => {
+		<div className="library-ad-grid">{visibles.map((creative) => {
 			const meta = ringMeta[creative.ring] || ringMeta.demo;
 			const path = templatePath(creative);
-			const imageUrl = referenceImages[creative.id] || referenceImagePath(creative);
+			const imageUrl = urlDe(creative);
 			return <article className="library-ad-card" key={creative.id} style={{ '--card-accent': path?.group.accent || meta?.accent } as React.CSSProperties}>
 				<div className="library-ad-visual">
-					<button className="library-ad-open" onClick={() => onChoose(creative)} aria-label={`Usar ${creative.nombre} como referencia`}><img src={imageUrl} alt={`Referencia estática: ${creative.nombre}`} loading="lazy"/><span className="library-ad-overlay"><b>Usar esta referencia</b><Icon name="arrow" size={17}/></span></button>
+					<button className="library-ad-open" onClick={() => onChoose(creative)} aria-label={`Usar ${creative.nombre} como referencia`}><img src={imageUrl} alt={`Referencia estática: ${creative.nombre}`} loading="eager" decoding="async"/><span className="library-ad-overlay"><b>Usar esta referencia</b><Icon name="arrow" size={17}/></span></button>
 					<span className="library-media-badge"><i/> IMAGEN · 4:5</span>
 					<button className={`library-ad-save ${favorites.has(creative.id) ? 'active' : ''}`} onClick={() => onToggleFavorite(creative.id)} aria-label={favorites.has(creative.id) ? `Quitar ${creative.nombre} de guardados` : `Guardar ${creative.nombre}`}><Icon name="heart" size={17}/></button>
 				</div>
@@ -107,7 +125,9 @@ export function Library({ items, favorites, onChoose, onToggleFavorite }: { item
 					<button onClick={() => onChoose(creative)}><h3>{creative.nombre}</h3><p>{conciseText(creative.sirve)}</p><footer><span>Crear con esta idea</span><Icon name="arrow" size={15}/></footer></button>
 				</div>
 			</article>;
-		})}</div>
-		{filtered.length === 0 && <div className="studio-empty library-empty"><span><Icon name={scope === 'favorites' ? 'heart' : 'search'}/></span><h3>{scope === 'favorites' ? 'Todavía no guardaste anuncios' : 'No encontramos ese tipo'}</h3><p>{scope === 'favorites' ? 'Tocá el corazón de una referencia para encontrarla acá.' : 'Probá otra búsqueda o limpiá los filtros.'}</p><button onClick={clearFilters}>Explorar toda la biblioteca</button></div>}
+		})}
+		{faltanImagenes && [0, 1, 2].map((hueco) => <article key={`esqueleto-${hueco}`} className="library-card-esqueleto" aria-hidden="true" />)}
+		</div>
+		{filtered.length === 0 &&<div className="studio-empty library-empty"><span><Icon name={scope === 'favorites' ? 'heart' : 'search'}/></span><h3>{scope === 'favorites' ? 'Todavía no guardaste anuncios' : 'No encontramos ese tipo'}</h3><p>{scope === 'favorites' ? 'Tocá el corazón de una referencia para encontrarla acá.' : 'Probá otra búsqueda o limpiá los filtros.'}</p><button onClick={clearFilters}>Explorar toda la biblioteca</button></div>}
 	</>;
 }

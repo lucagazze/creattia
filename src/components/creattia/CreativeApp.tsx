@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, lazy, Suspense } 
 import { creativeCatalog, mapTemplateRecord, ringMeta } from '../../lib/creattia/catalog';
 import { isSupabaseConfigured, supabase } from '../../lib/creattia/supabase-browser';
 import { isAdminEmail } from '../../lib/creattia/admin';
+import { resolverSuscripcion } from '../../lib/creattia/subscription-state';
 import type { Creativo } from '../../data/creativos50';
 import './creative-app.css';
 
@@ -16,7 +17,6 @@ import { firstName, getSessionEmail, getSessionId, getSessionToken, planLabel } 
 import { fileAsDataUrl, mapProduct } from './app-products';
 import { demoProducts } from './demo-mode';
 import { Icon } from './Icon';
-import { AvisoModoEscritorio } from './AvisoModoEscritorio';
 // Discover ya viaja con el panel de inicio: cargarlo aparte no ahorra nada.
 import { DiscoverPage } from './screens/Discover';
 
@@ -56,6 +56,20 @@ import { GenerationView, Studio } from './screens/Studio';
 import { History } from './screens/History';
 
 
+/**
+ * Al cambiar de pantalla, arriba de todo — y de una.
+ *
+ * Esto era `behavior: 'smooth'`. Suena mejor de lo que se siente: la pantalla
+ * nueva se monta al instante y lo que se anima es el recorrido a través de un
+ * contenido que la persona nunca vio, así que en vez de leerse como una
+ * transición elegante se lee como que la app tardó en responder. Un scroll
+ * suave sirve para conectar dos puntos de la MISMA página; entre pantallas
+ * distintas no hay nada que conectar.
+ */
+function irArriba() {
+	window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
 export default function CreativeApp() {
 	const [booting, setBooting] = useState(true);
 	const [accountLoading, setAccountLoading] = useState(true);
@@ -89,6 +103,29 @@ export default function CreativeApp() {
 		const params = new URLSearchParams(window.location.search);
 		return params.has('plan') || params.get('subscription') === 'return' ? 'plans' : 'home';
 	});
+
+	/**
+	 * Los dos pasos del embudo que solo se ven desde el navegador.
+	 *
+	 * "Abrió la app" y "miró los planes" estaban declarados como eventos y no se
+	 * disparaban desde ningún lado: en el panel no se podía ver cuánta gente entra
+	 * y se va sin hacer nada, ni cuánta llega a los planes y no abre el checkout,
+	 * que es donde se pierde la mayoría. Se manda una sola vez por sesión de
+	 * pantalla y nunca bloquea nada: si falla, se pierde la métrica y listo.
+	 */
+	const eventosAnotados = useRef<Set<string>>(new Set());
+	useEffect(() => {
+		const token = getSessionToken(session);
+		if (!token || !isSupabaseConfigured) return;
+		const evento = view === 'plans' ? 'planes_vistos' : 'app_abierta';
+		if (eventosAnotados.current.has(evento)) return;
+		eventosAnotados.current.add(evento);
+		void fetch('/api/creativos/track', {
+			method: 'POST',
+			headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+			body: JSON.stringify({ event: evento }),
+		}).catch(() => undefined);
+	}, [session, view]);
 	const [viewHistory, setViewHistory] = useState<View[]>([]);
 	const [openedFromView, setOpenedFromView] = useState<View | null>(null);
 
@@ -510,8 +547,26 @@ export default function CreativeApp() {
 					const isUserAdmin = isAdminEmail(activeSession?.user?.email);
 					const accessOverride = overrideResult.error ? null : overrideResult.data;
 					const isUnlimited = isUserAdmin || accessOverride?.access_mode === 'unlimited';
+					const otorgadoAMano = accessOverride?.access_mode === 'plan';
+					/**
+					 * El plan que se muestra es el que rige HOY, no el que quedó escrito.
+					 *
+					 * Se leía `data.plan_code` y `data.subscription_status` tal cual, así
+					 * que una suscripción vencida seguía diciendo "Plan Pro" en el menú
+					 * mientras el servidor ya la trataba como gratuita. Es la misma
+					 * función que usa el servidor: no pueden discrepar.
+					 */
+					const suscripcion = resolverSuscripcion({
+						planCode: accessOverride?.plan_code || data.plan_code,
+						subscriptionStatus: data.subscription_status,
+						subscriptionPeriodEnd: data.subscription_period_end,
+					});
 					const effectiveCredits = isUnlimited ? 99999 : (accessOverride?.credits_override ?? data.credits_remaining ?? 0);
-					const effectiveMonthlyCredits = isUnlimited ? 99999 : (accessOverride?.credits_override ?? data.credits_monthly ?? 0);
+					// Al vencer, la carga mensual pasa a cero; los tokens que ya tenía no
+					// se tocan, porque los pagó.
+					const effectiveMonthlyCredits = isUnlimited
+						? 99999
+						: (suscripcion.activa || otorgadoAMano ? (accessOverride?.credits_override ?? data.credits_monthly ?? 0) : 0);
 					setProfile({
 						fullName: data.full_name || '',
 						brandName: data.brand_name || '',
@@ -521,8 +576,10 @@ export default function CreativeApp() {
 						secondaryColor: data.brand_colors?.[1] || '#f4f0ff',
 						credits: effectiveCredits,
 						monthlyCredits: effectiveMonthlyCredits,
-						subscriptionStatus: isUnlimited || accessOverride?.access_mode === 'plan' ? 'authorized' : (data.subscription_status || 'trial'),
-						planCode: isUserAdmin ? 'admin' : (accessOverride?.plan_code || data.plan_code || 'trial'),
+						subscriptionStatus: isUnlimited || otorgadoAMano
+							? 'authorized'
+							: (suscripcion.vencida ? 'expired' : (data.subscription_status || 'trial')),
+						planCode: isUserAdmin ? 'admin' : (otorgadoAMano ? (accessOverride?.plan_code || 'creator') : suscripcion.planCode),
 						subscriptionPeriodEnd: data.subscription_period_end || '',
 						onboardingCompleted: Boolean(data.onboarding_completed),
 						brandSummary: data.brand_summary || '',
@@ -712,7 +769,7 @@ export default function CreativeApp() {
 		setPreselectedTemplateId(creative.id);
 		navigateTo('winners');
 		setMobileMenu(false);
-		window.scrollTo({ top: 0, behavior: 'smooth' });
+		irArriba();
 	}
 
 
@@ -725,7 +782,7 @@ export default function CreativeApp() {
 		setReuseSeed(generation);
 		navigateTo('studio');
 		setMobileMenu(false);
-		window.scrollTo({ top: 0, behavior: 'smooth' });
+		irArriba();
 	}
 
 	async function toggleFavorite(templateId: number) {
@@ -1094,8 +1151,10 @@ export default function CreativeApp() {
 
 	return (
 		<div className={`creative-app-shell ${sidebarMinimized ? 'sidebar-minimized' : ''}`}>
-			<AvisoModoEscritorio />
-			{toast && <div className="studio-toast"><span><Icon name="check" size={16}/></span>{toast}</div>}
+			{/* El aviso de "sitio para computadora" ahora vive en el layout: se ve en
+			    todas las páginas y también antes de iniciar sesión, que es donde más
+			    falta hacía. */}
+			{toast &&<div className="studio-toast"><span><Icon name="check" size={16}/></span>{toast}</div>}
 			{lightbox && <ImageLightbox
 				item={lightbox.item}
 				slides={lightbox.slides}
@@ -1112,7 +1171,7 @@ export default function CreativeApp() {
 					setPreselectedWinnerPath(path);
 					setOpenedFromView('history');
 					navigateTo('winners');
-					window.scrollTo({ top: 0, behavior: 'smooth' });
+					irArriba();
 				}}
 			/>}
 			{activeBatch && view !== 'generation' && activeBatch.status !== 'failed' && (
@@ -1178,7 +1237,7 @@ export default function CreativeApp() {
 				<nav className="studio-nav">
 					{!sidebarMinimized && <p>ESPACIO DE TRABAJO</p>}
 					{navItems.map((item) => (
-						<button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { navigateTo(item.id); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+						<button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { navigateTo(item.id); setMobileMenu(false); irArriba(); }}>
 							<Icon name={item.icon}/>{!sidebarMinimized && <span>{item.label}</span>}
 						</button>
 					))}
@@ -1186,7 +1245,7 @@ export default function CreativeApp() {
 				<div className="studio-sidebar-bottom">
 					<button 
 						className={`studio-brand-nav-btn ${view === 'brand' ? 'active' : ''}`}
-						onClick={() => { navigateTo('brand'); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+						onClick={() => { navigateTo('brand'); setMobileMenu(false); irArriba(); }}
 						style={{
 							display: 'flex',
 							alignItems: 'center',
@@ -1421,7 +1480,7 @@ export default function CreativeApp() {
 								setPreselectedWinnerPath(path);
 								setOpenedFromView('history');
 								navigateTo('winners');
-								window.scrollTo({ top: 0, behavior: 'smooth' });
+								irArriba();
 							}}
 							onDeleteImage={deleteImage}
 							activeBatch={activeBatch}

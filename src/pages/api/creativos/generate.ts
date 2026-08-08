@@ -776,7 +776,21 @@ The result must look like the same image with only that one adjustment applied.`
 		// cuelga o el proceso muere, el intento igual quedó registrado. Midiendo
 		// solo los finales, un problema del motor se ve como menos demanda.
 		void trackEvent(admin, 'generacion_pedida', auth.user!.id, { cantidad: count, formato: effectiveFormat, tier, sujeto: subjectMode });
-		const outputBuffers: Buffer[] = await Promise.all(Array.from({ length: count }, async (_, index) => {
+		/**
+		 * Una imagen que falla no se lleva puestas a las que sí salieron.
+		 *
+		 * Esto era `Promise.all`: alcanzaba con que UNA de las cinco diera error
+		 * —un 500 del motor, un filtro de contenido, un corte de red— para que la
+		 * promesa entera se rechazara, se descartaran las cuatro imágenes que ya
+		 * estaban generadas y el lote completo quedara marcado como fallido. El
+		 * usuario esperaba dos minutos para no recibir nada, y las cuatro
+		 * generaciones buenas se pagaron igual en la API.
+		 *
+		 * Con `allSettled` se conserva lo que salió bien. Las que faltan las cierra
+		 * y las reembolsa el bloque de `missingCount` de más abajo, que ya existía
+		 * para este caso y hasta ahora era inalcanzable.
+		 */
+		const resultados = await Promise.allSettled(Array.from({ length: count }, async (_, index) => {
 			const { buffer, engine, usage } = await generateAdImage({
 				googleKey,
 				openAIKey,
@@ -798,13 +812,27 @@ The result must look like the same image with only that one adjustment applied.`
 			});
 			return buffer;
 		}));
+		const outputBuffers: Buffer[] = [];
+		for (const resultado of resultados) {
+			if (resultado.status === 'fulfilled') outputBuffers.push(resultado.value);
+			else console.error(`[gen ${batchId}] una imagen del lote falló:`, resultado.reason);
+		}
 
-		if (!outputBuffers.length) throw new Error('No se generaron imágenes.');
+		// Si no salió ninguna sí es una falla del lote entero: la maneja el catch,
+		// que cierra todo y devuelve los créditos. Se propaga el motivo real del
+		// primer intento en vez de un mensaje genérico.
+		if (!outputBuffers.length) {
+			const primerFallo = resultados.find((resultado) => resultado.status === 'rejected');
+			throw primerFallo && primerFallo.status === 'rejected'
+				? (primerFallo.reason instanceof Error ? primerFallo.reason : new Error(String(primerFallo.reason)))
+				: new Error('No se generaron imágenes.');
+		}
 
 		// Subida + firma + update de cada imagen tampoco depende de las demás:
-		// en paralelo también, mismo criterio que la generación de arriba.
+		// en paralelo también, y con el mismo criterio — si una subida falla, las
+		// otras se entregan igual.
 		const uploadCount = Math.min(outputBuffers.length, generationIds.length);
-		const uploadResults = await Promise.all(Array.from({ length: uploadCount }, async (_, index) => {
+		const uploadResults = await Promise.allSettled(Array.from({ length: uploadCount }, async (_, index) => {
 			const generationId = generationIds[index];
 			const outputPath = `${auth.user!.id}/generations/${batchId}/${index + 1}.png`;
 			const { error: uploadError } = await admin.storage.from('creative-assets').upload(
@@ -834,7 +862,11 @@ The result must look like the same image with only that one adjustment applied.`
 			completedIds.add(generationId);
 			return { id: generationId, imageUrl: signed.signedUrl, outputIndex: index + 1, batchId };
 		}));
-		const responseGenerations: Array<{ id: string; imageUrl: string; outputIndex: number; batchId: string }> = uploadResults;
+		const responseGenerations: Array<{ id: string; imageUrl: string; outputIndex: number; batchId: string }> = [];
+		for (const resultado of uploadResults) {
+			if (resultado.status === 'fulfilled') responseGenerations.push(resultado.value);
+			else console.error(`[gen ${batchId}] una imagen no se pudo guardar:`, resultado.reason);
+		}
 		stamp(`completado: ${responseGenerations.length}/${count} imágenes subidas`);
 
 		const missingCount = count - responseGenerations.length;

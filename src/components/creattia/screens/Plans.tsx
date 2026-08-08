@@ -2,6 +2,7 @@ import { subscriptionPlans, yearlyPriceFor, yearlySavingsFor } from '../../../li
 import { isSupabaseConfigured, supabase } from '../../../lib/creattia/supabase-browser';
 import { Icon } from '../Icon';
 import { activeSubscriptionStatuses, getSessionId, getSessionToken, paidSubscriptionStatuses, planRank } from '../app-session';
+import { resolverSuscripcion } from '../../../lib/creattia/subscription-state';
 import { CancelFlow } from './CancelFlow';
 import type { AppProfile, AppSession } from '../app-types';
 import { useEffect, useState } from 'react';
@@ -148,15 +149,31 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 	 * que después de cambiar o cancelar quedaba la duda de qué día se corta.
 	 */
 	const estadoDelPlan = (() => {
+		const suscripcion = resolverSuscripcion(profile);
 		const plan = subscriptionPlans.find((item) => item.code === profile.planCode);
 		const hasta = profile.subscriptionPeriodEnd
 			? new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(profile.subscriptionPeriodEnd))
 			: '';
-		if (profile.subscriptionStatus === 'cancelled' && hasta) {
+		/**
+		 * El período pagado ya terminó y no entró ninguna renovación.
+		 *
+		 * Este caso no se contemplaba: la cuenta quedaba mostrando el último estado
+		 * conocido para siempre. Ahora se dice lo que pasó y qué hacer.
+		 */
+		if (suscripcion.vencida) {
+			return {
+				tono: 'aviso' as const,
+				titulo: 'Tu plan terminó y la cuenta volvió a Gratis',
+				detalle: hasta
+					? `El período pagado terminó el ${hasta}. Tus tokens sin usar siguen disponibles; la biblioteca completa y la carga mensual se reactivan al contratar de nuevo.`
+					: 'Tus tokens sin usar siguen disponibles. Contratá un plan para recuperar la biblioteca completa y la carga mensual de tokens.',
+			};
+		}
+		if (suscripcion.enBaja && hasta) {
 			return {
 				tono: 'aviso' as const,
 				titulo: `Tu plan ${plan?.name || ''} sigue activo hasta el ${hasta}`,
-				detalle: 'Cancelaste la renovación. Ese día la cuenta pasa a Gratis y tus imágenes y marcas se conservan.',
+				detalle: 'Cancelaste la renovación, así que no se te vuelve a cobrar. Ese día la cuenta pasa a Gratis y tus imágenes y marcas se conservan.',
 			};
 		}
 		if (profile.subscriptionStatus === 'pending') {
@@ -166,13 +183,15 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 				detalle: 'Apenas Mercado Pago lo apruebe se activan los tokens del plan. Si dejaste el checkout a medias, podés retomarlo desde el plan que elegiste.',
 			};
 		}
-		if (profile.subscriptionStatus === 'authorized' && plan) {
+		if (suscripcion.activa && plan) {
 			return {
 				tono: 'ok' as const,
 				titulo: `Tenés el plan ${plan.name} activo`,
+				// Se dice explícitamente que el cobro sigue solo: es la pregunta que
+				// más se hace en una suscripción y no estaba contestada en ningún lado.
 				detalle: hasta
-					? `Se renueva el ${hasta} con ${plan.credits} tokens. Podés cambiar de plan cuando quieras: el nuevo precio se aplica en esa fecha.`
-					: `Se renueva cada mes con ${plan.credits} tokens. Podés cambiar de plan cuando quieras.`,
+					? `Se renueva solo el ${hasta} y se te cargan ${plan.credits} tokens nuevos. Se sigue cobrando todos los meses hasta que canceles. Podés cambiar de plan cuando quieras: el precio nuevo se aplica en esa fecha.`
+					: `Se renueva solo cada mes con ${plan.credits} tokens nuevos, y se sigue cobrando hasta que canceles.`,
 			};
 		}
 		return null;
@@ -222,8 +241,15 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 			});
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.error || 'No se pudo cancelar la suscripción.');
-			setNotice('Renovación cancelada. Tus créditos actuales siguen disponibles.');
-			window.setTimeout(() => window.location.reload(), 700);
+			// Se dice hasta cuándo, que es lo único que la persona quiere saber en ese
+			// momento. Antes el aviso hablaba de los créditos y no de la fecha.
+			const hastaCuando = profile.subscriptionPeriodEnd
+				? new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'long' }).format(new Date(profile.subscriptionPeriodEnd))
+				: '';
+			setNotice(hastaCuando
+				? `Listo, no se te vuelve a cobrar. Seguís con tu plan completo hasta el ${hastaCuando} y después la cuenta pasa a Gratis.`
+				: 'Listo, no se te vuelve a cobrar. Seguís con tu plan hasta que termine el período que ya pagaste.');
+			window.setTimeout(() => window.location.reload(), 1400);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo cancelar la suscripción.');
 			setCancelling(false);

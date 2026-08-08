@@ -107,6 +107,63 @@ import { META_PIXEL_ID } from '../lib/creattia/meta-pixel';
   </head>
   <body>
     <slot />
+
+    {/* ── "Sitio para computadora": el aviso, en todas las páginas ─────────────
+        Cuando el teléfono tiene activado ese modo, el navegador ignora a
+        propósito el viewport y dibuja la página a ~980px de ancho para después
+        achicarla hasta que entre. Todo queda diminuto, las grillas salen en
+        varias columnas —los planes, por ejemplo, en dos columnas en vez de una
+        debajo de la otra— y hay que arrastrar la pantalla de costado. Se ve
+        exactamente como una app rota, pero no hay nada roto: es una preferencia
+        de quien navega y desde el código NO se puede desactivar.
+
+        Lo que sí se puede es reconocerlo y decirlo. `screen.width` informa el
+        ancho real del aparato aunque el viewport mienta: pantalla física de
+        teléfono + viewport de escritorio solo puede ser esto.
+
+        Antes este aviso vivía solo dentro de la app y encima ya logueado, así
+        que en la landing —donde la mayoría entra por primera vez— no aparecía
+        nunca. Y se descartaba para SIEMPRE: quien lo cerró una vez sin
+        entenderlo se quedó con la app ilegible y sin forma de volver a leer
+        cómo arreglarlo. Ahora se descarta por sesión. */}
+    <div id="aviso-escritorio" role="status" hidden>
+      <div>
+        <strong>Estás viendo la versión de computadora</strong>
+        <span>
+          Tu navegador tiene activado <b>“Sitio para computadora”</b> y por eso todo se ve
+          chico. Desactivalo y la página se acomoda a tu pantalla: en Chrome está en el
+          menú <b>⋮</b>, en Safari en <b>aA</b> → “Solicitar sitio para móviles”.
+        </span>
+      </div>
+      <button type="button" id="aviso-escritorio-cerrar" aria-label="Entendido">Entendido</button>
+    </div>
+
+    <script is:inline>
+      (function () {
+        var aviso = document.getElementById('aviso-escritorio');
+        var cerrar = document.getElementById('aviso-escritorio-cerrar');
+        if (!aviso || !cerrar) return;
+        var oculto = false;
+        try { oculto = sessionStorage.getItem('creattia-aviso-escritorio') === 'visto'; } catch (e) { /* sin storage */ }
+
+        function revisar() {
+          if (oculto) { aviso.hidden = true; return; }
+          var fisica = Math.min(screen.width || 0, screen.height || 0);
+          var esTelefono = fisica > 0 && fisica <= 500;
+          var viewportDeEscritorio = window.innerWidth >= 900;
+          aviso.hidden = !(esTelefono && viewportDeEscritorio);
+        }
+
+        cerrar.addEventListener('click', function () {
+          oculto = true;
+          try { sessionStorage.setItem('creattia-aviso-escritorio', 'visto'); } catch (e) { /* sin storage */ }
+          aviso.hidden = true;
+        });
+        window.addEventListener('resize', revisar);
+        window.addEventListener('orientationchange', revisar);
+        revisar();
+      })();
+    </script>
   </body>
 </html>
 
@@ -116,4 +173,43 @@ import { META_PIXEL_ID } from '../lib/creattia/meta-pixel';
   html { font-family: 'Inter Variable', Inter, system-ui, sans-serif; background: #fff; }
   body { min-width: 320px; margin: 0; }
   button, input, textarea, select { font: inherit; }
+
+  /* El aviso de "sitio para computadora". Va abajo y flotando para no tapar
+     nada de la página, y con letra grande porque en ese modo todo se ve chico:
+     si el aviso que explica el problema también fuera diminuto, no serviría. */
+  #aviso-escritorio {
+    position: fixed;
+    z-index: 9000;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 18px 20px;
+    border-radius: 16px;
+    background: #19171d;
+    color: #fff;
+    box-shadow: 0 20px 50px rgba(12, 8, 18, .38);
+    font-size: 17px;
+    line-height: 1.45;
+  }
+  #aviso-escritorio[hidden] { display: none; }
+  #aviso-escritorio > div { display: flex; flex-direction: column; gap: 6px; }
+  #aviso-escritorio strong { font-size: 19px; font-weight: 800; }
+  #aviso-escritorio span { color: #cfc9d6; }
+  #aviso-escritorio b { color: #fff; font-weight: 750; }
+  #aviso-escritorio button {
+    flex: 0 0 auto;
+    min-height: 46px;
+    padding: 0 22px;
+    border: 0;
+    border-radius: 11px;
+    background: #fff;
+    color: #19171d;
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 800;
+    cursor: pointer;
+  }
 </style>

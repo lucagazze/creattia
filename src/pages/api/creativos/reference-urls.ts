@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { filterAllowedReferencePaths } from '../../../lib/creattia/library-access';
 
@@ -28,6 +28,21 @@ export const POST: APIRoute = async ({ request }) => {
 		const rawPaths: unknown[] = Array.isArray(body?.paths) ? body.paths : [];
 		const paths: string[] = [...new Set(rawPaths.map((value) => String(value || '').trim()).filter(Boolean))].slice(0, MAX_PATHS);
 		if (!paths.length) return json({ urls: {} });
+
+		/**
+		 * Tope de firmas por hora.
+		 *
+		 * Cada llamada firma hasta 250 rutas contra Storage y lee el manifiesto
+		 * entero para validarlas. Es barato por llamada pero se invoca en cada
+		 * scroll, así que sin techo una cuenta puede pedirlo en bucle y saturar la
+		 * cuota de Storage para todos los demás. Doscientas por hora cubren de
+		 * sobra a alguien recorriendo la biblioteca completa.
+		 *
+		 * No cierra por defecto: si el limitador está caído, preferimos que la
+		 * biblioteca se siga viendo.
+		 */
+		const dentroDelLimite = await checkRateLimit(admin, auth.user.id, 'reference-urls', 200, 3600);
+		if (!dentroDelLimite) return json({ error: 'Demasiados pedidos seguidos. Esperá unos segundos.' }, 429);
 
 		const access = await getEffectiveAccess(admin, auth.user.id, auth.user.email);
 		const { allowed, locked } = await filterAllowedReferencePaths(paths, access, new URL(request.url).origin);

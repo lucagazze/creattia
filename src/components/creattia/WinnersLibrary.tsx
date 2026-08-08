@@ -8,6 +8,16 @@ import { canAccessVideoFeature } from '../../lib/creattia/video-access';
 import CreationFlow from './CreationFlow';
 import VideoCreationFlow from './VideoCreationFlow';
 import { useReferenceUrls } from '../../lib/creattia/reference-urls';
+import { imagenFallada, imagenLista as imagenListaParaMostrar, precargarImagenes, usePrefijoListo } from '../../lib/creattia/image-ready';
+
+/**
+ * Tamaño del bloque de la grilla.
+ *
+ * Es a la vez cuántas tarjetas entran de una y cuántas se preparan por delante:
+ * las dos cosas tienen que ir juntas para que al llegar al final del scroll el
+ * bloque siguiente ya esté decodificado y entre sin espera.
+ */
+const BLOQUE = 20;
 
 function Icon({ name, size = 20, fill = 'none' }: { name: string; size?: number; fill?: string }) {
 	const common = { width: size, height: size, viewBox: '0 0 24 24', fill, stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
@@ -532,8 +542,8 @@ export default function WinnersLibrary({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [items, savedOnly, selectedFormat, selectedCategories, query, likedScrapedPaths, favorites]);
 
-	// Lazy load: primeras 20 tarjetas y +20 al acercarse al final del scroll.
-	const [visibleCount, setVisibleCount] = useState(20);
+	// Lazy load: primer bloque de tarjetas y otro más al acercarse al final.
+	const [visibleCount, setVisibleCount] = useState(BLOQUE);
 	const [lockedVisibleCount, setLockedVisibleCount] = useState(8);
 	/**
 	 * Evita pedir dos bloques a la vez mientras React todavía no renderizó.
@@ -550,7 +560,7 @@ export default function WinnersLibrary({
 	}, [visibleCount, lockedVisibleCount]);
 	useEffect(() => {
 		loadMoreLock.current = false;
-		setVisibleCount(20);
+		setVisibleCount(BLOQUE);
 		setLockedVisibleCount(8);
 	}, [selectedCategories, selectedFormat, savedOnly, query]);
 
@@ -581,19 +591,20 @@ export default function WinnersLibrary({
 		[selectedLockedAngles, libraryAccess.lockedByAngle]
 	);
 	const hasMoreItems = visibleCount < filteredItems.length || lockedVisibleCount < lockedTotalForSelection;
-	const loadMore = useCallback(() => {
-		if (loadMoreLock.current) return;
-		if (visibleCount < filteredItems.length) {
-			loadMoreLock.current = true;
-			setVisibleCount((current) => Math.min(current + 20, filteredItems.length));
-			return;
-		}
-		if (lockedVisibleCount < lockedTotalForSelection) {
-			loadMoreLock.current = true;
-			setLockedVisibleCount((current) => Math.min(current + 20, lockedTotalForSelection));
-		}
-	}, [filteredItems.length, lockedTotalForSelection, lockedVisibleCount, visibleCount]);
-	const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
+	/**
+	 * Lo que se PIDE, con un tramo de adelanto.
+	 *
+	 * Se firmaba y se bajaba exactamente lo que estaba en pantalla, así que al
+	 * llegar al final del scroll no había nada preparado: recién ahí arrancaba el
+	 * pedido de firmas y después la bajada de las imágenes, y hasta que terminaba
+	 * la grilla se quedaba quieta. Pidiendo un bloque por delante, cuando llegás
+	 * abajo las imágenes del bloque siguiente ya están decodificadas y entran de
+	 * inmediato.
+	 */
+	const pedidoItems = useMemo(
+		() => filteredItems.slice(0, Math.min(visibleCount + BLOQUE, filteredItems.length)),
+		[filteredItems, visibleCount],
+	);
 	// El catálogo completo llega sin firmar (son más de 6.500 rutas): se piden
 	// las URLs de las tarjetas que se están viendo, y del carrusel abierto.
 	/**
@@ -623,10 +634,56 @@ export default function WinnersLibrary({
 	 * son unas pocas y llegan enseguida.
 	 */
 	const signedUrls = useReferenceUrls(useMemo(() => {
-		const portadas = visibleItems.map((item: any) => item.imagePath);
+		const portadas = pedidoItems.map((item: any) => item.imagePath);
 		const abierto = activeAd ? [activeAd.imagePath, ...((activeAd as any).metadata?.carouselImages || [])] : [];
 		return [...portadas, ...abierto];
-	}, [visibleItems, activeAd]));
+	}, [pedidoItems, activeAd]));
+
+	/**
+	 * Las tarjetas entran cuando su imagen ya está pintada, y en orden.
+	 *
+	 * `usePrefijoListo` devuelve hasta dónde se puede renderizar sin que nada
+	 * salte: solo el tramo inicial cuyas imágenes están decodificadas. Una tarjeta
+	 * suelta más adelante no se cuela, porque aparecer en el medio movería de
+	 * lugar lo que ya estás mirando.
+	 *
+	 * Las que fallaron cuentan como resueltas y quedan fuera del render: una
+	 * imagen rota no puede frenar a las 1.300 que vienen detrás.
+	 */
+	const urlDeItem = useCallback(
+		(item: any) => (item?.imageUrl || (item?.imagePath?.startsWith('http') ? item.imagePath : signedUrls[item?.imagePath] || '')),
+		[signedUrls],
+	);
+	const urlsPedidas = useMemo(() => pedidoItems.map(urlDeItem), [pedidoItems, urlDeItem]);
+	const listasHasta = usePrefijoListo(urlsPedidas, BLOQUE);
+	const visibleItems = useMemo(
+		() => pedidoItems.slice(0, Math.min(listasHasta, visibleCount)).filter((item: any) => !imagenFallada(urlDeItem(item))),
+		[pedidoItems, listasHasta, visibleCount, urlDeItem],
+	);
+	/** Todavía falta que baje alguna imagen del tramo pedido. */
+	const cargandoImagenes = listasHasta < Math.min(visibleCount, filteredItems.length);
+
+	/**
+	 * Pedir el bloque siguiente, nunca antes de que entre el actual.
+	 *
+	 * El centinela vive al final de lo que está renderizado. Mientras un bloque
+	 * todavía se está bajando, lo renderizado es corto y el centinela queda a la
+	 * vista, así que sin este freno el scroll infinito seguiría pidiendo bloques
+	 * en cadena hasta encolar la biblioteca entera —miles de firmas y miles de
+	 * imágenes— para mostrar veinte.
+	 */
+	const loadMore = useCallback(() => {
+		if (loadMoreLock.current || cargandoImagenes) return;
+		if (visibleCount < filteredItems.length) {
+			loadMoreLock.current = true;
+			setVisibleCount((current) => Math.min(current + BLOQUE, filteredItems.length));
+			return;
+		}
+		if (lockedVisibleCount < lockedTotalForSelection) {
+			loadMoreLock.current = true;
+			setLockedVisibleCount((current) => Math.min(current + BLOQUE, lockedTotalForSelection));
+		}
+	}, [cargandoImagenes, filteredItems.length, lockedTotalForSelection, lockedVisibleCount, visibleCount]);
 	// Precarga las páginas de cada carrusel visible: así las flechas cambian de
 	// imagen al instante en vez de esperar a que baje cada foto de a una.
 	//
@@ -641,12 +698,9 @@ export default function WinnersLibrary({
 		if (!Array.isArray(slides) || slides.length < 2) return;
 		// El bucket es privado: las URLs las firma el servidor.
 		const urlFor = (path: string) => (path.startsWith('http') ? path : signedUrls[path] || '');
-		slides.slice(1).forEach((path: string) => {
-			const url = urlFor(path);
-			if (!url) return;
-			const img = new Image();
-			img.src = url;
-		});
+		// Urgentes: el usuario ya tiene ese anuncio abierto y puede tocar la flecha
+		// en cualquier momento. Pasan adelante de la cola de la grilla.
+		precargarImagenes(slides.slice(1).map(urlFor), true);
 	}, [activeAd, signedUrls]);
 	const lockedItems = useMemo<WinnerItem[]>(() => {
 		if (!selectedLockedAngles.length || !lockedVisibleCount) return [];
@@ -1215,18 +1269,9 @@ export default function WinnersLibrary({
 						const isVideo = item.metadata?.mediaType === 'video';
 						const urlFor = (path: string) => (path.startsWith('http') ? path : signedUrls[path] || '');
 						const imageUrl = item.imageUrl || urlFor(item.imagePath);
-						/**
-						 * Mientras no llegó la URL firmada, la tarjeta ocupa su lugar.
-						 *
-						 * Antes se devolvía null: el bloque de 20 no renderizaba NADA hasta
-						 * que volvían las firmas y ahí aparecían las 20 de golpe, empujando
-						 * la grilla. Eso es el tirón al scrollear. Con un hueco del alto
-						 * aproximado de una tarjeta, la grilla crece cuando entra el bloque
-						 * y cada imagen aparece sobre su propio lugar, sin mover el resto.
-						 */
-						if (!imageUrl) return (
-							<article key={item.imagePath || idx} className="library-card-esqueleto" aria-hidden="true" />
-						);
+						// Acá solo llegan tarjetas cuya portada ya está decodificada: el
+						// filtro está en `visibleItems`, no en el render.
+						if (!imageUrl) return null;
 
 						// Carrusel: varias páginas para navegar dentro de la misma tarjeta.
 						const slides = item.metadata?.mediaType === 'carousel' && Array.isArray(item.metadata.carouselImages) && item.metadata.carouselImages.length > 1
@@ -1438,9 +1483,14 @@ export default function WinnersLibrary({
 									<img
 										src={slideUrl}
 										alt={item.name}
-										className="library-card-imagen"
+										/* La portada ya está decodificada cuando la tarjeta se
+										   monta, así que entra visible: esperar un `onLoad` que
+										   ya ocurrió dejaba la imagen en opacidad 0. Las páginas
+										   de un carrusel sí pueden no estar todavía, y para esas
+										   el fundido se activa al cargar. */
+										className={`library-card-imagen${imagenListaParaMostrar(slideUrl) ? ' cargada' : ''}`}
 										style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }}
-										loading={idx < 2 ? 'eager' : 'lazy'}
+										loading="eager"
 										decoding="async"
 										onLoad={(event) => event.currentTarget.classList.add('cargada')}
 										onError={(event) => {
@@ -1512,10 +1562,23 @@ export default function WinnersLibrary({
 					})}
 					</React.Fragment>
 					))}
+					{/* Los esqueletos van al final de la grilla, que es el único lugar
+					    donde crecer no empuja nada de lo que ya estás mirando: cuando el
+					    bloque termina de bajar, las tarjetas ocupan ese espacio ya con su
+					    imagen y con su altura final. */}
+					{cargandoImagenes && Array.from({ length: columnCount }, (_, hueco) => (
+						<article key={`esqueleto-${hueco}`} className="library-card-esqueleto" aria-hidden="true" />
+					))}
 				</div>
+				{cargandoImagenes && (
+					<p className="library-cargando-aviso" role="status">
+						<span className="studio-spinner" style={{ width: '15px', height: '15px', borderWidth: '2px' }} />
+						Preparando las imágenes…
+					</p>
+				)}
 				{hasMoreItems && (
 					<div ref={loadMoreRef} style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
-						<span className="studio-spinner" style={{ width: '22px', height: '22px' }} />
+						{!cargandoImagenes && <span className="studio-spinner" style={{ width: '22px', height: '22px' }} />}
 					</div>
 				)}
 			</>

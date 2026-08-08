@@ -18,7 +18,6 @@ const PREVIEW_PER_ANGLE = 5;
  * demorar la carga del inicio. Con 50 cubre la muestra gratuita entera.
  */
 const DISCOVER_DECK = 50;
-const PAID_PLAN_CODES = new Set(['creator', 'pro', 'scale', 'agency']);
 const STATIC_MEDIA_TYPES = new Set(['static_image', 'carousel']);
 
 /**
@@ -153,7 +152,10 @@ export const GET: APIRoute = async ({ request }) => {
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 
 	const access = await getEffectiveAccess(admin, auth.user.id, auth.user.email);
-	const isPaid = access.isPaidLibrary || (PAID_PLAN_CODES.has(access.planCode) && access.subscriptionStatus === 'authorized');
+	// Una sola definición de "esta cuenta ve la biblioteca completa", la de
+	// `getEffectiveAccess`. La copia que había acá repetía la regla vieja
+	// —`status === 'authorized'`— y podía quedar desincronizada de la real.
+	const isPaid = access.isPaidLibrary;
 	const isDiscoverPreview = new URL(request.url).searchParams.get('discover') === '1';
 	let allItems: any[];
 	try {

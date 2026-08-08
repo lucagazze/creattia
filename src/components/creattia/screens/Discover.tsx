@@ -1,9 +1,20 @@
 import { triggerConfetti } from '../../../lib/creattia/confetti';
+import { imagenFallada, imagenLista, precargarImagenes, useAvisoDeCarga } from '../../../lib/creattia/image-ready';
 import { useReferenceUrls } from '../../../lib/creattia/reference-urls';
 import { sfx } from '../../../lib/creattia/sfx';
 import { Icon } from '../Icon';
 import { useEffect, useRef, useState } from 'react';
 /** Descubrimiento: grilla dopamínica de 4 ganadores y el modo swipe completo. */
+
+/**
+ * Cuántas tarjetas del pozo se dejan listas por adelantado.
+ *
+ * El mazo se reponía con la tarjeta siguiente sin más, y su imagen empezaba a
+ * bajar en ese momento: entraba una tarjeta vacía que se llenaba un segundo
+ * después. Con un colchón preparado, cada vez que descartás una la que ocupa su
+ * lugar ya está decodificada y aparece completa.
+ */
+const COLCHON = 8;
 
 export function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onSeen }: { pool: any[]; likedPaths: Set<string>; onLike: (path: string) => void; onUse: (path: string) => void; onOpenSwipe: () => void; onSeen?: (path: string) => void }) {
 	const [dealt, setDealt] = useState<{ cards: any[]; cursor: number }>({ cards: [], cursor: 0 });
@@ -13,21 +24,42 @@ export function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onS
 	// El bucket de referencias es privado: las URLs se piden firmadas al servidor.
 	const signedUrls = useReferenceUrls(pool.map((item: any) => item.imagePath));
 
+	function resolveUrl(item: any) {
+		return item?.imageUrl || signedUrls[item?.imagePath] || '';
+	}
+
+	/**
+	 * El pozo, ya con sus imágenes pintadas.
+	 *
+	 * Se repartían las cuatro primeras del pozo apenas llegaba la lista, con las
+	 * imágenes todavía en camino: la sección aparecía como cuatro marcos vacíos
+	 * que se iban llenando de a uno. Ahora solo entran al mazo las que están
+	 * decodificadas, y se prepara un colchón por delante para que la reposición
+	 * después de cada elección sea instantánea.
+	 */
+	useAvisoDeCarga();
+	const listas = pool.filter((item: any) => imagenLista(resolveUrl(item)));
+	useEffect(() => {
+		const objetivo = pool.slice(0, dealt.cursor + COLCHON).map(resolveUrl).filter(Boolean);
+		precargarImagenes(objetivo);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [pool, signedUrls, dealt.cursor]);
+
 	// El mazo se rearma cuando llega el pozo o cuando cambia de contenido. Antes
 	// solo se repartía la primera vez, así que al llegar el catálogo completo
 	// —que tarda más que la muestra— las cuatro tarjetas iniciales quedaban fijas.
 	useEffect(() => {
-		if (!pool.length) return;
+		if (listas.length < 4) return;
 		setDealt((previo) => {
 			const vigentes = previo.cards.filter(Boolean);
 			if (vigentes.length) return previo;
-			return { cards: pool.slice(0, 4), cursor: 4 };
+			return { cards: listas.slice(0, 4), cursor: 4 };
 		});
-	}, [pool]);
-
-	function resolveUrl(item: any) {
-		return item.imageUrl || signedUrls[item.imagePath] || '';
-	}
+		// `listas` se recalcula en cada render: depender del array entero volvería a
+		// correr esto siempre. Lo único que puede habilitar el reparto es que haya
+		// más imágenes listas.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [listas.length]);
 
 	function replaceCard(path: string, direction: 'left' | 'right') {
 		setLeaving((previous) => ({ ...previous, [path]: direction }));
@@ -36,11 +68,16 @@ export function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onS
 				// Al llegar al final se vuelve al principio del pozo en vez de dejar
 				// huecos: antes la carta siguiente era `undefined`, se filtraba, y el
 				// mazo se iba vaciando hasta que la sección entera desaparecía.
+				//
+				// Se repone desde las que YA están listas: si todavía no hay ninguna
+				// preparada se usa el pozo completo, que es peor pero nunca deja un
+				// hueco en la grilla.
+				const fuente = listas.length > 4 ? listas : pool;
 				const enMazo = new Set(previous.cards.filter(Boolean).map((card: any) => card.imagePath));
 				let cursor = previous.cursor;
 				let siguiente = null;
-				for (let intentos = 0; intentos < pool.length && !siguiente; intentos += 1) {
-					const candidato = pool[cursor % pool.length];
+				for (let intentos = 0; intentos < fuente.length && !siguiente; intentos += 1) {
+					const candidato = fuente[cursor % fuente.length];
 					cursor += 1;
 					if (candidato && candidato.imagePath !== path && !enMazo.has(candidato.imagePath)) siguiente = candidato;
 				}
@@ -69,7 +106,14 @@ export function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onS
 		replaceCard(item.imagePath, flyDirection);
 	}
 
-	if (!dealt.cards.length) return null;
+	/**
+	 * El encabezado se muestra desde el primer momento, con esqueletos debajo.
+	 *
+	 * Antes la sección entera no existía hasta tener las cuatro tarjetas: el
+	 * inicio se dibujaba sin ella y después aparecía de golpe, empujando todo lo
+	 * que había abajo. Reservar el lugar cuesta nada y saca ese salto.
+	 */
+	const repartidas = dealt.cards.length ? dealt.cards : [];
 
 	return (
 		<>
@@ -80,8 +124,13 @@ export function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onS
 				</div>
 				<button className="studio-primary-button compact" style={{ width: 'auto', height: '38px', fontSize: '13px', padding: '0 16px', whiteSpace: 'nowrap', flexShrink: 0 }} onClick={onOpenSwipe}><Icon name="plus" size={15}/><span className="discover-create-full">Crear imagen</span><span className="discover-create-short">Crear</span></button>
 			</div>
+			{!repartidas.length && (
+				<div className="discover-grid" aria-hidden="true">
+					{[0, 1, 2, 3].map((hueco) => <div key={hueco} className="discover-card-esqueleto" />)}
+				</div>
+			)}
 			<div className="discover-grid">
-				{dealt.cards.map((item) => {
+				{repartidas.map((item) => {
 					const exit = leaving[item.imagePath];
 					const saved = likedPaths.has(item.imagePath);
 					const drag = dragX && dragX.path === item.imagePath ? dragX.x : null;
@@ -129,7 +178,9 @@ export function DiscoverGrid({ pool, likedPaths, onLike, onUse, onOpenSwipe, onS
 									transition: drag !== null ? 'none' : 'transform .18s ease',
 								}}
 							>
-								<img src={resolveUrl(item)} alt={item.name || ''} loading="lazy" draggable={false} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
+								{/* Ya está decodificada: la tarjeta no se reparte hasta que lo
+								    esté, así que `lazy` solo agregaría un frame de retraso. */}
+								<img src={resolveUrl(item)} alt={item.name || ''} loading="eager" decoding="async" draggable={false} style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }} />
 								<span style={{ position: 'absolute', top: '16px', left: '14px', zIndex: 4, padding: '6px 12px', borderRadius: '9px', border: '3px solid #16a34a', color: '#16a34a', fontWeight: 900, fontSize: '15px', letterSpacing: '.05em', transform: 'rotate(-12deg)', background: 'rgba(255,255,255,0.88)', opacity: drag !== null ? Math.min(1, Math.max(0, -drag / 90)) : 0, pointerEvents: 'none' }}>ME GUSTA</span>
 								<span style={{ position: 'absolute', top: '16px', right: '14px', zIndex: 4, padding: '6px 12px', borderRadius: '9px', border: '3px solid #dc2626', color: '#dc2626', fontWeight: 900, fontSize: '15px', letterSpacing: '.05em', transform: 'rotate(12deg)', background: 'rgba(255,255,255,0.88)', opacity: drag !== null ? Math.min(1, Math.max(0, drag / 90)) : 0, pointerEvents: 'none' }}>PASO</span>
 							</div>
@@ -154,13 +205,47 @@ export function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved 
 	const [lastAction, setLastAction] = useState<{ index: number; liked: boolean } | null>(null);
 	const startRef = useRef<{ x: number; y: number } | null>(null);
 	const signedUrls = useReferenceUrls(pool.map((item: any) => item.imagePath));
-
-	const remaining = pool.slice(index, index + 3);
-	const current = remaining[0];
+	useAvisoDeCarga();
 
 	function resolveUrl(item: any) {
-		return item.imageUrl || signedUrls[item.imagePath] || '';
+		return item?.imageUrl || signedUrls[item?.imagePath] || '';
 	}
+
+	/**
+	 * El colchón se mantiene por delante de donde estás.
+	 *
+	 * Deslizar tiene que poder ir más rápido que la red: se preparan las próximas
+	 * doce y son urgentes, porque esto es lo único que la persona está mirando.
+	 */
+	useEffect(() => {
+		precargarImagenes(pool.slice(index, index + COLCHON + 4).map(resolveUrl).filter(Boolean), true);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [pool, signedUrls, index]);
+
+	/**
+	 * El índice avanza sobre el pozo, no sobre "las que están listas".
+	 *
+	 * Filtrar el pozo por imágenes decodificadas parece más simple, pero la lista
+	 * filtrada CRECE a medida que bajan las imágenes: el mismo índice pasaría a
+	 * apuntar a otra tarjeta y verías repetidas o te saltearías algunas. Con el
+	 * orden del pozo fijo, lo único que cambia es si la tarjeta de este índice ya
+	 * se puede pintar.
+	 *
+	 * Las que fallaron se saltean solas: una imagen rota no puede dejar el mazo
+	 * trabado esperándola.
+	 */
+	useEffect(() => {
+		const actual = pool[index];
+		if (actual && imagenFallada(resolveUrl(actual))) setIndex((previo) => previo + 1);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [pool, index, signedUrls]);
+
+	const remaining = pool.slice(index, index + 3);
+	const enTurno = remaining[0];
+	const listaParaMostrar = imagenLista(resolveUrl(enTurno));
+	const current = listaParaMostrar ? enTurno : undefined;
+	// Hay tarjeta pero su imagen todavía baja: es carga, no "viste todas".
+	const preparando = Boolean(enTurno) && !listaParaMostrar;
 
 	// La acción (like/pass) y la dirección en la que vuela la tarjeta son cosas
 	// distintas: los botones siempre vuelan para su lado de siempre, pero el
@@ -238,7 +323,14 @@ export function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved 
 				<p style={{ margin: 0, fontSize: '14px', color: '#716d79' }}>Izquierda para guardar · derecha para pasar · ⚡ para usarlo ya</p>
 			</div>
 
-			{!current ? (
+			{preparando ? (
+				/* Se mantiene el marco de la tarjeta con el mismo tamaño: cuando la
+				   imagen entra, ocupa exactamente este lugar y nada se mueve. */
+				<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+					<div className="discover-card-esqueleto" style={{ width: 'min(430px, 92vw)', height: 'min(560px, 64vh)', borderRadius: '20px' }} />
+					<p style={{ margin: '18px 0 0', fontSize: '13px', color: '#8b8490', fontWeight: 700 }}>Preparando los ganadores…</p>
+				</div>
+			) : !current ? (
 				<div style={{ textAlign: 'center', padding: '60px 20px' }}>
 					<p style={{ fontSize: '38px', margin: '0 0 10px' }}>🎉</p>
 					<h2 style={{ margin: '0 0 8px', fontSize: '20px', color: '#19171d' }}>¡Viste todos los de hoy!</h2>
@@ -248,8 +340,11 @@ export function DiscoverPage({ pool, likedPaths, onLike, onUse, onBack, onSaved 
 			) : (
 				<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 					<div style={{ position: 'relative', width: 'min(430px, 92vw)', height: 'min(560px, 64vh)', touchAction: 'pan-y' }}>
-						{remaining.slice(1).reverse().map((item, stackIndex) => {
-							const depth = remaining.length - 1 - stackIndex;
+						{/* Las de atrás solo se asoman por el borde: si su imagen todavía
+						    no está, se omiten en vez de dibujar un rectángulo vacío que
+						    se nota detrás de la tarjeta de arriba. */}
+						{remaining.slice(1).filter((item: any) => imagenLista(resolveUrl(item))).reverse().map((item, stackIndex, listaAtras) => {
+							const depth = listaAtras.length - stackIndex;
 							return (
 								<img
 									key={item.imagePath}

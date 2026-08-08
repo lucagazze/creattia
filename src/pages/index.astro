@@ -773,46 +773,12 @@ const faqs = [
 			<p>© 2026 Creattia. Todos los derechos reservados.</p>
 		</div>
 	</footer>
-<script is:inline>
-	// Mismo aviso que en la app: si el teléfono pide "sitio para computadora", el
-	// navegador ignora el viewport y dibuja a ~980px. Se ve todo diminuto y hay
-	// que arrastrar la pantalla de costado, pero no hay nada roto. Desde el
-	// código no se puede desactivar, así que al menos se explica qué pasa.
-	(function () {
-		var fisica = Math.min(screen.width || 0, screen.height || 0);
-		if (!(fisica > 0 && fisica <= 500 && window.innerWidth >= 900)) return;
-		try { if (localStorage.getItem('creattia-aviso-escritorio') === 'visto') return; } catch (e) {}
-		var caja = document.createElement('div');
-		caja.className = 'aviso-escritorio';
-		caja.setAttribute('role', 'status');
-		caja.innerHTML = '<div><strong>Estás viendo la versión de computadora</strong>'
-			+ '<span>Tu navegador tiene activado <b>“Sitio para computadora”</b>. Desactivalo y la página se acomoda a tu pantalla: en Chrome está en el menú <b>⋮</b>, en Safari en <b>aA</b> → “Solicitar sitio para móviles”.</span></div>'
-			+ '<button type="button">Entendido</button>';
-		caja.querySelector('button').addEventListener('click', function () {
-			try { localStorage.setItem('creattia-aviso-escritorio', 'visto'); } catch (e) {}
-			caja.remove();
-		});
-		document.body.appendChild(caja);
-	})();
-</script>
-
-<style is:global>
-	.aviso-escritorio {
-		position: fixed; z-index: 300; left: 12px; right: 12px; bottom: 12px;
-		display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-		padding: 14px 16px; border-radius: 14px;
-		background: #19171d; color: #fff; font-family: inherit;
-		box-shadow: 0 18px 45px rgba(15, 11, 18, .35);
-	}
-	.aviso-escritorio > div { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 4px; }
-	.aviso-escritorio strong { font-size: 14px; }
-	.aviso-escritorio span { font-size: 12.5px; line-height: 1.5; color: #cfc9d6; }
-	.aviso-escritorio b { color: #fff; font-weight: 700; }
-	.aviso-escritorio button {
-		flex: 0 0 auto; min-height: 38px; padding: 0 16px; border: 0; border-radius: 10px;
-		background: #fff; color: #19171d; font-size: 13px; font-weight: 800; cursor: pointer;
-	}
-</style>
+{/* El aviso de "sitio para computadora" se mudó al layout, que lo pone en todas
+    las páginas. Acá había una segunda copia con su propio HTML y sus propios
+    estilos: al unificarlo, esta habría dibujado un segundo cartel encima del
+    otro en la landing. Además guardaba el "entendido" en localStorage, o sea
+    para siempre — quien lo cerró una vez sin entenderlo se quedaba con la
+    página ilegible y sin forma de volver a leer cómo arreglarlo. */}
 
 <script is:inline>
 	// Zoom desactivado en la landing.
@@ -3648,15 +3614,6 @@ const faqs = [
 		white-space: nowrap;
 	}
 
-	/* En pantallas angostas el título no puede seguir en una sola línea.
-	   "+3000 anuncios ganadores" a 28px mide 331px: en un teléfono de 320
-	   quedaba la última letra afuera y había que arrastrar toda la página de
-	   costado para leerla. Debajo de 400px se deja que corte solo. */
-	@media (max-width: 400px) {
-		.hero-title span { white-space: normal; }
-		.hero-title { font-size: clamp(26px, 7.5vw, 38px); }
-	}
-
 	.hero-primary-cta {
 		justify-content: center;
 		min-width: 248px;
@@ -3775,12 +3732,28 @@ const faqs = [
 	}
 
 	@media (max-width: 620px) {
+		/* ── El h1 en el teléfono: dos líneas, enteras, sin desbordar ───────────
+		   Estaba en `clamp(28px, 8.2vw, 44px)` con `white-space: nowrap`, y esta
+		   regla venía DESPUÉS de la de 400px en la hoja: en un teléfono los dos
+		   media queries coinciden, y con la misma especificidad gana la última.
+		   O sea que el ajuste para pantallas angostas no se aplicaba nunca.
+
+		   En un iPhone de 390px eso daba 32px sin permiso para cortar, y
+		   "+3000 anuncios ganadores" a ese tamaño no entra en los 350px útiles:
+		   la última palabra se iba de la pantalla y había que arrastrar la página
+		   de costado. Es exactamente lo que se veía.
+
+		   El tamaño ahora se deriva del ancho disponible en vez de fijarse a ojo:
+		   la línea larga son ~11.7 caracteres de ancho tipográfico, así que a
+		   7vw entra con margen en 360px y sigue grande en 620px. El tope de 34px
+		   evita que crezca de más justo antes del breakpoint. */
 		.hero-title {
-			font-size: clamp(28px, 8.2vw, 44px);
-			line-height: 1.02;
-			letter-spacing: -0.055em;
+			font-size: clamp(23px, 7vw, 34px);
+			line-height: 1.06;
+			letter-spacing: -0.045em;
 		}
 
+		/* Se mantiene en dos líneas: cada `span` es una línea y no se corta. */
 		.hero-title span {
 			white-space: nowrap;
 		}

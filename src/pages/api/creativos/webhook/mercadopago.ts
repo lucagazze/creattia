@@ -209,8 +209,6 @@ export const POST: APIRoute = async ({ request, url }) => {
 		if (!currentProfile) return json({ received: true, ignored: 'perfil inexistente' });
 
 		const nextPeriod = subscription.next_payment_date || null;
-		const periodChanged = Boolean(nextPeriod && nextPeriod !== currentProfile.subscription_period_end);
-		const shouldRefill = currentProfile.subscription_status !== 'authorized' || periodChanged;
 		const monthlyCredits = planCredits[planCode] * (yearly ? 12 : 1);
 		const now = new Date().toISOString();
 		const { error: subscriptionError } = await admin.from('creative_subscriptions').upsert({
@@ -225,8 +223,28 @@ export const POST: APIRoute = async ({ request, url }) => {
 			updated_at: now,
 		}, { onConflict: 'user_id,provider' });
 		if (subscriptionError) return fail('mercadopago-webhook', subscriptionError, 'No se pudo procesar la notificación.');
+
+		/**
+		 * Un cobro, una recarga. La factura es la que manda, no las fechas.
+		 *
+		 * Acá se decidía recargar comparando `next_payment_date` con la fecha
+		 * guardada: si había cambiado, se entendía que era un mes nuevo. El problema
+		 * es que esa fecha la actualiza Mercado Pago de su lado y no hay ninguna
+		 * garantía de que ya lo haya hecho cuando llega el aviso del cobro. Si el
+		 * webhook entra antes, la fecha vuelve igual, `periodChanged` da falso, el
+		 * estado ya era 'authorized' — y el usuario paga el mes y NO recibe sus
+		 * tokens. Peor todavía: el registro del pago se guardaba con `upsert`, así
+		 * que el reintento de Mercado Pago recalculaba lo mismo y el mes se perdía
+		 * para siempre, sin ningún error en ningún lado.
+		 *
+		 * El identificador de la factura ya es clave primaria de esta tabla, así que
+		 * sirve de llave natural: si el `insert` entra, este cobro es nuevo y hay que
+		 * acreditar; si choca con la clave (23505), ya se acreditó y se ignora. Es la
+		 * misma mecánica que usa la compra suelta de créditos, que nunca dio
+		 * problemas.
+		 */
 		const payment = invoice.payment || {};
-		const { error: paymentLogError } = await admin.from('creative_subscription_payments').upsert({
+		const { error: paymentLogError } = await admin.from('creative_subscription_payments').insert({
 			payment_id: String(dataId),
 			user_id: userId,
 			provider_subscription_id: String(subscription.id || preapprovalId),
@@ -237,7 +255,22 @@ export const POST: APIRoute = async ({ request, url }) => {
 			paid_at: payment.date_approved || payment.date_created || now,
 			metadata: { paymentType: invoice.payment_type_id || null, statusDetail: payment.status_detail || null },
 		});
-		if (paymentLogError && paymentLogError.code !== '42P01') return fail('mercadopago-webhook', paymentLogError, 'No se pudo procesar la notificación.');
+		const cobroYaAcreditado = paymentLogError?.code === '23505';
+		const sinTablaDePagos = paymentLogError?.code === '42P01';
+		if (paymentLogError && !cobroYaAcreditado && !sinTablaDePagos) {
+			return fail('mercadopago-webhook', paymentLogError, 'No se pudo procesar la notificación.');
+		}
+
+		/**
+		 * Sin la tabla de pagos —despliegue a medias, migración sin aplicar— se
+		 * vuelve al criterio viejo de las fechas. Es peor, pero es lo único que
+		 * queda, y es preferible a no acreditar nada.
+		 */
+		const periodChanged = Boolean(nextPeriod && nextPeriod !== currentProfile.subscription_period_end);
+		const shouldRefill = sinTablaDePagos
+			? (currentProfile.subscription_status !== 'authorized' || periodChanged)
+			: !cobroYaAcreditado;
+		if (cobroYaAcreditado) return json({ received: true, duplicated: true });
 
 		const profileUpdate: Record<string, string | number | null> = {
 			subscription_status: 'authorized',
@@ -255,6 +288,20 @@ export const POST: APIRoute = async ({ request, url }) => {
 			.update(profileUpdate).eq('user_id', userId).select('user_id').maybeSingle();
 		if (profileUpdateError) return fail('mercadopago-webhook', profileUpdateError, 'No se pudo actualizar el perfil.', 500, userId);
 		if (!updatedProfile) return json({ received: true, ignored: 'perfil inexistente' });
+		// Cobro de suscripción confirmado: es una compra y se reporta como tal. El
+		// id de la factura hace de clave del evento, así que un reintento del
+		// webhook no la cuenta dos veces.
+		void trackEvent(admin, 'suscripcion_pagada', userId, {
+			plan: planCode, ciclo: yearly ? 'anual' : 'mensual', renovacion: true, paymentId: String(dataId),
+		}, {
+			valor: Number(payment.transaction_amount) || 0,
+			moneda: payment.currency_id || 'USD',
+			// El mail se manda hasheado y mejora mucho la atribución: sin ningún
+			// identificador del comprador, Meta cuenta la compra pero no la puede
+			// asociar a quien vio el anuncio.
+			email: payment.payer?.email || subscription.payer_email || null,
+			plan: planCode,
+		});
 		return json({ received: true, refilled: shouldRefill ? monthlyCredits : 0 });
 	}
 
@@ -292,7 +339,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 		}
 		const nextPeriod = subscription.next_payment_date || null;
 		const { data: currentProfile, error: profileReadError } = await admin.from('creative_profiles')
-			.select('subscription_status,subscription_period_end')
+			.select('subscription_status,subscription_period_end,plan_code')
 			.eq('user_id', userId).maybeSingle();
 		if (profileReadError) return fail('mercadopago-webhook', profileReadError, 'No se pudo leer el perfil.', 500, userId);
 		// Sin perfil no hay nada que actualizar, y no es un error nuestro: pasa con
@@ -305,14 +352,23 @@ export const POST: APIRoute = async ({ request, url }) => {
 		const shouldRefill = status === 'authorized' && (currentProfile?.subscription_status !== 'authorized' || periodChanged);
 		// Anual: se acreditan los 12 meses juntos en cada renovación anual.
 		const monthlyCredits = planCredits[planCode] * (yearly ? 12 : 1);
+		/**
+		 * La fecha de fin solo se pisa cuando llega una nueva.
+		 *
+		 * Al cancelar, Mercado Pago deja de informar `next_payment_date`. Esto
+		 * escribía ese null encima de la fecha guardada y borraba justo el dato del
+		 * que depende todo: hasta cuándo sigue valiendo el mes que la persona YA
+		 * pagó. Se quedaba sin biblioteca el mismo día que canceló, después de que
+		 * la pantalla de baja le prometiera lo contrario.
+		 */
 		const profileUpdate: Record<string, string | number | null> = {
 			subscription_status: status,
 			plan_code: planCode,
 			credits_monthly: monthlyCredits,
-			subscription_period_end: nextPeriod,
 			mercado_pago_subscription_id: subscription.id,
 			updated_at: new Date().toISOString(),
 		};
+		if (nextPeriod) profileUpdate.subscription_period_end = nextPeriod;
 		if (shouldRefill) {
 			profileUpdate.credits_remaining = monthlyCredits;
 			profileUpdate.last_credit_refill_at = new Date().toISOString();
@@ -324,7 +380,9 @@ export const POST: APIRoute = async ({ request, url }) => {
 			plan_code: planCode,
 			status,
 			monthly_credits: monthlyCredits,
-			current_period_end: nextPeriod,
+			// Mismo criterio que el perfil: no borrar la fecha con el null que manda
+			// Mercado Pago cuando la suscripción se da de baja.
+			current_period_end: nextPeriod || currentProfile?.subscription_period_end || null,
 			last_event_id: String(dataId),
 			updated_at: new Date().toISOString(),
 		}, { onConflict: 'user_id,provider' });
@@ -333,6 +391,24 @@ export const POST: APIRoute = async ({ request, url }) => {
 			.update(profileUpdate).eq('user_id', userId).select('user_id').maybeSingle();
 		if (profileUpdateError) return fail('mercadopago-webhook', profileUpdateError, 'No se pudo actualizar el perfil.', 500, userId);
 		if (!updatedProfile) return json({ received: true, ignored: 'perfil inexistente' });
+		/**
+		 * La primera autorización de la suscripción: acá es donde se convierte.
+		 *
+		 * Solo cuando pasa a `authorized` y es la primera vez —`shouldRefill`, el
+		 * mismo criterio con el que se acreditan los créditos—, así que las
+		 * notificaciones repetidas del mismo estado no reportan una compra nueva.
+		 * El monto sale de la suscripción, que es lo que Mercado Pago va a cobrar.
+		 */
+		if (status === 'authorized' && shouldRefill) {
+			void trackEvent(admin, 'suscripcion_pagada', userId, {
+				plan: planCode, ciclo: yearly ? 'anual' : 'mensual', renovacion: false, paymentId: String(subscription.id || dataId),
+			}, {
+				valor: Number(subscription.auto_recurring?.transaction_amount) || 0,
+				moneda: subscription.auto_recurring?.currency_id || 'USD',
+				email: subscription.payer_email || null,
+				plan: planCode,
+			});
+		}
 	}
 
 	return json({ received: true });

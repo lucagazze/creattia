@@ -56,6 +56,10 @@ const ESTANDAR: Partial<Record<ProductEvent, string>> = {
 	planes_vistos: 'ViewContent',
 	checkout_abierto: 'InitiateCheckout',
 	tokens_comprados: 'Purchase',
+	// La suscripción va como Purchase y no como el evento `Subscribe` de Meta:
+	// Purchase es el que las campañas usan para optimizar y el que acumula valor
+	// junto con las compras de créditos, que es el ingreso total del negocio.
+	suscripcion_pagada: 'Purchase',
 };
 
 export type DatosCompra = { valor?: number; moneda?: string; email?: string | null; plan?: string | null };

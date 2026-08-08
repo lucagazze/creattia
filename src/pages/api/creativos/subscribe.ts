@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 
 import { yearlyPriceFor } from '../../../lib/creattia/subscription-plans';
 import { trackEvent } from '../../../lib/creattia/events';
@@ -150,6 +150,15 @@ export const POST: APIRoute = async ({ request, url }) => {
 
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
+
+	// Mismo criterio que la compra de créditos: cada llamada crea o modifica una
+	// suscripción en Mercado Pago. Sin techo, una cuenta puede generar cientos de
+	// preapprovals pendientes. No cierra por defecto: nunca hay que impedir pagar.
+	const dentroDelLimite = await checkRateLimit(admin, auth.user.id, 'subscribe-checkout', 20, 3600);
+	if (!dentroDelLimite) {
+		return json({ error: 'Abriste muchos pagos seguidos. Esperá un momento antes de intentar de nuevo.' }, 429);
+	}
+
 	const { data: existing, error: existingError } = await admin.from('creative_subscriptions')
 		.select('provider_subscription_id,status,plan_code,current_period_end')
 		.eq('user_id', auth.user.id)

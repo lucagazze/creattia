@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 import { trackEvent } from '../../../lib/creattia/events';
 
 export const prerender = false;
@@ -42,6 +42,16 @@ export const POST: APIRoute = async ({ request, url }) => {
 		return json({ error: `Elegí entre 1 y ${MAX_CREDITS_PER_CHECKOUT} créditos.` }, 400);
 	}
 
+	// Cada llamada crea una preferencia en Mercado Pago. Nadie abre veinte
+	// checkouts por hora de forma legítima, y sin tope una cuenta puede llenar de
+	// preferencias basura la cuenta de Mercado Pago o hacernos pegar contra su
+	// límite de API. No cierra por defecto: un limitador caído no puede impedir
+	// que alguien pague.
+	const dentroDelLimite = await checkRateLimit(admin, auth.user.id, 'buy-credits-checkout', 20, 3600);
+	if (!dentroDelLimite) {
+		return json({ error: 'Abriste muchos pagos seguidos. Esperá un momento antes de intentar de nuevo.' }, 429);
+	}
+
 	const siteUrl = import.meta.env.PUBLIC_SITE_URL || url.origin;
 	const currency = import.meta.env.CREDIT_CURRENCY || process.env.CREDIT_CURRENCY || 'USD';
 	const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
@@ -69,5 +79,18 @@ export const POST: APIRoute = async ({ request, url }) => {
 	if (!response.ok || !payload.init_point) {
 		return json({ error: payload.message || 'Mercado Pago no pudo iniciar el pago.' }, 502);
 	}
+	/**
+	 * Abrir el checkout de créditos también es un `InitiateCheckout`.
+	 *
+	 * Este archivo importaba `trackEvent` y no lo llamaba nunca: la mitad del
+	 * embudo de pago —la compra suelta de imágenes— no reportaba nada. Meta veía
+	 * gente que compra sin haber iniciado un checkout, y desde el panel no había
+	 * forma de saber cuántos abren el pago de créditos y no lo completan.
+	 */
+	void trackEvent(admin, 'checkout_abierto', auth.user.id, { tipo: 'creditos', cantidad: quantity, monto: unitPrice * quantity }, {
+		valor: unitPrice * quantity,
+		moneda: currency,
+		email: auth.user.email,
+	});
 	return json({ checkoutUrl: payload.init_point });
 };
