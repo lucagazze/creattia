@@ -18,12 +18,32 @@ const base = {
 };
 
 describe('marca cuando se elige sin logo', () => {
-	test('con nombre de marca, se escribe donde iba el logo', () => {
-		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, null, false);
+	test('si el ganador firma en algún lado, ahí va el nombre de la marca', () => {
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, { templateHasLogoSlot: true } as any, false);
 		assert.match(prompt, /WRITE the brand name "Tostado"/);
 		assert.match(prompt, /where the template placed its brand mark/i);
 		// Sigue prohibido dibujar un emblema.
 		assert.match(prompt, /Do NOT draw a logo, emblem, monogram/i);
+	});
+
+	test('si el ganador NO firma, el clon tampoco', () => {
+		/**
+		 * Decía que "un aviso sin marca parece inacabado, así que el nombre tiene
+		 * que estar", sin mirar si el ganador tenía algo ahí. Resultado: aparecía el
+		 * nombre del negocio arriba de todo en anuncios cuya referencia tenía ese
+		 * espacio vacío. Un elemento de más también rompe el parecido.
+		 */
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, { templateHasLogoSlot: false } as any, false);
+		assert.match(prompt, /THE TEMPLATE DOES NOT SIGN ITSELF ANYWHERE/);
+		assert.doesNotMatch(prompt, /WRITE the brand name "Tostado"/);
+	});
+
+	test('nunca se inventa una dirección web ni un sello', () => {
+		// Apareció "theskirtingfactoryllc.com" abajo a la derecha de un anuncio cuya
+		// referencia no tenía ninguna URL.
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, null, false);
+		assert.match(prompt, /NOTHING THAT IS NOT IN THE TEMPLATE/);
+		assert.match(prompt, /not instructions to print them/i);
 	});
 
 	test('sin nombre de marca, no se inventa ninguno', () => {

@@ -125,7 +125,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 
 	const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
 		method: 'POST',
-		headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+		headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json; charset=utf-8' },
 		body: JSON.stringify({
 			items: [{
 				id: `creattia-creditos-${quantity}`,

@@ -100,7 +100,7 @@ async function cancelProviderSubscription(subscriptionId: string, accessToken: s
 	try {
 		return await fetch(`https://api.mercadopago.com/preapproval/${encodeURIComponent(subscriptionId)}`, {
 			method: 'PUT',
-			headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+			headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json; charset=utf-8' },
 			// Mercado Pago espera "cancelled", con dos eles. Con "canceled"
 			// respondía 400 "Invalid preapproval status param", así que nadie podía
 			// cancelar su suscripción ni volver a suscribirse tras abandonar un
@@ -116,7 +116,7 @@ async function updateProviderSubscription(subscriptionId: string, accessToken: s
 	try {
 		return await fetch(`https://api.mercadopago.com/preapproval/${encodeURIComponent(subscriptionId)}`, {
 			method: 'PUT',
-			headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+			headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json; charset=utf-8' },
 			body: JSON.stringify(payload),
 		});
 	} catch {
