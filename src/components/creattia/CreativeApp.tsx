@@ -499,7 +499,26 @@ export default function CreativeApp() {
 			 */
 			const cambioDeUsuario = sessionUserIdRef.current !== nextUserId;
 			if (cambioDeUsuario) setAccountLoading(Boolean(nextSession));
-			setSession(nextSession);
+			/**
+			 * Guardar SOLO cuando cambió algo de verdad.
+			 *
+			 * Supabase avisa también cuando la pestaña vuelve a estar visible, y en
+			 * ese aviso manda la misma sesión de siempre dentro de un objeto NUEVO.
+			 * Guardarlo igual cambia la identidad del objeto, y de esta sesión
+			 * dependen diez efectos: volvían a pedir la cuenta, el historial, las
+			 * marcas y los productos cada vez que alguien cambiaba de pestaña y
+			 * volvía. Se veía como si la app se recargara sola en la cara.
+			 *
+			 * Devolver el objeto anterior hace que React no vuelva a renderizar, así
+			 * que volver a la pestaña no cuesta nada. Cuando el token sí cambia —una
+			 * vez por hora— se guarda, que es lo que evita el "la sesión venció".
+			 */
+			setSession((anterior) => {
+				const mismoUsuario = anterior?.user?.id === nextUserId;
+				const mismoToken = getSessionToken(anterior) === getSessionToken(nextSession);
+				if (anterior && nextSession && mismoUsuario && mismoToken) return anterior;
+				return nextSession;
+			});
 		});
 		return () => { active = false; listener.subscription.unsubscribe(); };
 	}, []);
