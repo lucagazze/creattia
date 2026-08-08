@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { imagenFallada, usePrefijoListo } from '../../../lib/creattia/image-ready';
+import { imagenFallada, ratioDeImagen } from '../../../lib/creattia/image-ready';
 import { useReferenceUrls } from '../../../lib/creattia/reference-urls';
 import { Icon } from '../Icon';
 import type { Generation } from '../app-types';
@@ -49,16 +49,17 @@ export function SavedAds({
 	const hasContent = likedGenerations.length > 0 || likedScrapedItems.length > 0;
 
 	/**
-	 * Las tarjetas guardadas entran en orden y con su imagen ya pintada.
+	 * Primero lo que se ve, y el resto a medida que bajás.
 	 *
-	 * `usePrefijoListo` corta en la primera que todavía no bajó, así que la lista
-	 * crece de arriba hacia abajo y nada de lo que ya estás mirando se mueve de
-	 * lugar cuando llega una imagen.
+	 * Antes se esperaba a que un tramo entero estuviera decodificado antes de
+	 * dibujar nada, así que entrar acá dejaba la pantalla en esqueletos aunque en
+	 * ella entraran cuatro tarjetas. Ahora se dibujan enseguida y cada imagen la
+	 * pide el navegador cuando su tarjeta se acerca a la pantalla; el lugar queda
+	 * reservado con la proporción para que no salte nada.
 	 */
 	const urlDe = (winner: any) => winner?.imageUrl || likedScrapedUrls[winner?.imagePath] || '';
-	const listasHasta = usePrefijoListo(likedScrapedItems.map(urlDe));
-	const guardadosVisibles = likedScrapedItems.slice(0, listasHasta).filter((winner) => !imagenFallada(urlDe(winner)));
-	const faltanGuardados = listasHasta < likedScrapedItems.length;
+	const guardadosVisibles = likedScrapedItems.filter((winner) => !imagenFallada(urlDe(winner)));
+	const faltanGuardados = guardadosVisibles.length === 0 && likedScrapedItems.length > 0;
 
 	return (
 		<>
@@ -130,7 +131,19 @@ export function SavedAds({
 												>
 													<Icon name="heart" size={13} fill="#ff4185" />
 												</button>
-												<img src={imageUrl} alt="" loading="eager" decoding="async" style={{ width: '100%', height: 'auto', display: 'block' }} />
+												<img
+													src={imageUrl}
+													alt=""
+													loading={idx < 4 ? 'eager' : 'lazy'}
+													fetchPriority={idx < 4 ? 'high' : 'auto'}
+													decoding="async"
+													style={{
+														width: '100%', height: 'auto', display: 'block',
+														// El lugar reservado hasta que llegue la foto.
+														aspectRatio: ratioDeImagen(imageUrl) || 0.8,
+													}}
+													onLoad={(event) => { event.currentTarget.style.aspectRatio = ''; }}
+												/>
 											</div>
 											<footer style={{ padding: '12px' }}>
 												<h3 style={{ fontSize: '14.5px', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

@@ -1,4 +1,4 @@
-import { imagenLista, precargarImagen, precargarImagenes, useAvisoDeCarga } from '../../../lib/creattia/image-ready';
+import { imagenLista, precargarImagen, precargarImagenes, ratioDeImagen, useAvisoDeCarga } from '../../../lib/creattia/image-ready';
 import { useReferenceUrl } from '../../../lib/creattia/reference-urls';
 import UrlInput from '../UrlInput';
 import { Icon } from '../Icon';
@@ -156,9 +156,10 @@ export function History({
 
 			{hasContent ? (
 				<div className="studio-history-grid">
-						{historyGroups.map((group) => (
+						{historyGroups.map((group, posicion) => (
 						<GenerationCard
 							key={group.key}
+							posicion={posicion}
 							item={group.item}
 							slides={group.slides}
 							isLiked={likedImageIds.includes(group.item.id)}
@@ -284,6 +285,8 @@ export function WinnerReferenceModal({
 export function GenerationCard({
 	item,
 	slides,
+	/** Posición en la grilla: las primeras se piden ya, el resto al acercarse. */
+	posicion = 0,
 	onReuse,
 	onExpand,
 	isLiked,
@@ -302,6 +305,8 @@ export function GenerationCard({
 	item: Generation;
 	/** Cuando el creativo es un carrusel: todas sus páginas, ordenadas. La tarjeta pagina entre ellas como un solo creativo. */
 	slides?: Generation[];
+	/** Posición en la grilla: decide si la imagen se pide ya o al acercarse. */
+	posicion?: number;
 	onReuse?: (gen: Generation) => void;
 	onExpand?: (gen: Generation, slides?: Generation[]) => void;
 	isLiked?: boolean;
@@ -537,9 +542,19 @@ export function GenerationCard({
 					</div>
 				) : (
 					<>
-						{/* Precargada arriba: `lazy` retrasaría por nada una imagen que ya
-						    está decodificada en memoria. */}
-						<img src={active.imageUrl} alt={item.title} loading="eager" decoding="async"/>
+						{/* Primero lo que se ve. Las de la primera pantalla salen ya; el resto
+						    las pide el navegador cuando su tarjeta se acerca, en vez de bajar
+						    las ciento cincuenta de una. El lugar queda reservado con la
+						    proporción, para que la grilla no salte al llegar cada foto. */}
+						<img
+							src={active.imageUrl}
+							alt={item.title}
+							loading={posicion < 6 ? 'eager' : 'lazy'}
+							fetchPriority={posicion < 6 ? 'high' : 'auto'}
+							decoding="async"
+							style={{ aspectRatio: ratioDeImagen(active.imageUrl) || 0.8 }}
+							onLoad={(event) => { event.currentTarget.style.aspectRatio = ''; }}
+						/>
 						{isCarousel && (
 							<>
 								<button type="button" className="carousel-arrow carousel-arrow-prev" aria-label="Página anterior" onClick={(event) => { event.preventDefault(); event.stopPropagation(); goToSlide(-1); }}>‹</button>

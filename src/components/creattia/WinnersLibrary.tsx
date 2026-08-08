@@ -8,7 +8,7 @@ import { canAccessVideoFeature } from '../../lib/creattia/video-access';
 import CreationFlow from './CreationFlow';
 import VideoCreationFlow from './VideoCreationFlow';
 import { useReferenceUrls } from '../../lib/creattia/reference-urls';
-import { imagenFallada, imagenLista as imagenListaParaMostrar, precargarImagenes, usePrefijoListo } from '../../lib/creattia/image-ready';
+import { imagenFallada, imagenLista as imagenListaParaMostrar, precargarImagenes, ratioDeImagen } from '../../lib/creattia/image-ready';
 
 /**
  * Tamaño del bloque de la grilla.
@@ -603,28 +603,37 @@ export default function WinnersLibrary({
 	}, [pedidoItems, activeAd]));
 
 	/**
-	 * Las tarjetas entran cuando su imagen ya está pintada, y en orden.
+	 * Primero lo que se ve, y el resto a medida que bajás.
 	 *
-	 * `usePrefijoListo` devuelve hasta dónde se puede renderizar sin que nada
-	 * salte: solo el tramo inicial cuyas imágenes están decodificadas. Una tarjeta
-	 * suelta más adelante no se cuela, porque aparecer en el medio movería de
-	 * lugar lo que ya estás mirando.
+	 * Antes la grilla esperaba a que un tramo entero estuviera DECODIFICADO antes
+	 * de dibujar nada: se entraba a la biblioteca y la pantalla quedaba en
+	 * esqueletos hasta que terminaban de bajar veinte imágenes, aunque en pantalla
+	 * entraran seis. Y al scrollear volvía a pasar lo mismo con cada bloque.
 	 *
-	 * Las que fallaron cuentan como resueltas y quedan fuera del render: una
-	 * imagen rota no puede frenar a las 1.300 que vienen detrás.
+	 * Ahora las tarjetas se dibujan enseguida y cada imagen la pide el navegador
+	 * cuando su tarjeta se acerca a la pantalla (`loading="lazy"`). Las de la
+	 * primera pantalla van en `eager` y con prioridad alta, así que son las
+	 * primeras en salir. El navegador ya sabe hacer esto mejor que nosotros: mide
+	 * la distancia real al viewport y ajusta según la conexión.
+	 *
+	 * Que no salte nada se resuelve reservando el lugar de cada imagen con su
+	 * proporción antes de que baje, y midiendo la altura real cuando entra.
+	 *
+	 * Las que fallaron quedan fuera del render: una imagen rota no deja un hueco.
 	 */
 	const urlDeItem = useCallback(
 		(item: any) => (item?.imageUrl || (item?.imagePath?.startsWith('http') ? item.imagePath : signedUrls[item?.imagePath] || '')),
 		[signedUrls],
 	);
-	const urlsPedidas = useMemo(() => pedidoItems.map(urlDeItem), [pedidoItems, urlDeItem]);
-	const listasHasta = usePrefijoListo(urlsPedidas, BLOQUE);
 	const visibleItems = useMemo(
-		() => pedidoItems.slice(0, Math.min(listasHasta, visibleCount)).filter((item: any) => !imagenFallada(urlDeItem(item))),
-		[pedidoItems, listasHasta, visibleCount, urlDeItem],
+		() => pedidoItems.slice(0, visibleCount).filter((item: any) => !imagenFallada(urlDeItem(item))),
+		[pedidoItems, visibleCount, urlDeItem],
 	);
-	/** Todavía falta que baje alguna imagen del tramo pedido. */
-	const cargandoImagenes = listasHasta < Math.min(visibleCount, filteredItems.length);
+	/**
+	 * Lo único que se sigue esperando son las URL firmadas: sin ellas no hay nada
+	 * que pedirle al navegador. Las imágenes ya no frenan el dibujado.
+	 */
+	const cargandoImagenes = visibleItems.length === 0 && filteredItems.length > 0;
 
 	/**
 	 * Pedir el bloque siguiente, nunca antes de que entre el actual.
@@ -1539,10 +1548,25 @@ export default function WinnersLibrary({
 										   de un carrusel sí pueden no estar todavía, y para esas
 										   el fundido se activa al cargar. */
 										className={`library-card-imagen${imagenListaParaMostrar(slideUrl) ? ' cargada' : ''}`}
-										style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }}
-										loading="eager"
+										style={{
+											width: '100%', height: 'auto', display: 'block', pointerEvents: 'none',
+											/* El lugar de la imagen, reservado antes de que baje: sin esto la
+											   tarjeta nace con altura casi cero y pega un salto al llegar la
+											   foto. Se usa la proporción real si ya se conoce y, si no, la
+											   vertical típica de un anuncio. Al cargar se quita, para que
+											   mande el tamaño verdadero. */
+											aspectRatio: imagenListaParaMostrar(slideUrl) ? undefined : (ratioDeImagen(slideUrl) || 0.8),
+										}}
+										/* Las primeras salen ya; el resto las pide el navegador cuando su
+										   tarjeta se acerca a la pantalla. */
+										loading={idx < 6 ? 'eager' : 'lazy'}
+										fetchPriority={idx < 6 ? 'high' : 'auto'}
 										decoding="async"
-										onLoad={(event) => event.currentTarget.classList.add('cargada')}
+										onLoad={(event) => {
+											event.currentTarget.classList.add('cargada');
+											// Ya se sabe el tamaño real: la reserva estorba.
+											event.currentTarget.style.aspectRatio = '';
+										}}
 										onError={(event) => {
 											// Reintento único: el CDN a veces devuelve 429 bajo carga.
 											const img = event.currentTarget;
