@@ -1354,11 +1354,11 @@ export default function CreativeApp() {
 								</button>
 							</div>
 						)}
+						{/* El rótulo "PLAN ACTUAL" con su orbe no aportaba nada: el nombre
+						    del plan que va justo abajo ya se explica solo, y ese encabezado
+						    se comía el aire de arriba en las pantallas cortas, donde el menú
+						    es lo primero que se comprime. */}
 						{!sidebarMinimized && (
-							{/* El rótulo "PLAN ACTUAL" con su orbe no aportaba nada: el nombre
-							    del plan que va justo abajo ya se explica solo, y ese encabezado
-							    se comía el aire de arriba en las pantallas cortas, donde el
-							    menú es lo primero que se comprime. */}
 							<div className="studio-plan-card">
 								<strong>{planLabel(profile)}</strong>
 						<p><span style={{ width: `${Math.min(100, profile.credits / (profile.monthlyCredits || 1) * 100)}%` }}/></p>
