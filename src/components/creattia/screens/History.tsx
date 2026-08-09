@@ -8,6 +8,7 @@ import { groupCarouselHistory } from '../history-utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { downloadCarousel, downloadImage } from '../download';
 import { signOriginalGeneration, useFullGenerationUrl } from '../../../lib/creattia/generation-image';
+import { useMasonry } from '../use-masonry';
 /** Historial de generaciones: tarjetas, lightbox y la referencia ganadora. */
 
 export function History({ 
@@ -69,6 +70,13 @@ export function History({
 		: [];
 
 	const historyGroups = useMemo(() => groupCarouselHistory(filteredHistory), [filteredHistory]);
+
+	// Se pasan las cantidades y no las listas porque `filteredHistory` se rearma
+	// en cada render: con la lista, el masonry tiraría abajo y volvería a montar
+	// sus observadores aunque no hubiera cambiado ninguna tarjeta. Lo único que
+	// tiene que reaccionar acá es que aparezca o desaparezca una tarjeta; que una
+	// cambie de alto lo detecta el ResizeObserver.
+	const { grillaRef, estiloDeGrilla } = useMasonry([historyGroups.length, pendingPlaceholders.length]);
 
 	return (
 		<>
@@ -155,7 +163,7 @@ export function History({
 			</div>
 
 			{hasContent ? (
-				<div className="studio-history-grid">
+				<div ref={grillaRef} className="studio-history-grid" style={estiloDeGrilla}>
 						{historyGroups.map((group, posicion) => (
 						<GenerationCard
 							key={group.key}

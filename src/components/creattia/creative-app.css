@@ -281,9 +281,11 @@
 @keyframes studio-spin { to { transform: rotate(360deg); } }
 
 .studio-generation-error {
-	/* height:100% (no solo min-height): el padre tiene aspect-ratio:1/1 fijo
-	   por ancho, y sin esto el bloque quedaba más bajo que el cuadrado,
-	   dejando un espacio vacío debajo antes del pie de la tarjeta. */
+	/* height:100% (no solo min-height) por la fila de recientes del inicio, donde
+	   el padre tiene aspect-ratio:1/1 fijo por ancho: sin esto el bloque quedaba
+	   más bajo que el cuadrado y dejaba un espacio vacío debajo, antes del pie de
+	   la tarjeta. En las grillas en masonry el padre no tiene alto propio, así
+	   que ahí el que manda es el min-height. */
 	width: 100%;
 	height: 100%;
 	min-height: 220px;
@@ -552,7 +554,11 @@
 .studio-flow-strip strong { font-size: 12.5px; }
 .studio-flow-strip small { color: #918b94; font-size: 11.5px; }
 .studio-flow-strip > i { width: 35px; height: 1px; background: #ded9e2; }
-.studio-recent-row, .studio-history-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 15px; }
+/* Solo la fila de recientes del inicio: es una fila fija de tarjetas cuadradas.
+   La grilla de "Mis imágenes" y la de guardados son masonry y se definen abajo,
+   junto a la de la biblioteca; su separación vertical la pone el span de cada
+   tarjeta, así que un `gap` acá se la duplicaría. */
+.studio-recent-row { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 15px; }
 
 .studio-library-tools { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
 .studio-library-tools label { height: 42px; max-width: 470px; flex: 1; display: flex; align-items: center; gap: 10px; padding: 0 14px; border: 1px solid #e4e0e7; border-radius: 10px; background: #fff; color: #9a949f; box-shadow: 0 4px 12px rgba(30,22,40,.025); }
@@ -962,7 +968,7 @@
 	.studio-flow-strip { align-items:flex-start; flex-direction:column; }
 	.studio-flow-strip > i { width:1px; height:15px; margin-left:14px; }
 	.studio-library-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-	.studio-recent-row, .studio-history-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+	.studio-recent-row { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 	.studio-editor-heading { flex-direction:column; align-items:flex-start; }
 	.studio-editor-controls { padding:13px; }
 	.studio-preset-grid { grid-template-columns:1fr; }
@@ -2757,23 +2763,14 @@
 	border: 0 !important;
 }
 
-/* ========================================================
-   MASONRY GRID LAYOUT FOR WINNERS LIBRARY
-   ======================================================== */
-.library-ad-grid-masonry {
-	column-count: 4 !important;
-	column-gap: 16px !important;
-	width: 100% !important;
-	padding: 5px 0 !important;
-}
-.dashboard-masonry {
-	column-count: 3 !important;
-}
+/* ── Tarjeta de anuncio de la grilla del inicio y de la biblioteca ─────────
+   La grilla que las contiene se define más abajo, con las demás grillas. */
 .library-ad-card-masonry {
-	display: inline-block !important;
+	display: flex !important;
+	flex-direction: column !important;
 	width: 100% !important;
-	margin-bottom: 16px !important;
-	break-inside: avoid !important;
+	/* La separación vertical la pone la grilla, no la tarjeta. */
+	margin-bottom: 0 !important;
 	background: #fff !important;
 	border-radius: 16px !important;
 	border: 1px solid #e9e6ed !important;
@@ -2830,24 +2827,6 @@
 .winners-library-container .studio-filter-row button {
 	margin-bottom: 2px !important;
 	flex: 0 0 auto !important;
-}
-
-@media (max-width: 1200px) {
-	.library-ad-grid-masonry {
-		column-count: 3 !important;
-	}
-}
-@media (max-width: 900px) {
-	.library-ad-grid-masonry,
-	.dashboard-masonry {
-		column-count: 2 !important;
-	}
-}
-@media (max-width: 600px) {
-	.library-ad-grid-masonry,
-	.dashboard-masonry {
-		column-count: 1 !important;
-	}
 }
 
 /* ========================================================
@@ -3101,36 +3080,33 @@
 /* ── Ancho completo + grillas horizontales + legibilidad (2026-07-16) ────── */
 .studio-content { max-width: none !important; }
 
-/* Grilla de ganadores: orden horizontal (filas) y columnas según el ancho */
-.library-ad-grid-masonry {
-	display: grid !important;
-	column-count: unset !important;
-	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
-	gap: 16px !important;
-	align-items: start !important;
-}
+/* Grilla de ganadores del inicio: orden por filas y columnas según el ancho.
+   A diferencia de "Mis imágenes" y de la biblioteca, esta no es masonry: es un
+   adelanto corto y cada fila se alinea a la tarjeta más alta. */
+.library-ad-grid-masonry,
 .dashboard-masonry {
 	display: grid !important;
-	column-count: unset !important;
 	grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important;
-}
-.library-ad-card-masonry {
-	display: flex !important;
-	flex-direction: column !important;
-	margin-bottom: 0 !important;
+	gap: 16px !important;
+	align-items: start !important;
+	width: 100% !important;
+	padding: 5px 0 !important;
 }
 @media (max-width: 700px) {
 	.library-ad-grid-masonry, .dashboard-masonry { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }
 
-/* Historial: entra la cantidad de tarjetas que dé el ancho */
-.studio-recent-row, .studio-history-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important; }
+/* Fila de recientes del inicio: entra la cantidad de tarjetas que dé el ancho.
+   Las grillas en masonry no entran acá: su cantidad de columnas se calcula con
+   el ancho medido y viaja como estilo inline, y un `!important` de la hoja de
+   estilos le gana al inline, así que desde acá quedarían congeladas. */
+.studio-recent-row { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important; }
 
 @media (max-width: 700px) {
-	.studio-recent-row, .studio-history-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+	.studio-recent-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
 }
 @media (max-width: 420px) {
-	.studio-recent-row, .studio-history-grid { grid-template-columns: 1fr !important; }
+	.studio-recent-row { grid-template-columns: 1fr !important; }
 }
 
 /* Chips de filtros: mismo tamaño de texto en categorías y nichos */
@@ -6265,8 +6241,10 @@
    para que aparezca en todas las páginas y también antes de iniciar sesión. */
 
 
-/* ─── Grilla de la biblioteca ─────────────────────────────────────────
-   Masonry por FILAS, no por columnas.
+/* ─── Grillas en masonry ──────────────────────────────────────────────
+   La biblioteca de ganadores (`.library-masonry`), "Mis imágenes" y "Anuncios
+   guardados" (las dos con `.studio-history-grid`). Masonry por FILAS, no por
+   columnas.
 
    Con columnas CSS el navegador llena una columna entera antes de pasar a la
    siguiente: la primera imagen queda arriba a la izquierda y la SEGUNDA queda
@@ -6276,10 +6254,11 @@
 
    Acá es una grilla de verdad: las filas se completan de izquierda a derecha y
    recién ahí se baja. El efecto escalonado se conserva dando a cada tarjeta un
-   `grid-row-end: span N` calculado con su alto real (lo hace el componente),
+   `grid-row-end: span N` calculado con su alto real (lo hace `useMasonry`),
    sobre filas de 1px. Por eso `row-gap` es 0: la separación vertical ya está
    incluida en el span de cada tarjeta. */
-.library-masonry {
+.library-masonry,
+.studio-history-grid {
 	--masonry-gap: 16px;
 	display: grid;
 	grid-auto-rows: 1px;
@@ -6290,7 +6269,10 @@
 	align-items: start;
 	width: 100%;
 }
-.library-masonry > * {
+/* Un margen propio de la tarjeta se sumaría al aire que ya trae su span y la
+   separación vertical quedaría del doble. */
+.library-masonry > *,
+.studio-history-grid > * {
 	margin-bottom: 0;
 }
 
@@ -6441,7 +6423,7 @@
 	   chico alcanza para que se lea como una grilla y no como un bloque. */
 	/* La separación se declara como variable porque el span de cada tarjeta la
 	   suma: si acá se cambiara solo el column-gap, el aire vertical no seguiría. */
-	.library-masonry { --masonry-gap: 12px; padding-inline: 2px; }
+	.library-masonry, .studio-history-grid { --masonry-gap: 12px; padding-inline: 2px; }
 
 	.library-access-banner {
 		flex-wrap: wrap;
@@ -6460,17 +6442,18 @@
    Los esqueletos van SIEMPRE al final de la grilla, nunca intercalados entre
    las tarjetas: ahí crecer y desaparecer no mueve nada de lo que ya estás
    mirando. Cuando el bloque termina de decodificarse, las tarjetas entran
-   juntas y ya con su altura final, así que no hay ningún salto de layout. */
+   juntas y ya con su altura final, así que no hay ningún salto de layout.
+
+   El `aspect-ratio` no es decorativo: le da alto medible desde el primer frame,
+   así el hueco ya ocupa su lugar en la grilla antes de que baje ninguna imagen. */
 .library-card-esqueleto {
 	display: block;
 	width: 100%;
 	aspect-ratio: 4 / 5;
-	margin-bottom: 16px;
 	border-radius: 12px;
 	background: linear-gradient(100deg, #f4f1f8 30%, #ebe5f3 50%, #f4f1f8 70%);
 	background-size: 220% 100%;
 	animation: library-esqueleto 1.5s ease-in-out infinite;
-	break-inside: avoid;
 }
 
 @keyframes library-esqueleto {
@@ -6505,48 +6488,17 @@
 	.library-card-imagen { opacity: 1; transition: none; }
 }
 
-/* ── Mis imágenes y anuncios guardados, en masonry ──────────────────────── */
-/*
- * Eran una grilla de columnas fijas, así que cada fila se alineaba a la tarjeta
- * más alta y quedaba aire muerto debajo de las demás. Los creativos vienen en
- * proporciones muy distintas —cuadrados, verticales de historia, horizontales—
- * y con altura fija todos terminan recortados o rodeados de blanco.
- *
- * Con columnas CSS el navegador equilibra por ALTURA, que es lo que hace falta,
- * y cada imagen se muestra entera en su proporción real.
- */
-.studio-history-grid {
-	display: block !important;
-	column-count: 4;
-	column-gap: 15px;
-	grid-template-columns: none !important;
+/* ── Las tarjetas de "Mis imágenes" y "Anuncios guardados" en el masonry ────
+   Las dos pantallas montan la misma `.studio-generation-card` que la fila de
+   recientes del inicio, que la envuelve en una caja cuadrada. Ahí ese cuadrado
+   está bien —es una fila pareja de cuatro—, pero en estas grillas los creativos
+   vienen en proporciones muy distintas: a un 4:5 le cortaba el 20% de abajo y a
+   un horizontal le dejaba dos bandas grises al costado. Por eso la anulación va
+   acotada a la grilla en masonry, donde el alto lo tiene que poner la imagen. */
+.studio-history-grid .studio-generation-card > div {
+	aspect-ratio: auto;
 }
 
-.studio-history-grid > * {
-	display: block;
-	width: 100%;
-	margin: 0 0 15px;
-	/* Sin esto una tarjeta se parte entre el pie de una columna y la cabeza de
-	   la siguiente. */
-	break-inside: avoid;
-	-webkit-column-break-inside: avoid;
-}
-
-@media (max-width: 1200px) {
-	.studio-history-grid { column-count: 3; }
-}
-
-@media (max-width: 900px) {
-	.studio-history-grid { column-count: 2; }
-}
-
-@media (max-width: 560px) {
-	.studio-history-grid { column-count: 2; column-gap: 10px; }
-	.studio-history-grid > * { margin-bottom: 10px; }
-}
-
-/* En masonry la imagen manda la altura de la tarjeta, así que va entera y en su
-   proporción real: nada de recortarla a una caja fija. */
 .studio-history-grid article > img,
 .studio-history-grid article > a > img,
 .studio-history-grid article > div > img {

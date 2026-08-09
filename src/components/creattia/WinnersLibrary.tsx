@@ -9,6 +9,7 @@ import CreationFlow from './CreationFlow';
 import VideoCreationFlow from './VideoCreationFlow';
 import { useReferenceUrls } from '../../lib/creattia/reference-urls';
 import { imagenFallada, imagenLista as imagenListaParaMostrar, precargarImagenes, ratioDeImagen } from '../../lib/creattia/image-ready';
+import { useMasonry } from './use-masonry';
 
 /**
  * Tamaño del bloque de la grilla.
@@ -719,69 +720,10 @@ export default function WinnersLibrary({
 		setLockedVisibleCount(8);
 	}, [selectedCategories, selectedFormat, savedOnly, query]);
 
-	const gridRef = React.useRef<HTMLDivElement | null>(null);
-	const [columnCount, setColumnCount] = useState(4);
-	useEffect(() => {
-		const element = gridRef.current;
-		if (!element) return;
-		// Mínimo 2 columnas siempre, también en celular.
-		const update = () => {
-			const width = element.clientWidth;
-			// Al abrir un creador la grilla sale del DOM. ResizeObserver puede
-			// informar ancho 0 durante ese desmontaje: no convertirlo en 2 columnas.
-			if (!element.isConnected || width <= 0) return;
-			setColumnCount(Math.max(2, Math.min(6, Math.floor(width / 300))));
-		};
-		update();
-		const observer = new ResizeObserver(update);
-		observer.observe(element);
-		return () => observer.disconnect();
-	}, [activeAd, videoCreationRef, loading, filteredItems.length]);
-
-	/**
-	 * El escalonado del masonry, sin perder el orden por filas.
-	 *
-	 * La grilla reparte filas de 1px y cada tarjeta declara cuántas ocupa según
-	 * su alto real. Así el recorrido sigue siendo izquierda→derecha —que es como
-	 * se mira una grilla y el orden en que tienen que aparecer las novedades— y
-	 * las tarjetas de distinta proporción siguen encajando sin dejar huecos.
-	 *
-	 * Se mide en `useLayoutEffect` para que el span quede puesto antes de que el
-	 * navegador pinte: hacerlo en un `useEffect` normal muestra un cuadro con
-	 * todas las tarjetas de una fila y después salta al alto correcto.
-	 */
-	React.useLayoutEffect(() => {
-		const grid = gridRef.current;
-		if (!grid) return;
-		let frame = 0;
-		const medir = () => {
-			frame = 0;
-			if (!grid.isConnected) return;
-			const separacion = parseFloat(getComputedStyle(grid).getPropertyValue('--masonry-gap')) || 16;
-			for (const tarjeta of Array.from(grid.children) as HTMLElement[]) {
-				const alto = tarjeta.getBoundingClientRect().height;
-				// Alto 0 es una tarjeta que todavía no se dibujó: dejarla sin span
-				// hasta la próxima medición es mejor que fijarle una fila de 1px.
-				if (alto <= 0) continue;
-				tarjeta.style.gridRowEnd = `span ${Math.max(1, Math.ceil(alto + separacion))}`;
-			}
-		};
-		// Las imágenes terminan de decodificar en cualquier momento y cambian el
-		// alto de su tarjeta: agrupar las mediciones en un frame evita recalcular
-		// la grilla entera una vez por imagen.
-		const programar = () => { if (!frame) frame = requestAnimationFrame(medir); };
-		programar();
-		const observer = new ResizeObserver(programar);
-		observer.observe(grid);
-		for (const tarjeta of Array.from(grid.children)) observer.observe(tarjeta);
-		return () => {
-			observer.disconnect();
-			if (frame) cancelAnimationFrame(frame);
-		};
-		// Los cambios de ALTO ya los cubre el ResizeObserver; esto solo se rehace
-		// cuando cambia el conjunto de tarjetas, que es cuando hay elementos
-		// nuevos que observar.
-	}, [displayItems, columnCount, cargandoImagenes]);
+	// Al abrir un creador la grilla sale del DOM y vuelve con otro nodo, así que
+	// además del conjunto de tarjetas hay que avisarle de esos idas y vueltas:
+	// con la referencia vieja el masonry no volvería a medir nada.
+	const { grillaRef, columnas, estiloDeGrilla } = useMasonry([activeAd, videoCreationRef, loading, displayItems, cargandoImagenes]);
 	const loadMoreRef = React.useRef<HTMLDivElement | null>(null);
 	// Al volver de "Crear con este diseño" a la grilla, restaura el scroll
 	// guardado en handleUseIdea en vez de dejar la página arriba de todo.
@@ -1298,12 +1240,12 @@ export default function WinnersLibrary({
 				    empezar la siguiente: la segunda tarjeta caía DEBAJO de la primera y
 				    no al lado, así que lo nuevo aparecía bajando en vertical en vez de
 				    completar la fila de arriba. Acá cada tarjeta ocupa tantas filas de
-				    1px como mide (lo calcula `useLayoutEffect` más arriba), que
-				    conserva el escalonado del masonry sin perder el orden de lectura. */}
+				    1px como mide (lo calcula `useMasonry`), que conserva el escalonado
+				    del masonry sin perder el orden de lectura. */}
 				<div
-					ref={gridRef}
+					ref={grillaRef}
 					className="library-masonry"
-					style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
+					style={estiloDeGrilla}
 				>
 					{[displayItems].map((columnItems, columnIndex) => (
 					<React.Fragment key={columnIndex}>
@@ -1640,7 +1582,7 @@ export default function WinnersLibrary({
 					    donde crecer no empuja nada de lo que ya estás mirando: cuando el
 					    bloque termina de bajar, las tarjetas ocupan ese espacio ya con su
 					    imagen y con su altura final. */}
-					{cargandoImagenes && Array.from({ length: columnCount }, (_, hueco) => (
+					{cargandoImagenes && Array.from({ length: columnas }, (_, hueco) => (
 						<article key={`esqueleto-${hueco}`} className="library-card-esqueleto" aria-hidden="true" />
 					))}
 				</div>

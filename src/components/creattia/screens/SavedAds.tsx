@@ -4,6 +4,7 @@ import { useReferenceUrls } from '../../../lib/creattia/reference-urls';
 import { Icon } from '../Icon';
 import type { Generation } from '../app-types';
 import { GenerationCard } from './History';
+import { useMasonry } from '../use-masonry';
 /** Favoritos: generaciones e ideas de la biblioteca guardadas. */
 
 export function SavedAds({ 
@@ -61,6 +62,11 @@ export function SavedAds({
 	const guardadosVisibles = likedScrapedItems.filter((winner) => !imagenFallada(urlDe(winner)));
 	const faltanGuardados = guardadosVisibles.length === 0 && likedScrapedItems.length > 0;
 
+	// Las dos grillas son independientes —cada una arranca su propia fila 1 y se
+	// mide por separado—, así que cada una necesita su instancia del masonry.
+	const creaciones = useMasonry([likedGenerations.length]);
+	const ideas = useMasonry([guardadosVisibles.length, faltanGuardados]);
+
 	return (
 		<>
 			<div className="studio-page-heading">
@@ -76,11 +82,16 @@ export function SavedAds({
 					{likedGenerations.length > 0 && (
 						<div>
 							<h2 style={{ fontSize: '18px', fontWeight: 800, color: '#744bde', marginBottom: '14px' }}>Tus creaciones favoritas</h2>
-							<div className="studio-history-grid">
-								{likedGenerations.map((item) => (
-									<GenerationCard 
-										key={item.id} 
-										item={item} 
+							<div ref={creaciones.grillaRef} className="studio-history-grid" style={creaciones.estiloDeGrilla}>
+								{likedGenerations.map((item, posicion) => (
+									<GenerationCard
+										key={item.id}
+										// Sin la posición todas las tarjetas se creían la primera y pedían
+										// su imagen con prioridad alta: con muchos favoritos, entrar acá
+										// disparaba la lista entera de una. Ahora bajan primero las que se
+										// ven y el resto cuando su tarjeta se acerca.
+										posicion={posicion}
+										item={item}
 										isLiked={true} 
 										onToggleLike={() => toggleLike(item.id)} 
 										folders={folders} 
@@ -96,7 +107,7 @@ export function SavedAds({
 					{likedScrapedItems.length > 0 && (
 						<div>
 							<h2 style={{ fontSize: '18px', fontWeight: 800, color: '#744bde', marginBottom: '14px' }}>Ideas de la biblioteca guardadas</h2>
-							<div className="studio-history-grid">
+							<div ref={ideas.grillaRef} className="studio-history-grid" style={ideas.estiloDeGrilla}>
 								{guardadosVisibles.map((winner, idx) => {
 									const imageUrl = urlDe(winner);
 									return (
