@@ -13,8 +13,10 @@ import type { QualityTier } from './quality-router';
  * producto, tomaba menos fotos y no podía pedir calidad alta. Resultado: la
  * misma referencia daba mejores imágenes desde el Studio que desde un lote.
  *
- * Ahora las dos entran por acá, así que cualquier mejora del prompt o del
- * análisis llega a las imágenes sueltas, a los lotes y a los carruseles a la vez.
+ * Hoy el PROMPT es uno solo: `buildClonePrompt` lo arman los tres. El render
+ * completo (`renderReferenceClone`) lo usan el lote y el carrusel; el Studio
+ * junta sus imágenes de entrada por su cuenta —necesita el mapa de etiquetas de
+ * cada input— y llama al motor él mismo, con el mismo prompt y el mismo nivel.
  */
 
 /**

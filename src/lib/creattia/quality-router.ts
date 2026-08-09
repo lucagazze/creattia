@@ -34,24 +34,21 @@ const COST: Record<QualityTier, number> = { low: 0.035, medium: 0.082, high: 0.2
  * 1536) y con la regla que prohíbe sombras y halos en el texto, las dos mucho
  * más baratas. 'high' queda disponible con IMAGE_QUALITY_TIER si hiciera falta.
  *
- * El nivel no es elegible por el usuario: una imagen cuesta siempre 1 crédito.
- * Para mover el nivel de TODA la app está IMAGE_QUALITY_TIER (low|medium|high|auto),
- * y para forzar una generación puntual, `forceTier` en el snapshot.
+ * El nivel no es elegible por el usuario: una imagen cuesta siempre 1 crédito, y
+ * una imagen suelta, una del lote y una página de carrusel salen todas igual.
+ * Para mover el nivel de TODA la app está IMAGE_QUALITY_TIER (low|medium|high|auto).
+ *
+ * Existía además un `forceTier` por generación, que nadie escribía nunca y que
+ * de todos modos se ignoraba salvo en modo automático: lo único que hacía era
+ * dar la impresión de que el carrusel podía salir con otra calidad que el Studio.
  */
 function configuredTier(): QualityTier | 'auto' {
 	const raw = (process.env.IMAGE_QUALITY_TIER || import.meta.env.IMAGE_QUALITY_TIER || 'medium').toLowerCase();
 	return raw === 'auto' || raw === 'low' || raw === 'medium' || raw === 'high' ? raw : 'medium';
 }
 
-export function pickQualityTier(analysis: LayoutAnalysis | null, options?: { force?: QualityTier }): TierDecision {
+export function pickQualityTier(analysis: LayoutAnalysis | null): TierDecision {
 	const configured = configuredTier();
-	// El override por generación se ignora salvo que la app entera esté en modo
-	// automático. Todas las imágenes salen en el MISMO nivel: tener algunas en
-	// 'high' y otras en 'medium' daba resultados desparejos sin que se notara
-	// desde dónde se había pedido cada una.
-	if (options?.force && configured === 'auto') {
-		return { tier: options.force, reason: 'elegido a mano', estimatedCost: COST[options.force] };
-	}
 	if (configured !== 'auto') {
 		return { tier: configured, reason: `nivel fijo ${configured}`, estimatedCost: COST[configured] };
 	}

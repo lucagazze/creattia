@@ -14,9 +14,9 @@ export const maxDuration = 60;
 /**
  * Arranca la generación de un carrusel completo: una fila de creative_generations
  * por página del carrusel ganador, todas bajo el mismo batch_id. Reutiliza
- * exactamente el mismo worker que el lote (batch-worker.ts) — cada fila ya
- * trae su propio product_id, así que no hace falta tocar nada ahí: procesa
- * una página igual que procesaría un anuncio cualquiera del lote.
+ * exactamente el mismo worker que el lote (batch-worker.ts): cada fila trae su
+ * propio product_id, su propia página del ganador y su propio análisis, así que
+ * el worker la procesa igual que procesaría un anuncio suelto.
  *
  * productIds: 1 solo id → mismo producto en todas las páginas.
  *             N ids (uno por página) → productos distintos, en el mismo
@@ -101,7 +101,19 @@ export const POST: APIRoute = async ({ request }) => {
 		const logoSlideIndexes = new Set(
 			Array.isArray(body?.logoSlideIndexes) ? body.logoSlideIndexes.map((v: unknown) => Number(v)).filter((n: number) => Number.isInteger(n) && n >= 0) : []
 		);
-		const approvedPlan = body?.approvedPlan && typeof body.approvedPlan === 'object' ? body.approvedPlan : null;
+		/**
+		 * Un análisis por página, en el orden de las páginas.
+		 *
+		 * Antes venía uno solo para todo el carrusel y el worker intentaba recortarlo
+		 * por página, pero solo se podían recortar los campos que llevan número de
+		 * página —los textos—: todo lo que decide la IMAGEN llegaba igual a las tres.
+		 * Ahora cada fila guarda el análisis de SU página y no hay nada que recortar.
+		 * Si la cantidad no coincide con las páginas, se descarta entero antes que
+		 * asignarle a una página la lectura de otra.
+		 */
+		const approvedPlans: Array<Record<string, unknown> | null> = Array.isArray(body?.approvedPlans) && body.approvedPlans.length === slides.length
+			? body.approvedPlans.map((plan: unknown) => (plan && typeof plan === 'object' ? plan as Record<string, unknown> : null))
+			: slides.map(() => null);
 
 		// Los productos tienen que ser del usuario y tener al menos una foto real.
 		const uniqueProductIds = [...new Set(productIds)];
@@ -218,7 +230,7 @@ export const POST: APIRoute = async ({ request }) => {
 					carousel: true,
 					carouselIndex: index + 1,
 					carouselTotal: count,
-					approvedPlan,
+					approvedPlan: approvedPlans[index],
 				},
 				status: 'processing',
 			};

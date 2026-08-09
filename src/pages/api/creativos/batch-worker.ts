@@ -1,11 +1,5 @@
 import type { APIRoute } from 'astro';
-import {
-	analyzeReferenceLayout,
-	buildReferenceClonePrompt,
-	normalizeImageInput,
-	LANGUAGE_NAMES,
-	type LayoutAnalysis,
-} from '../../../lib/creattia/ad-analysis';
+import { normalizeImageInput, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import type { EngineImage } from '../../../lib/creattia/image-engines';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { alcanceDesde, detectImageType, mergePaletteOverride, renderReferenceClone, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
@@ -15,7 +9,6 @@ import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
 import { stripWebReferences } from '../../../lib/creattia/ad-copy';
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
-import { closestFormat } from '../../../lib/creattia/formats';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -243,23 +236,15 @@ export const POST: APIRoute = async ({ request }) => {
 		// segunda copia que se había quedado atrás (un solo producto, menos fotos,
 		// sin opción de calidad alta), así que un lote daba peor resultado que la
 		// misma referencia generada de a una.
-		const approvedCarouselPlan = snapshot.approvedPlan && typeof snapshot.approvedPlan === 'object'
+		// El análisis que aprobó el usuario para ESTA fila. En un carrusel cada
+		// página guarda el suyo, leído de su propia imagen: no hay nada que recortar.
+		const approvedPlan: LayoutAnalysis | null = snapshot.approvedPlan && typeof snapshot.approvedPlan === 'object'
 			? snapshot.approvedPlan as LayoutAnalysis
 			: null;
 		const slideNumber = Number(snapshot.carouselIndex || row.output_index || 1);
-		// En un carrusel el plan aprobado cubre TODAS las páginas: se recorta a la
-		// que le toca a esta fila.
-		const approvedPlan: LayoutAnalysis | null = approvedCarouselPlan ? {
-			...approvedCarouselPlan,
-			textZones: approvedCarouselPlan.textZones?.filter((zone: any) => !zone.slide || zone.slide === slideNumber),
-			people: approvedCarouselPlan.people?.filter((person: any) => !person.slide || person.slide === slideNumber),
-			comparisonItems: approvedCarouselPlan.comparisonItems?.filter((item: any) => !item.slide || item.slide === slideNumber),
-			creativeDecisions: approvedCarouselPlan.creativeDecisions?.filter((decision: any) => !decision.slide || decision.slide === slideNumber),
-		} : null;
 
-		// Mismo nivel que el Studio, decidido en un solo lugar. `forceTier` queda
-		// como escotilla para forzar una generación puntual desde el snapshot.
-		const decision = pickQualityTier(approvedPlan, { force: snapshot.forceTier });
+		// Mismo nivel que el Studio, decidido en un solo lugar.
+		const decision = pickQualityTier(approvedPlan);
 		console.log(`[batch-worker ${generationId}] calidad ${decision.tier}: ${decision.reason}`);
 
 		const { buffer, engine, prompt, analysis } = await renderReferenceClone({

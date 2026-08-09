@@ -336,6 +336,44 @@ describe('POST /api/creativos/batch-worker', () => {
 		assert.match(prompt, /2\D{0,10}4|page 2/i);
 	});
 
+	/**
+	 * La página se genera con lo que se leyó EN ELLA, no en el carrusel entero.
+	 *
+	 * Un carrusel se analizaba de una sola vez y devolvía un análisis promedio.
+	 * Como `referenceHasProduct`, `productPlacement` e `imageSlots` no llevan número
+	 * de página, la página 1 recibía la lectura de la 3: con un ganador cuya página
+	 * 1 era la foto de un gato y cuya página 3 tenía el packshot, la primera imagen
+	 * se generaba con "sacá el producto original y poné el tuyo ahí" —una orden
+	 * sobre otra página— y con las fotos del producto adjuntas. El modelo dejaba el
+	 * gato y metía el producto nuevo al lado.
+	 */
+	test('una página sin producto no recibe el packshot que traía otra página', async () => {
+		setup({
+			tables: {
+				creative_generations: [batchRow({
+					settings_snapshot: {
+						referencePath: '40/2fb666571bf2802e.png', format: 'original',
+						carousel: true, carouselIndex: 1, carouselTotal: 3,
+						approvedPlan: {
+							language: 'es', referenceHasProduct: false, textZones: [], people: [],
+							imageSlots: [{ where: 'las dos mitades', showsNow: 'un gato', replaceWith: 'la pelota sobre el césped' }],
+						},
+					},
+				})],
+			},
+		});
+		const response = await batchWorker({ request: workerRequest() } as any);
+		assert.equal(response.status, 200);
+		// El plan ya venía aprobado: no se vuelve a analizar, igual que una suelta.
+		expect(analyzeReferenceLayout).not.toHaveBeenCalled();
+
+		const llamada = generateAdImage.mock.calls[0]![0];
+		assert.match(llamada.prompt, /NO PRODUCT INSERTION/);
+		assert.doesNotMatch(llamada.prompt, /PRODUCT SWAP/);
+		assert.match(llamada.prompt, /un gato/, 'el prompt tiene que nombrar lo que hay que sacar de ESTA página');
+		assert.equal(llamada.images.length, 1, 'sin producto en la página, las fotos del producto no se adjuntan');
+	});
+
 	test('el lote usa el mismo nivel de calidad que el Studio', async () => {
 		setup({
 			tables: {

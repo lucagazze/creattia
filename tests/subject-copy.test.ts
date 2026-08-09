@@ -230,9 +230,30 @@ describe('encaje del texto y tipografía', () => {
 	 * cuero flotando sobre agua, que era el fondo del anuncio de colágeno.
 	 */
 	test('la descripción del fondo no se cuela en la regla de tipografía', () => {
+		/**
+		 * `styleNotes` describe el fondo y los recursos gráficos, no la letra.
+		 * Pegado bajo TYPOGRAPHY colaba la escena del ganador en el render: de ahí
+		 * salió un cuero flotando sobre agua, que era el fondo del anuncio original.
+		 *
+		 * La solución de entonces fue no usarlo en ningún lado, y eso costó caro por
+		 * el otro extremo: el análisis medía "una banda inferior de borde ondulado" y
+		 * ese dato se tiraba, así que el pie salía siempre liso. Ahora entra, pero en
+		 * su propio bloque de recursos gráficos — nunca dentro del de tipografía.
+		 */
 		const conFondo = { ...analisis, styleNotes: 'fondo acuático turquesa para dar frescura' };
 		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, conFondo, false);
-		assert.doesNotMatch(prompt, /fondo acuático/);
+		const bloqueTipografia = prompt.slice(prompt.indexOf('TYPOGRAPHY'), prompt.indexOf('TYPOGRAPHY') + 900);
+		assert.doesNotMatch(bloqueTipografia, /fondo acuático/, 'la escena se coló dentro de la tipografía');
+		assert.match(prompt, /GRAPHIC DEVICES AND SURFACES[\s\S]*fondo acuático/, 'los recursos gráficos medidos tienen que llegar al render');
+	});
+
+	test('el orden de capas llega al render', () => {
+		// El producto cruzaba POR ENCIMA de la banda inferior en el ganador y salía
+		// apoyado sobre ella: nada se ve mal, pero el aviso queda plano.
+		const conCapas = { ...analisis, layerOrder: 'tarjeta adelante, producto en el medio cruzando sobre la banda, banda atrás' };
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, conCapas, false);
+		assert.match(prompt, /DEPTH AND STACKING ORDER/);
+		assert.match(prompt, /cruzando sobre la banda/);
 	});
 
 	test('con tipografía de marca elegida, manda esa', () => {

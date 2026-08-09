@@ -173,6 +173,51 @@ describe('POST /api/creativos/carousel-start', () => {
 		assert.ok(rows.every((row) => row.settings_snapshot.carousel === true));
 	});
 
+	/**
+	 * Cada página se lleva SU análisis, no el del carrusel entero.
+	 *
+	 * Con un solo análisis agregado para las tres páginas, lo único que se podía
+	 * repartir por página eran los textos: todo lo que decide la imagen
+	 * —`referenceHasProduct`, `productPlacement`, `imageSlots`— llegaba igual a las
+	 * tres. Un ganador con un gato en la página 1 y el packshot en la 3 hacía que la
+	 * página 1 se generara con "sacá el producto original y poné el tuyo acá", una
+	 * orden sobre una página que no era esa: el gato sobrevivía y el producto nuevo
+	 * entraba al lado.
+	 */
+	test('cada página guarda el análisis de su propia imagen', async () => {
+		setup();
+		const response = await carouselStart({
+			request: post('https://creattia.app/api/creativos/carousel-start', {
+				...base,
+				approvedPlans: [
+					{ referenceHasProduct: false, imageSlots: [{ where: 'mitad izquierda', replaceWith: 'la pelota' }] },
+					{ referenceHasProduct: false, imageSlots: [{ where: 'fondo', replaceWith: 'el césped' }] },
+					{ referenceHasProduct: true, productPlacement: 'packshot centrado' },
+				],
+			}),
+		} as any);
+		assert.equal(response.status, 200);
+
+		const porPagina = new Map(fake.tables.creative_generations
+			.map((row) => [row.settings_snapshot.carouselIndex, row.settings_snapshot.approvedPlan]));
+		assert.equal(porPagina.get(1).referenceHasProduct, false, 'la página sin producto no puede heredar el packshot de otra');
+		assert.equal(porPagina.get(1).productPlacement, undefined);
+		assert.equal(porPagina.get(3).referenceHasProduct, true);
+		assert.equal(porPagina.get(3).productPlacement, 'packshot centrado');
+	});
+
+	test('si la cantidad de análisis no coincide con las páginas se descartan todos', async () => {
+		// Asignarle a una página la lectura de otra es exactamente el bug: entre eso
+		// y volver a analizar en el worker, es preferible volver a analizar.
+		setup();
+		await carouselStart({
+			request: post('https://creattia.app/api/creativos/carousel-start', {
+				...base, approvedPlans: [{ referenceHasProduct: true }],
+			}),
+		} as any);
+		assert.ok(fake.tables.creative_generations.every((row) => row.settings_snapshot.approvedPlan === null));
+	});
+
 	test('un segundo envío idéntico no vuelve a cobrar ni a generar', async () => {
 		// Pasó en producción: quedaron dos lotes idénticos de 10 páginas con 126 ms
 		// de diferencia, o sea el doble de créditos, porque el botón no se

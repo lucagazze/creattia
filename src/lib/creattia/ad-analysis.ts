@@ -26,6 +26,14 @@ export type LayoutAnalysis = {
 	messageStrategy?: string;
 	adCopy?: AdaptedAdCopy;
 	textZones?: Array<{
+		/**
+		 * En qué página del carrusel va este bloque.
+		 *
+		 * No lo devuelve el analizador: cada página se analiza sola, como un anuncio
+		 * suelto, y el número lo pone `plan.ts` al juntar las páginas para mostrarlas
+		 * en una sola pantalla de revisión. Sirve para agrupar los textos por imagen
+		 * y para devolverle a cada página lo que el usuario editó de ella.
+		 */
 		slide?: number;
 		where?: string;
 		onProduct?: boolean;
@@ -146,6 +154,17 @@ export type LayoutAnalysis = {
 	creativeOptions?: string[];
 	/** Sensación tipográfica, paleta y recursos gráficos observados en el ganador. */
 	styleNotes?: string;
+	/**
+	 * El orden de capas, de adelante hacia atrás.
+	 *
+	 * El ganador de las tostadas apila tres: la tarjeta del testimonio adelante,
+	 * la caja del producto en el medio —cruzando POR ENCIMA de la banda inferior— y
+	 * la banda atrás. Ese cruce es lo que le da profundidad. El análisis capturaba
+	 * solo la mitad ("la tarjeta se superpone al producto") y la regla del render
+	 * cubría esa misma mitad, así que el producto terminaba apoyado sobre la banda
+	 * en vez de cruzarla y el aviso salía plano.
+	 */
+	layerOrder?: string;
 	language?: string;
 	// Personas visibles en el anuncio (el usuario puede indicar cómo se reconstruyen).
 	people?: Array<{ slide?: number; where?: string; description?: string; role?: string; directive?: string }>;
@@ -290,15 +309,27 @@ export function quitarCifras(texto: string, cifras: CifraDetectada[]): string {
 		.trim();
 }
 
-// Analiza el anuncio ganador + la foto real del producto con un modelo de visión:
-// decodifica la estructura visual y enumera las áreas de imagen que deben
-// reconstruirse para el producto del usuario.
-// Intenta Gemini primero (barato y rápido) y cae a OpenAI si falla.
+/**
+ * Analiza UNA imagen ganadora + la foto real del producto con un modelo de
+ * visión: decodifica la estructura visual y enumera las áreas de imagen que hay
+ * que reconstruir para el producto del usuario. Gemini primero (barato y
+ * rápido), OpenAI de respaldo.
+ *
+ * Una imagen por llamada, también para los carruseles.
+ *
+ * Antes un carrusel entraba con todas sus páginas juntas y devolvía UN análisis
+ * agregado. Pero la mitad de los campos que deciden la imagen no tienen página
+ * —`referenceHasProduct`, `productPlacement`, `imageSlots`— así que el render de
+ * cada página recibía la lectura de otra. Con un ganador cuya página 1 era la
+ * foto de un gato y cuya página 3 tenía el packshot, la página 1 se generaba con
+ * "sacá el producto original y poné el tuyo en el centro sostenido por patas
+ * sobre tela verde": una instrucción sobre una página que no era esa. El modelo
+ * resolvía la contradicción de la única forma posible, dejando el gato y metiendo
+ * el producto nuevo al lado.
+ */
 export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleKey?: string }, input: {
 	referenceB64: string;
 	referenceMime: string;
-	/** All pages of a carousel reference. The first page is also sent as referenceB64. */
-	referenceSlides?: Array<{ b64: string; mime: string }>;
 	productB64?: string;
 	productMime?: string;
 	/** Additional views of the SAME real product/SKU, usually uploaded manually. */
@@ -313,8 +344,6 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	brandName: string;
 	language?: string;
 }): Promise<LayoutAnalysis | null> {
-	const referenceInputs = (input.referenceSlides?.length ? input.referenceSlides : [{ b64: input.referenceB64, mime: input.referenceMime }]).slice(0, 12);
-	const isCarouselReference = referenceInputs.length > 1;
 	const productInputs = [
 		...(input.productB64 ? [{ b64: input.productB64, mime: input.productMime }] : []),
 		...(input.productImages || []),
@@ -347,7 +376,7 @@ export async function analyzeReferenceLayout(keys: { openAIKey?: string; googleK
 	const languageRule = input.language && LANGUAGE_NAMES[input.language]
 		? `TARGET LANGUAGE IS ${LANGUAGE_NAMES[input.language].toUpperCase()} AND IT IS NOT NEGOTIABLE. Every replacement string you produce — headline, description, CTA, every text zone — must be written in ${LANGUAGE_NAMES[input.language]}, even when the template you are analysing is written in a different language. Do NOT copy or keep the template's original language. Translate and adapt the message instead. Set "language" to "${input.language}".${grammarRule}`
 		: `Detect the language used by the winning ad, set "language" to "es", "en", "fr", "it", "pt" or "de", and write replacement suggestions in that language.${grammarRule}`;
-	const systemPrompt = `You are a senior performance ad designer. You receive: (1) ${isCarouselReference ? 'multiple pages of one winning carousel, in order' : 'one winning static ad TEMPLATE image'}${hasProductImages ? ', (2) one or more photos of the SAME real product/SKU from different views' : ''}${hasAvatarImages ? ', (3) several reference photos of the same person/avatar' : ''}, and verified context.
+	const systemPrompt = `You are a senior performance ad designer. You receive: (1) one winning static ad TEMPLATE image${hasProductImages ? ', (2) one or more photos of the SAME real product/SKU from different views' : ''}${hasAvatarImages ? ', (3) several reference photos of the same person/avatar' : ''}, and verified context.
 
 TARGET SUBJECT MODE: ${subjectMode}. ${subjectDirective}
 ${copyDirective}
@@ -365,7 +394,7 @@ Return STRICT JSON:
     "cta": "short adapted action, maximum 30 characters"
   },
   "textZones": [
-    { "slide": 1, "where": "PRECISE position: which corner or edge, and whether the block sits over the photo or outside it (e.g. 'white box overlapping the bottom-LEFT of the photo', 'red breadcrumb line above the headline')", "onProduct": true|false, "original": "exact text visibly present in the winning image", "lines": how many lines this block actually occupies in the template image, counted with your eyes (a headline broken across three lines is 3, not 1), "labels": "if this text is a callout that names a part of the product (usually joined to it by a leader line or an arrow), name the part it points at; otherwise null", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product. NO INVENTED FIGURES: this string may contain a number, percentage, price, discount, timeframe, rating, review count or guarantee ONLY if that exact figure appears in the verified facts above. The template's own figures are NOT verified and must not be reused or adapted — if the original says 50%, the replacement says neither 50% nor 45%. Carry the same persuasive force with a qualitative claim instead. COPY THE CASE OF THE ORIGINAL EXACTLY: if the original is ALL CAPS the replacement is ALL CAPS, if it is Title Case it is Title Case, if it is sentence case it is sentence case. La caja es parte del diseño, no del contenido: cambiarla desarma la jerarquía aunque el texto sea correcto. LENGTH IS ALSO A HARD CONSTRAINT: stay within ±15% of the original character count and never use more lines than the original. If the honest message does not fit, cut it down until it does — a shorter phrase that keeps the design intact beats a complete one that breaks it", "onCurve": "if this text sits on a CURVED baseline, say which corner or element the arc hugs, how much of a turn it covers and in which direction. Null when the baseline is straight", "emphasis": "the visual emphasis applied to PART of this text and WHICH words carry it. The most common by far is a few words set in a HEAVIER WEIGHT than the rest of the same line, and it is the easiest one to miss: compare the stroke thickness of each word against its neighbours before deciding there is none. Also look for highlighter/marker background (say the colour), underline, a different colour, italics, a larger size or a boxed word. Write null ONLY when every word in this block is genuinely identical in weight, colour and size. Examples: 'the words \"10g\" and \"7 days\" are bold, the rest of the line is regular'; 'marker highlight in soft yellow over \"62 and have $1.3 million saved up\"'" }
+    { "where": "PRECISE position: which corner or edge, and whether the block sits over the photo or outside it (e.g. 'white box overlapping the bottom-LEFT of the photo', 'red breadcrumb line above the headline')", "onProduct": true|false, "original": "exact text visibly present in the winning image", "lines": how many lines this block actually occupies in the template image, counted with your eyes (a headline broken across three lines is 3, not 1), "labels": "if this text is a callout that names a part of the product (usually joined to it by a leader line or an arrow), name the part it points at; otherwise null", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product. NO INVENTED FIGURES: this string may contain a number, percentage, price, discount, timeframe, rating, review count or guarantee ONLY if that exact figure appears in the verified facts above. The template's own figures are NOT verified and must not be reused or adapted — if the original says 50%, the replacement says neither 50% nor 45%. Carry the same persuasive force with a qualitative claim instead. COPY THE CASE OF THE ORIGINAL EXACTLY: if the original is ALL CAPS the replacement is ALL CAPS, if it is Title Case it is Title Case, if it is sentence case it is sentence case. La caja es parte del diseño, no del contenido: cambiarla desarma la jerarquía aunque el texto sea correcto. LENGTH IS ALSO A HARD CONSTRAINT: stay within ±15% of the original character count and never use more lines than the original. If the honest message does not fit, cut it down until it does — a shorter phrase that keeps the design intact beats a complete one that breaks it", "onCurve": "if this text sits on a CURVED baseline, say which corner or element the arc hugs, how much of a turn it covers and in which direction. Null when the baseline is straight", "emphasis": "the visual emphasis applied to PART of this text and WHICH words carry it. The most common by far is a few words set in a HEAVIER WEIGHT than the rest of the same line, and it is the easiest one to miss: compare the stroke thickness of each word against its neighbours before deciding there is none. Also look for highlighter/marker background (say the colour), underline, a different colour, italics, a larger size or a boxed word. Write null ONLY when every word in this block is genuinely identical in weight, colour and size. Examples: 'the words \"10g\" and \"7 days\" are bold, the rest of the line is regular'; 'marker highlight in soft yellow over \"62 and have $1.3 million saved up\"'" }
   ],
   "referenceHasProduct": true|false,
   "renderingMedium": "WHAT THIS IMAGE IS MADE OF, judged by looking at it, not by what it advertises. Be specific and name the medium first: 'photograph' / '3D cartoon render (Pixar-like stylised characters)' / '3D product render' / 'flat vector illustration' / 'hand-drawn illustration' / 'comic-book art' / '3D render composited with photographic elements' / 'screenshot or UI mockup' / 'photo collage with cut-out edges' / 'typographic poster, no imagery'. If characters or animals appear, say explicitly whether they are REAL PHOTOGRAPHED ones or STYLISED/ILLUSTRATED ones and describe the style (proportions, outlines, shading, eyes). This field decides how the whole new ad is rendered, so an error here makes the clone look like a different ad even when every block is in place.",
@@ -389,10 +418,10 @@ Return STRICT JSON:
     { "where": "position and shape of THIS image area (e.g. 'three tilted photo cards stacked on the right third', 'full-bleed background photo', 'small circular avatar top-left', 'left half of a 50/50 split')",
       "showsNow": "what that area currently depicts in the template",
       "idea": "if this area carries an IDEA rather than a product — a physical reaction (goosebumps, a shiver, a face), a metaphor or stand-in object (a shaved football standing for a groomed body), a visual joke, a demonstration, a gesture, a before/after state — say what the idea IS and how it works. Otherwise null. This is the difference between an ad that is funny and an ad that is two product photos: the layout can be copied perfectly and the ad still dies here",
-      "replaceWith": "what that SAME area must depict for the target product. IF \"idea\" IS NOT NULL, KEEP THE IDEA AND CHANGE ONLY WHAT IT IS ABOUT: the reaction, the metaphor, the joke or the demonstration is the reason this ad won, and swapping it for a product photo throws away everything except the layout. A whispered sale that gives someone goosebumps becomes a whispered sale about the new offer that gives someone goosebumps — not a photo of the new product. Only when \"idea\" is null propose a concrete, photographable scene tied to the product, its user, its making, its use or its result. Keep the same shot type, crop, angle and mood as the original so the composition still works. Never keep the template's original subject. THE SCENE MUST BE PLAUSIBLE IN THE TARGET'S OWN WORLD: do not carry over the template's setting, surface, prop or environment when it makes no sense for the target — a leather hide does not float on rippling water, a sofa does not sit on a kitchen counter, a laptop does not lie on wet sand. Name the surface and the setting explicitly so nothing is left to inherit from the template." }
+      "replaceWith": "what that SAME area must depict for the target product. IF \"idea\" IS NOT NULL, KEEP THE IDEA AND CHANGE ONLY WHAT IT IS ABOUT: the reaction, the metaphor, the joke or the demonstration is the reason this ad won, and swapping it for a product photo throws away everything except the layout. A whispered sale that gives someone goosebumps becomes a whispered sale about the new offer that gives someone goosebumps — not a photo of the new product. Only when \"idea\" is null propose a concrete, photographable scene tied to the product, its user, its making, its use or its result. Keep the same shot type, crop, angle and mood as the original so the composition still works. Never keep the template's original subject. THE SCENE MUST BE PLAUSIBLE IN THE TARGET'S OWN WORLD: do not carry over the template's setting, surface, prop or environment when it makes no sense for the target — a leather hide does not float on rippling water, a sofa does not sit on a kitchen counter, a laptop does not lie on wet sand. Name the surface and the setting explicitly so nothing is left to inherit from the template. THIS FIELD DESCRIBES WHAT GOES INSIDE THE AREA, NEVER THE AD'S BACKGROUND: do not write "a clean studio background in a light neutral tone" or anything that redesigns the canvas behind the layout. The ad's background colour belongs to the template and is not yours to change here — writing it in this field is an order to destroy the winner's palette, and the renderer obeys it." }
   ],
   "people": [
-    { "slide": 1, "where": "where the person appears (e.g. 'right half, holding the product')",
+    { "where": "where the person appears (e.g. 'right half, holding the product')",
       "role": "their job in the ad (e.g. 'testimonial author', 'lifestyle model', 'before/after subject')",
       "description": "what they look like now in Argentine Spanish (apparent gender, age range, hair, expression, setting) so the user can decide how to reconstruct them" }
   ],
@@ -406,12 +435,12 @@ Return STRICT JSON:
     "userGuidance": "cadena vacía"
   },
   "comparisonItems": [
-    { "slide": 1, "where": "position of a NON-hero item that the ad compares AGAINST the product (e.g. 'left and right columns/products in a 3-way comparison')",
+    { "where": "position of a NON-hero item that the ad compares AGAINST the product (e.g. 'left and right columns/products in a 3-way comparison')",
       "role": "what it represents (e.g. 'competitor bar', 'the old way', 'other brand')",
       "description": "short Argentine-Spanish description of that comparison item so the user can decide what to put there" }
   ],
   "creativeDecisions": [
-    { "slide": 1, "type": "person|scene|styling|object|comparison|product-handling|other",
+    { "type": "person|scene|styling|object|comparison|product-handling|other",
       "title": "título corto y claro para la decisión",
       "where": "dónde aparece el elemento, en pocas palabras (ej: 'esquina inferior izquierda')",
       "question": "pregunta concreta para el usuario; vacía si no hace falta preguntar. Debe bastarse sola: no expliques primero el razonamiento, preguntá directo",
@@ -439,7 +468,8 @@ Return STRICT JSON:
     "scoreReasons": ["3 a 5 razones cortas en español que expliquen el puntaje, cada una empezando con el aspecto: contraste, jerarquía, CTA, oferta, legibilidad, foco del producto"]
   },
   "creativeOptions": ["3 to 5 SHORT optional visual directions specific to THIS template and THIS product"],
-  "styleNotes": "the TEMPLATE's background colour(s), palette and graphic devices (badges, pills, dividers, rules, frames) worth preserving, described as they are. Describe the DESIGN, never the photographic content of the image areas — what the photos show belongs to imageSlots, and repeating it here makes the renderer keep the template's original scene"
+  "layerOrder": "the stacking order of the overlapping blocks, front to back, naming what crosses over what (e.g. 'testimonial card in front, product box in the middle crossing OVER the bottom band, bottom band at the back'). Say it even when nothing overlaps ('no overlapping layers'). This is what gives the ad its depth: without it every element ends up sitting flat next to the others",
+  "styleNotes": "the TEMPLATE's background colour(s), palette and graphic devices (badges, pills, dividers, rules, frames) worth preserving, described as they are. NAME THE SHAPE of every divider and edge: a band whose top edge is wavy, scalloped, zigzag, torn or arched is not the same as a straight one, and 'a band at the bottom' loses exactly the detail that has to be rebuilt. Same for the corner radius of cards and pills. Describe the DESIGN, never the photographic content of the image areas — what the photos show belongs to imageSlots, and repeating it here makes the renderer keep the template's original scene"
 }
 
 Rules:
@@ -447,7 +477,7 @@ Rules:
 - "messageStrategy" must explain why the original copy works, not merely describe what it says. Keep the same emotional mechanism and rhetorical device in the internal replacements.
 - "adCopy" is the adapted publication copy and "textZones" are the exact visible text areas used by the generator. The text-zone replacements MUST be rendered inside the final image in the same positions and hierarchy; do not remove the winner's visible message. Text physically printed on the supplied product or inside its official logo must remain faithful to those supplied assets.
 - ${languageRule}
-- ${isCarouselReference ? 'CAROUSEL ANALYSIS: Analyze EVERY supplied page, not only the first. Read all publication copy and visible text zones page by page, preserve each page\'s persuasion and composition, and include the page number in every text zone, person, comparison item and contextual decision. Return one coherent aggregate analysis: comparison/people/objects may reference the relevant page in "where". Do not treat pages from the same carousel as unrelated ads.' : 'For a static reference, analyze the complete supplied image.'}
+- Analyze the complete supplied image.
 - "referenceHasProduct": true only if the TEMPLATE visibly features a physical product shot (box, bottle, object). Lifestyle/person-only or pure-text ads → false.
 - "productInstances" (CRITICAL): list EVERY separate place where the TEMPLATE'S OWN product is visible — not just the hero shot. Count the product worn by a model, on someone's feet, held in a hand, repeated as colour variants, shown again small in a corner, or duplicated across a grid. If the same product appears 6 times in a circle, that is 6 instances (or one instance describing the whole arrangement, but say so explicitly). Missing one means it survives into the final ad and the ad ends up selling two different products at once.
 - "productOnBody": true if ANY instance is worn on / used on a human body (garment, underwear, shoes, jewellery, a patch on skin). This decides whether the layout can host a product that cannot be worn.
@@ -492,15 +522,10 @@ Rules:
 			} else {
 				parsed.comparison = { detected: false, confidence: 'high', type: 'other', summary: '', question: '', defaultStrategy: '' };
 			}
-			parsed.people = Array.isArray(parsed.people) ? parsed.people.map((person: any) => ({
-				...person,
-				slide: Number.isInteger(Number(person?.slide)) && Number(person.slide) >= 1 ? Number(person.slide) : undefined,
-			})) : [];
-			parsed.comparisonItems = Array.isArray(parsed.comparisonItems) ? parsed.comparisonItems.map((item: any) => ({
-				...item,
-				slide: Number.isInteger(Number(item?.slide)) && Number(item.slide) >= 1 ? Number(item.slide) : undefined,
-			})) : [];
+			parsed.people = Array.isArray(parsed.people) ? parsed.people : [];
+			parsed.comparisonItems = Array.isArray(parsed.comparisonItems) ? parsed.comparisonItems : [];
 			parsed.styleNotes = typeof parsed.styleNotes === 'string' ? parsed.styleNotes.trim().slice(0, 400) : '';
+			parsed.layerOrder = typeof parsed.layerOrder === 'string' ? parsed.layerOrder.trim().slice(0, 300) : '';
 			// El medio y la geometría entran tal cual al render, así que se acotan
 			// igual que el resto de los campos descriptivos.
 			parsed.renderingMedium = typeof parsed.renderingMedium === 'string' ? parsed.renderingMedium.trim().slice(0, 300) : '';
@@ -565,7 +590,6 @@ Rules:
 				: (typeof parsed.language === 'string' && LANGUAGE_NAMES[parsed.language] ? parsed.language : 'es');
 			parsed.textZones = parsed.textZones.map((zone: any) => ({
 				...zone,
-				slide: Number.isInteger(Number(zone?.slide)) && Number(zone.slide) >= 1 ? Number(zone.slide) : undefined,
 				// Cuántas líneas ocupa el bloque en el ganador. Antes se deducía de
 				// los saltos de línea del texto original, que nunca vienen: un titular
 				// de tres líneas se contaba como una y el prompt terminaba pidiendo
@@ -574,10 +598,6 @@ Rules:
 				labels: typeof zone?.labels === 'string' && zone.labels.trim() && !/^(null|none|n\/a)$/i.test(zone.labels.trim()) ? zone.labels.trim().slice(0, 160) : undefined,
 				replacement: stripWebReferences(zone?.replacement),
 			}));
-			parsed.creativeDecisions = parsed.creativeDecisions.map((decision: any) => ({
-				...decision,
-				slide: Number.isInteger(Number(decision?.slide)) && Number(decision.slide) >= 1 ? Number(decision.slide) : undefined,
-			}));
 			return parsed as LayoutAnalysis;
 		} catch { return null; }
 	};
@@ -585,11 +605,9 @@ Rules:
 	if (keys.googleKey) {
 		try {
 			const model = (typeof import.meta.env !== 'undefined' && import.meta.env.GEMINI_ANALYSIS_MODEL) || process.env.GEMINI_ANALYSIS_MODEL || 'gemini-2.5-flash';
-			const parts: any[] = [{ text: `${systemPrompt}\n\n${userText}\n\n${isCarouselReference ? `The next ${referenceInputs.length} images are CAROUSEL PAGES in order. Analyze every page and use the page number in each text zone and decision.` : 'The first image is the TEMPLATE.'}${hasProductImages ? ` The next ${productInputs.length} images after the reference${isCarouselReference ? ' pages' : ''} are REAL PRODUCT PHOTOS of the SAME SKU, in different views; reconcile them instead of blending or averaging them.` : ''}` }];
-		referenceInputs.forEach((reference, index) => {
-			parts.push({ text: isCarouselReference ? `CAROUSEL PAGE ${index + 1} OF ${referenceInputs.length}:` : 'TEMPLATE:' });
-			parts.push({ inline_data: { mime_type: reference.mime, data: reference.b64 } });
-		});
+			const parts: any[] = [{ text: `${systemPrompt}\n\n${userText}\n\nThe first image is the TEMPLATE.${hasProductImages ? ` The next ${productInputs.length} images after the reference are REAL PRODUCT PHOTOS of the SAME SKU, in different views; reconcile them instead of blending or averaging them.` : ''}` }];
+			parts.push({ text: 'TEMPLATE:' });
+			parts.push({ inline_data: { mime_type: input.referenceMime, data: input.referenceB64 } });
 			productInputs.forEach((photo, index) => {
 				parts.push({ text: `REAL PRODUCT PHOTO ${index + 1} OF THE SAME SKU:` });
 				parts.push({ inline_data: { mime_type: photo.mime || 'image/jpeg', data: photo.b64 } });
@@ -623,11 +641,9 @@ Rules:
 		try {
 			const openai = new OpenAI({ apiKey: keys.openAIKey });
 			const model = (typeof import.meta.env !== 'undefined' && import.meta.env.OPENAI_ANALYSIS_MODEL) || process.env.OPENAI_ANALYSIS_MODEL || 'gpt-4o';
-			const content: any[] = [{ type: 'text', text: `${userText}\n${isCarouselReference ? `Analyze all ${referenceInputs.length} carousel pages in order and include the page number in every text zone and contextual decision.` : 'Analyze the supplied template.'}` }];
-			referenceInputs.forEach((reference, index) => {
-				content.push({ type: 'text', text: isCarouselReference ? `CAROUSEL PAGE ${index + 1} OF ${referenceInputs.length}:` : 'TEMPLATE:' });
-				content.push({ type: 'image_url', image_url: { url: `data:${reference.mime};base64,${reference.b64}` } });
-			});
+			const content: any[] = [{ type: 'text', text: `${userText}\nAnalyze the supplied template.` }];
+			content.push({ type: 'text', text: 'TEMPLATE:' });
+			content.push({ type: 'image_url', image_url: { url: `data:${input.referenceMime};base64,${input.referenceB64}` } });
 			productInputs.forEach((photo, index) => {
 				content.push({ type: 'text', text: `REAL PRODUCT PHOTO ${index + 1} OF THE SAME SKU:` });
 				content.push({ type: 'image_url', image_url: { url: `data:${photo.mime || 'image/jpeg'};base64,${photo.b64}` } });
@@ -720,6 +736,30 @@ RENDERING MEDIUM (CRITICAL — READ BEFORE ANYTHING ELSE) — The template is: $
 	 * bloques bien ordenados con otros tamaños, que es justo lo que hace que un
 	 * clon correcto no se parezca al original.
 	 */
+	/**
+	 * Los recursos gráficos y el orden de capas, que se medían y se tiraban.
+	 *
+	 * `styleNotes` ya decía "a darker wavy band at the bottom" y nunca llegaba al
+	 * render: en algún momento se pegaba dentro del bloque de tipografía, colaba
+	 * ahí la escena del ganador, y se lo sacó sin reubicarlo. El borde ondulado del
+	 * pie salía liso porque al modelo jamás le llegó la palabra. Va acá, junto a la
+	 * paleta y la geometría, que es donde corresponde.
+	 */
+	const recursosRule = input.analysis?.styleNotes
+		? `
+GRAPHIC DEVICES AND SURFACES (CRITICAL) — Rebuild these exactly as measured: ${input.analysis.styleNotes}
+The SHAPE of a divider is not decoration: a band whose top edge is wavy, scalloped, zigzag or torn has to be rebuilt with that same edge. Flattening it into a straight line is the single easiest way to lose the piece while every block is still in place. Same for the corner radius of cards, pills and badges.`
+		: '';
+
+	/**
+	 * Qué cruza por delante de qué. Sin esto el aviso sale plano.
+	 */
+	const capasRule = input.analysis?.layerOrder
+		? `
+DEPTH AND STACKING ORDER (CRITICAL) — Front to back, the winning ad stacks like this: ${input.analysis.layerOrder}
+Reproduce that order element by element, including what CROSSES OVER what. If the product overlaps the bottom band in the winner, it overlaps it here too — resting it neatly on top of the band instead of crossing it flattens the whole composition, even though nothing looks obviously wrong.`
+		: '';
+
 	const geometryRule = input.analysis?.compositionGeometry
 		? `
 GEOMETRY LOCK (CRITICAL) — Rebuild the template's layout at these exact proportions, measured on the template itself: ${input.analysis.compositionGeometry}
@@ -1046,7 +1086,7 @@ THIRD-PARTY MARKS ARE NEVER COPIED (CRITICAL) — If the template shows press lo
 THE TEMPLATE'S PHOTOGRAPH DOES NOT SURVIVE (CRITICAL) — Pasting the new product ON TOP of the template's original photo is the most common way this goes wrong: it leaves a scene that makes no sense — a hide floating in front of a couple on holiday — and reads instantly as a collage. Re-shoot each area with the subject named for it, same frame, crop, angle and lighting. If the template shows people who have no natural place in this business, the scene becomes one where the product genuinely lives: whoever makes it, whoever uses it, or the result it produces.
 
 THE TEST THIS OUTPUT MUST PASS — put the template and your result side by side. Every block must land in the same place, at the same size, in the same style, and the two must look like the same ad in two languages about two different things. If someone would call them "similar ads" rather than "the same ad remade", you have drifted too far and the result is a failure. When any instruction below leaves room for interpretation, choose the option that stays closer to the template.
-${mediumRule}${geometryRule}${splitComparisonRule}
+${mediumRule}${geometryRule}${recursosRule}${capasRule}${splitComparisonRule}
 ${strategyBlock}${creativeBlock}${imageSlotBlock}
 	${productSwap}${orientationRule}${carouselRule}
 

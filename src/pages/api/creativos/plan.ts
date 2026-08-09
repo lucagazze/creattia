@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { analyzeReferenceLayout, normalizeImageInput } from '../../../lib/creattia/ad-analysis';
+import { analyzeReferenceLayout, normalizeImageInput, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { trackEvent } from '../../../lib/creattia/events';
@@ -153,10 +153,16 @@ export const POST: APIRoute = async ({ request }) => {
 			: brandSource === 'mine'
 				? (profile?.brand_style as any)?.palette || (Array.isArray(profile?.brand_colors) ? { accent: profile.brand_colors[0], secondary: profile.brand_colors[1], background: '#ffffff', text: '#19171d', source: 'brand' } : null)
 				: null;
-		const analysis = await analyzeReferenceLayout({ openAIKey, googleKey }, {
-			referenceB64: normalizedReference.buffer.toString('base64'),
-			referenceMime: normalizedReference.type,
-			referenceSlides: normalizedReferences.map((reference) => ({ b64: reference.buffer.toString('base64'), mime: reference.type })),
+		/**
+		 * Cada página se lee sola, con exactamente la misma llamada que una imagen
+		 * suelta. Un carrusel analizado de una sola vez devolvía un análisis
+		 * promedio, y como `imageSlots`, `productPlacement` y `referenceHasProduct`
+		 * no llevan número de página, cada página terminaba renderizada con la
+		 * lectura de otra. Van en paralelo porque no dependen entre sí.
+		 */
+		const analisisPorPagina = await Promise.all(normalizedReferences.map((reference) => analyzeReferenceLayout({ openAIKey, googleKey }, {
+			referenceB64: reference.buffer.toString('base64'),
+			referenceMime: reference.type,
 			productB64,
 			productMime,
 			productImages,
@@ -166,11 +172,40 @@ export const POST: APIRoute = async ({ request }) => {
 			language,
 			subjectMode,
 			brandPalette,
-		});
-		if (!analysis) return json({ error: 'No pudimos analizar el anuncio. Probá de nuevo.' }, 502);
+		})));
+		// Una sola página sin analizar arruina esa imagen del carrusel, así que no
+		// se sigue con las demás: se avisa y se vuelve a intentar entero.
+		if (analisisPorPagina.some((pagina) => !pagina)) {
+			return json({ error: 'No pudimos analizar el anuncio. Probá de nuevo.' }, 502);
+		}
+		const paginas = (analisisPorPagina as LayoutAnalysis[]).map((pagina) => ({
+			...pagina,
+			subjectType: pagina.subjectType || subjectMode,
+			brandPalette: pagina.brandPalette || brandPalette || undefined,
+		}));
 
-		void trackEvent(admin, 'referencia_analizada', auth.user.id, { sujeto: subjectMode, idioma: language || 'auto' }, {}, datosDelNavegador(request));
-		return json({ analysis: { ...analysis, subjectType: analysis.subjectType || subjectMode, brandPalette: analysis.brandPalette || brandPalette }, originalRatio });
+		/**
+		 * Lo que se muestra en la revisión: las páginas juntas en una sola pantalla.
+		 *
+		 * Cada elemento se sella con el número de página del que salió, que es lo que
+		 * permite agrupar los textos por imagen y después devolverle a cada página
+		 * exactamente lo que el usuario editó de ella. El resto de los campos —paleta,
+		 * logo, comparación— se muestran los de la primera página; el render de cada
+		 * una usa los suyos, que viajan aparte en `slideAnalyses`.
+		 */
+		const dePagina = <T,>(items: T[] | undefined, numero: number) => (items || []).map((item) => ({ ...item, slide: numero }));
+		const analysis = paginas.length > 1
+			? {
+				...paginas[0],
+				textZones: paginas.flatMap((pagina, indice) => dePagina(pagina.textZones, indice + 1)),
+				people: paginas.flatMap((pagina, indice) => dePagina(pagina.people, indice + 1)),
+				comparisonItems: paginas.flatMap((pagina, indice) => dePagina(pagina.comparisonItems, indice + 1)),
+				creativeDecisions: paginas.flatMap((pagina, indice) => dePagina(pagina.creativeDecisions, indice + 1)),
+			}
+			: paginas[0];
+
+		void trackEvent(admin, 'referencia_analizada', auth.user.id, { sujeto: subjectMode, idioma: language || 'auto', paginas: paginas.length }, {}, datosDelNavegador(request));
+		return json({ analysis, slideAnalyses: paginas.length > 1 ? paginas : undefined, originalRatio });
 	} catch (error) {
 		// El mensaje crudo del error salía al cliente: con un productId que no es
 		// un uuid, Postgres devuelve "invalid input syntax for type uuid" y eso

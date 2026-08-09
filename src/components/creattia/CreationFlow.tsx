@@ -56,15 +56,20 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const referenceUrlFor = (path: string) => (path.startsWith('http') ? path : signedReferenceUrls[path] || '');
 	const referenceUrl = referenceUrlFor(ad.imagePath);
 
-	// Carrusel ganador: varias páginas para elegir cómo generar.
+	/**
+	 * Carrusel ganador: varias páginas para elegir cómo generar.
+	 *
+	 * Sin repetidas a propósito. El servidor las descarta al analizar y al arrancar
+	 * el lote, así que una página repetida en la biblioteca dejaba tres listas de
+	 * largos distintos y el análisis de cada página terminaba corrido una posición.
+	 */
 	const carouselSlides: string[] = ad.metadata?.mediaType === 'carousel' && Array.isArray(ad.metadata?.carouselImages) && ad.metadata.carouselImages.length > 1
-		? ad.metadata.carouselImages
+		? [...new Set(ad.metadata.carouselImages as string[])]
 		: [];
 	const isCarouselAd = carouselSlides.length > 0;
 	const [carouselMode, setCarouselMode] = useState<'full' | 'single'>('full');
 	const [carouselSameProduct, setCarouselSameProduct] = useState(true);
 	const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
-	const [carouselStarting, setCarouselStarting] = useState(false);
 	/**
 	 * Cerrojo contra el doble envío.
 	 *
@@ -165,7 +170,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * decisión de la persona; acá solo se recomienda.
 	 */
 	const [includeLogo, setIncludeLogo] = useState(false);
-	// Carrusel completo: en cuáles páginas va el logo. Vacío = en ninguna.
+	// Carrusel completo: en cuáles páginas va el logo. Solo se mira cuando
+	// `includeLogo` está prendido; al prenderlo arrancan todas.
 	const [logoCarouselPages, setLogoCarouselPages] = useState<Set<number>>(new Set());
 	const count = wantsFullCarousel ? carouselSlides.length : 1;
 	const [manualProductName, setManualProductName] = useState('');
@@ -192,6 +198,15 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		return () => { cancelled = true; };
 	}, [phase, token]);
 	const [plan, setPlan] = useState<any>(null);
+	/**
+	 * El análisis de cada página del carrusel, en orden.
+	 *
+	 * `plan` es la vista de revisión —las páginas juntas en una sola pantalla—,
+	 * pero lo que se le manda al render de cada página es SU análisis: el que se
+	 * leyó de esa imagen. Mezclarlos era el motivo de que una página conservara el
+	 * sujeto del ganador (un gato) en vez de reemplazarlo por el producto.
+	 */
+	const [slidePlans, setSlidePlans] = useState<any[]>([]);
 
 	/**
 	 * Los colores que se muestran al revisar.
@@ -208,6 +223,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			|| null;
 	})();
 	/**
+	 * Todas las páginas analizadas: una sola cuando es una imagen suelta, todas
+	 * las del carrusel cuando es completo. La pregunta del logo se responde
+	 * mirándolas a todas, porque el archivo se coloca en varias imágenes.
+	 */
+	const planesDelGanador: any[] = slidePlans.length ? slidePlans : plan ? [plan] : [];
+	/**
 	 * Si el ganador firma con un logo DIBUJADO (un emblema, un escudo, un
 	 * símbolo), que es el único caso donde poner el archivo del logo propio tiene
 	 * dónde entrar.
@@ -217,9 +238,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * siempre. En esos avisos el clon escribe el nombre del negocio en ese mismo
 	 * lugar y el archivo del logo no hace falta para nada.
 	 */
-	const ganadorTieneLogoDibujado = Boolean(plan?.templateHasLogoSlot && !plan?.logoIsWordmark);
+	const ganadorTieneLogoDibujado = planesDelGanador.some((pagina) => pagina?.templateHasLogoSlot && !pagina?.logoIsWordmark);
 	/** El ganador firma con el nombre escrito: ese lugar lo hereda el negocio. */
-	const ganadorFirmaConElNombre = Boolean(plan?.templateHasLogoSlot && plan?.logoIsWordmark);
+	const ganadorFirmaConElNombre = planesDelGanador.some((pagina) => pagina?.templateHasLogoSlot && pagina?.logoIsWordmark);
+	const descripcionDelLogo: string = planesDelGanador.find((pagina) => pagina?.templateHasLogoSlot)?.logoDescription || '';
 
 	/**
 	 * El logo que se detectó en la web del producto: sale del escaneo de la URL,
@@ -270,10 +292,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [logoRoto, setLogoRoto] = useState(false);
 	useEffect(() => { setLogoRoto(false); }, [logoQueSePondria]);
 
-	const [zones, setZones] = useState<Array<{ where?: string; messageRole?: string; original?: string; replacement?: string; onProduct?: boolean }>>([]);
-	const [people, setPeople] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
-	const [comparisons, setComparisons] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
-	const [creativeDecisions, setCreativeDecisions] = useState<Array<{ type?: string; title?: string; where?: string; description?: string; question?: string; defaultStrategy?: string; options?: string[]; confidence?: string; directive?: string }>>([]);
+	// `slide` viene sellado por el análisis de cada página del carrusel: es lo que
+	// permite agrupar los textos por imagen y devolverle a cada página lo suyo.
+	const [zones, setZones] = useState<Array<{ slide?: number; where?: string; messageRole?: string; original?: string; replacement?: string; onProduct?: boolean }>>([]);
+	const [people, setPeople] = useState<Array<{ slide?: number; where?: string; role?: string; description?: string; directive?: string }>>([]);
+	const [comparisons, setComparisons] = useState<Array<{ slide?: number; where?: string; role?: string; description?: string; directive?: string }>>([]);
+	const [creativeDecisions, setCreativeDecisions] = useState<Array<{ slide?: number; type?: string; title?: string; where?: string; description?: string; question?: string; defaultStrategy?: string; options?: string[]; confidence?: string; directive?: string }>>([]);
 	/** Qué decisiones tienen abierto el campo para escribir una respuesta propia. */
 	const [escribiendo, setEscribiendo] = useState<Set<number>>(new Set());
 	const [comparisonGuidance, setComparisonGuidance] = useState('');
@@ -462,6 +486,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (!response.ok) throw new Error((payload as any).error || 'No se pudo analizar la referencia.');
 			const analysis = payload.analysis || {};
 			setPlan(analysis);
+			setSlidePlans(Array.isArray(payload.slideAnalyses) ? payload.slideAnalyses : []);
 			setZones((analysis.textZones || []).filter((zone: any) => analysis.productHasPackaging ? true : !zone.onProduct));
 			setPeople(Array.isArray(analysis.people) ? analysis.people.map((p: any) => ({ ...p, directive: '' })) : []);
 			setComparisons(Array.isArray(analysis.comparisonItems) ? analysis.comparisonItems.map((c: any) => ({ ...c, directive: '' })) : []);
@@ -472,6 +497,29 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			setError(cause instanceof Error ? cause.message : 'No se pudo analizar la referencia.');
 			setPhase('setup');
 		}
+	}
+
+	/**
+	 * El análisis que se manda a generar, con la revisión del usuario encima.
+	 *
+	 * Sin `pagina` es el de una imagen suelta. Con `pagina` es el de ESA página del
+	 * carrusel —el que se leyó de esa imagen y de ninguna otra— más solamente los
+	 * textos, las personas, las comparaciones y las decisiones que le tocan. Antes
+	 * viajaba un único análisis promedio para todas las páginas: los textos sí se
+	 * repartían y todo lo que decide la IMAGEN no, así que la página 1 se generaba
+	 * con el producto y la escena que el análisis había leído en la página 3.
+	 */
+	function planRevisado(pagina?: number) {
+		const base = pagina ? (slidePlans[pagina - 1] || plan) : plan;
+		const suyo = <T extends { slide?: number }>(items: T[]) => (pagina ? items.filter((item) => !item.slide || item.slide === pagina) : items);
+		return {
+			...base,
+			textZones: suyo(zones),
+			people: suyo(people),
+			comparisonItems: suyo(comparisons),
+			creativeDecisions: suyo(creativeDecisions),
+			comparison: { ...(base?.comparison || {}), userGuidance: comparisonGuidance.trim() },
+		};
 	}
 
 	async function approveAndGenerate() {
@@ -524,7 +572,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				setSavedAvatars(Array.isArray(avatarPayload.avatars) ? avatarPayload.avatars : savedAvatars);
 				form.set('avatarId', avatarPayload.avatar.id);
 			}
-			form.set('plan', JSON.stringify({ ...plan, textZones: zones, people, comparisonItems: comparisons, creativeDecisions, comparison: { ...(plan.comparison || {}), userGuidance: comparisonGuidance.trim() } }));
+			form.set('plan', JSON.stringify(planRevisado()));
 
 			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
 			const payload = await response.json();
@@ -617,18 +665,16 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		onToast?.('Todos los textos fueron regenerados.');
 	}
 
-	// Carrusel completo: sin revisión de textos (igual que el lote) — se resuelven
-	// los productos (uno o uno por página) y se arrancan todas las páginas juntas,
-	// agrupadas bajo el mismo batch_id que ya sabe trackear "Mis imágenes".
+	// Carrusel completo: sale de la MISMA revisión que una imagen suelta (idioma,
+	// identidad, colores, tipografía, logo, textos) — se resuelven los productos
+	// (uno o uno por página) y se arrancan todas las páginas juntas, agrupadas bajo
+	// el mismo batch_id que ya sabe trackear "Mis imágenes".
 	async function approveAndGenerateCarousel() {
-		if (!plan) {
-			await requestPlan();
-			return;
-		}
 		if (enviando.current) return;
 		enviando.current = true;
-		setCarouselStarting(true); setError('');
+		setPhase('starting'); setError('');
 		onGenerationRequested?.();
+		let arrancado = false;
 		try {
 			let productIds: string[] = [];
 			let offeringForSubmit: 'product' | 'service' | 'catalog' = detectedOffering;
@@ -696,8 +742,13 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					productDescription: manualProductFacts.trim(),
 					avatarId: carouselAvatarId || null,
 					format, language, colorMode, typoMode, brandSource,
-					logoSlideIndexes: [...logoCarouselPages],
-					approvedPlan: { ...plan, textZones: zones, people, comparisonItems: comparisons, creativeDecisions, comparison: { ...(plan?.comparison || {}), userGuidance: comparisonGuidance.trim() } },
+					// La corrección manual de la paleta no viajaba: los colores se podían
+					// editar en la revisión y el carrusel se generaba igual con los
+					// detectados. La imagen suelta sí la mandaba desde siempre.
+					paletteOverride: Object.keys(paletteOverride).length ? paletteOverride : null,
+					logoSlideIndexes: includeLogo ? [...logoCarouselPages] : [],
+					// Un análisis por página, en el orden de las páginas.
+					approvedPlans: carouselSlides.map((_, indice) => planRevisado(indice + 1)),
 				}),
 			});
 			const payload = await response.json();
@@ -711,13 +762,17 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					count: payload.count,
 				});
 			}
+			arrancado = true;
 			onBack({ trasGenerar: true });
 			void driveBatchWorkers((payload.generations || []).map((g: any) => g.id), token);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la generación del carrusel.');
 		} finally {
 			enviando.current = false;
-			setCarouselStarting(false);
+			// Varias validaciones de acá adentro cortan con un `return` y su propio
+			// mensaje, sin pasar por el catch. Sin esto la pantalla se quedaba con el
+			// botón girando en "Generando" para siempre y había que recargar.
+			if (!arrancado) setPhase('review');
 		}
 	}
 
@@ -763,7 +818,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					<h1 style={{ margin: '0 0 5px', fontSize: '23px', color: '#19171d', letterSpacing: '-.02em' }}>Crear con este diseño</h1>
 					<p style={{ margin: '0 0 18px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>
 						{wantsFullCarousel
-							? `Se replica el carrusel completo (${carouselSlides.length} páginas) con tu producto.`
+							? `Se replica el carrusel completo (${carouselSlides.length} páginas) con tu producto. Analizamos cada página y antes de generar podés ajustar la identidad, los colores y los textos.`
 							: 'Se replica la composición visual del ganador con tu producto. Antes de generar podés ajustar la identidad y las personas.'}
 					</p>
 
@@ -773,7 +828,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							{ n: 1, label: 'Tu producto', active: phase === 'setup' && formStep === 1, done: phase !== 'setup' || formStep > 1 },
 							{ n: 2, label: 'Formato', active: phase === 'setup' && formStep === 2, done: phase !== 'setup' || formStep > 2 },
 							{ n: 3, label: 'Estilo', active: phase === 'setup' && formStep === 3, done: phase !== 'setup' },
-							{ n: 4, label: wantsFullCarousel ? 'Generar' : 'Revisar', active: phase === 'planning' || phase === 'review' || phase === 'starting' || carouselStarting, done: false },
+							{ n: 4, label: 'Revisar', active: phase === 'planning' || phase === 'review' || phase === 'starting', done: false },
 						].map((item) => (
 							<li key={item.n} className={`wiz-progress-item ${item.active ? 'active' : ''} ${item.done ? 'done' : ''}`}>
 								<span className="wiz-progress-dot">{item.done ? '✓' : item.n}</span>
@@ -978,53 +1033,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									</div>
 								</div>
 
-								{wantsFullCarousel && brandSource !== 'none' && (
-									<div className="batch-style-group" style={{ marginBottom: '4px' }}>
-										<span className="picker-label">Logo en el carrusel</span>
-										<div className="batch-style-options">
-											<button type="button" className={logoCarouselPages.size === 0 ? 'active' : ''} onClick={() => setLogoCarouselPages(new Set())}>Sin logo</button>
-											<button type="button" className={logoCarouselPages.size > 0 ? 'active' : ''} onClick={() => setLogoCarouselPages(new Set(carouselSlides.map((_, i) => i)))}>Con logo de {origenDelLogo}</button>
-										</div>
-										{/* Acá todavía no se analizó ninguna página, así que no se sabe
-										    cuáles firman con un logo dibujado: se avisa dónde puede
-										    terminar el archivo y se deja la decisión en la persona. */}
-										<small className="batch-brand-note">
-											{logoCarouselPages.size > 0
-												? 'Vamos a colocar el archivo del logo de tu marca en las páginas elegidas. En las que el ganador no tenga un logo dibujado, va a ir en un lugar nuevo que el diseño original no tenía.'
-												: 'No se coloca ningún archivo de logo. Donde el carrusel ganador tenga escrito el nombre de su marca, va a ir escrito el nombre de tu negocio.'}
-										</small>
-										{logoCarouselPages.size > 0 && (
-											<>
-												<small className="batch-brand-note">Tocá una página para sacarle el logo — por defecto va en todas.</small>
-												<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
-													{carouselSlides.map((slide, index) => {
-														const on = logoCarouselPages.has(index);
-														return (
-															<button
-																key={slide}
-																type="button"
-																onClick={() => setLogoCarouselPages((prev) => {
-																	const next = new Set(prev);
-																	if (next.has(index)) next.delete(index); else next.add(index);
-																	return next;
-																})}
-																title={`Página ${index + 1} — ${on ? 'con logo' : 'sin logo'}`}
-																style={{
-																	position: 'relative', padding: 0, width: '58px', height: '58px', borderRadius: '9px', overflow: 'hidden', cursor: 'pointer',
-																	border: on ? '2.5px solid #744bde' : '1.5px solid #e2dde9',
-																	background: '#f6f4f9', opacity: on ? 1 : 0.5,
-																}}
-															>
-																<img src={referenceUrlFor(slide)} alt={`Página ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-																<span style={{ position: 'absolute', bottom: '2px', right: '2px', fontSize: '11px', lineHeight: 1, filter: on ? 'none' : 'grayscale(1)' }}>{on ? '🏷️' : '🚫'}</span>
-															</button>
-														);
-													})}
-												</div>
-											</>
-										)}
-									</div>
-								)}
+								{/* La pregunta del logo NO va acá: es la misma decisión que en una
+								    imagen suelta y se toma después de analizar, cuando ya se sabe
+								    si el ganador firma con un logo dibujado o escribiendo su
+								    nombre. Acá se elegía a ciegas. */}
 
 								<div className="batch-style-groups creation-style-source-groups">
 									<div className="batch-style-group">
@@ -1070,34 +1082,26 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							</div>
 						)}
 
+						{/* Un solo botón para las dos formas: primero se analiza, después se
+						    revisa y recién ahí se gasta un crédito. El carrusel decía
+						    "Generar N imágenes" y en realidad analizaba, así que prometía
+						    un gasto que todavía no ocurría. */}
 						{formStep === 3 && (
 							<div className="wiz-actions" style={{ marginTop: '16px' }}>
-								<button type="button" className="wiz-back" onClick={() => setFormStep(2)} disabled={phase === 'planning' || carouselStarting}>← Atrás</button>
-								{wantsFullCarousel ? (
-									<div className="batch-continue-wrap">
-										<button
-											type="button"
-											onClick={() => { if (!step1Ready) { setError('Completá los productos antes de generar.'); setFormStep(1); return; } void approveAndGenerateCarousel(); }}
-											disabled={phase === 'planning' || carouselStarting}
-											className="url-batch-submit-btn"
-										>
-											{carouselStarting ? <><span className="studio-spinner small" aria-hidden="true" /> Preparando carrusel…</> : `Generar ${carouselSlides.length} imágenes`}
-										</button>
-										{!carouselStarting && <span className="batch-credit-note">{carouselSlides.length} {carouselSlides.length === 1 ? 'crédito' : 'créditos'}</span>}
-									</div>
-								) : (
-									<div className="batch-continue-wrap">
-										<button
-											type="button"
-											onClick={() => void requestPlan()}
-											disabled={phase === 'planning'}
-											className="url-batch-submit-btn"
-										>
-							{phase === 'planning' ? <><span className="studio-spinner small" aria-hidden="true" /> Analizando referencia…</> : 'Analizar referencia'}
-										</button>
-										{phase !== 'planning' && <span className="batch-credit-note">Todavía no gastás créditos</span>}
-									</div>
-								)}
+								<button type="button" className="wiz-back" onClick={() => setFormStep(2)} disabled={phase === 'planning'}>← Atrás</button>
+								<div className="batch-continue-wrap">
+									<button
+										type="button"
+										onClick={() => { if (!step1Ready) { setError('Contanos qué vas a promocionar antes de continuar.'); setFormStep(1); return; } void requestPlan(); }}
+										disabled={phase === 'planning'}
+										className="url-batch-submit-btn"
+									>
+										{phase === 'planning'
+											? <><span className="studio-spinner small" aria-hidden="true" /> {wantsFullCarousel ? `Analizando las ${carouselSlides.length} páginas…` : 'Analizando referencia…'}</>
+											: wantsFullCarousel ? `Analizar las ${carouselSlides.length} páginas` : 'Analizar referencia'}
+									</button>
+									{phase !== 'planning' && <span className="batch-credit-note">Todavía no gastás créditos</span>}
+								</div>
 							</div>
 						)}
 					</>}
@@ -1185,23 +1189,25 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 						    había analizado nada: había que elegir a ciegas si poner una
 						    marca sin saber si el ganador tenía un lugar para ella. Recién
 						    después del análisis se sabe, y se puede recomendar. */}
-						{brandSource !== 'none' && !wantsFullCarousel && (
+						{brandSource !== 'none' && (
 							<section className="logo-decision" aria-label="Logo en el anuncio">
 								<div className="logo-decision-head">
 									<strong>¿Incluir tu logo?</strong>
 									<small>
 										{ganadorTieneLogoDibujado
-											? `El anuncio ganador firma con un logo dibujado${plan.logoDescription ? ` (${plan.logoDescription})` : ''}: tu logo entra en ese mismo lugar, sin agregarle nada nuevo al diseño.`
+											? `${wantsFullCarousel ? 'El carrusel ganador firma' : 'El anuncio ganador firma'} con un logo dibujado${descripcionDelLogo ? ` (${descripcionDelLogo})` : ''}: tu logo entra en ese mismo lugar, sin agregarle nada nuevo al diseño.`
 											: ganadorFirmaConElNombre
-												? `El anuncio ganador firma con el nombre de su marca escrito${plan.logoDescription ? ` (${plan.logoDescription})` : ''}, no con un logo dibujado. En ese mismo lugar va a ir escrito el nombre de tu negocio, pongas o no el logo.`
-												: 'El anuncio ganador no muestra ninguna marca en ningún lado.'}
+												? `${wantsFullCarousel ? 'El carrusel ganador firma' : 'El anuncio ganador firma'} con el nombre de su marca escrito${descripcionDelLogo ? ` (${descripcionDelLogo})` : ''}, no con un logo dibujado. En ese mismo lugar va a ir escrito el nombre de tu negocio, pongas o no el logo.`
+												: `${wantsFullCarousel ? 'Ninguna página del carrusel ganador muestra' : 'El anuncio ganador no muestra'} ninguna marca en ningún lado.`}
 									</small>
 								</div>
 								<div className="logo-decision-options" role="radiogroup" aria-label="Incluir logo">
 									<button
 										type="button" role="radio" aria-checked={includeLogo}
+										// En un carrusel el logo arranca en TODAS las páginas y desde
+										// las miniaturas de abajo se le saca a las que no lo quieran.
+										onClick={() => { setIncludeLogo(true); if (wantsFullCarousel) setLogoCarouselPages(new Set(carouselSlides.map((_, indice) => indice))); }}
 										className={includeLogo ? 'active' : ''}
-										onClick={() => setIncludeLogo(true)}
 									>
 										Con logo de {origenDelLogo}
 										{ganadorTieneLogoDibujado && <em>recomendado</em>}
@@ -1221,12 +1227,42 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								<p className="logo-decision-consecuencia">
 									{includeLogo
 										? (ganadorTieneLogoDibujado
-											? 'Vamos a colocar el archivo del logo de tu marca en la imagen, en el mismo lugar y del mismo tamaño que el logo del anuncio ganador.'
-											: 'Vamos a colocar el archivo del logo de tu marca en un lugar nuevo de la imagen: el anuncio ganador no tiene ningún logo dibujado, así que hay que abrirle un espacio que el diseño original no tenía.')
+											? `Vamos a colocar el archivo del logo de tu marca en ${wantsFullCarousel ? 'las páginas elegidas' : 'la imagen'}, en el mismo lugar y del mismo tamaño que el logo del anuncio ganador.`
+											: `Vamos a colocar el archivo del logo de tu marca en un lugar nuevo de ${wantsFullCarousel ? 'cada página elegida' : 'la imagen'}: el anuncio ganador no tiene ningún logo dibujado, así que hay que abrirle un espacio que el diseño original no tenía.`)
 										: (ganadorFirmaConElNombre || ganadorTieneLogoDibujado
 											? 'No se coloca ningún archivo de logo. Donde el anuncio ganador tiene su marca va a ir escrito el nombre de tu negocio, con la tipografía del aviso.'
-											: 'No se coloca ningún archivo de logo, y como el anuncio ganador tampoco muestra una marca, la imagen sale igual de limpia que el original.')}
+											: `No se coloca ningún archivo de logo, y como el anuncio ganador tampoco muestra una marca, ${wantsFullCarousel ? 'las imágenes salen' : 'la imagen sale'} igual de limpia${wantsFullCarousel ? 's' : ''} que el original.`)}
 								</p>
+								{includeLogo && wantsFullCarousel && (
+									<>
+										<small className="batch-brand-note">Tocá una página para sacarle el logo — por defecto va en todas.</small>
+										<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+											{carouselSlides.map((slide, index) => {
+												const on = logoCarouselPages.has(index);
+												return (
+													<button
+														key={slide}
+														type="button"
+														onClick={() => setLogoCarouselPages((prev) => {
+															const next = new Set(prev);
+															if (next.has(index)) next.delete(index); else next.add(index);
+															return next;
+														})}
+														title={`Página ${index + 1} — ${on ? 'con logo' : 'sin logo'}`}
+														style={{
+															position: 'relative', padding: 0, width: '58px', height: '58px', borderRadius: '9px', overflow: 'hidden', cursor: 'pointer',
+															border: on ? '2.5px solid #744bde' : '1.5px solid #e2dde9',
+															background: '#f6f4f9', opacity: on ? 1 : 0.5,
+														}}
+													>
+														<img src={referenceUrlFor(slide)} alt={`Página ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+														<span style={{ position: 'absolute', bottom: '2px', right: '2px', fontSize: '11px', lineHeight: 1, filter: on ? 'none' : 'grayscale(1)' }}>{on ? '🏷️' : '🚫'}</span>
+													</button>
+												);
+											})}
+										</div>
+									</>
+								)}
 								{includeLogo && (
 									logoQueSePondria && !logoRoto ? (
 										<div className="logo-decision-preview">
@@ -1311,6 +1347,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 											    único que ayuda a ubicarlo en el anuncio. */}
 											<strong style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#3f3560', marginBottom: '5px' }}>
 												<span>{creativeDecisionIcon(decision.type)} {decision.title || 'Elemento visual detectado'}</span>
+												{/* De qué página del carrusel salió. Cada página aporta las
+												    suyas, así que sin esto quedaban quince decisiones seguidas
+												    sin saber a cuál imagen pertenecía cada una. */}
+												{decision.slide && <em style={{ fontStyle: 'normal', fontSize: '11px', fontWeight: 700, color: '#744bde', background: '#eee7ff', padding: '2px 7px', borderRadius: '999px' }}>Imagen {decision.slide}</em>}
 												{decision.where && <em style={{ fontStyle: 'normal', fontSize: '11px', fontWeight: 700, color: '#8b8490', background: '#f4f1f8', padding: '2px 7px', borderRadius: '999px' }}>{decision.where}</em>}
 											</strong>
 											<p style={{ margin: '0 0 8px', fontSize: '12.5px', lineHeight: 1.45, color: '#3f3560', fontWeight: 600 }}>{decision.question || `¿Cómo querés resolver ${decision.title?.toLowerCase() || 'este elemento'}?`}</p>
