@@ -70,6 +70,48 @@ export function alcanceDesde(mode: SubjectMode | null | undefined): Alcance {
 export function usesRealProductPhotos(mode: SubjectMode): boolean {
 	return mode === 'product' || mode === 'catalog';
 }
+/**
+ * Quién aparece en el anuncio.
+ *
+ * - `none`: no aparece nadie.
+ * - `ai`: decide el modelo, mirando el ganador y el producto.
+ * - `described`: la persona la describe el usuario con palabras.
+ * - `upload`: la persona viene en fotos de referencia.
+ */
+export type PersonMode = 'none' | 'ai' | 'described' | 'upload';
+
+export const PERSON_MODES: PersonMode[] = ['none', 'ai', 'described', 'upload'];
+
+/**
+ * Lee el modo que llega del cliente sin confiar en él.
+ *
+ * El valor viaja por FormData y por el JSON del carrusel, y además hay
+ * generaciones viejas guardadas sin este campo. El `fallback` existe para eso:
+ * una fila anterior a este cambio que traía `avatarId` era una carga de fotos,
+ * y sin decírselo se resolvía como 'ai' y el avatar se perdía en silencio.
+ */
+export function parsePersonMode(raw: unknown, fallback: PersonMode = 'ai'): PersonMode {
+	const value = typeof raw === 'string' ? raw.trim() : '';
+	return PERSON_MODES.includes(value as PersonMode) ? value as PersonMode : fallback;
+}
+
+/**
+ * Qué opción viene marcada al abrir la revisión.
+ *
+ * Se mira lo que el análisis encontró en el ganador: si el aviso que se está
+ * clonando muestra gente, sacarla de golpe rompe justo lo que lo hace funcionar,
+ * así que lo razonable es dejar que el modelo la elija. Si no muestra a nadie,
+ * lo razonable es que el clon tampoco.
+ *
+ * Se filtra igual que el bloque de personas del prompt: el analizador a veces
+ * devuelve entradas vacías, y contarlas hacía que un anuncio sin una sola cara
+ * abriera recomendando poner una.
+ */
+export function personModeRecomendado(people: LayoutAnalysis['people'] | null | undefined): PersonMode {
+	const visibles = (people || []).filter((persona) => persona && (persona.description || persona.directive || persona.where));
+	return visibles.length ? 'ai' : 'none';
+}
+
 export type StyleMode = 'winner' | 'url' | 'brand';
 /** Paleta detectada de la web de la marca, tal como la entiende ad-analysis. */
 export type BrandPalette = { background?: string; text?: string; accent?: string; secondary?: string; source?: string };
@@ -137,6 +179,12 @@ export type ClonePromptInput = {
 	brandColors?: string[];
 	brandTypography?: { headings?: string; body?: string };
 	brandPalette?: BrandPalette;
+	/** Quién aparece: lo elige el usuario en la revisión, antes de generar. */
+	personMode?: PersonMode;
+	/**
+	 * La persona en palabras. La llena "yo la describo" con lo que escribió el
+	 * usuario, y "cargar avatar" con la descripción guardada del avatar elegido.
+	 */
 	avatarDescription?: string;
 	/** Cuántas fotos del avatar se adjuntan: cambia el texto del prompt. */
 	avatarImageCount?: number;
@@ -237,6 +285,7 @@ export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalys
 		brandPalette: input.brandPalette,
 		subjectMode: input.subjectMode,
 		hasAvatarReference: (input.avatarImageCount || 0) > 0,
+		personMode: input.personMode,
 		avatarDescription: input.avatarDescription,
 		carousel: input.carousel,
 	});

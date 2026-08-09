@@ -11,7 +11,7 @@ import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
-import { alcanceDesde, buildClonePrompt, mergePaletteOverride, parseBrandOverride, parsePaletteOverride, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, buildClonePrompt, mergePaletteOverride, parseBrandOverride, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
 import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
@@ -212,6 +212,16 @@ export const POST: APIRoute = async ({ request }) => {
 			? subjectModeParam as SubjectMode
 			: null;
 		const avatarId = clean(form.get('avatarId'), 80);
+		/**
+		 * Quién aparece en el anuncio.
+		 *
+		 * El fallback mira `avatarId` porque las generaciones que se rehacen desde
+		 * el historial son anteriores a este campo: ahí un avatarId guardado era,
+		 * por definición, una carga de fotos, y resolverlo como 'ai' habría hecho
+		 * desaparecer al avatar sin que nada fallara.
+		 */
+		const personMode = parsePersonMode(form.get('personMode'), avatarId ? 'upload' : 'ai');
+		const personaEscrita = personMode === 'described' ? clean(form.get('avatarDescription'), 600) : '';
 		const effectiveBrief = stripWebReferences(brief);
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		// 'url'  → la marca del sitio de donde salió el producto
@@ -433,6 +443,11 @@ export const POST: APIRoute = async ({ request }) => {
 				|| (sourceGeneration as any)?.settings_snapshot?.sourceUrl
 				|| null,
 			avatarId: avatarId || null,
+			// La elección de persona queda guardada con la generación: al rehacerla
+			// desde el historial se vuelve a armar el mismo aviso, y sin esto un
+			// creativo pedido sin gente volvía con gente.
+			personMode,
+			avatarDescription: personaEscrita,
 			// Las revisiones heredan el anuncio ganador de la imagen original.
 			referencePath: storedReference?.image_path || (sourceGeneration as any)?.settings_snapshot?.referencePath || null,
 			sourceGenerationId: sourceGeneration?.id || null,
@@ -642,8 +657,11 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		let avatarReferenceImages: Array<{ buffer: Buffer; type: string }> = [];
-		let avatarDescription = '';
-		if (avatarId) {
+		// "Yo la describo" no adjunta ninguna foto: lo único que viaja al prompt es
+		// el texto que escribió el usuario, por el mismo campo que ya usaba el
+		// avatar guardado para pasar su descripción.
+		let avatarDescription = personaEscrita;
+		if (personMode === 'upload' && avatarId) {
 			const avatar = await resolveAvatarReferences({ admin, userId: auth.user!.id, mode: 'saved', avatarId });
 			avatarReferenceImages = avatar.images;
 			avatarDescription = avatar.description || avatar.name;
@@ -727,6 +745,7 @@ The result must look like the same image with only that one adjustment applied.`
 			brandColors: effectiveBrandColors,
 			brandTypography: effectiveBrandTypography,
 			brandPalette: effectiveBrandPalette,
+			personMode,
 			avatarDescription,
 			avatarImageCount: avatarReferenceImages.length,
 		};

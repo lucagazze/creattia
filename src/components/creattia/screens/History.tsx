@@ -402,7 +402,12 @@ export function GenerationCard({
 			}}
 			style={{ position: 'relative', outline: selectMode && selected ? '3px solid #744bde' : undefined, borderRadius: selectMode && selected ? '14px' : undefined }}
 		>
-							<div style={{ cursor: selectMode ? 'pointer' : onExpand ? 'zoom-in' : 'default', position: 'relative' }} onClick={selectMode ? onToggleSelect : (onExpand ? () => onExpand(active, slides) : undefined)}>
+							{/* Abrir la imagen es un gesto de la tarjeta, no de una capa que
+							    aparece al pasar el mouse: en el celular esa capa se quedaba con
+							    el primer toque y había que tocar dos veces. Todo lo que dependía
+							    del hover quedó encerrado en `hover: hover` en el CSS
+							    (`.studio-card-media`), así que acá el toque llega derecho. */}
+							<div className="studio-card-media" style={{ cursor: selectMode ? 'pointer' : onExpand ? 'zoom-in' : 'default', position: 'relative' }} onClick={selectMode ? onToggleSelect : (onExpand ? () => onExpand(active, slides) : undefined)}>
 				{selectMode ? (
 					<div
 						style={{

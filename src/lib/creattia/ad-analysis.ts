@@ -687,6 +687,8 @@ export function buildReferenceClonePrompt(input: {
 	brandPalette?: { background?: string; text?: string; accent?: string; secondary?: string; source?: string };
 	subjectMode?: 'product' | 'service' | 'saas' | 'brand' | 'catalog';
 	hasAvatarReference?: boolean;
+	/** Quién aparece en el anuncio: lo elige el usuario antes de generar. */
+	personMode?: 'none' | 'ai' | 'described' | 'upload';
 	avatarDescription?: string;
 	includeWebsite?: boolean;
 	displayWebsite?: string;
@@ -981,12 +983,51 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 	const semanticPaletteRule = input.colorMode !== 'winner' && input.brandPalette
 		? `\nSEMANTIC BRAND PALETTE (REQUIRED) — Use BACKGROUND ${input.brandPalette.background || 'not provided'}, ACCENT ${input.brandPalette.accent || 'not provided'}, TEXT ${input.brandPalette.text || 'not provided'}${input.brandPalette.secondary ? `, SECONDARY ${input.brandPalette.secondary}` : ''}. Apply each color to its semantic role instead of using a generic approximation, and preserve readable contrast.`
 		: '';
-	const identityBlock = input.hasAvatarReference
-		? `\nVISUAL IDENTITY REFERENCE — The user supplied multiple reference images for ${input.avatarDescription || 'a person/avatar'}. Use them only to keep that identity consistent: face, hairstyle, proportions, distinctive features and overall look. Do not merge different people, invent a new face or turn the avatar into a product.`
-		: `\nVISUAL IDENTITY — No person/avatar reference was selected. Do not invent a recurring human face or mascot. For a service/SaaS offer, prefer the logo, interface, result or an abstract brand-led visual unless the template clearly requires a generic contextual person.`;
-	const people = (input.analysis?.people || []).filter((p) => p && (p.description || p.directive || p.where));
+	/**
+	 * Quién aparece en el anuncio.
+	 *
+	 * Antes esto era una sola pregunta —¿hay fotos de avatar o no?— y la rama del
+	 * "no" decía "no inventes una cara recurrente", que no es lo mismo que "no
+	 * pongas a nadie". El que elegía "sin persona" recibía gente igual, porque el
+	 * bloque de personas de más abajo seguía pidiendo conservar las del ganador.
+	 *
+	 * El `personMode` viene de la revisión. Cuando no viene —análisis guardados
+	 * antes de este cambio, o un caller que todavía no lo manda— se deduce de lo
+	 * que sí llegó, que es exactamente como se comportaba hasta ahora.
+	 */
+	const personMode = input.personMode
+		|| (input.hasAvatarReference ? 'upload' : (input.avatarDescription || '').trim() ? 'described' : 'ai');
+	const personaEnPalabras = (input.avatarDescription || '').trim();
+	const identityBlock = personMode === 'upload'
+		? `\nVISUAL IDENTITY REFERENCE — The user supplied multiple reference images for ${personaEnPalabras || 'a person/avatar'}. Use them only to keep that identity consistent: face, hairstyle, proportions, distinctive features and overall look. Do not merge different people, invent a new face or turn the avatar into a product.`
+		: personMode === 'described'
+		? `\nVISUAL IDENTITY — The advertiser wrote who has to appear: ${personaEnPalabras}. Cast exactly that person wherever the template shows one, the same one throughout, and add nobody the template does not have. No photos were supplied, so build that face yourself: every trait of that description must be visible, and the template's own casting never overrides it.`
+		: personMode === 'none'
+		? `\nVISUAL IDENTITY — NOBODY APPEARS IN THIS AD. No person, face, hand, body part, silhouette, reflection, mascot or human character anywhere, at any size, not even blurred in the background or printed on the packaging. Where the template shows a person, close that area with the product, the setting or the template's own background treatment, keeping the same composition, framing and lighting.`
+		: `\nVISUAL IDENTITY — No person reference was supplied: cast whoever this ad and this offer genuinely call for, following the template. Do not invent a recurring brand face or mascot. For a service/SaaS offer, prefer the logo, interface, result or an abstract brand-led visual unless the template clearly requires a contextual person.`;
+	// Con "sin persona" el ganador puede seguir mostrando gente. Si el bloque se
+	// emitiera igual, el prompt pediría conservarla dos renglones debajo de la
+	// orden de que no aparezca nadie, y el modelo resolvía distinto cada corrida.
+	const people = personMode === 'none'
+		? []
+		: (input.analysis?.people || []).filter((p) => p && (p.description || p.directive || p.where));
+	/**
+	 * A quién poner cuando el usuario no escribió nada para ESA persona.
+	 *
+	 * "Yo la describo" no manda fotos: la descripción es lo único que dice quién
+	 * va, así que también tiene que gobernar a cada persona que detectó el
+	 * análisis. Sin esto ganaba el default —"dejalas como en el template"— y lo
+	 * que el usuario había escrito no cambiaba nada de la imagen.
+	 *
+	 * Se la apunta en vez de copiarla: escrita entera una vez por cada persona
+	 * detectada, una descripción larga con tres personas empujaba el prompt por
+	 * encima del techo de tamaño que vigila el test.
+	 */
+	const castingPorDefecto = personMode === 'described' && personaEnPalabras
+		? `render the person described under VISUAL IDENTITY above, ${mediumWord}, coherent with the scene.`
+		: 'keep them essentially as in the template (same apparent gender, age and role), only refreshed to look natural in the new ad.';
 	const peopleBlock = people.length
-		? `\n5. PEOPLE — The ad shows ${people.length === 1 ? 'a person' : 'people'}. For each, follow the direction:\n${people.map((p, i) => `   - Person ${i + 1}${p.where ? ` (${p.where})` : ''}: ${p.directive?.trim() ? `render them as — ${p.directive.trim()}. Render them ${mediumWord}, coherent with the scene.` : 'keep them essentially as in the template (same apparent gender, age and role), only refreshed to look natural in the new ad.'}`).join('\n')}\nRender every person in the template's own medium (${medium || 'photographic'}), well-integrated into the scene lighting, never distorted.`
+		? `\n5. PEOPLE — The ad shows ${people.length === 1 ? 'a person' : 'people'}. For each, follow the direction:\n${people.map((p, i) => `   - Person ${i + 1}${p.where ? ` (${p.where})` : ''}: ${p.directive?.trim() ? `render them as — ${p.directive.trim()}. Render them ${mediumWord}, coherent with the scene.` : castingPorDefecto}`).join('\n')}\nRender every person in the template's own medium (${medium || 'photographic'}), well-integrated into the scene lighting, never distorted.`
 		: '';
 
 	// Comparación: qué poner en los ítems que NO son el producto héroe.
@@ -1005,7 +1046,13 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 	// `description` ya no se pide —era un párrafo de razonamiento que se mostraba
 	// arriba de la pregunta y decía lo mismo— pero se sigue leyendo: los análisis
 	// guardados antes de este cambio la traen.
-	const creativeDecisions = (input.analysis?.creativeDecisions || []).filter((decision) => decision && (decision.description || decision.question || decision.defaultStrategy || decision.directive));
+	// Con "sin persona" también se van las decisiones sobre personas: el
+	// analizador devuelve una por cada cara que ve ("¿qué edad tiene la modelo?"),
+	// y su estrategia por defecto vuelve a meter a alguien en el aviso justo
+	// después de haber pedido que no aparezca nadie.
+	const creativeDecisions = (input.analysis?.creativeDecisions || [])
+		.filter((decision) => !(personMode === 'none' && decision?.type === 'person'))
+		.filter((decision) => decision && (decision.description || decision.question || decision.defaultStrategy || decision.directive));
 	const creativeDecisionBlock = creativeDecisions.length
 		? `\nCONTEXTUAL CREATIVE DECISIONS — The visual analysis identified details that may materially affect fidelity or believability. Preserve the template structure, but apply the user's direction when present. If a direction is empty, use the safe default and do not invent an unrelated subject, brand or claim:\n${creativeDecisions.map((decision, index) => `   - Decision ${index + 1} [${decision.type || 'other'}]${decision.title ? ` ${decision.title}` : ''}${decision.where ? ` (${decision.where})` : ''}: detected — ${decision.description || decision.question || 'contextual visual element'}. User direction: ${decision.directive?.trim() || 'none'}. Default: ${decision.defaultStrategy || 'make the most natural, same-category and production-ready choice.'}`).join('\n')}`
 		: '';

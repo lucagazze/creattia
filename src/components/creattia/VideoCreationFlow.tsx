@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import UrlInput from './UrlInput';
-import type { SavedAvatar } from './AvatarManager';
 import { prepareReferenceImages } from '../../lib/creattia/client-image';
 import { videoCreditCost, type VideoDialogueLine } from '../../lib/creattia/video-pipeline';
 import { fallbackVideoSetupSuggestions, normalizeVideoDuration, type VideoAudienceSuggestion, type VideoSetupSuggestions } from '../../lib/creattia/video-suggestions';
@@ -84,11 +83,27 @@ const REFERENCE_MODES = [
 	['Inspiración libre', 'Toma el concepto ganador y propone una ejecución más original.'],
 ] as const;
 
+/**
+ * Un avatar guardado, tal como lo devuelve /api/creativos/avatars.
+ *
+ * Vivía en el componente que administraba los avatares dentro de "Mi marca".
+ * Esa pantalla ya no existe —quién aparece se elige al crear el anuncio— y el
+ * tipo quedó acá, que es el único lugar que todavía los lista.
+ */
+type SavedAvatar = {
+	id: string;
+	name: string;
+	description?: string | null;
+	images: Array<{ path: string; url: string }>;
+	imageCount: number;
+	coverUrl: string;
+};
+
 const CASTING_MODES = [
 	['woman', 'Mujer UGC', 'Una creadora original, realista y distinta de la referencia'],
 	['man', 'Hombre UGC', 'Un creador original, realista y distinto de la referencia'],
 	['custom', 'Definir persona', 'Elegí edad, apariencia, energía y estilo'],
-	['saved', 'Mi avatar', 'Usá una identidad guardada en Mi marca'],
+	['saved', 'Mi avatar', 'Una identidad que ya cargaste en otra generación'],
 	['upload', 'Cargar avatar', 'Subí varias fotos para este video'],
 	['none', 'Sin personas', 'Producto, ambientes o manos anónimas'],
 ] as const;
@@ -539,7 +554,7 @@ export default function VideoCreationFlow({ reference, session, profile, savedPr
 						<label className="picker-label">¿Quién aparece en el video?</label><p className="batch-detail-help">La persona del ganador nunca se copia. Podés crear otra persona o usar una identidad autorizada.</p>
 						<div className="video-option-grid video-casting-grid">{CASTING_MODES.map(([value, label, hint]) => <button type="button" key={value} className={castingMode === value ? 'active' : ''} onClick={() => { setCastingMode(value); setError(''); }}><strong>{label}</strong><small>{hint}</small>{castingMode === value && <b>✓</b>}</button>)}</div>
 						{(['woman', 'man', 'custom'] as CastingMode[]).includes(castingMode) && <div className="video-casting-direction"><div className="video-form-row"><div className="video-wizard-fields"><label>Edad aproximada</label><input value={creatorAge} onChange={(event) => setCreatorAge(event.target.value)} placeholder="Ej.: 30 a 40 años" /></div><div className="video-wizard-fields"><label>Contexto o profesión</label><input value={peopleDirection} onChange={(event) => setPeopleDirection(event.target.value)} placeholder="Ej.: dermatóloga, madre, entrenador" /></div></div><div className="video-wizard-fields"><label>Estilo y energía</label><textarea value={creatorStyle} onChange={(event) => setCreatorStyle(event.target.value)} rows={3} placeholder="Ej.: natural, simpática, ropa cotidiana, luz de ventana y gestos realistas" /></div><div className="video-realism-note"><span>◎</span><p><strong>Identidad original y realista</strong><small>La IA usa el rol y la actuación del ganador, pero crea una persona claramente diferente.</small></p></div></div>}
-						{castingMode === 'saved' && <div className="video-avatar-picker">{savedAvatars.length ? savedAvatars.map((avatar) => <button type="button" key={avatar.id} className={avatarId === avatar.id ? 'active' : ''} onClick={() => setAvatarId(avatar.id)}>{avatar.coverUrl ? <img src={avatar.coverUrl} alt="" /> : <span>{avatar.name.slice(0, 1)}</span>}<div><strong>{avatar.name}</strong><small>{avatar.imageCount} fotos de referencia</small></div></button>) : <p>No guardaste avatares todavía. Podés elegir “Cargar avatar” o crearlo después en Mi marca.</p>}</div>}
+						{castingMode === 'saved' && <div className="video-avatar-picker">{savedAvatars.length ? savedAvatars.map((avatar) => <button type="button" key={avatar.id} className={avatarId === avatar.id ? 'active' : ''} onClick={() => setAvatarId(avatar.id)}>{avatar.coverUrl ? <img src={avatar.coverUrl} alt="" /> : <span>{avatar.name.slice(0, 1)}</span>}<div><strong>{avatar.name}</strong><small>{avatar.imageCount} fotos de referencia</small></div></button>) : <p>No tenés avatares guardados todavía. Elegí “Cargar avatar” y subí las fotos acá mismo.</p>}</div>}
 						{castingMode === 'upload' && <div className="video-avatar-upload"><div className="video-avatar-guide"><strong>Subí entre 6 y 12 fotos para máxima precisión</strong><span>✓ frente · ✓ perfiles · ✓ expresiones · ✓ cuerpo medio · ✓ luz clara</span><small>Evitá filtros, anteojos oscuros, fotos borrosas y grupos. Mínimo: 4 fotos.</small></div><label className="video-file-picker avatar"><input type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={(event) => void selectAvatarFiles(event.target.files)} disabled={preparingAvatar} /><span>{preparingAvatar ? 'Optimizando fotos…' : avatarFiles.length ? `✓ ${avatarFiles.length} fotos del avatar` : '👤 Elegir fotos de la persona'}</span></label>{avatarPreviewUrls.length > 0 && <div className="video-avatar-preview-grid">{avatarPreviewUrls.map((url, index) => <img key={url} src={url} alt={`Referencia ${index + 1} del avatar`} />)}</div>}<label className="video-avatar-consent"><input type="checkbox" checked={avatarConsent} onChange={(event) => setAvatarConsent(event.target.checked)} /><span>Confirmo que soy esta persona o tengo autorización para usar su imagen.</span></label></div>}
 						{(castingMode === 'saved' || castingMode === 'upload') && <div className="video-wizard-fields"><label>Detalles que deben mantenerse</label><textarea value={avatarDescription} onChange={(event) => setAvatarDescription(event.target.value)} rows={3} placeholder={selectedAvatar?.description || 'Ej.: pelo suelto, sonrisa suave, estilo natural y vestuario neutro'} /></div>}
 						<div className="video-wizard-fields"><label>¿Cómo se muestra o usa el producto?</label><textarea value={productUsage} onChange={(event) => setProductUsage(event.target.value)} placeholder="Ej.: abre el envase, aplica dos gotas y muestra la textura de cerca" rows={3} /><label>¿Qué no debe aparecer ni afirmarse?</label><textarea value={mustAvoid} onChange={(event) => setMustAvoid(event.target.value)} placeholder="Ej.: no prometer resultados médicos, no cambiar el envase, no mostrar logos ajenos" rows={3} /></div>

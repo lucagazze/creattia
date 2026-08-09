@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { normalizeImageInput, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import type { EngineImage } from '../../../lib/creattia/image-engines';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
-import { alcanceDesde, detectImageType, mergePaletteOverride, renderReferenceClone, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, detectImageType, mergePaletteOverride, parsePersonMode, renderReferenceClone, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { authenticateRequest, closeGenerationsAndCountRefunds, getAdminClient, json } from '../../../lib/creattia/server';
 import { readLimited, safeExternalFetch } from '../../../lib/creattia/safe-fetch';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
@@ -223,8 +223,12 @@ export const POST: APIRoute = async ({ request }) => {
 		brandTypography = snapshot.typoMode === 'brand' ? myBrandTypography : snapshot.typoMode === 'url' ? urlBrandTypography : undefined;
 		const hasLogo = Boolean(logoImage);
 		const avatarReferenceImages: EngineImage[] = [];
-		let avatarDescription = '';
-		if (snapshot.avatarId) {
+		// Filas guardadas antes de que existiera `personMode`: tener `avatarId` era
+		// haber cargado fotos, así que se leen como 'upload' y siguen renderizando
+		// con el mismo avatar que tenían cuando se pidieron.
+		const personMode = parsePersonMode(snapshot.personMode, snapshot.avatarId ? 'upload' : 'ai');
+		let avatarDescription = personMode === 'described' ? String(snapshot.avatarDescription || '').slice(0, 600) : '';
+		if (personMode === 'upload' && snapshot.avatarId) {
 			const avatar = await resolveAvatarReferences({ admin, userId, mode: 'saved', avatarId: String(snapshot.avatarId) });
 			avatarDescription = avatar.description || avatar.name || '';
 			for (const image of avatar.images.slice(0, 8)) {
@@ -264,6 +268,7 @@ export const POST: APIRoute = async ({ request }) => {
 			brandColors,
 			brandTypography,
 			brandPalette,
+			personMode,
 			avatarDescription,
 			approvedPlan,
 			requestedFormat,

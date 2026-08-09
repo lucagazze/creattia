@@ -8,6 +8,30 @@ import type { AppProfile, AppSession } from '../app-types';
 import { useEffect, useState } from 'react';
 /** Planes, compra de créditos y estado de la suscripción. */
 
+/**
+ * El importe tal como lo va a cerrar Mercado Pago, cuando no cobra en dólares.
+ *
+ * Con `style: 'currency'` a secas, es-AR imprime "$ 12.250,00" para pesos: el
+ * mismo signo que el dólar del precio de lista, así que la aclaración de moneda
+ * no aclaraba nada. Con el código adelante se lee "ARS 12.250,00" y no hay forma
+ * de confundirlo con los USD de arriba.
+ */
+function importeDeCobro(monto: number, moneda: string) {
+	// El peso chileno, el guaraní y el peso colombiano no aceptan centavos, y el
+	// servidor ya redondea antes de crear la preferencia: mostrar ",00" acá sería
+	// prometer una precisión que el cobro no tiene.
+	const decimales = ['CLP', 'PYG', 'COP'].includes(moneda) ? 0 : 2;
+	try {
+		return new Intl.NumberFormat('es-AR', {
+			style: 'currency', currency: moneda, currencyDisplay: 'code',
+			minimumFractionDigits: decimales, maximumFractionDigits: decimales,
+		}).format(monto);
+	} catch {
+		// Una moneda que Intl no conozca no puede dejar la pantalla sin el dato.
+		return `${moneda} ${monto.toFixed(decimales)}`;
+	}
+}
+
 export function BuyCreditsSection({ session }: { session: AppSession }) {
 	const [config, setConfig] = useState<any>(null);
 	const [buying, setBuying] = useState(false);
@@ -64,28 +88,56 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 	// "USD 0.49" y no "u$s 0.49": el símbolo criollo se lee informal y encima
 	// repetía la moneda dos veces en la misma frase.
 	const symbol = config.currency === 'USD' ? 'USD ' : '$';
+	/**
+	 * La moneda con la que Mercado Pago cierra el pago, cuando no es el dólar.
+	 *
+	 * El endpoint devuelve `cobro` desde el primer día justamente para esto y la
+	 * pantalla lo tiraba a la basura: se anunciaba "USD 24.50" y en el resumen de
+	 * la tarjeta aparecía un importe en pesos que no se parecía en nada. No hay
+	 * nada que haga abandonar un pago más rápido que un número que cambia entre
+	 * la pantalla donde decidís y la pantalla donde pagás.
+	 */
+	const cobro = config.cobro && Number(config.cobro.monto) > 0
+		? { monto: Number(config.cobro.monto), moneda: String(config.cobro.moneda) }
+		: null;
+	// Atajos para los tres volúmenes que se piden siempre. Escribir un número en
+	// un campo vacío es una decisión más: quien entra acá ya descartó suscribirse
+	// y hay que darle algo para tocar, no otro formulario.
+	const atajos = [5, 20, 50].filter((cantidad) => cantidad <= maxCredits);
 
 	return (
-		<div id="buy-credits-section" style={{ marginTop: '36px', padding: '24px', background: '#f5f2f9', border: '1px solid #e2dee8', borderRadius: '16px' }}>
+		<div id="buy-credits-section" style={{ marginTop: '30px', padding: '24px', background: '#f5f2f9', border: '1px solid #e2dee8', borderRadius: '16px' }}>
 			<div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
 				<span style={{ fontSize: '20px' }}>⚡</span>
-				<h2 style={{ margin: 0, fontSize: '18px', color: '#19171d' }}>Pago único (Sin suscripción)</h2>
+				<h2 style={{ margin: 0, fontSize: '18px', color: '#19171d' }}>Tokens sueltos, sin suscripción</h2>
 			</div>
 			<p style={{ margin: '0 0 16px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>
-				¿Querés probar una imagen rápida o no querés una membresía mensual? Comprá créditos individuales y usalos cuando quieras.
+				Comprá los tokens que necesites y usalos cuando quieras. Es un pago único: no se renueva, no queda una tarjeta guardada y cada token equivale a una imagen generada.
 				{unconfigured ? (
 					<strong> Muy pronto vas a poder comprarlos acá.</strong>
 				) : (
-					<strong> Cada crédito cuesta {symbol}{unitPrice.toFixed(2)}.</strong>
+					<> <strong>Cada token cuesta {symbol}{unitPrice.toFixed(2)}.</strong>{cobro && <> Se cobra en {cobro.moneda}: {importeDeCobro(cobro.monto, cobro.moneda)} por token.</>}</>
 				)}
 			</p>
-			
+
 			{error && <p style={{ color: '#dc2626', fontSize: '13px', margin: '0 0 12px', fontWeight: 600 }}>{error}</p>}
 
 			<div className="credit-checkout-grid">
 				<div style={{ background: '#fff', border: '1px solid #e9e6ed', borderRadius: '12px', padding: '18px', boxShadow: '0 4px 12px rgba(25, 23, 29, 0.03)' }}>
-					<label htmlFor="credit-quantity" style={{ display: 'block', marginBottom: '7px', color: '#19171d', fontSize: '15px', fontWeight: 800 }}>¿Cuántos créditos querés comprar?</label>
-					<p style={{ margin: '0 0 14px', color: '#716d79', fontSize: '12.5px', lineHeight: 1.45 }}>Elegí cualquier cantidad. Cada crédito equivale a una imagen generada.</p>
+					<label htmlFor="credit-quantity" style={{ display: 'block', marginBottom: '7px', color: '#19171d', fontSize: '15px', fontWeight: 800 }}>¿Cuántos tokens querés comprar?</label>
+					<p style={{ margin: '0 0 14px', color: '#716d79', fontSize: '12.5px', lineHeight: 1.45 }}>Elegí cualquier cantidad. Cada token equivale a una imagen generada.</p>
+					{atajos.length > 0 && (
+						<div className="credit-quick-picks">
+							{atajos.map((cantidad) => (
+								<button
+									key={cantidad}
+									type="button"
+									className={safeQuantity === cantidad ? 'active' : ''}
+									onClick={() => setQuantity(String(cantidad))}
+								>{cantidad} tokens</button>
+							))}
+						</div>
+					)}
 					<div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
 						<input
 							id="credit-quantity"
@@ -107,15 +159,16 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 							onBlur={() => setQuantity(String(safeQuantity))}
 							style={{ width: '140px', boxSizing: 'border-box', height: '46px', padding: '0 13px', border: '1px solid #d8cceb', borderRadius: '10px', color: '#19171d', fontSize: '20px', fontWeight: 800 }}
 						/>
-						<span style={{ color: '#716d79', fontSize: '13px' }}>créditos</span>
+						<span style={{ color: '#716d79', fontSize: '13px' }}>tokens</span>
 					</div>
-					<small style={{ display: 'block', marginTop: '9px', color: '#8b8290', fontSize: '11px' }}>Podés comprar de 1 a {maxCredits} créditos en una sola operación.</small>
+					<small style={{ display: 'block', marginTop: '9px', color: '#8b8290', fontSize: '11px' }}>Podés comprar de 1 a {maxCredits} tokens en una sola operación.</small>
 				</div>
 				<div style={{ background: '#fff', border: '1px solid #d8c5fa', borderRadius: '12px', padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 16px rgba(116, 75, 222, 0.08)' }}>
 					<div><span style={{ display: 'block', color: '#716d79', fontSize: '12px' }}>Total a pagar</span><strong style={{ display: 'block', marginTop: '5px', color: '#744bde', fontSize: '30px', letterSpacing: '-.03em' }}>{symbol}{totalPrice}</strong>{/* Estaba escrito a mano en 0.30 y el precio real venía del servidor: la
    pantalla decía "cada crédito cuesta 0.49" arriba y "0.30 por crédito"
    dos líneas más abajo, en la misma tarjeta. */}
-									<small style={{ color: '#8b8290', fontSize: '11.5px' }}>{symbol}{unitPrice.toFixed(2)} por crédito</small></div>
+									<small style={{ display: 'block', color: '#8b8290', fontSize: '11.5px' }}>{symbol}{unitPrice.toFixed(2)} por token</small>
+									{cobro && <small style={{ display: 'block', marginTop: '6px', color: '#5c5568', fontSize: '11.5px', lineHeight: 1.4 }}>Mercado Pago te va a cobrar <strong>{importeDeCobro(cobro.monto * safeQuantity, cobro.moneda)}</strong>, que es este total al cambio de hoy.</small>}</div>
 					<button onClick={() => void buy(safeQuantity)} disabled={buying || unconfigured} style={{ width: '100%', minHeight: '42px', marginTop: '16px', borderRadius: '10px', border: 0, background: 'linear-gradient(110deg, #744bde, #ec4492 65%, #f05427)', color: '#fff', fontWeight: 800, fontSize: '13px', cursor: 'pointer', opacity: buying ? 0.65 : 1 }}>{unconfigured ? 'Pago no disponible' : buying ? <><span className="studio-spinner small" aria-hidden="true" /> Abriendo Mercado Pago...</> : 'Continuar al pago'}</button>
 				</div>
 			</div>
@@ -132,10 +185,30 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 	const [pendingPlanChange, setPendingPlanChange] = useState<{ planCode: string; direction: 'up' | 'down' } | null>(null);
 	const [confirmingCancel, setConfirmingCancel] = useState(false);
 	/**
-	 * Mensual o anual. Estaba clavado en 'monthly': el cobro anual existía en el
-	 * servidor pero no había forma de llegar a él desde la pantalla.
+	 * Mensual, anual o tokens sueltos. Estaba clavado en 'monthly': el cobro anual
+	 * existía en el servidor pero no había forma de llegar a él desde la pantalla.
+	 *
+	 * 'credits' entró después por el mismo motivo del otro lado: quien no quiere
+	 * una suscripción hoy veía cinco planes con renovación mensual y nada más. La
+	 * compra suelta vivía abajo de todo, después de la grilla y del cartel de
+	 * cancelación, así que en el teléfono había que scrollear una pantalla y media
+	 * para descubrir que existía. El que no quería suscribirse simplemente se iba.
 	 */
-	const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+	const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly' | 'credits'>('monthly');
+	const comprandoTokens = billingCycle === 'credits';
+	/**
+	 * Cambia a la compra suelta y sube.
+	 *
+	 * A los tokens sueltos se llega también desde el pie de la grilla, y ahí la
+	 * página está scrolleada cinco tarjetas para abajo. Cambiar la pestaña sin
+	 * subir dejaba la pantalla en blanco: la grilla larga desaparece, el panel de
+	 * compra entra arriba y quien tocó el botón se queda mirando el final vacío
+	 * de la página sin entender qué pasó.
+	 */
+	function verTokensSueltos() {
+		setBillingCycle('credits');
+		if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+	}
 	async function changePlan(planCode: string, direction: 'up' | 'down') {
 		const targetPlan = subscriptionPlans.find((plan) => plan.code === planCode);
 		if (!targetPlan) return;
@@ -216,7 +289,10 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 			const response = await fetch('/api/creativos/subscribe', {
 				method: 'POST',
 				headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
-				body: JSON.stringify({ planCode, billingCycle, changeCurrent }),
+				// 'credits' es una vista de esta pantalla, no una modalidad de
+				// suscripción: si se filtrara en el cuerpo, el endpoint contesta 400
+				// "La modalidad de cobro no es válida" y el checkout no abre.
+				body: JSON.stringify({ planCode, billingCycle: billingCycle === 'yearly' ? 'yearly' : 'monthly', changeCurrent }),
 			});
 			const payload = await response.json();
 			if (payload.changed) {
@@ -267,7 +343,8 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 			</div>
 		)}
 
-		{/* Mensual o anual. Antes no existía la opción y el anual era inalcanzable. */}
+		{/* Mensual o anual. Antes no existía la opción y el anual era inalcanzable.
+		    La tercera opción es la salida para el que no quiere suscribirse. */}
 		<div className="billing-switch" role="radiogroup" aria-label="Modalidad de cobro">
 			<button
 				type="button" role="radio" aria-checked={billingCycle === 'monthly'}
@@ -279,10 +356,16 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 				className={billingCycle === 'yearly' ? 'active' : ''}
 				onClick={() => setBillingCycle('yearly')}
 			>Anual <em>2 meses gratis</em></button>
+			<button
+				type="button" role="radio" aria-checked={comprandoTokens}
+				className={comprandoTokens ? 'active' : ''}
+				onClick={() => setBillingCycle('credits')}
+			>Tokens sueltos</button>
 		</div>
 
 		{error && <p className="studio-form-error">{error}</p>}
 		{notice && <p className="studio-form-notice">{notice}</p>}
+		{comprandoTokens ? <BuyCreditsSection session={session} /> : <>
 		<div className="studio-plans-grid">{subscriptionPlans.map((plan) => {
 			const isFreePlan = plan.code === 'free';
 			const hasPaidSubscription = activeSubscriptionStatuses.includes(profile.subscriptionStatus);
@@ -305,10 +388,10 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 			const handleButtonClick = () => {
 				if (isFreePlan) {
 					if (hasPaidSubscription) setConfirmingCancel(true);
-					else {
-						const el = document.getElementById('buy-credits-section');
-						if (el) el.scrollIntoView({ behavior: 'smooth' });
-					}
+					// La compra suelta ya no está más abajo en la misma página, así que
+					// un scrollIntoView contra un id que no está montado no hacía nada:
+					// el botón del plan Gratis quedaba muerto. Ahora cambia de pestaña.
+					else verTokensSueltos();
 				} else if (pagoPendiente) {
 					// changeCurrent limpia el checkout viejo antes de abrir el nuevo.
 					void subscribe(plan.code, true);
@@ -361,9 +444,13 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 
 		})}</div>
 		<p className="studio-plan-note">Pago seguro con Mercado Pago. Los tokens de tu plan se renuevan cada mes y podés cancelar cuando quieras.</p>
+		{/* La salida para el que llegó hasta acá y ninguna suscripción le cierra.
+		    Sin este renglón la única puerta a los tokens sueltos es una pestaña
+		    arriba de todo, que en el teléfono ya quedó fuera de pantalla. */}
+		<p className="studio-plan-note plan-note-tokens">¿No querés una suscripción? <button type="button" onClick={verTokensSueltos}>Comprá tokens sueltos</button> y usalos cuando quieras.</p>
+		</>}
 		{['authorized', 'pending', 'paused'].includes(profile.subscriptionStatus) && <button className="studio-cancel-subscription" onClick={() => setConfirmingCancel(true)} disabled={cancelling}>{cancelling ? <><span className="studio-spinner small" aria-hidden="true" /> Cancelando…</> : 'Cancelar renovación'}</button>}
-		
-		<BuyCreditsSection session={session} />
+
 		{pendingPlanChange && (() => {
 			const target = subscriptionPlans.find((plan) => plan.code === pendingPlanChange.planCode);
 			if (!target) return null;

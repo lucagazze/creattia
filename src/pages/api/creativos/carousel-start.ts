@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
-import { parsePaletteOverride, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { parsePaletteOverride, parsePersonMode, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { loadWinners } from '../../../lib/creattia/winner-picker';
 import { FREE_PREVIEW_REFERENCE_PATHS, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
@@ -43,6 +43,13 @@ export const POST: APIRoute = async ({ request }) => {
 			? subjectModeParam as SubjectMode
 			: 'product';
 		const productRequired = usesRealProductPhotos(subjectMode);
+		const avatarId = String(body?.avatarId || '').trim();
+		// Igual que en la imagen suelta: sin `personMode` un `avatarId` guardado
+		// solo podía significar fotos cargadas, y así se sigue leyendo.
+		const personMode = parsePersonMode(body?.personMode, avatarId ? 'upload' : 'ai');
+		const avatarDescription = personMode === 'described'
+			? String(body?.avatarDescription || '').trim().slice(0, 600)
+			: '';
 		const subjectName = String(body?.productName || '').trim().slice(0, 120);
 		const subjectDescription = String(body?.productDescription || '').trim().slice(0, 1200);
 		const templateId = Number(body?.templateId);
@@ -224,7 +231,12 @@ export const POST: APIRoute = async ({ request }) => {
 					productPriceText: product?.price_text || '',
 					productCurrency: product?.currency || '',
 					subjectMode,
-					avatarId: String(body?.avatarId || '').trim() || null,
+					avatarId: avatarId || null,
+					// Quién aparece se elige una vez para todo el carrusel: si cada
+					// página lo resolviera por su cuenta, la persona cambiaría de una
+					// imagen a la siguiente dentro del mismo carrusel.
+					personMode,
+					avatarDescription,
 					batchUrlMode: true,
 					approvedByUser: true,
 					carousel: true,

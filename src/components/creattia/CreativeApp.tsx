@@ -30,7 +30,6 @@ import { DiscoverPage } from './screens/Discover';
  * visor— sigue siendo estático, así que no aparece ningún salto al entrar.
  */
 const WinnersLibrary = lazy(() => import('./WinnersLibrary'));
-const AvatarManager = lazy(() => import('./AvatarManager'));
 const AdminDashboard = lazy(() => import('./AdminDashboard'));
 const BrandsManager = lazy(() => import('./screens/Brands').then((m) => ({ default: m.BrandsManager })));
 const Plans = lazy(() => import('./screens/Plans').then((m) => ({ default: m.Plans })));
@@ -383,6 +382,38 @@ export default function CreativeApp() {
 		return () => { document.body.style.overflow = ''; };
 	}, [lightbox, mobileMenu]);
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	/**
+	 * El submenú de Configuración se cierra solo.
+	 *
+	 * Antes solo se cerraba volviendo a tocar "Configuración" o eligiendo una
+	 * opción. En el celular eso era una trampa: el menú lateral entero mide
+	 * 230px, el submenú se comía tres renglones más y para volver a ver el plan
+	 * había que acordarse de tocar el título otra vez. Cualquier otro toque —en
+	 * un ítem del menú, en el fondo del panel— lo dejaba abierto.
+	 *
+	 * Ahora se cierra con Escape y con un toque en cualquier lado que no sea el
+	 * propio menú. El `pointerdown` va en fase de captura porque varios botones
+	 * de adentro cortan la propagación; y lo que dispara el submenú —el título y
+	 * el bloque de "Mi cuenta"— lleva `data-menu-config`, si no el toque que lo
+	 * abre se leería como un toque afuera y lo cerraría en el mismo gesto.
+	 */
+	useEffect(() => {
+		if (!settingsOpen) return;
+		const alTocarAfuera = (evento: PointerEvent) => {
+			const destino = evento.target as HTMLElement | null;
+			if (destino?.closest('[data-menu-config]')) return;
+			setSettingsOpen(false);
+		};
+		const alApretarTecla = (evento: KeyboardEvent) => {
+			if (evento.key === 'Escape') setSettingsOpen(false);
+		};
+		document.addEventListener('pointerdown', alTocarAfuera, true);
+		document.addEventListener('keydown', alApretarTecla);
+		return () => {
+			document.removeEventListener('pointerdown', alTocarAfuera, true);
+			document.removeEventListener('keydown', alApretarTecla);
+		};
+	}, [settingsOpen]);
 	const [favorites, setFavorites] = useState<Set<number>>(new Set());
 	const [products, setProducts] = useState<Product[]>([]);
 	const [creationProductIds, setCreationProductIds] = useState<string[]>([]);
@@ -1325,51 +1356,61 @@ export default function CreativeApp() {
 							<Icon name="brand"/>
 							{!sidebarMinimized && <span>Mi marca</span>}
 						</button>
-						<button
-							className="studio-brand-nav-btn"
-							onClick={() => setSettingsOpen(!settingsOpen)}
-							style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '10px 14px', background: settingsOpen ? '#ece9f1' : 'transparent', border: 0, borderRadius: '10px', cursor: 'pointer', color: '#5b5561', fontWeight: 700, fontSize: '14px', textAlign: 'left', marginBottom: '10px' }}
-						>
-							<Icon name="settings"/>
-							{!sidebarMinimized && <>
-								<span>Configuración</span>
-								<i style={{ marginLeft: 'auto', display: 'inline-flex', transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .18s ease', color: '#9d97a6' }}>
-									<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-								</i>
-							</>}
-						</button>
-						{settingsOpen && !sidebarMinimized && (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '2px 0 10px', paddingLeft: '12px' }}>
-								<button className="studio-settings-item" onClick={() => { navigateTo('plans'); setSettingsOpen(false); }}>
-									<Icon name="card" size={15}/>Planes y suscripción
-								</button>
-								{/* Antes esto era un alert fijo que decía "no tenés facturas
-								    todavía" sin consultar nada, aunque hubiera cobros guardados. */}
-								<button className="studio-settings-item" onClick={() => { navigateTo('billing'); setSettingsOpen(false); }}>
-									<Icon name="history" size={15}/>Historial de pagos
-								</button>
-								<div style={{ height: '1px', background: '#e7e2ec', margin: '4px 10px' }} />
-								<button className="studio-settings-item danger" onClick={() => { void logout(); }}>
-									<Icon name="logout" size={15}/>Cerrar sesión
-								</button>
-							</div>
-						)}
+						{/* El submenú no puede vivir en el flujo del panel: ocupando alto
+						    real empujaba hacia abajo todo lo que tiene debajo y en el
+						    celular el recuadro del plan terminaba fuera de la parte
+						    visible del menú. Va como capa flotante anclada acá, así el
+						    resto del panel se queda exactamente donde estaba. */}
+						<div className="studio-settings-anchor" data-menu-config>
+							<button
+								className="studio-brand-nav-btn"
+								onClick={() => setSettingsOpen((abierto) => !abierto)}
+								aria-haspopup="menu"
+								aria-expanded={settingsOpen}
+								style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '10px 14px', background: settingsOpen ? '#ece9f1' : 'transparent', border: 0, borderRadius: '10px', cursor: 'pointer', color: '#5b5561', fontWeight: 700, fontSize: '14px', textAlign: 'left', marginBottom: '10px' }}
+							>
+								<Icon name="settings"/>
+								{!sidebarMinimized && <>
+									<span>Configuración</span>
+									<i style={{ marginLeft: 'auto', display: 'inline-flex', transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .18s ease', color: '#9d97a6' }}>
+										<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+									</i>
+								</>}
+							</button>
+							{settingsOpen && !sidebarMinimized && (
+								<div className="studio-settings-menu" role="menu" aria-label="Configuración">
+									<button role="menuitem" className="studio-settings-item" onClick={() => { navigateTo('plans'); setSettingsOpen(false); }}>
+										<Icon name="card" size={15}/>Planes y suscripción
+									</button>
+									{/* Antes esto era un alert fijo que decía "no tenés facturas
+									    todavía" sin consultar nada, aunque hubiera cobros guardados. */}
+									<button role="menuitem" className="studio-settings-item" onClick={() => { navigateTo('billing'); setSettingsOpen(false); }}>
+										<Icon name="history" size={15}/>Historial de pagos
+									</button>
+									<div className="studio-settings-menu-sep" />
+									<button role="menuitem" className="studio-settings-item danger" onClick={() => { setSettingsOpen(false); void logout(); }}>
+										<Icon name="logout" size={15}/>Cerrar sesión
+									</button>
+								</div>
+							)}
+						</div>
 						{/* El rótulo "PLAN ACTUAL" con su orbe no aportaba nada: el nombre
 						    del plan que va justo abajo ya se explica solo, y ese encabezado
 						    se comía el aire de arriba en las pantallas cortas, donde el menú
 						    es lo primero que se comprime. */}
 						{!sidebarMinimized && (
 							<div className="studio-plan-card">
-								<strong>{planLabel(profile)}</strong>
+								<strong className="studio-plan-nombre"><span className="studio-plan-orb"><Icon name="spark" size={15}/></span>{planLabel(profile)}</strong>
 						<p><span style={{ width: `${Math.min(100, profile.credits / (profile.monthlyCredits || 1) * 100)}%` }}/></p>
 								<footer><span>{profile.credits} {profile.credits === 1 ? 'generación' : 'generaciones'}</span><button onClick={() => navigateTo('plans')}>Ver planes</button></footer>
 							</div>
 						)}
 					
 
-						<div 
-							className="studio-user" 
-							onClick={() => setSettingsOpen(!settingsOpen)} 
+						<div
+							className="studio-user"
+							data-menu-config
+							onClick={() => setSettingsOpen((abierto) => !abierto)}
 							style={{ cursor: 'pointer', position: 'relative' }}
 						>
 							<span>{firstName(profile, getSessionEmail(session)).slice(0, 1).toUpperCase()}</span>
@@ -1553,17 +1594,12 @@ export default function CreativeApp() {
 					)}
 					{view === 'plans' && <Plans profile={profile} session={session} />}
 					{view === 'billing' && <Billing profile={profile} session={session} />}
-					{view === 'brand' && (
-						<div className="brand-workspace-stack">
-							<BrandsManager session={session} planCode={profile.planCode} onPlans={() => navigateTo('plans')} />
-							{/* Los avatares NO dependen de los videos: la generación de
-							    imágenes ya los usa para mantener la misma persona entre
-							    creativos. Estaban detrás del permiso de video —que todavía
-							    no es público—, así que un usuario normal no podía crear el
-							    avatar que después iba a elegir al generar una imagen. */}
-							<AvatarManager session={session} />
-						</div>
-					)}
+					{/* Acá vivía también la biblioteca de avatares. Quién aparece en un
+					    anuncio se elige ahora en la revisión, con el ganador ya analizado
+					    y la recomendación puesta: tenerlo además en "Mi marca" era la
+					    misma configuración en dos lugares y nadie sabía cuál mandaba al
+					    generar. */}
+					{view === 'brand' && <BrandsManager session={session} planCode={profile.planCode} onPlans={() => navigateTo('plans')} />}
 					{view === 'admin' && isAdminEmail(getSessionEmail(session)) && <AdminDashboard session={session} />}
 					</Suspense>
 				</div>

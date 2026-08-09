@@ -1,5 +1,5 @@
 import { useReferenceUrls } from '../../lib/creattia/reference-urls';
-import { subjectModeDesde, alcanceDesde, type Alcance } from '../../lib/creattia/generation-pipeline';
+import { subjectModeDesde, alcanceDesde, personModeRecomendado, type Alcance, type PersonMode } from '../../lib/creattia/generation-pipeline';
 import UrlInput from './UrlInput';
 import React, { useState, useEffect, useRef } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
@@ -176,10 +176,20 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const count = wantsFullCarousel ? carouselSlides.length : 1;
 	const [manualProductName, setManualProductName] = useState('');
 	const [manualProductFacts, setManualProductFacts] = useState('');
-	type SavedAvatarOption = { id: string; name: string; description?: string | null; imageCount?: number; coverUrl?: string; images?: Array<{ url: string }> };
-	const [savedAvatars, setSavedAvatars] = useState<SavedAvatarOption[]>([]);
-	const [avatarMode, setAvatarMode] = useState<'none' | 'saved' | 'upload'>('none');
-	const [selectedAvatarId, setSelectedAvatarId] = useState('');
+	/**
+	 * Quién aparece en el anuncio.
+	 *
+	 * Arranca en 'ai' pero se pisa apenas vuelve el análisis: la opción marcada
+	 * depende de si el ganador muestra gente o no (ver `personModeRecomendado`).
+	 * Antes solo había dos botones —"sin persona" y "cargar referencias"— y el
+	 * primero no significaba lo que decía: el prompt seguía conservando a las
+	 * personas del ganador, así que quien quería un aviso sin nadie no tenía
+	 * ninguna forma de pedirlo.
+	 */
+	const [personMode, setPersonMode] = useState<PersonMode>('ai');
+	/** La recomendación que salió del análisis, para marcarla en la interfaz. */
+	const [personModeSugerido, setPersonModeSugerido] = useState<PersonMode>('ai');
+	const [personDescription, setPersonDescription] = useState('');
 	const [avatarFiles, setAvatarFiles] = useState<File[]>([]);
 	const [avatarPreviews, setAvatarPreviews] = useState<string[]>([]);
 	const [avatarConsent, setAvatarConsent] = useState(false);
@@ -188,15 +198,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
 	const [phase, setPhase] = useState<'setup' | 'planning' | 'review' | 'starting'>('setup');
 	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
-	useEffect(() => {
-		if (phase !== 'review' || !token) return;
-		let cancelled = false;
-		void fetch('/api/creativos/avatars', { headers: { authorization: `Bearer ${token}` } })
-			.then((response) => response.ok ? response.json() : null)
-			.then((payload) => { if (!cancelled && Array.isArray(payload?.avatars)) setSavedAvatars(payload.avatars); })
-			.catch(() => { /* la generación sigue funcionando sin avatares */ });
-		return () => { cancelled = true; };
-	}, [phase, token]);
 	const [plan, setPlan] = useState<any>(null);
 	/**
 	 * El análisis de cada página del carrusel, en orden.
@@ -296,6 +297,14 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	// permite agrupar los textos por imagen y devolverle a cada página lo suyo.
 	const [zones, setZones] = useState<Array<{ slide?: number; where?: string; messageRole?: string; original?: string; replacement?: string; onProduct?: boolean }>>([]);
 	const [people, setPeople] = useState<Array<{ slide?: number; where?: string; role?: string; description?: string; directive?: string }>>([]);
+	/**
+	 * Las personas que el render va a tener en cuenta.
+	 *
+	 * El analizador devuelve a veces entradas sin un solo dato, y el prompt las
+	 * descarta. Contarlas acá hacía que la pantalla dijera "el ganador muestra 2
+	 * personas" sobre un aviso donde en realidad solo hay una.
+	 */
+	const personasVisibles = people.filter((persona) => persona && (persona.description || persona.directive || persona.where));
 	const [comparisons, setComparisons] = useState<Array<{ slide?: number; where?: string; role?: string; description?: string; directive?: string }>>([]);
 	const [creativeDecisions, setCreativeDecisions] = useState<Array<{ slide?: number; type?: string; title?: string; where?: string; description?: string; question?: string; defaultStrategy?: string; options?: string[]; confidence?: string; directive?: string }>>([]);
 	/** Qué decisiones tienen abierto el campo para escribir una respuesta propia. */
@@ -489,6 +498,13 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			setSlidePlans(Array.isArray(payload.slideAnalyses) ? payload.slideAnalyses : []);
 			setZones((analysis.textZones || []).filter((zone: any) => analysis.productHasPackaging ? true : !zone.onProduct));
 			setPeople(Array.isArray(analysis.people) ? analysis.people.map((p: any) => ({ ...p, directive: '' })) : []);
+			// La opción de persona se pre-elige acá, con el ganador ya leído: es el
+			// único momento en que se sabe si el aviso que se va a clonar muestra
+			// gente. Se pisa cualquier elección anterior a propósito — si se cambió
+			// de anuncio ganador, la recomendación vieja ya no dice nada del nuevo.
+			const sugerido = personModeRecomendado(analysis.people);
+			setPersonModeSugerido(sugerido);
+			setPersonMode(sugerido);
 			setComparisons(Array.isArray(analysis.comparisonItems) ? analysis.comparisonItems.map((c: any) => ({ ...c, directive: '' })) : []);
 			setCreativeDecisions(Array.isArray(analysis.creativeDecisions) ? analysis.creativeDecisions.map((decision: any) => ({ ...decision, directive: '' })) : []);
 			setComparisonGuidance('');
@@ -520,6 +536,31 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			creativeDecisions: suyo(creativeDecisions),
 			comparison: { ...(base?.comparison || {}), userGuidance: comparisonGuidance.trim() },
 		};
+	}
+
+	/**
+	 * Sube las fotos del avatar y devuelve el id con el que el servidor las va a
+	 * volver a buscar.
+	 *
+	 * Tiene que quedar guardado: el render de un carrusel no ocurre en este
+	 * pedido, lo hace un worker minutos después, y para entonces los archivos que
+	 * el usuario eligió en el navegador ya no existen en ningún lado.
+	 */
+	async function guardarAvatarCargado(): Promise<string> {
+		if (avatarFiles.length < 4) throw new Error('Subí al menos 4 imágenes del avatar para mantener su identidad.');
+		if (!avatarConsent) throw new Error('Confirmá que tenés permiso para usar esas imágenes.');
+		const avatarForm = new FormData();
+		avatarForm.set('name', 'Avatar de esta generación');
+		// La identidad la fijan las fotos, no el texto: lo que el usuario haya
+		// escrito en "yo la describo" no se arrastra acá, porque cambiar de opción
+		// no puede dejar colada la descripción del modo anterior en el prompt.
+		avatarForm.set('description', 'Referencias visuales guardadas desde el flujo de generación.');
+		avatarForm.set('consentConfirmed', 'true');
+		avatarFiles.slice(0, 12).forEach((file) => avatarForm.append('images', file));
+		const respuesta = await fetch('/api/creativos/avatars', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: avatarForm });
+		const payload = await respuesta.json().catch(() => ({}));
+		if (!respuesta.ok || !payload.avatar?.id) throw new Error(payload.error || 'No se pudo guardar el avatar.');
+		return payload.avatar.id as string;
 	}
 
 	async function approveAndGenerate() {
@@ -557,21 +598,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
-			if (avatarMode === 'saved' && selectedAvatarId) form.set('avatarId', selectedAvatarId);
-			if (avatarMode === 'upload') {
-				if (avatarFiles.length < 4) throw new Error('Subí al menos 4 imágenes del avatar para mantener su identidad.');
-				if (!avatarConsent) throw new Error('Confirmá que tenés permiso para usar esas imágenes.');
-				const avatarForm = new FormData();
-				avatarForm.set('name', 'Avatar de esta generación');
-				avatarForm.set('description', 'Referencias visuales guardadas desde el flujo de generación.');
-				avatarForm.set('consentConfirmed', 'true');
-				avatarFiles.slice(0, 12).forEach((file) => avatarForm.append('images', file));
-				const avatarResponse = await fetch('/api/creativos/avatars', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: avatarForm });
-				const avatarPayload = await avatarResponse.json();
-				if (!avatarResponse.ok || !avatarPayload.avatar?.id) throw new Error(avatarPayload.error || 'No se pudo guardar el avatar.');
-				setSavedAvatars(Array.isArray(avatarPayload.avatars) ? avatarPayload.avatars : savedAvatars);
-				form.set('avatarId', avatarPayload.avatar.id);
+			form.set('personMode', personMode);
+			if (personMode === 'described') {
+				if (!personDescription.trim()) throw new Error('Escribí cómo querés que sea la persona del anuncio.');
+				form.set('avatarDescription', personDescription.trim());
 			}
+			if (personMode === 'upload') form.set('avatarId', await guardarAvatarCargado());
 			form.set('plan', JSON.stringify(planRevisado()));
 
 			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
@@ -713,20 +745,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				productIds = [productPayload.product.id];
 			}
 
-			let carouselAvatarId = avatarMode === 'saved' ? selectedAvatarId : '';
-			if (avatarMode === 'upload') {
-				if (avatarFiles.length < 4) throw new Error('Subí al menos 4 imágenes del avatar para mantener su identidad.');
-				if (!avatarConsent) throw new Error('Confirmá que tenés permiso para usar esas imágenes.');
-				const avatarForm = new FormData();
-				avatarForm.set('name', 'Avatar de esta generación');
-				avatarForm.set('description', 'Referencias visuales guardadas desde el flujo de generación.');
-				avatarForm.set('consentConfirmed', 'true');
-				avatarFiles.slice(0, 12).forEach((file) => avatarForm.append('images', file));
-				const avatarRes = await fetch('/api/creativos/avatars', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: avatarForm });
-				const avatarPayload = await avatarRes.json();
-				if (!avatarRes.ok || !avatarPayload.avatar?.id) throw new Error(avatarPayload.error || 'No se pudo guardar el avatar.');
-				carouselAvatarId = avatarPayload.avatar.id;
+			if (personMode === 'described' && !personDescription.trim()) {
+				throw new Error('Escribí cómo querés que sea la persona del anuncio.');
 			}
+			const carouselAvatarId = personMode === 'upload' ? await guardarAvatarCargado() : '';
 
 			const pathPrefixId = parseInt(ad.imagePath.split('/')[0], 10);
 			const response = await fetch('/api/creativos/carousel-start', {
@@ -741,6 +763,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					productName: manualProductName.trim(),
 					productDescription: manualProductFacts.trim(),
 					avatarId: carouselAvatarId || null,
+					personMode,
+					avatarDescription: personMode === 'described' ? personDescription.trim() : '',
 					format, language, colorMode, typoMode, brandSource,
 					// La corrección manual de la paleta no viajaba: los colores se podían
 					// editar en la revisión y el carrusel se generaba igual con los
@@ -1120,22 +1144,58 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								onToggleProduct={(productId) => setSelectedProductIds((current) => current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId])}
 							/>
 						)}
-						<section style={{ marginBottom: '18px', padding: '16px', border: '1px solid #e6ddf5', borderRadius: '12px', background: '#fcfaff' }} aria-label="Identidad visual">
-							<strong style={label}>{isService ? '¿Qué querés mostrar como protagonista?' : '¿Querés mostrar una persona o avatar?'}</strong>
-							<p style={{ margin: '-3px 0 12px', fontSize: '12px', color: '#716d79', lineHeight: 1.45 }}>
-								{isService ? 'Podés usar un avatar, o dejar que la IA decida entre logo, interfaz, resultado, persona contextual o una escena de marca según el anuncio ganador.' : 'Para mantener una persona consistente podés usar tu avatar. Si no elegís ninguno, la IA mantiene la dirección del anuncio ganador sin inventar una identidad recurrente.'}
-							</p>
-							<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-								<button type="button" style={chip(avatarMode === 'none')} onClick={() => setAvatarMode('none')}>Sin persona / avatar</button>
-								{savedAvatars.map((avatar) => (
-									<button key={avatar.id} type="button" style={{ ...chip(avatarMode === 'saved' && selectedAvatarId === avatar.id), display: 'inline-flex', alignItems: 'center', gap: '7px' }} onClick={() => { setAvatarMode('saved'); setSelectedAvatarId(avatar.id); }}>
-										{avatar.coverUrl && <img src={avatar.coverUrl} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }} />}
-										{avatar.name} <small>({avatar.imageCount || 0})</small>
+						{/* Quién aparece en el anuncio.
+						    Se decide ACÁ y solo acá: estaba también en "Mi marca", y
+						    tener la misma configuración en dos pantallas dejaba la duda
+						    de cuál mandaba a la hora de generar. */}
+						<section className="person-decision" aria-label="Persona en el anuncio">
+							<div className="person-decision-head">
+								<strong>{isService ? '¿Quién aparece en el anuncio?' : '¿Querés mostrar una persona?'}</strong>
+								<small>
+									{personModeSugerido === 'ai'
+										? `${wantsFullCarousel ? 'El carrusel ganador muestra' : 'El anuncio ganador muestra'} ${personasVisibles.length === 1 ? 'una persona' : `${personasVisibles.length} personas`}: sacarla${personasVisibles.length === 1 ? '' : 's'} cambia lo que hace funcionar al aviso, así que por defecto la IA decide quién ocupa ese lugar.`
+										: `${wantsFullCarousel ? 'Ninguna página del carrusel ganador muestra' : 'El anuncio ganador no muestra'} a nadie, así que por defecto el tuyo tampoco.`}
+								</small>
+							</div>
+							<div className="person-decision-options" role="radiogroup" aria-label="Persona en el anuncio">
+								{([
+									['none', 'Sin persona'],
+									['ai', 'Que la IA elija'],
+									['described', 'Yo la describo'],
+									['upload', 'Cargar avatar'],
+								] as Array<[PersonMode, string]>).map(([modo, texto]) => (
+									<button
+										key={modo}
+										type="button" role="radio" aria-checked={personMode === modo}
+										className={personMode === modo ? 'active' : ''}
+										onClick={() => setPersonMode(modo)}
+									>
+										{texto}
+										{personModeSugerido === modo && <em>recomendado</em>}
 									</button>
 								))}
-								<button type="button" style={chip(avatarMode === 'upload')} onClick={() => setAvatarMode('upload')}>Cargar referencias</button>
 							</div>
-							{avatarMode === 'upload' && (
+							<p className="person-decision-consecuencia">
+								{personMode === 'none'
+									? 'No va a aparecer nadie: ni caras, ni manos, ni siluetas de fondo. Donde el ganador tiene una persona va a ir el producto o el escenario.'
+									: personMode === 'ai'
+										? 'La IA elige quién aparece mirando el anuncio ganador y tu producto. Es la opción para cuando no te importa la cara concreta, sino que la escena funcione.'
+										: personMode === 'described'
+											? 'Se va a construir una persona con lo que escribas, sin fotos de por medio. Sirve para fijar edad, aspecto, ropa y actitud sin depender de nadie real.'
+											: 'Vamos a usar tus fotos para que salga siempre la misma cara. Es la única opción que mantiene una identidad reconocible entre creativos.'}
+							</p>
+							{personMode === 'described' && (
+								<textarea
+									value={personDescription}
+									onChange={(event) => setPersonDescription(event.target.value)}
+									rows={3}
+									maxLength={600}
+									aria-label="Cómo tiene que ser la persona del anuncio"
+									placeholder="Ej: mujer de unos 35, pelo castaño recogido, ropa deportiva neutra, actitud relajada y cercana, mirando a cámara"
+									className="person-decision-texto"
+								/>
+							)}
+							{personMode === 'upload' && (
 								<div>
 									<input type="file" id="creation-avatar-files" accept="image/png,image/jpeg,image/webp" multiple className="hidden-file-input" onChange={(event) => {
 										const files = event.target.files ? Array.from(event.target.files).slice(0, 12) : [];
@@ -1397,8 +1457,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							</section>
 						)}
 
-						{/* Personas detectadas en el anuncio: fallback para análisis antiguos */}
-						{people.length > 0 && creativeDecisions.length === 0 && (
+						{/* Personas detectadas en el anuncio: fallback para análisis antiguos.
+						    Con "sin persona" no se muestra: pedir cómo tiene que verse
+						    alguien que ya se decidió que no va a aparecer es una pregunta
+						    sin respuesta posible, y lo que se escribiera ahí no llegaría
+						    al render. */}
+						{personMode !== 'none' && people.length > 0 && creativeDecisions.length === 0 && (
 							<div style={{ marginBottom: '18px' }}>
 								<strong style={label}>👤 {people.length === 1 ? 'Persona en el anuncio' : 'Personas en el anuncio'}</strong>
 								<p style={{ margin: '-4px 0 10px', fontSize: '12px', color: '#8b8490' }}>Detectamos {people.length === 1 ? 'una persona' : `${people.length} personas`}. Decinos cómo querés que se vea (o dejalo vacío para mantenerla parecida).</p>
