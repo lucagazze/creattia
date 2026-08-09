@@ -36,13 +36,24 @@ export async function mirrorProductImages(userId: string, product: {
 	const urls = [...new Set(rawUrls.map((value) => String(value || '').trim()).filter(Boolean))].slice(0, 24);
 	if (!urls.length) return product.image_path ? [product.image_path] : [];
 
+	/**
+	 * Techo para copiar la galería entera.
+	 *
+	 * Son hasta veinticuatro descargas en serie y una sola CDN lenta las volvía a
+	 * todas lentas: la suma se comía el tiempo de la función y Vercel la mataba
+	 * después de haber escaneado la página, o sea que se perdía todo el trabajo.
+	 * Con seis fotos ya se puede generar un anuncio; llegar a las veinticuatro es
+	 * un lujo que no vale perder la importación.
+	 */
+	const venceElEspejo = Date.now() + 30_000;
 	const mirrored: Array<{ path: string; sourceUrl: string; index: number }> = [];
 	for (let index = 0; index < urls.length; index += 1) {
+		if (Date.now() > venceElEspejo && mirrored.length) break;
 		try {
 			const sourceUrl = urls[index];
 			const response = await safeExternalFetch(sourceUrl, {
 				headers: { accept: 'image/avif,image/webp,image/png,image/jpeg' },
-			}, 15_000);
+			}, 15_000, 20_000);
 			const contentType = (response.headers.get('content-type') || '').split(';')[0];
 			if (!response.ok || !imageTypes[contentType]) continue;
 			const bytes = await readLimited(response, 10 * 1024 * 1024);
@@ -90,13 +101,17 @@ export async function mirrorProductVideos(userId: string, product: { id: string 
 	const urls = [...new Set(rawUrls.map((value) => String(value || '').trim()).filter(Boolean))].slice(0, 12);
 	if (!urls.length) return [];
 
+	// Los videos son lo último que se copia y lo más pesado: si se pasan del
+	// techo, el producto ya quedó guardado con sus fotos y se puede generar igual.
+	const venceElEspejo = Date.now() + 30_000;
 	const mirrored: Array<{ path: string; sourceUrl: string; index: number; contentType: string }> = [];
 	for (let index = 0; index < urls.length; index += 1) {
+		if (Date.now() > venceElEspejo) break;
 		try {
 			const sourceUrl = urls[index];
 			const response = await safeExternalFetch(sourceUrl, {
 				headers: { accept: 'video/mp4,video/webm,video/quicktime,video/*' },
-			}, 20_000);
+			}, 20_000, 25_000);
 			const contentType = (response.headers.get('content-type') || '').split(';')[0].toLowerCase();
 			const extension = videoTypes[contentType] || (sourceUrl.match(/\.(mp4|webm|mov|m4v)(?:$|[?#])/i)?.[1]?.toLowerCase() || '');
 			if (!response.ok || !extension) continue;

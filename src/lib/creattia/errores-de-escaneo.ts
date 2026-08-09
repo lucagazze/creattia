@@ -60,6 +60,24 @@ export const MENSAJES_DE_ESCANEO: Record<MotivoDeEscaneo, string> = {
 	desconocido: 'No pudimos leer esa página. Volvé a intentar, o cargá el producto a mano con sus fotos.',
 };
 
+/**
+ * Un aviso que ya está escrito para la persona.
+ *
+ * No todo lo que se lanza es un fallo de red que haya que traducir: "Pegá al
+ * menos una URL de producto" o "faltan las credenciales de IA" son frases
+ * nuestras, pensadas para mostrarse. Lo que las distinguía de un error de
+ * librería era nada más que estar en español, así que los `catch` de arriba
+ * tenían que elegir entre mostrar `error.message` —y dejar pasar también
+ * "duplicate key value violates unique constraint"— o tragarse todo y perder los
+ * avisos buenos. Con esta marca el `catch` no tiene que adivinar.
+ */
+export class AvisoParaLaPersona extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'AvisoParaLaPersona';
+	}
+}
+
 /** Un fallo de escaneo ya traducido: el `message` se puede mostrar tal cual. */
 export class ErrorDeEscaneo extends Error {
 	readonly motivo: MotivoDeEscaneo;

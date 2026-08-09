@@ -4,6 +4,7 @@ import UrlInput from './UrlInput';
 import React, { useState, useEffect, useRef } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
 import ProductAssetReview, { type ProductReviewItem } from './ProductAssetReview';
+import { leerRespuestaDeEscaneo } from '../../lib/creattia/errores-de-escaneo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Página completa de creación fiel al ganador (reemplaza el modal). Mismo
@@ -321,7 +322,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
 					body: JSON.stringify({ url: raw }),
 				});
-				const payload = await response.json();
+				// Un 504 de la función llega como HTML, no como JSON.
+				const payload = await leerRespuestaDeEscaneo(response);
 				if (response.ok && payload.importedIds?.length) {
 					ids.push(...payload.importedIds);
 					if (Array.isArray(payload.products)) {
@@ -658,7 +660,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				productForm.set('description', manualProductFacts.trim());
 				uploadFiles.slice(0, 5).forEach((file) => productForm.append('image', file));
 				const productRes = await fetch('/api/creativos/products', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: productForm });
-				const productPayload = await productRes.json();
+				// Sube hasta cinco fotos: si la función se pasa de tiempo, el 504 llega
+				// como HTML y `.json()` reventaba antes de poder decir qué pasó.
+				const productPayload = await leerRespuestaDeEscaneo(productRes);
 				if (!productRes.ok || !productPayload.product?.id) throw new Error(productPayload.error || 'No se pudo guardar el producto.');
 				productIds = [productPayload.product.id];
 			}

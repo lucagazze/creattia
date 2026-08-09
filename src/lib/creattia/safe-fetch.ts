@@ -1,5 +1,6 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { detalleDeEscaneo, ErrorDeEscaneo, motivoDeEscaneo } from './errores-de-escaneo';
 
 function isPrivateIPv4(address: string) {
 	const [a, b] = address.split('.').map(Number);
@@ -84,10 +85,46 @@ async function assertPublicUrl(url: URL) {
 	}
 }
 
-export async function safeExternalFetch(rawUrl: string, init: RequestInit = {}, timeoutMs = 12_000) {
+/**
+ * Estados donde vale la pena volver a pedir la página por el proxy.
+ *
+ * El 403 es el bloqueo clásico de Akamai y Cloudflare, pero el muro también se
+ * presenta como 401, como 429 —"muchas consultas desde esta IP", que se resuelve
+ * saliendo por otra— y como el 503 de "checking your browser". Antes ninguno de
+ * esos tres llegaba nunca al último recurso.
+ */
+function convieneElProxy(status: number) {
+	return status === 401 || status === 403 || status === 429 || status === 503;
+}
+
+/**
+ * Descarga una URL externa con todos los frenos puestos.
+ *
+ * `techoTotalMs` es el tope de TODO el intento: redirecciones, reintentos con
+ * cabeceras de navegador, prueba con y sin www y proxy incluidos. Sin ese tope
+ * cada salto podía sumar 56 s y una cadena de cuatro llegaba a casi cuatro
+ * minutos; multiplicado por los reintentos del escáner, la función de Vercel se
+ * moría antes de poder contestar y el navegador recibía un 504 con HTML que ni
+ * siquiera se podía leer como JSON. Ahora el fallo llega SIEMPRE antes que el
+ * corte de la plataforma, y con un mensaje.
+ *
+ * `permitirProxy` en false apaga el último recurso. Sirve para los sondeos que
+ * preguntan "¿esto es Shopify?" y esperan que la respuesta sea que no: ahí un
+ * bloqueo no es un problema a resolver, es la respuesta, y salir por el proxy
+ * solo gasta una consulta paga para confirmar lo mismo.
+ */
+export async function safeExternalFetch(rawUrl: string, init: RequestInit = {}, timeoutMs = 12_000, techoTotalMs = timeoutMs * 3, permitirProxy = true) {
 	const scraperApiKey = (typeof import.meta.env !== 'undefined' && import.meta.env.SCRAPER_API_KEY) || process.env.SCRAPER_API_KEY;
 	const baseHeaders = new Headers(init.headers);
 	const wantsImage = (baseHeaders.get('accept') || '').startsWith('image/');
+	const vence = Date.now() + Math.max(timeoutMs, techoTotalMs);
+	const restante = () => vence - Date.now();
+	/** Lo que se le puede dar a un pedido sin pasarse del techo del intento. */
+	const ventana = (extraMs = 0) => {
+		const disponible = restante();
+		if (disponible <= 0) throw new ErrorDeEscaneo('tiempo-agotado', `techo de ${techoTotalMs} ms agotado en ${rawUrl}`);
+		return Math.min(timeoutMs + extraMs, disponible);
+	};
 	const buildBrowserHeaders = (referer?: string) => {
 		const headers = new Headers(baseHeaders);
 		if (!headers.has('user-agent')) headers.set('user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36');
@@ -99,15 +136,19 @@ export async function safeExternalFetch(rawUrl: string, init: RequestInit = {}, 
 	const fetchDirect = (target: URL, referer?: string) => fetch(target, {
 		...init,
 		redirect: 'manual',
-		signal: AbortSignal.timeout(timeoutMs),
+		signal: AbortSignal.timeout(ventana()),
 		headers: buildBrowserHeaders(referer),
 	});
 	const fetchThroughScraper = async (target: URL) => {
-		if (!scraperApiKey || wantsImage) return null;
+		if (!permitirProxy || !scraperApiKey || wantsImage) return null;
+		// Sin margen suficiente el proxy solo sirve para llegar tarde: es preferible
+		// contestar ya con el motivo real que gastar el resto del techo y terminar
+		// devolviendo lo mismo.
+		if (restante() < 6_000) return null;
 		const proxyUrl = `https://api.scraperapi.com?api_key=${encodeURIComponent(scraperApiKey)}&url=${encodeURIComponent(target.toString())}`;
 		try {
 			const proxyResponse = await fetch(proxyUrl, {
-				signal: AbortSignal.timeout(timeoutMs + 8000),
+				signal: AbortSignal.timeout(ventana(8000)),
 				headers: buildBrowserHeaders(),
 			});
 			// Una clave vencida o sin saldo suele responder 401/403. En ese caso no
@@ -121,12 +162,25 @@ export async function safeExternalFetch(rawUrl: string, init: RequestInit = {}, 
 
 	let current = new URL(rawUrl);
 	for (let redirects = 0; redirects < 4; redirects += 1) {
-		await assertPublicUrl(current);
-		let response = await fetchDirect(current);
+		try {
+			await assertPublicUrl(current);
+		} catch (dnsError) {
+			// `dns.lookup` tira el error de Node en crudo y así salía a la pantalla:
+			// con un dominio mal escrito se leía "getaddrinfo ENOTFOUND mitienda.com".
+			throw dnsError instanceof ErrorDeEscaneo ? dnsError : new ErrorDeEscaneo(motivoDeEscaneo(dnsError), detalleDeEscaneo(dnsError));
+		}
+		let response: Response | null = null;
+		/** Por qué no hubo respuesta, para poder explicarlo si el proxy tampoco sirve. */
+		let falloDirecto: unknown = null;
+		try {
+			response = await fetchDirect(current);
+		} catch (error) {
+			falloDirecto = error;
+		}
 		// Algunos e-commerce bloquean el primer request del servidor por el
 		// user-agent o la falta de referer. Reintentamos una vez como navegador
 		// antes de devolver el 403 al flujo de generación.
-		if (response.status === 403) {
+		if (response && response.status === 403) {
 			try {
 				response = await fetchDirect(current, `${current.origin}/`);
 			} catch (retryError) {
@@ -143,17 +197,31 @@ export async function safeExternalFetch(rawUrl: string, init: RequestInit = {}, 
 					console.warn('Alternate host fetch failed:', alternateError);
 				}
 			}
-			if (response.status === 403) {
-				const proxyResponse = await fetchThroughScraper(current);
-				if (proxyResponse) response = proxyResponse;
-			}
+		}
+		/**
+		 * El último recurso también entra cuando NO hubo respuesta.
+		 *
+		 * El proxy solo se disparaba mirando `response.status === 403`, o sea que
+		 * hacía falta que el sitio contestara algo. Un sitio lento nunca contestaba:
+		 * el pedido directo lanzaba a los 12 s, la excepción se escapaba entera y el
+		 * proxy —que sale desde IPs residenciales y aguanta más— no se enteraba
+		 * jamás. Lo mismo con los cortes de conexión y los certificados vencidos.
+		 */
+		if (!response || convieneElProxy(response.status)) {
+			const proxyResponse = await fetchThroughScraper(current);
+			if (proxyResponse) response = proxyResponse;
+		}
+		if (!response) {
+			throw falloDirecto instanceof ErrorDeEscaneo
+				? falloDirecto
+				: new ErrorDeEscaneo(motivoDeEscaneo(falloDirecto), detalleDeEscaneo(falloDirecto));
 		}
 		if (response.status < 300 || response.status >= 400) return response;
 		const location = response.headers.get('location');
 		if (!location) return response;
 		current = new URL(location, current);
 	}
-	throw new Error('La URL tiene demasiadas redirecciones.');
+	throw new ErrorDeEscaneo('demasiadas-redirecciones', rawUrl);
 }
 
 export async function readLimited(response: Response, maxBytes: number) {

@@ -5,6 +5,7 @@ import { fetchLibraryItems, fetchReferenceUrls } from '../../../lib/creattia/ref
 import { isSupabaseConfigured, supabase } from '../../../lib/creattia/supabase-browser';
 import { Icon } from '../Icon';
 import { normalizeProductUrlInput } from '../app-products';
+import { leerRespuestaDeEscaneo } from '../../../lib/creattia/errores-de-escaneo';
 import { getSessionToken } from '../app-session';
 import { PRODUCTS_KEY, saveLocal } from '../app-storage';
 import type { ActiveBatch, AppProfile, AppSession, CreativeReference, Generation, Product, VariationStrength } from '../app-types';
@@ -202,8 +203,9 @@ export function Studio({ creative, reuseSeed, initialProductIds, onSeedConsumed,
 					method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
 					body: JSON.stringify({ url: normalizedUrl }),
 				});
-				const payload = await response.json();
-				if (!response.ok || !payload.importedIds?.length) throw new Error(payload.error || payload.errors?.[0]?.error || 'No pudimos analizar ese producto. Probá cargarlo con fotos.');
+				// Un 504 de la función llega como HTML, no como JSON.
+				const payload = await leerRespuestaDeEscaneo(response);
+				if (!response.ok || !payload.importedIds?.length) throw new Error(payload.errors?.[0]?.error || payload.error || 'No pudimos analizar ese producto. Probá cargarlo con fotos.');
 				ids = payload.importedIds;
 			}
 			await onProductsChanged();

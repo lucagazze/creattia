@@ -5,6 +5,7 @@ import { isCompatible, screenWinners } from '../../../lib/creattia/winner-screen
 import { analyzeBrandStyle } from '../../../lib/creattia/brand-style';
 import { mirrorProductImages, mirrorProductVideos } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
+import { detalleDeEscaneo, mensajeDeEscaneo, motivoDeEscaneo } from '../../../lib/creattia/errores-de-escaneo';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 import { countProductImages, upsertProductMediaRows } from '../../../lib/creattia/product-media';
 import { trackEvent } from '../../../lib/creattia/events';
@@ -128,10 +129,13 @@ export const POST: APIRoute = async ({ request }) => {
 			if (!scannedProduct) throw new Error('No se encontró ningún producto en esa página.');
 			scannedPage = page;
 		} catch (extractErr) {
-			const detail = extractErr instanceof Error ? extractErr.message : String(extractErr);
-			console.error('Fallo la extracción del producto:', extractErr);
+			// Se concatenaba el mensaje técnico detrás de uno propio y quedaba
+			// "No pudimos leer la página del producto. El sitio respondió con estado
+			// 403." — dos frases, ninguna útil. Ahora la traducción es la respuesta
+			// entera y el detalle queda en el log.
+			console.error('Fallo la extracción del producto:', detalleDeEscaneo(extractErr), extractErr);
 			return json({
-				error: `No pudimos leer la página del producto. ${detail}`,
+				error: mensajeDeEscaneo(extractErr),
 				code: 'SCAN_FAILED',
 			}, 502);
 		}
@@ -406,12 +410,15 @@ export const POST: APIRoute = async ({ request }) => {
 			discarded,
 		});
 	} catch (error: any) {
-		console.error('Error en POST batch-url:', error);
-		const message = typeof error === 'object' && error && 'message' in error && error.message 
-			? String(error.message) 
-			: typeof error === 'string' 
-				? error 
-				: 'No se pudo iniciar la generación del lote.';
-		return json({ error: message }, 500);
+		// Devolvía `error.message` tal cual: cualquier cosa que se rompiera fuera del
+		// bloque de extracción —Supabase, la biblioteca de referencias, un fetch
+		// suelto— terminaba en pantalla con su texto de librería.
+		console.error('Error en POST batch-url:', detalleDeEscaneo(error), error);
+		const motivo = motivoDeEscaneo(error);
+		return json({
+			error: motivo === 'desconocido'
+				? 'No pudimos armar el lote. Volvé a intentar en un momento.'
+				: mensajeDeEscaneo(error),
+		}, 500);
 	}
 };

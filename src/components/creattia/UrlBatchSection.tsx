@@ -5,6 +5,7 @@ import { signGenerationPaths } from '../../lib/creattia/generation-image';
 import { supabase } from '../../lib/creattia/supabase-browser';
 import ProductAssetReview, { type ProductReviewMedia } from './ProductAssetReview';
 import { useReferenceUrls } from '../../lib/creattia/reference-urls';
+import { leerRespuestaDeEscaneo } from '../../lib/creattia/errores-de-escaneo';
 
 // Cuántos anuncios se generan a la vez. Cada uno es una request independiente:
 // si una falla o se corta, las demás siguen y esa se puede reintentar sola.
@@ -429,7 +430,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 				headers: accessToken ? { authorization: `Bearer ${accessToken}` } : {},
 				body: formData,
 			});
-			const data = await response.json();
+			// Un 504 de la función llega como HTML, no como JSON.
+			const data = await leerRespuestaDeEscaneo(response);
 			if (!response.ok) throw new Error(data.error || 'No se pudo analizar el producto.');
 
 			// `brandLogoUrl` es el logo que el escaneo encontró en el sitio: sin

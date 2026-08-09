@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import { createHash } from 'node:crypto';
 import OpenAI from 'openai';
 import { normalizeExternalUrl, readLimited, safeExternalFetch } from './safe-fetch';
+import { detalleDeEscaneo, ErrorDeEscaneo, errorDeEstado, motivoDeEscaneo } from './errores-de-escaneo';
 import { pageTypeFromUrl, resolvePageType } from './page-type';
 
 /**
@@ -198,7 +199,11 @@ function wooPrice(prices: any) {
 
 async function scanShopify(origin: string) {
 	try {
-		const response = await safeExternalFetch(`${origin}/products.json?limit=60`, { headers: { accept: 'application/json' } });
+		// Sondeo de plataforma: la mayoría de las tiendas contesta 404 o 403 acá y el
+		// resultado es opcional. Techo corto y sin proxy a propósito: los tres sondeos
+		// salen juntos en cada escaneo, así que dejarlos llegar al último recurso son
+		// tres consultas pagas por sitio para confirmar que la API no existe.
+		const response = await safeExternalFetch(`${origin}/products.json?limit=60`, { headers: { accept: 'application/json' } }, 8_000, 9_000, false);
 		if (!response.ok || !response.headers.get('content-type')?.includes('json')) return [];
 		const payload = JSON.parse(new TextDecoder().decode(await readLimited(response, 4_000_000)));
 		if (!Array.isArray(payload.products)) return [];
@@ -222,7 +227,8 @@ async function scanShopify(origin: string) {
 
 async function scanWooCommerce(origin: string) {
 	try {
-		const response = await safeExternalFetch(`${origin}/wp-json/wc/store/v1/products?per_page=60`, { headers: { accept: 'application/json' } });
+		// Mismo criterio que el sondeo de Shopify: techo corto y sin proxy.
+		const response = await safeExternalFetch(`${origin}/wp-json/wc/store/v1/products?per_page=60`, { headers: { accept: 'application/json' } }, 8_000, 9_000, false);
 		if (!response.ok || !response.headers.get('content-type')?.includes('json')) return [];
 		const payload = JSON.parse(new TextDecoder().decode(await readLimited(response, 5_000_000)));
 		if (!Array.isArray(payload)) return [];
@@ -246,7 +252,8 @@ async function scanWooCommerce(origin: string) {
 async function scanTiendanube(origin: string) {
 	try {
 		// Tiendanube stores expose /productos.json (similar to Shopify)
-		const response = await safeExternalFetch(`${origin}/productos.json?per_page=60`, { headers: { accept: 'application/json' } });
+		// Mismo criterio que el sondeo de Shopify: techo corto y sin proxy.
+		const response = await safeExternalFetch(`${origin}/productos.json?per_page=60`, { headers: { accept: 'application/json' } }, 8_000, 9_000, false);
 		if (!response.ok || !response.headers.get('content-type')?.includes('json')) return [];
 		const payload = JSON.parse(new TextDecoder().decode(await readLimited(response, 4_000_000)));
 		const items = Array.isArray(payload) ? payload : Array.isArray(payload.products) ? payload.products : [];
@@ -313,10 +320,10 @@ async function scanMercadoLibreItem(rawUrl: string): Promise<ScannedProduct | nu
 export async function scanWebsite(rawUrl: string): Promise<ScannedSource> {
 	const url = normalizeExternalUrl(rawUrl);
 	const response = await safeExternalFetch(url, { headers: { accept: 'text/html,application/xhtml+xml' } });
-	if (!response.ok) throw new Error(`El sitio respondió con estado ${response.status}.`);
+	if (!response.ok) throw errorDeEstado(response.status, url);
 	const contentType = (response.headers.get('content-type') || '').toLowerCase();
 	if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
-		throw new Error('La URL no apunta a una página web compatible.');
+		throw new ErrorDeEscaneo('no-es-web', `content-type ${contentType} en ${url}`);
 	}
 	const html = new TextDecoder().decode(await readLimited(response, 4_000_000));
 	const $ = cheerio.load(html);
@@ -390,7 +397,7 @@ export async function scanWebsite(rawUrl: string): Promise<ScannedSource> {
 export async function scanInstagram(rawUrl: string): Promise<ScannedSource> {
 	const url = normalizeExternalUrl(rawUrl, 'instagram');
 	const response = await safeExternalFetch(url, { headers: { accept: 'text/html,application/xhtml+xml' } });
-	if (!response.ok) throw new Error(`Instagram respondió con estado ${response.status}.`);
+	if (!response.ok) throw errorDeEstado(response.status, url);
 	const html = new TextDecoder().decode(await readLimited(response, 3_000_000));
 	const $ = cheerio.load(html);
 	return {
@@ -473,14 +480,44 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 	// un 429 pasajero hacía fracasar todo el lote.
 	let response: Response | null = null;
 	let lastStatus = 0;
+	/** El último fallo de transporte: timeout, DNS, TLS. */
+	let ultimoFallo: unknown = null;
+	/**
+	 * Techo para bajar la página, reintentos incluidos.
+	 *
+	 * Después de esto todavía falta la llamada al modelo y el espejo de las fotos,
+	 * y el endpoint que llama acá importa hasta cinco URLs seguidas dentro de un
+	 * solo techo de función. La lectura de una no se puede comer el presupuesto de
+	 * las otras: cuando lo hacía, Vercel mataba la función a mitad de
+	 * camino y el navegador recibía un 504 con HTML en vez de una respuesta.
+	 * Prefiero avisar que el sitio no se dejó leer a morir sin decir nada.
+	 */
+	const venceLaLectura = Date.now() + 45_000;
 	for (let attempt = 0; attempt < 3; attempt += 1) {
-		response = await safeExternalFetch(url, {
-			headers: {
-				accept: 'text/html,application/xhtml+xml',
-				'accept-language': 'es-AR,es;q=0.9,en;q=0.8',
-				'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-			},
-		});
+		const restante = venceLaLectura - Date.now();
+		// Con menos de esto no alcanza ni para un intento completo con reintento.
+		if (restante < 5_000) break;
+		try {
+			response = await safeExternalFetch(url, {
+				headers: {
+					accept: 'text/html,application/xhtml+xml',
+					'accept-language': 'es-AR,es;q=0.9,en;q=0.8',
+					'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+				},
+			}, Math.max(4_000, Math.min(12_000, Math.floor(restante / 3))), restante);
+		} catch (fallo) {
+			// Este await no estaba protegido y era el agujero grande: todo lo que
+			// lanzaba safeExternalFetch —el timeout de 12 s, el DNS, el TLS— se
+			// escapaba del bucle sin pasar por ningún reintento y salía a la pantalla
+			// con el texto de Node. Así apareció "The operation was aborted due to
+			// timeout" en la app.
+			ultimoFallo = fallo;
+			response = null;
+			const reintentable = motivoDeEscaneo(fallo) === 'tiempo-agotado' || motivoDeEscaneo(fallo) === 'conexion';
+			if (!reintentable || attempt === 2) break;
+			await new Promise((resolve) => setTimeout(resolve, 1200 * (attempt + 1)));
+			continue;
+		}
 		if (response.ok) break;
 		lastStatus = response.status;
 		const retryable = response.status === 429 || response.status >= 500;
@@ -491,15 +528,15 @@ export async function extractProductPageWithAI(rawUrl: string, apiKey: string): 
 			: 1200 * (attempt + 1);
 		await new Promise((resolve) => setTimeout(resolve, waitMs));
 	}
-	if (!response || !response.ok) {
-		if (lastStatus === 429) {
-			throw new Error('El sitio del producto está limitando las consultas (429). Esperá un minuto y volvé a intentar.');
-		}
-		throw new Error(`El sitio respondió con estado ${lastStatus || response?.status || 0}.`);
+	if (!response) {
+		throw ultimoFallo instanceof ErrorDeEscaneo
+			? ultimoFallo
+			: new ErrorDeEscaneo(ultimoFallo ? motivoDeEscaneo(ultimoFallo) : 'tiempo-agotado', detalleDeEscaneo(ultimoFallo || `sin tiempo para leer ${url}`));
 	}
+	if (!response.ok) throw errorDeEstado(lastStatus || response.status, url);
 	const contentType = (response.headers.get('content-type') || '').toLowerCase();
 	if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
-		throw new Error('La URL no apunta a una página web compatible.');
+		throw new ErrorDeEscaneo('no-es-web', `content-type ${contentType} en ${url}`);
 	}
 
 	const html = new TextDecoder().decode(await readLimited(response, 4_000_000));

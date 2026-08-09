@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import OpenAI from 'openai';
 import { normalizeExternalUrl, readLimited, safeExternalFetch } from './safe-fetch';
+import { errorDeEstado } from './errores-de-escaneo';
 
 export type BrandStyle = {
 	colors: string[];
@@ -35,8 +36,12 @@ function absoluteUrl(value: unknown, base: string) {
 }
 
 async function fetchHtml(url: string, maxBytes = 3_000_000) {
-	const response = await safeExternalFetch(url, { headers: { accept: 'text/html,application/xhtml+xml' } });
-	if (!response.ok) throw new Error(`status ${response.status}`);
+	// El techo de este escaneo es más corto que el de un producto suelto: se leen
+	// la home, dos hojas de estilo y hasta tres páginas internas, todo en serie, y
+	// el endpoint que lo llama se corta a los 120 s. Con el techo por defecto una
+	// sola tienda pesada agotaba la función entera.
+	const response = await safeExternalFetch(url, { headers: { accept: 'text/html,application/xhtml+xml' } }, 10_000, 16_000);
+	if (!response.ok) throw errorDeEstado(response.status, url);
 	return new TextDecoder().decode(await readLimited(response, maxBytes));
 }
 
@@ -175,7 +180,7 @@ async function collectBrandSignals(websiteUrl: string) {
 		.map((el) => absoluteUrl($(el).attr('href'), url)).filter(Boolean).slice(0, 2);
 	for (const sheetUrl of sheetUrls) {
 		try {
-			const response = await safeExternalFetch(sheetUrl, { headers: { accept: 'text/css,*/*' } });
+			const response = await safeExternalFetch(sheetUrl, { headers: { accept: 'text/css,*/*' } }, 8_000, 10_000);
 			if (response.ok) cssText += '\n' + new TextDecoder().decode(await readLimited(response, 400_000));
 		} catch { /* hoja inaccesible, seguimos con lo que hay */ }
 	}
@@ -185,7 +190,12 @@ async function collectBrandSignals(websiteUrl: string) {
 		title: compact($('title').text(), 180),
 		text: compact($('main').text() || $('body').text(), 1500),
 	}];
+	// Las páginas internas son un extra: aportan tono de voz, no la identidad
+	// visual. Si la home y las hojas de estilo ya se comieron el presupuesto, se
+	// devuelve lo que hay en vez de arrastrar la función hasta que Vercel la mate.
+	const venceElRastreo = Date.now() + 15_000;
 	for (const pageUrl of extraPages) {
+		if (Date.now() > venceElRastreo) break;
 		try {
 			const pageHtml = await fetchHtml(pageUrl, 2_000_000);
 			const $page = cheerio.load(pageHtml);

@@ -4,11 +4,17 @@ import { analyzeBrandStyle, persistBrandStyle } from '../../../lib/creattia/bran
 import { extractProductPageWithAI, type ScannedProduct } from '../../../lib/creattia/catalog-scanner';
 import { mirrorProductImages, mirrorProductVideos } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
+import { AvisoParaLaPersona, detalleDeEscaneo, MENSAJES_DE_ESCANEO, mensajeDeEscaneo } from '../../../lib/creattia/errores-de-escaneo';
 import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { countProductImages, listProductImageRows, upsertProductMediaRows } from '../../../lib/creattia/product-media';
 
 export const prerender = false;
-export const maxDuration = 180;
+// Importa hasta cinco URLs una atrás de la otra, y cada una baja una página,
+// la pasa por un modelo, copia sus fotos y analiza la marca del sitio. Con 180 s
+// una sola tienda pesada cortaba la función y el navegador recibía un 504 con
+// HTML: ni un error entendible ni los productos que sí habían entrado. Es el
+// mismo techo que ya usa /batch-url, que hace este mismo trabajo.
+export const maxDuration = 300;
 
 const mimeExtensions: Record<string, string> = {
 	'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/avif': 'avif',
@@ -107,20 +113,29 @@ async function listProducts(userId: string) {
 
 async function importProductUrls(userId: string, rawUrls: unknown[]) {
 	const admin = getAdminClient();
-	if (!admin) throw new Error('Supabase no está configurado.');
+	if (!admin) throw new AvisoParaLaPersona('Supabase no está configurado.');
 	const apiKey = process.env.OPENAI_API_KEY || import.meta.env.OPENAI_API_KEY || '';
 	const groqApiKey = process.env.GROQ_API_KEY || import.meta.env.GROQ_API_KEY || '';
 	const googleKey = process.env.GOOGLE_AI_API_KEY || import.meta.env.GOOGLE_AI_API_KEY || '';
-	if (!apiKey && !groqApiKey) throw new Error('Falta configurar las credenciales de IA (OpenAI o Groq).');
+	if (!apiKey && !groqApiKey) throw new AvisoParaLaPersona('Falta configurar las credenciales de IA (OpenAI o Groq).');
 
 	const errors: Array<{ url: string; error: string }> = [];
 	const normalized = rawUrls.flatMap((value) => {
 		const raw = String(value).trim().slice(0, 500);
 		try { return raw ? [normalizeExternalUrl(raw)] : []; }
-		catch (error) { errors.push({ url: raw, error: error instanceof Error ? error.message : 'URL inválida.' }); return []; }
+		catch (error) {
+			// `new URL()` tira "Invalid URL" y ese texto salía tal cual a la pantalla.
+			console.warn('[products] URL inválida:', raw, detalleDeEscaneo(error));
+			errors.push({ url: raw, error: mensajeDeEscaneo(error) });
+			return [];
+		}
 	});
 	const urls = [...new Set(normalized)].slice(0, 5);
-	if (!urls.length) throw new Error('Pegá al menos una URL de producto.');
+	// Si ninguna URL sobrevivió pero cada una dejó su motivo, ese motivo es la
+	// respuesta. Lanzar acá lo tiraba a la basura y la persona que pegó un link
+	// roto leía "pegá al menos una URL" habiendo pegado una.
+	if (!urls.length && errors.length) return { importedIds: [] as string[], errors };
+	if (!urls.length) throw new AvisoParaLaPersona('Pegá al menos una URL de producto.');
 
 	// AI-first extraction: each URL is analyzed independently by GPT-4o-mini
 	const importedIds: string[] = [];
@@ -135,7 +150,31 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 	 * veía un error con los productos importados a medias.
 	 */
 	const marcaPorOrigen = new Map<string, Record<string, unknown> | null>();
+	/**
+	 * Hasta cuándo se siguen procesando URLs.
+	 *
+	 * Las cinco se hacen una atrás de la otra y cada una baja una página, la pasa
+	 * por un modelo, copia hasta veinticuatro fotos y analiza la marca del sitio.
+	 * Cuando la suma pasaba el techo de la función, Vercel la cortaba en seco: el
+	 * navegador recibía un 504 con HTML, los productos que sí se habían importado
+	 * no volvían en la respuesta y la persona no se enteraba de nada. Es preferible
+	 * devolver los que entraron y decir de los otros que no llegamos a leerlos.
+	 */
+	const venceLaImportacion = Date.now() + 200_000;
+	/**
+	 * Desde acá ya no se sale a leer la identidad visual del sitio.
+	 *
+	 * Es lo más caro del import y lo menos urgente: sin marca el producto igual
+	 * queda importado y se puede generar. Antes se lanzaba aunque faltaran veinte
+	 * segundos para el corte, y se perdía la importación entera por un dato
+	 * accesorio.
+	 */
+	const venceLaMarca = Date.now() + 150_000;
 	for (const url of urls) {
+		if (Date.now() > venceLaImportacion) {
+			errors.push({ url, error: MENSAJES_DE_ESCANEO['demora-nuestra'] });
+			continue;
+		}
 		try {
 			// 1. Se analiza la página: qué tipo es y qué productos tiene.
 			const page = await extractProductPageWithAI(url, apiKey);
@@ -145,6 +184,10 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 			//    siempre se creaba uno y la home de una tienda entraba como un
 			//    "producto 1" con todas las fotos de la página mezcladas.
 			for (const product of page.products) {
+			// Una página de catálogo puede traer ocho productos y cada uno copia su
+			// galería entera: sin este corte, una sola URL agotaba la función y no
+			// volvía ni siquiera lo que ya estaba guardado.
+			if (Date.now() > venceLaImportacion && importedIds.length) break;
 			const baseMetadata = {
 				...product.metadata,
 				importedFromUrl: url,
@@ -195,6 +238,7 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 			// URL" como opción de identidad al generar el anuncio.
 			try {
 				const origin = new URL(url).origin;
+				if (!marcaPorOrigen.has(origin) && Date.now() > venceLaMarca) marcaPorOrigen.set(origin, null);
 				if (!marcaPorOrigen.has(origin)) {
 					try {
 						const style = await analyzeBrandStyle(origin, { openAIKey: apiKey, googleKey });
@@ -227,7 +271,12 @@ async function importProductUrls(userId: string, rawUrls: unknown[]) {
 			importedIds.push(stored.id as string);
 			}
 		} catch (err) {
-			errors.push({ url, error: err instanceof Error ? err.message : 'No se pudo analizar el producto.' });
+			// Lo que llega hasta acá es cualquier fallo de red, de bloqueo o de
+			// formato. Los tres clientes que llaman a este endpoint muestran
+			// `errors[0].error` antes que su propio texto, así que lo que se escriba
+			// en este campo ES lo que lee la persona: el detalle técnico va al log.
+			console.error('[products] no se pudo importar', url, detalleDeEscaneo(err));
+			errors.push({ url, error: mensajeDeEscaneo(err) });
 		}
 	}
 
@@ -260,7 +309,13 @@ export const GET: APIRoute = async ({ request }) => {
 	const auth = await authenticateRequest(request);
 	if (!auth.user) return json({ error: auth.error }, 401);
 	try { return json({ products: await listProducts(auth.user.id) }); }
-	catch (error) { return json({ error: error instanceof Error ? error.message : 'No se pudo cargar el catálogo.' }, 500); }
+	catch (error) {
+		// Lo que falla acá es Supabase, y su `message` es texto de librería en
+		// inglés ("JWT expired", "relation ... does not exist"). Se muestra en la
+		// pantalla del catálogo, así que va al log y a la persona le llega una frase.
+		console.error('[products] no se pudo listar el catálogo', detalleDeEscaneo(error), error);
+		return json({ error: 'No pudimos cargar tu catálogo. Recargá la página en un momento.' }, 500);
+	}
 };
 
 export const POST: APIRoute = async ({ request }) => {
@@ -320,7 +375,13 @@ export const POST: APIRoute = async ({ request }) => {
 		const description = String(form.get('description') || '').trim().slice(0, 1600);
 		const priceText = String(form.get('priceText') || '').trim().slice(0, 60);
 		const rawProductUrl = String(form.get('productUrl') || '').trim().slice(0, 500);
-		const productUrl = rawProductUrl ? normalizeExternalUrl(rawProductUrl) : '';
+		// El link es opcional cuando el producto se carga a mano, pero si está mal
+		// escrito `new URL()` tiraba "Invalid URL" y ese texto llegaba a la pantalla.
+		let productUrl = '';
+		if (rawProductUrl) {
+			try { productUrl = normalizeExternalUrl(rawProductUrl); }
+			catch (urlError) { return json({ error: mensajeDeEscaneo(urlError) }, 400); }
+		}
 		const images = form.getAll('image').filter((file): file is File => file instanceof File && file.size > 0).slice(0, 5);
 		const image = images[0];
 		for (const file of images) {
@@ -366,7 +427,13 @@ export const POST: APIRoute = async ({ request }) => {
 		const pathsToRemove = [...new Set([uploadedPath, ...uploadedPaths].filter(Boolean))];
 		if (pathsToRemove.length) await admin.storage.from('creative-assets').remove(pathsToRemove);
 		if (productId) await admin.from('creative_products').delete().eq('id', productId).eq('user_id', auth.user.id);
-		return json({ error: error instanceof Error ? error.message : 'No se pudo guardar el producto.' }, 500);
+		// Este catch cubre las dos ramas del POST: la importación por URL y la carga
+		// a mano. Devolvía `error.message` tal cual, así que un fallo de Supabase o
+		// del storage —"new row violates row-level security policy"— salía a la
+		// pantalla en inglés. Solo se muestra lo que se escribió para mostrarse.
+		console.error('[products] POST falló', detalleDeEscaneo(error), error);
+		if (error instanceof AvisoParaLaPersona) return json({ error: error.message }, 400);
+		return json({ error: 'No pudimos guardar el producto. Volvé a intentar en un momento.' }, 500);
 	}
 };
 

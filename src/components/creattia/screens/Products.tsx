@@ -2,6 +2,7 @@ import { isSupabaseConfigured, supabase } from '../../../lib/creattia/supabase-b
 import UrlInput from '../UrlInput';
 import { Icon } from '../Icon';
 import { fileAsDataUrl, normalizeProductUrlInput } from '../app-products';
+import { leerRespuestaDeEscaneo } from '../../../lib/creattia/errores-de-escaneo';
 import { getSessionId, getSessionToken } from '../app-session';
 import { PRODUCTS_KEY, saveLocal } from '../app-storage';
 import type { AppSession, Product } from '../app-types';
@@ -51,8 +52,11 @@ export function ProductIntake({ session, products, onProductsChanged, onCreated,
 					method: 'POST', headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
 					body: JSON.stringify({ url: normalizedUrl }),
 				});
-				const payload = await response.json();
-				if (!response.ok || !payload.importedIds?.length) throw new Error(payload.error || payload.errors?.[0]?.error || 'No pudimos leer ese producto. Probá cargar sus fotos.');
+				// Cuando la función se pasa de tiempo, Vercel contesta un 504 con una
+				// página HTML: `response.json()` explotaba y lo que se leía en pantalla
+				// era "Unexpected token 'A'...", sin ninguna pista de que había tardado.
+				const payload = await leerRespuestaDeEscaneo(response);
+				if (!response.ok || !payload.importedIds?.length) throw new Error(payload.errors?.[0]?.error || payload.error || 'No pudimos leer ese producto. Probá cargar sus fotos.');
 				ids = payload.importedIds;
 			}
 			await onProductsChanged(); onCreated(ids); setProductUrl('');

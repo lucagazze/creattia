@@ -3,6 +3,7 @@ import { analyzeBrandStyle, persistBrandStyle } from '../../../lib/creattia/bran
 import { analyzeCatalogWithAI, scanInstagram, scanWebsite, type ScannedProduct, type ScannedSource } from '../../../lib/creattia/catalog-scanner';
 import { mirrorProductImages } from '../../../lib/creattia/product-assets';
 import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
+import { detalleDeEscaneo, mensajeDeEscaneo } from '../../../lib/creattia/errores-de-escaneo';
 import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 
 export const prerender = false;
@@ -54,8 +55,12 @@ export const POST: APIRoute = async ({ request }) => {
 				}).eq('user_id', auth.user.id).eq('source_type', source.type);
 				if (sourceUpdateError) throw sourceUpdateError;
 			} else {
-				const message = outcome.reason instanceof Error ? outcome.reason.message : 'No se pudo leer la fuente.';
-				errors.push(`${source.type}: ${message}`);
+				// Este texto se guarda en `catalog_error` y el onboarding lo muestra
+				// como `catalogError`: es pantalla, no log. Antes viajaba el mensaje
+				// crudo del escáner ("El sitio respondió con estado 403.").
+				console.error(`[analyze-brand] falló ${source.type}`, detalleDeEscaneo(outcome.reason), outcome.reason);
+				const message = mensajeDeEscaneo(outcome.reason);
+				errors.push(source.type === 'instagram' ? `Instagram: ${message}` : message);
 				const { error: sourceUpdateError } = await admin.from('creative_brand_sources').update({ status: 'failed', error_message: message.slice(0, 500), updated_at: new Date().toISOString() })
 					.eq('user_id', auth.user.id).eq('source_type', source.type);
 				if (sourceUpdateError) throw sourceUpdateError;
@@ -64,7 +69,10 @@ export const POST: APIRoute = async ({ request }) => {
 
 		if (!sources.length) {
 			await admin.from('creative_profiles').update({ catalog_status: 'failed', catalog_error: errors.join(' · ').slice(0, 1000), updated_at: new Date().toISOString() }).eq('user_id', auth.user.id);
-			return json({ error: 'No pudimos leer las fuentes. Revisá que las URLs sean públicas.', details: errors }, 422);
+			// El motivo real viajaba en `details` y no se mostraba en ningún lado: la
+			// persona leía "revisá que las URLs sean públicas" aunque su web fuera
+			// pública y el problema fuese que el sitio tardó demasiado.
+			return json({ error: errors[0] || 'No pudimos leer las fuentes. Revisá que las URLs sean públicas.', details: errors }, 422);
 		}
 
 		const products: ScannedProduct[] = [];
@@ -131,7 +139,9 @@ export const POST: APIRoute = async ({ request }) => {
 			brandSummary: analysis.brandSummary, warnings: errors,
 		});
 	} catch (error) {
-		const message = error instanceof Error ? error.message : 'No se pudo analizar la marca.';
+		// `catalog_error` se le muestra a la persona en el onboarding, así que acá
+		// tampoco puede quedar el mensaje de librería que venía en el Error.
+		const message = mensajeDeEscaneo(error);
 		await admin.from('creative_profiles').update({ catalog_status: 'failed', catalog_error: message.slice(0, 1000), updated_at: new Date().toISOString() }).eq('user_id', auth.user.id);
 		return fail('analyze-brand', error, 'No se pudo analizar la marca.');
 	}

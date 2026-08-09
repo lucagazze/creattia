@@ -4,6 +4,7 @@ import { useReferenceUrl } from '../../../lib/creattia/reference-urls';
 import UrlInput from '../UrlInput';
 import { Icon } from '../Icon';
 import { getSessionToken } from '../app-session';
+import { leerRespuestaDeEscaneo } from '../../../lib/creattia/errores-de-escaneo';
 import type { ActiveBatch, AppSession, Generation, Product } from '../app-types';
 import { groupCarouselHistory } from '../history-utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -850,7 +851,8 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 				headers: { authorization: `Bearer ${getSessionToken(session)}`, 'content-type': 'application/json' },
 				body: JSON.stringify({ url }),
 			});
-			const payload = await response.json();
+			// Un 504 de la función llega como HTML, no como JSON.
+			const payload = await leerRespuestaDeEscaneo(response);
 			if (!response.ok) throw new Error(payload.error || 'No pudimos leer esa página.');
 			setBrandPreview(payload.brand);
 		} catch (cause) {
@@ -901,8 +903,11 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 				},
 				body: JSON.stringify({ url: fastUrl.trim() }),
 			});
-			const payload = await response.json();
-			if (!response.ok) throw new Error(payload.error || 'No se pudo importar el producto.');
+			// Es el mismo escaneo por URL de las otras pantallas: cuando la función se
+			// pasa de tiempo, Vercel contesta un 504 con HTML y `response.json()`
+			// reventaba con "Unexpected token 'A'".
+			const payload = await leerRespuestaDeEscaneo(response);
+			if (!response.ok) throw new Error(payload.errors?.[0]?.error || payload.error || 'No se pudo importar el producto.');
 			// Add to local list and select it
 			if (payload.product) {
 				setLocalProducts(prev => [payload.product, ...prev]);

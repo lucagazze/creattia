@@ -14,6 +14,7 @@ import { fetchLibraryItems, fetchReferenceUrls, useReferenceUrl, useReferenceUrl
 import type { ActiveBatch, AppProfile, AppSession, DemoSession, Generation, LightboxState, Product, View } from './app-types';
 import { ACTIVE_BATCH_KEY, FAVORITES_KEY, HISTORY_KEY, PRODUCTS_KEY, PROFILE_KEY, SESSION_KEY, defaultProfile, loadLocal, saveLocal, scopedKey } from './app-storage';
 import { firstName, getSessionEmail, getSessionId, getSessionToken, planLabel } from './app-session';
+import { leerRespuestaDeEscaneo } from '../../lib/creattia/errores-de-escaneo';
 import { fileAsDataUrl, mapProduct } from './app-products';
 import { demoProducts } from './demo-mode';
 import { Icon } from './Icon';
@@ -973,7 +974,9 @@ export default function CreativeApp() {
 					method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
 					body: JSON.stringify({ website: finalProfile.website, instagram: finalProfile.instagram }),
 				});
-				const payload = await response.json();
+				// Un 504 de la función devuelve HTML: sin esto reventaba con
+				// "Unexpected token" y la persona no se enteraba de que había tardado.
+				const payload = await leerRespuestaDeEscaneo(response);
 				if (response.ok) {
 					finalProfile = { ...finalProfile, brandSummary: payload.brandSummary || '', catalogStatus: payload.status || 'ready', catalogLastSyncedAt: new Date().toISOString(), catalogError: payload.warnings?.join(' · ') || '' };
 					await refreshProducts();
