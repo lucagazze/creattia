@@ -1264,7 +1264,7 @@ export default function CreativeApp() {
 			)}
 			<div className={`studio-mobile-scrim ${mobileMenu ? 'is-open' : ''}`} onClick={() => setMobileMenu(false)} />
 			<aside className={`studio-sidebar ${mobileMenu ? 'is-open' : ''}`}>
-				<div style={{ display: 'flex', flexDirection: sidebarMinimized ? 'column' : 'row', alignItems: 'center', justifyContent: sidebarMinimized ? 'center' : 'space-between', gap: sidebarMinimized ? '6px' : 0, paddingRight: sidebarMinimized ? 0 : '10px', marginBottom: '10px' }}>
+				<div className="studio-sidebar-head" style={{ display: 'flex', flexDirection: sidebarMinimized ? 'column' : 'row', alignItems: 'center', justifyContent: sidebarMinimized ? 'center' : 'space-between', gap: sidebarMinimized ? '6px' : 0, paddingRight: sidebarMinimized ? 0 : '10px', marginBottom: '10px' }}>
 					<button 
 						className="studio-logo" 
 						onClick={() => navigateTo('home')} 
@@ -1292,95 +1292,100 @@ export default function CreativeApp() {
 					</button>
 				</div>
 				<button className="studio-close-menu" onClick={() => setMobileMenu(false)} aria-label="Cerrar menú"><Icon name="close"/></button>
-				<nav className="studio-nav">
-					{!sidebarMinimized && <p>ESPACIO DE TRABAJO</p>}
-					{navItems.map((item) => (
-						<button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { navigateTo(item.id); setMobileMenu(false); irArriba(); }}>
-							<Icon name={item.icon}/>{!sidebarMinimized && <span>{item.label}</span>}
+				<div className="studio-sidebar-scroll">
+					<nav className="studio-nav">
+						{!sidebarMinimized && <p>ESPACIO DE TRABAJO</p>}
+						{navItems.map((item) => (
+							<button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => { navigateTo(item.id); setMobileMenu(false); irArriba(); }}>
+								<Icon name={item.icon}/>{!sidebarMinimized && <span>{item.label}</span>}
+							</button>
+						))}
+					</nav>
+					<div className="studio-sidebar-bottom">
+						<button 
+							className={`studio-brand-nav-btn ${view === 'brand' ? 'active' : ''}`}
+							onClick={() => { navigateTo('brand'); setMobileMenu(false); irArriba(); }}
+							style={{
+								display: 'flex',
+								alignItems: 'center',
+								gap: '12px',
+								width: '100%',
+								padding: '10px 14px',
+								background: view === 'brand' ? '#ece9f1' : 'transparent',
+								border: 0,
+								borderRadius: '10px',
+								cursor: 'pointer',
+								color: view === 'brand' ? '#744bde' : '#5b5561',
+								fontWeight: 700,
+								fontSize: '14px',
+								marginBottom: '10px',
+								textAlign: 'left'
+							}}
+						>
+							<Icon name="brand"/>
+							{!sidebarMinimized && <span>Mi marca</span>}
 						</button>
-					))}
-				</nav>
-				<div className="studio-sidebar-bottom">
-					<button 
-						className={`studio-brand-nav-btn ${view === 'brand' ? 'active' : ''}`}
-						onClick={() => { navigateTo('brand'); setMobileMenu(false); irArriba(); }}
-						style={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: '12px',
-							width: '100%',
-							padding: '10px 14px',
-							background: view === 'brand' ? '#ece9f1' : 'transparent',
-							border: 0,
-							borderRadius: '10px',
-							cursor: 'pointer',
-							color: view === 'brand' ? '#744bde' : '#5b5561',
-							fontWeight: 700,
-							fontSize: '14px',
-							marginBottom: '10px',
-							textAlign: 'left'
-						}}
-					>
-						<Icon name="brand"/>
-						{!sidebarMinimized && <span>Mi marca</span>}
-					</button>
-					<button
-						className="studio-brand-nav-btn"
-						onClick={() => setSettingsOpen(!settingsOpen)}
-						style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '10px 14px', background: settingsOpen ? '#ece9f1' : 'transparent', border: 0, borderRadius: '10px', cursor: 'pointer', color: '#5b5561', fontWeight: 700, fontSize: '14px', textAlign: 'left', marginBottom: '10px' }}
-					>
-						<Icon name="settings"/>
-						{!sidebarMinimized && <>
-							<span>Configuración</span>
-							<i style={{ marginLeft: 'auto', display: 'inline-flex', transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .18s ease', color: '#9d97a6' }}>
-								<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-							</i>
-						</>}
-					</button>
-					{settingsOpen && !sidebarMinimized && (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '2px 0 10px', paddingLeft: '12px' }}>
-							<button className="studio-settings-item" onClick={() => { navigateTo('plans'); setSettingsOpen(false); }}>
-								<Icon name="card" size={15}/>Planes y suscripción
-							</button>
-							{/* Antes esto era un alert fijo que decía "no tenés facturas
-							    todavía" sin consultar nada, aunque hubiera cobros guardados. */}
-							<button className="studio-settings-item" onClick={() => { navigateTo('billing'); setSettingsOpen(false); }}>
-								<Icon name="history" size={15}/>Historial de pagos
-							</button>
-							<div style={{ height: '1px', background: '#e7e2ec', margin: '4px 10px' }} />
-							<button className="studio-settings-item danger" onClick={() => { void logout(); }}>
-								<Icon name="logout" size={15}/>Cerrar sesión
-							</button>
-						</div>
-					)}
-					{!sidebarMinimized && (
-						<div className="studio-plan-card">
-							<div><span className="studio-plan-orb"><Icon name="spark" size={15}/></span><small>PLAN ACTUAL</small></div>
-							<strong>{planLabel(profile)}</strong>
-					<p><span style={{ width: `${Math.min(100, profile.credits / (profile.monthlyCredits || 1) * 100)}%` }}/></p>
-							<footer><span>{profile.credits} {profile.credits === 1 ? 'generación' : 'generaciones'}</span><button onClick={() => navigateTo('plans')}>Ver planes</button></footer>
-						</div>
-					)}
+						<button
+							className="studio-brand-nav-btn"
+							onClick={() => setSettingsOpen(!settingsOpen)}
+							style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '10px 14px', background: settingsOpen ? '#ece9f1' : 'transparent', border: 0, borderRadius: '10px', cursor: 'pointer', color: '#5b5561', fontWeight: 700, fontSize: '14px', textAlign: 'left', marginBottom: '10px' }}
+						>
+							<Icon name="settings"/>
+							{!sidebarMinimized && <>
+								<span>Configuración</span>
+								<i style={{ marginLeft: 'auto', display: 'inline-flex', transform: settingsOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .18s ease', color: '#9d97a6' }}>
+									<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+								</i>
+							</>}
+						</button>
+						{settingsOpen && !sidebarMinimized && (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: '2px', margin: '2px 0 10px', paddingLeft: '12px' }}>
+								<button className="studio-settings-item" onClick={() => { navigateTo('plans'); setSettingsOpen(false); }}>
+									<Icon name="card" size={15}/>Planes y suscripción
+								</button>
+								{/* Antes esto era un alert fijo que decía "no tenés facturas
+								    todavía" sin consultar nada, aunque hubiera cobros guardados. */}
+								<button className="studio-settings-item" onClick={() => { navigateTo('billing'); setSettingsOpen(false); }}>
+									<Icon name="history" size={15}/>Historial de pagos
+								</button>
+								<div style={{ height: '1px', background: '#e7e2ec', margin: '4px 10px' }} />
+								<button className="studio-settings-item danger" onClick={() => { void logout(); }}>
+									<Icon name="logout" size={15}/>Cerrar sesión
+								</button>
+							</div>
+						)}
+						{!sidebarMinimized && (
+							{/* El rótulo "PLAN ACTUAL" con su orbe no aportaba nada: el nombre
+							    del plan que va justo abajo ya se explica solo, y ese encabezado
+							    se comía el aire de arriba en las pantallas cortas, donde el
+							    menú es lo primero que se comprime. */}
+							<div className="studio-plan-card">
+								<strong>{planLabel(profile)}</strong>
+						<p><span style={{ width: `${Math.min(100, profile.credits / (profile.monthlyCredits || 1) * 100)}%` }}/></p>
+								<footer><span>{profile.credits} {profile.credits === 1 ? 'generación' : 'generaciones'}</span><button onClick={() => navigateTo('plans')}>Ver planes</button></footer>
+							</div>
+						)}
 					
 
-					<div 
-						className="studio-user" 
-						onClick={() => setSettingsOpen(!settingsOpen)} 
-						style={{ cursor: 'pointer', position: 'relative' }}
-					>
-						<span>{firstName(profile, getSessionEmail(session)).slice(0, 1).toUpperCase()}</span>
-						{!sidebarMinimized && (
-							<>
-								<div style={{ flex: 1, minWidth: 0, paddingRight: '10px' }}>
-									<strong style={{ display: 'flex', alignItems: 'center', gap: '7px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-										{profile.fullName || 'Mi cuenta'}
-										{isAdminEmail(getSessionEmail(session)) && <span style={{ padding: '2px 7px', borderRadius: '6px', background: '#19171d', color: '#fff', fontSize: '9.5px', fontWeight: 900, letterSpacing: '.08em' }}>ADMIN</span>}
-									</strong>
-									<small style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{getSessionEmail(session)}</small>
-								</div>
+						<div 
+							className="studio-user" 
+							onClick={() => setSettingsOpen(!settingsOpen)} 
+							style={{ cursor: 'pointer', position: 'relative' }}
+						>
+							<span>{firstName(profile, getSessionEmail(session)).slice(0, 1).toUpperCase()}</span>
+							{!sidebarMinimized && (
+								<>
+									<div style={{ flex: 1, minWidth: 0, paddingRight: '10px' }}>
+										<strong style={{ display: 'flex', alignItems: 'center', gap: '7px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+											{profile.fullName || 'Mi cuenta'}
+											{isAdminEmail(getSessionEmail(session)) && <span style={{ padding: '2px 7px', borderRadius: '6px', background: '#19171d', color: '#fff', fontSize: '9.5px', fontWeight: 900, letterSpacing: '.08em' }}>ADMIN</span>}
+										</strong>
+										<small style={{ display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{getSessionEmail(session)}</small>
+									</div>
 
-							</>
-						)}
+								</>
+							)}
+						</div>
 					</div>
 				</div>
 			</aside>
