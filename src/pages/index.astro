@@ -3107,11 +3107,16 @@ const faqs = [
 		}
 	}
 
+	/* Cinco planes en 1200px con 24px de aire dejaban 220px por tarjeta, y con el
+	   padding lateral quedaban 156px de contenido: se veían angostas y las
+	   descripciones caían en cuatro renglones. Menos separación y un poco más de
+	   ancho útil dan casi 40px más por tarjeta, que es lo que hace que el bloque
+	   se lea como una fila de tarjetas y no como cinco columnas apretadas. */
 	.plans-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-		gap: 24px;
-		max-width: 1200px;
+		gap: 16px;
+		max-width: 1280px;
 		margin: 60px auto 0;
 		align-items: stretch;
 	}
@@ -3123,16 +3128,18 @@ const faqs = [
 	}
 
 	@media (min-width: 1100px) {
+		/* Son cinco planes. Con cuatro columnas el quinto bajaba solo a una fila
+		   propia, descolgado del resto. */
 		.plans-grid {
-			grid-template-columns: repeat(4, 1fr);
+			grid-template-columns: repeat(5, 1fr);
 		}
 	}
 
 	.plan-card {
 		background: #FFF;
 		border: 1px solid var(--border-color);
-		border-radius: 32px;
-		padding: 40px 32px;
+		border-radius: 28px;
+		padding: 36px 24px;
 		position: relative;
 		display: flex;
 		flex-direction: column;
@@ -3193,7 +3200,7 @@ const faqs = [
 	}
 
 	.plan-price .amount {
-		font-size: 54px;
+		font-size: 52px;
 		font-weight: 800;
 		line-height: 1;
 		letter-spacing: -0.04em;
