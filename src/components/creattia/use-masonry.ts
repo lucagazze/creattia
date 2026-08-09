@@ -71,11 +71,33 @@ export function useMasonry(dependencias: DependencyList) {
 		// la grilla entera una vez por imagen.
 		const programar = () => { if (!frame) frame = requestAnimationFrame(medir); };
 		programar();
-		const observador = new ResizeObserver(programar);
-		observador.observe(grilla);
-		for (const tarjeta of Array.from(grilla.children)) observador.observe(tarjeta);
+		const observadorDeAlto = new ResizeObserver(programar);
+		observadorDeAlto.observe(grilla);
+		for (const tarjeta of Array.from(grilla.children)) observadorDeAlto.observe(tarjeta);
+		// El conjunto de tarjetas puede cambiar sin que cambie la CANTIDAD: pasar de
+		// "Todas" a "Favoritas" con la misma cifra, por ejemplo. Ahí el efecto no se
+		// rehace y el observador se queda mirando nodos que React ya desmontó. La
+		// primera medición todavía se salva, porque cambia el alto de la grilla y eso
+		// dispara una pasada; lo que queda roto son las tarjetas nuevas, que nadie
+		// observa. Cuando una crece al terminar de bajar su imagen, su span ya no se
+		// actualiza —la grilla no cambia de alto, así que nada vuelve a medir— y la
+		// tarjeta se derrama encima de la de abajo. Suscribirse a las altas y bajas
+		// de hijos evita depender de que cada pantalla acierte sus dependencias.
+		const observadorDeHijos = new MutationObserver((cambios) => {
+			for (const cambio of cambios) {
+				for (const nodo of Array.from(cambio.addedNodes)) {
+					if (nodo instanceof Element) observadorDeAlto.observe(nodo);
+				}
+				for (const nodo of Array.from(cambio.removedNodes)) {
+					if (nodo instanceof Element) observadorDeAlto.unobserve(nodo);
+				}
+			}
+			programar();
+		});
+		observadorDeHijos.observe(grilla, { childList: true });
 		return () => {
-			observador.disconnect();
+			observadorDeAlto.disconnect();
+			observadorDeHijos.disconnect();
 			if (frame) cancelAnimationFrame(frame);
 		};
 	}, [...dependencias, columnas]);
