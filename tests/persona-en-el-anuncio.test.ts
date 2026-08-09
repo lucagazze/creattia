@@ -57,6 +57,68 @@ describe('cuál opción viene marcada', () => {
 	});
 });
 
+/**
+ * Las personas salían de plástico.
+ *
+ * Piel sin poros, brillo parejo de muñeca, cara perfectamente simétrica, ojos
+ * muertos, manos con los dedos mal. Es lo primero que delata que un anuncio lo
+ * hizo una IA: la maqueta puede estar perfecta y el creativo no se puede
+ * publicar igual. Lo que no puede pasar es que arreglar esto pise la regla del
+ * medio, que es la instrucción que más parecido aporta de todo el prompt.
+ */
+describe('las personas de un anuncio fotográfico parecen fotos', () => {
+	test('con un ganador fotográfico se pide piel de verdad', () => {
+		const prompt = buildClonePrompt({ ...base, personMode: 'ai' } as any, { ...conGente, renderingMedium: 'photograph, studio lighting' }, false);
+		assert.match(prompt, /PHOTOGRAPHIC SKIN \(CRITICAL\)/);
+		assert.match(prompt, /pores and fine lines/);
+		assert.match(prompt, /five correct fingers at the right scale/);
+		assert.match(prompt, /poreless airbrushed skin/);
+	});
+
+	test('sin medio declarado también, porque el default es fotográfico', () => {
+		assert.match(buildClonePrompt({ ...base, personMode: 'ai' } as any, conGente, false), /PHOTOGRAPHIC SKIN/);
+	});
+
+	/** La regla del medio manda: en un ganador dibujado la persona sigue dibujada. */
+	test('con un ganador ilustrado NO se pide piel fotográfica', () => {
+		const prompt = buildClonePrompt({ ...base, personMode: 'ai' } as any, {
+			...conGente,
+			renderingMedium: '3D cartoon render, Pixar-like stylised characters',
+		}, false);
+		assert.doesNotMatch(prompt, /PHOTOGRAPHIC SKIN/);
+		// Y lo que sí tiene que seguir diciendo es que se dibuje.
+		assert.match(prompt, /This template is NOT a photograph/);
+	});
+
+	test('sin nadie en el aviso no se emite', () => {
+		const prompt = buildClonePrompt({ ...base, personMode: 'none' } as any, sinGente, false);
+		assert.doesNotMatch(prompt, /PHOTOGRAPHIC SKIN/);
+	});
+
+	test('con fotos de avatar se emite aunque el análisis no haya listado gente', () => {
+		// El usuario pidió una cara concreta: hay alguien en el aviso aunque el
+		// analizador no lo haya anotado.
+		const prompt = buildClonePrompt({ ...base, personMode: 'upload', hasAvatarReference: true } as any, sinGente, false);
+		assert.match(prompt, /PHOTOGRAPHIC SKIN/);
+	});
+
+	/**
+	 * Pedir piel de verdad no puede pagarse agregando texto.
+	 *
+	 * El techo del prompt lo vigilan los dos tests de más abajo. Esta regla entró
+	 * recuperando lo que sobraba en el mismo bloque: el default de casting estaba
+	 * escrito una vez por cada persona detectada, y el recordatorio del medio se
+	 * repetía al pie cuando la regla del medio ya abre el prompt.
+	 */
+	test('el default de casting se escribe una sola vez, no una por persona', () => {
+		const dosPersonas = { ...conGente, people: [{ where: 'izquierda' }, { where: 'derecha' }] };
+		const prompt = buildClonePrompt({ ...base, personMode: 'ai' } as any, dosPersonas, false);
+		const bloque = prompt.slice(prompt.indexOf('5. PEOPLE'));
+		assert.equal(bloque.match(/keep them essentially as in the template/g)?.length, 1);
+		assert.match(bloque, /no direction given/);
+	});
+});
+
 describe('el modo que llega del cliente no se cree', () => {
 	test('los cuatro modos válidos pasan', () => {
 		for (const modo of PERSON_MODES) assert.equal(parsePersonMode(modo), modo);

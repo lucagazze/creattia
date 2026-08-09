@@ -518,6 +518,86 @@ describe('qué manda cuando dos reglas se cruzan', () => {
 });
 
 /**
+ * Un departamento no es un objeto que se lleva a otra escena: ES la escena.
+ *
+ * Se pasó la URL de un departamento y el anuncio salió mostrando OTRO
+ * departamento. El modelo hizo lo que se le pidió: el bloque de producto ordena
+ * "re-fotografiá el objeto DENTRO de la escena del ganador, mismo ángulo, misma
+ * luz, mismo ambiente". Con una botella eso es exactamente lo que se busca; con
+ * un inmueble es una orden de redibujar el ambiente, y redibujar el ambiente es
+ * cambiar la unidad que se publica.
+ */
+describe('un inmueble y un auto se usan como están', () => {
+	const conFotos = (targetClass: string) => ({
+		referenceHasProduct: true,
+		targetClass,
+		textZones: [],
+	} as any);
+
+	test('con un inmueble, las fotos son el sujeto y la escena a la vez', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product', productNames: ['Departamento 2 amb. Pichincha'] }, conFotos('property'), false);
+		assert.match(prompt, /THE SUPPLIED PHOTOS ARE BOTH THE SUBJECT AND THE SCENE/);
+		// Lo que se puede hacer es lo que hace un diseñador con una foto ajena.
+		assert.match(prompt, /crop and re-frame it/);
+		// Y lo que no: tocar el ambiente, que es cambiar de departamento.
+		assert.match(prompt, /Do not move, add, remove or replace furniture[\s\S]*the view through a window/);
+	});
+
+	test('el inmueble no recibe las reglas escritas para un objeto', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, {
+			...conFotos('property'),
+			stagingAdaptation: 'apoyarlo sobre una mesa',
+			productOrientation: 'el gráfico va atrás',
+		} as any, false);
+		// "Re-fotografiá el producto dentro de la escena del template" es
+		// literalmente la instrucción que producía otro departamento.
+		assert.doesNotMatch(prompt, /RE-STAGE the product INTO the template's scene/);
+		assert.doesNotMatch(prompt, /ONE SAME SKU/);
+		assert.doesNotMatch(prompt, /PRODUCT ORIENTATION AND GRAPHICS/);
+		// Un departamento no se sostiene con una mano.
+		assert.doesNotMatch(prompt, /TRUE SIZE AND BELIEVABLE HANDLING/);
+		assert.doesNotMatch(prompt, /PHYSICAL SCALE \(CRITICAL\)/);
+	});
+
+	test('un vehículo protege lo que lo identifica como ESE usado', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product', productNames: ['Corolla XEI 2019'] }, conFotos('vehicle'), false);
+		assert.match(prompt, /ONE specific vehicle/);
+		assert.match(prompt, /body panels, wheels, mirrors, badges, the plate/);
+		assert.match(prompt, /do not change the model, the year or the condition/);
+	});
+
+	test('las áreas de imagen eligen foto y recorte, no una escena para construir', () => {
+		const analisis = {
+			...conFotos('property'),
+			imageSlots: [{ where: 'mitad derecha', showsNow: 'una pareja en la playa', replaceWith: 'la foto del living, recortada vertical' }],
+		} as any;
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisis, false);
+		assert.match(prompt, /WHICH REAL PHOTO GOES IN EACH IMAGE AREA/);
+		assert.doesNotMatch(prompt, /RE-SHOOT EVERY IMAGE AREA/);
+		// Y que una descripción con pinta de escena no se lea como permiso.
+		assert.match(prompt, /They never authorise redrawing what a photo shows/);
+	});
+
+	test('un carrusel de inmueble muestra siempre la misma unidad', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product', carousel: { index: 2, total: 4 } } as any, conFotos('property'), false);
+		assert.match(prompt, /ONE SAME PROPERTY/);
+		assert.match(prompt, /same rooms, finishes, openings and layout/);
+	});
+
+	test('sin esa medición, un producto sigue tratándose como hasta ahora', () => {
+		// El default no puede cambiar: es el caso de casi todos los anuncios.
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, { referenceHasProduct: true, textZones: [] } as any, false);
+		assert.match(prompt, /RE-STAGE the product INTO the template's scene/);
+		assert.doesNotMatch(prompt, /THE SUPPLIED PHOTOS ARE BOTH THE SUBJECT AND THE SCENE/);
+	});
+
+	test('un valor que no se reconoce cae en objeto, no en inmueble', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, { referenceHasProduct: true, targetClass: 'inmueble', textZones: [] } as any, false);
+		assert.doesNotMatch(prompt, /THE SUPPLIED PHOTOS ARE BOTH THE SUBJECT AND THE SCENE/);
+	});
+});
+
+/**
  * Un sitio sin fotos de producto no es un error del usuario.
  *
  * Pegando puertasblindadasjack.com.ar en el flujo de muchas imágenes, la

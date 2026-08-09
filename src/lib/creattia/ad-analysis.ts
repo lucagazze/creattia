@@ -20,6 +20,20 @@ Text must read as if it were typed in a design tool and exported at full resolut
 export type LayoutAnalysis = {
 	/** What the target represents: a physical item, a service, or a SaaS/brand. */
 	subjectType?: 'physical-product' | 'service' | 'saas' | 'brand-led' | 'unknown';
+	/**
+	 * QUÉ CLASE de cosa se vende, medida en las fotos que subió el usuario.
+	 *
+	 * Se pasó la URL de un departamento y el anuncio salió con OTRO departamento.
+	 * El sistema trataba todo como "producto" y para un inmueble eso ordena
+	 * justamente lo que no hay que hacer: el bloque de producto pide
+	 * re-fotografiar el objeto DENTRO de la escena del ganador, y un departamento
+	 * no es un objeto que se lleva a otra escena — ES la escena. Al
+	 * "re-fotografiarlo" el modelo corría un sillón, cambiaba una ventana o
+	 * inventaba la vista, y con eso ya se está publicando una unidad que no
+	 * existe. Con un auto pasa lo mismo: el año, la llanta y el detalle de la
+	 * trompa son la identidad de ESE usado, no una estética.
+	 */
+	targetClass?: 'object' | 'property' | 'vehicle' | 'service';
 	/** Semantic palette selected for the generation and shown in review. */
 	brandPalette?: { background?: string; text?: string; accent?: string; secondary?: string; source?: string };
 	/** Analysis used to adapt the winning message and render it in the generated image. */
@@ -387,6 +401,7 @@ Return STRICT JSON:
 {
   "messageStrategy": "2-3 sentences decoding the winning ad's persuasion: the emotion it triggers, the objection it removes, the promise it makes and the mechanism it uses (social proof, price anchor, before/after, authority, scarcity, contrast, curiosity, etc.).",
   "subjectType": "physical-product|service|saas|brand-led|unknown",
+  "targetClass": "object|property|vehicle|service",
   "adCopy": {
     "primaryText": "adapted publication copy for the target product, using only verified facts",
     "headline": "adapted headline, maximum 60 characters",
@@ -479,6 +494,7 @@ Rules:
 - ${languageRule}
 - Analyze the complete supplied image.
 - "referenceHasProduct": true only if the TEMPLATE visibly features a physical product shot (box, bottle, object). Lifestyle/person-only or pure-text ads → false.
+- "targetClass" (CRITICAL): WHAT KIND OF THING IS BEING SOLD, judged from the SUPPLIED PRODUCT PHOTOS and the verified facts — never from the template, which is somebody else's ad. "property" = a home, apartment, house, office, lot, warehouse or any real-estate listing. "vehicle" = a specific car, van, truck, motorcycle, boat or machine offered as one unit. "service" = nothing physical is on sale. "object" = everything else, and it is the default. This is not a label, it changes what the renderer is allowed to do: for a property or a vehicle the supplied photos are the thing for sale AND the scene it lives in at the same time. That apartment cannot be re-photographed anywhere else — moving a sofa, changing a window or inventing the view advertises a different unit than the one for sale, and the buyer who comes to see it finds something else. So when you choose "property" or "vehicle": every "replaceWith" must say WHICH supplied photo goes in that area and how it is cropped to fit ("the living-room photo, cropped square from its right side"), never a scene to be built ("a bright living room with plants"); "stagingAdaptation" is "same handling as the template"; and no creativeDecision may ask about restyling, redecorating or re-staging what the photos show.
 - "productInstances" (CRITICAL): list EVERY separate place where the TEMPLATE'S OWN product is visible — not just the hero shot. Count the product worn by a model, on someone's feet, held in a hand, repeated as colour variants, shown again small in a corner, or duplicated across a grid. If the same product appears 6 times in a circle, that is 6 instances (or one instance describing the whole arrangement, but say so explicitly). Missing one means it survives into the final ad and the ad ends up selling two different products at once.
 - "productOnBody": true if ANY instance is worn on / used on a human body (garment, underwear, shoes, jewellery, a patch on skin). This decides whether the layout can host a product that cannot be worn.
 - "renderingMedium" (CRITICAL): this is the single field that most often ruins a clone. Decide it by LOOKING at the pixels, never by assuming an ad must be a photograph. Stylised 3D characters, illustrated animals, vector shapes and comic art are extremely common in winning ads, and rendering them as photographs produces a completely different piece. If the template's subjects are illustrated, say so plainly and describe the illustration style precisely enough that it could be matched.
@@ -531,6 +547,9 @@ Rules:
 			parsed.renderingMedium = typeof parsed.renderingMedium === 'string' ? parsed.renderingMedium.trim().slice(0, 300) : '';
 			parsed.compositionGeometry = typeof parsed.compositionGeometry === 'string' ? parsed.compositionGeometry.trim().slice(0, 700) : '';
 			parsed.logoIsWordmark = parsed.logoIsWordmark === true;
+			// Un valor raro acá no puede caer en la rama de inmueble por accidente:
+			// lo que no se reconoce se trata como objeto, que es lo que hacía antes.
+			parsed.targetClass = ['object', 'property', 'vehicle', 'service'].includes(parsed.targetClass) ? parsed.targetClass : undefined;
 			// La tipografía observada, en atributos. Se acota igual que el bloque
 			// creativo porque también entra tal cual al prompt del render.
 			if (parsed.typography && typeof parsed.typography === 'object') {
@@ -713,6 +732,23 @@ export function buildReferenceClonePrompt(input: {
 	const referenceHasProduct = input.analysis?.referenceHasProduct !== false;
 
 	/**
+	 * Un inmueble y un vehículo no se re-fotografían: sus fotos ya son el anuncio.
+	 *
+	 * Se pasó la URL de un departamento y salió otro departamento. La causa no era
+	 * el modelo: todo el bloque de producto le pide "re-fotografiá el objeto DENTRO
+	 * de la escena del ganador, mismo ángulo, misma luz, mismo ambiente". Con una
+	 * botella eso es exactamente lo que se quiere; con un departamento es una orden
+	 * de redibujar el ambiente, y redibujar el ambiente es cambiar la unidad. Acá
+	 * no se agrega una regla más al prompt: se cambia de rama, y de paso se sacan
+	 * las que no aplican —silueta, packaging, orientación del gráfico, manos y
+	 * escala— que además eran las que empujaban en la dirección equivocada.
+	 */
+	const targetClass = input.analysis?.targetClass || 'object';
+	const fotoEsLaEscena = isPhysicalSubject && (targetClass === 'property' || targetClass === 'vehicle');
+	const esVehiculo = targetClass === 'vehicle';
+	const claseNombre = esVehiculo ? 'vehicle' : 'property';
+
+	/**
 	 * Con qué está hecho el ganador, y con qué hay que hacer el clon.
 	 *
 	 * Antes el prompt exigía "photorealistic" en cuatro lugares distintos sin
@@ -852,13 +888,15 @@ SIDE MEANING MUST NOT FLIP — Whatever the template puts on the negative/"befor
 	// regla se emitía igual, así que el prompt decía "no muestres ningún producto"
 	// y a renglón seguido "conservá la silueta exacta del producto": mil doscientos
 	// caracteres pidiendo lo contrario de la instrucción anterior.
-	const orientationRule = !isPhysicalSubject
+	const orientationRule = !isPhysicalSubject || fotoEsLaEscena
 		? ''
 		: isCatalogSubject
 		? `\nPRODUCT IDENTITY IN A STORE AD (CRITICAL) — Each supplied photo is a SEPARATE product, never a different view of the same one. Reproduce each one's own silhouette, proportions, construction, materials, finish, colour and texture from its own photo, and never average two of them, swap a detail between them or invent a colourway that was not supplied. Nothing may be ADDED to a surface either: no tooling, embossing, carving, print or pattern that is not visible in that product's own photo. A plain hide stays plain. If verified facts describe them, they are authoritative: ${verifiedProductFacts.length ? verifiedProductFacts.join(' | ') : 'use only what is clearly visible in the supplied product photos'}.`
 		: `\nPRODUCT IDENTITY AND MULTI-VIEW CONSISTENCY (CRITICAL) — All supplied product photos are different views of ONE SAME SKU, not different variants to blend together. Use them jointly as the source of truth: preserve the exact silhouette, dimensions, proportions, construction, seams, materials, finish, colors, texture, packaging and distinctive details. Never average two views into a new hybrid product, change the product category, add a missing component or remove a real component.\nPRODUCT ORIENTATION AND GRAPHICS (CRITICAL) — Treat the supplied product photos as a multi-view reference, not as a texture to mirror. Preserve the product's real front/back/side orientation and keep every print, embroidery, patch, label and graphic on the exact physical side where it belongs. Never mirror the garment, turn it inside out, or move a back graphic onto the chest/front. If verified facts identify front and back details, they are authoritative: ${verifiedProductFacts.length ? verifiedProductFacts.join(' | ') : 'use only what is clearly visible in the supplied product photos'}.${input.analysis?.productOrientation ? ` Vision analysis also found: ${input.analysis.productOrientation}.` : ''} If the requested camera angle cannot show a detail from its correct side, hide it naturally rather than inventing or relocating it.`;
 	const carouselRule = input.carousel && !isPhysicalSubject
 		? `\nCAROUSEL CONSISTENCY (CRITICAL) — This is slide ${input.carousel.index} of ${input.carousel.total} in one carousel. Keep the same visual world across every slide: the same palette, the same typography, the same graphic devices and the same treatment of people and scenes. Only the message and the layout of each slide change; nothing about the brand's look may drift from one page to the next.`
+		: input.carousel && fotoEsLaEscena
+		? `\nCAROUSEL CONSISTENCY (CRITICAL) — This is slide ${input.carousel.index} of ${input.carousel.total} of one carousel about ONE SAME ${claseNombre.toUpperCase()}. Each slide may use a different supplied photo of it, but every slide shows that same unit: same ${esVehiculo ? 'model, colour, wheels and condition' : 'rooms, finishes, openings and layout'}. A slide showing something that is not in the supplied photos turns the carousel into an ad for two different ${claseNombre === 'vehicle' ? 'vehicles' : 'properties'}.`
 		: input.carousel
 		? `\nCAROUSEL CONSISTENCY (CRITICAL) — This is slide ${input.carousel.index} of ${input.carousel.total} in one carousel. The supplied product photos are the identity master for this same product across every slide. Keep the exact same SKU, silhouette, proportions, construction, materials, finish, colors, texture, packaging, labels and front/back orientation from slide to slide. Only the scene, layout adaptation and presentation may change according to this slide's reference; never redesign, resize arbitrarily, recolor, mirror or substitute the product between slides.`
 		: '';
@@ -884,7 +922,16 @@ WEARABILITY CONFLICT — In the template the product is worn on a body. Decide h
 	// convierte el clon en "misma estructura, contenido propio" en vez de dejar las
 	// fotos originales del template.
 	const slots = (input.analysis?.imageSlots || []).filter((slot) => slot && slot.replaceWith);
-	const imageSlotBlock = slots.length
+	// Con un inmueble o un vehículo el área no se vuelve a fotografiar: se elige
+	// cuál de las fotos reales entra y cómo se recorta. El bloque de abajo dice
+	// literalmente "re-photograph each area", que es la orden que hacía aparecer
+	// otro departamento.
+	const imageSlotBlock = slots.length && fotoEsLaEscena
+		? `
+0. WHICH REAL PHOTO GOES IN EACH IMAGE AREA — The template's own photos belong to another advertiser and must not survive anywhere. Fill every area with the supplied photos of this ${claseNombre}, keeping the SAME frame, crop shape, proportion, position, tilt and stacking order the template gives that area:
+${slots.map((slot, index) => `   ${index + 1}. [${slot.where || 'image area'}] now shows: ${slot.showsNow || 'unspecified'} → must show instead: ${slot.replaceWith}`).join('\n')}
+These lines choose WHICH photo and HOW it is cropped, nothing else. They never authorise redrawing what a photo shows: if one of them reads like a scene to build, take from it only the choice of photo and the framing, and leave everything inside the photo exactly as it is.`
+		: slots.length
 		? `
 0. RE-SHOOT EVERY IMAGE AREA — This ad works because of its structure and its idea: the layout, the visual rhythm and where it sends the eye. You are keeping that skeleton and replacing what fills it. The template's own photos, models, scenes and subjects have NOTHING to do with ${productLabel} and must not survive anywhere in the output. Re-photograph each area as follows, keeping the SAME frame, crop, angle, tilt, scale, lighting mood and position as the template so the composition still reads the same:
 ${slots.map((slot, index) => `   ${index + 1}. [${slot.where || 'image area'}] now shows: ${slot.showsNow || 'unspecified'}${slot.idea ? ` — THE IDEA THIS AREA CARRIES, which must survive: ${slot.idea}. Keep the idea, change only what it is about; do not replace it with a product photo` : ''} → must show instead: ${slot.replaceWith}`).join('\n')}
@@ -907,7 +954,12 @@ TRUE SIZE AND BELIEVABLE HANDLING (CRITICAL) — Render ${productLabel} at its r
      · use TWO hands, or a forearm supporting the weight, with the product clearly continuing out of frame.
    A hand pinching a corner while an entire heavy hide hangs weightless is a hard failure: it reads as fake immediately and ruins the ad. When in doubt, remove the hand and show the product alone, well lit and well composed.`;
 
-	const scaleRule = input.analysis?.stagingAdaptation
+	// La regla de manos y escala está escrita para un objeto que alguien sostiene:
+	// "no muestres una mano pellizcando un cuero entero". Un departamento no se
+	// sostiene, y emitirla igual solo gasta atención del modelo.
+	const scaleRule = fotoEsLaEscena
+		? ''
+		: input.analysis?.stagingAdaptation
 		&& !/same handling as the template/i.test(input.analysis.stagingAdaptation)
 		? `
 PHYSICAL SCALE (CRITICAL) — The template's product is ${input.analysis.templateProductScale || 'a different size'}, while ${productLabel} is ${input.analysis.targetProductScale || 'a different size'}. Rendering it at the template's size would be absurd. Keep the SAME shot type, crop, framing, body parts in frame and area of the canvas occupied, but change HOW the product is handled so the scene is physically believable: ${input.analysis.stagingAdaptation}. The product must read at its true real-world size next to any hand, body or object in frame — never shrink or enlarge it to fit the template's original pose.`
@@ -969,7 +1021,30 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 	 */
 	const catalogSwap = `1. PRODUCT SWAP — Completely remove the template's original product and every trace of it. In its place${placement} render the REAL PRODUCTS shown in the other input images${input.productNames.length ? `: ${input.productNames.join(', ')}` : ''}. They are ${input.productNames.length || 'several'} DIFFERENT products of the same store, not one product photographed several times: each keeps the exact silhouette, colour, material, texture and finish of its own photo, and none may be blended with another or turned into a variant of it. Arrange them the way the template arranges its own subject — a grid, a row, a stack, a lineup, a single hero area — and if the template's area holds only one item, choose the products that read best together and compose them as a group inside that area rather than picking one to stand alone. RE-STAGE them INTO the template's scene: same camera angle, perspective, lighting direction, colour temperature, reflections and shadow behaviour, with the same grounding and the same shadow style, never flat cut-outs pasted on top. Every product at its true real-world size relative to the others: a store that sells items of different sizes must show that difference, not normalise them all to the same footprint. LAYERING: match the template's stacking order exactly — any card, badge or text panel in front of the products stays fully in front and readable.${packagingRule}${labelFidelityRule}`;
 
-	const productSwap = referenceHasProduct && isCatalogSubject
+	/**
+	 * Lo que se vende ya está fotografiado y no se puede volver a fotografiar.
+	 *
+	 * Un departamento no se re-fotografía en la escena del ganador porque no hay
+	 * dos cosas: el departamento ES la escena. Cada retoque del ambiente —correr un
+	 * sillón, agrandar una ventana, inventar la vista, cambiar el piso— publica una
+	 * unidad distinta de la que se vende, y el que va a verla se encuentra con otra
+	 * cosa. Por eso acá lo único que se permite es lo que hace un diseñador con una
+	 * foto ajena: elegirla, recortarla y encuadrarla.
+	 */
+	// Una inmobiliaria también puede anunciar su cartera: ahí no hay una unidad
+	// sino varias, y cada foto es una distinta. Lo que no cambia es lo de fondo —
+	// ninguna se redibuja.
+	const listingSujeto = isCatalogSubject
+		? `several real ${esVehiculo ? 'vehicles' : 'properties'}, one per supplied photo${input.productNames.length ? ` (${input.productNames.join(', ')})` : ''}`
+		: `ONE specific ${claseNombre}${input.productNames.length ? `: ${input.productNames.join(' + ')}` : ''}`;
+	const listingSwap = `1. THE SUPPLIED PHOTOS ARE BOTH THE SUBJECT AND THE SCENE — What is for sale is ${listingSujeto}, and the supplied photos ARE it. This is not a product that gets re-photographed inside the template's scene: ${esVehiculo ? 'the body, the wheels, the trim and the wear' : 'the rooms, the light through the windows, the furniture and the layout'} are not a setting chosen for the shot — they are the thing being sold. Place the supplied photos INTO the template's image areas and rebuild every graphic block around them exactly as measured: same position, same size, same frame, same stacking order.
+   YOU MAY: choose which photo goes in which area, crop and re-frame it to that area's shape and proportions, scale and position it inside the frame, and give it the template's own edge treatment — corner radius, mask, border, and whatever block crosses over it.
+   YOU MAY NOT: redraw, re-render, re-light, extend or "improve" what a photo shows. Do not move, add, remove or replace ${esVehiculo ? 'body panels, wheels, mirrors, badges, the plate, the paint colour or anything inside the cabin, and do not change the model, the year or the condition' : 'furniture, appliances, fittings, flooring, walls, doors, windows, balconies, the view through a window, the sky or the time of day, and do not alter the layout or the proportions of a room'}. Do not stage it in another environment, do not merge two photos into one and do not mirror them. Every one of those changes advertises a ${claseNombre} that does not exist. This holds even when the template is illustrated: these photos stay photographic, and only the graphics around them follow the template's medium.
+   If an area calls for a shot the supplied photos do not contain, use the closest one cropped to that frame rather than inventing the missing view; if none fits, close the area with the template's own background treatment.`;
+
+	const productSwap = referenceHasProduct && fotoEsLaEscena
+		? listingSwap
+		: referenceHasProduct && isCatalogSubject
 		? catalogSwap
 		: referenceHasProduct && isPhysicalSubject
 		? `1. PRODUCT SWAP — Completely remove the template's original product. In its place${placement} render the real product shown in the other input image(s): ${productLabel}. The product must remain the SAME PHYSICAL OBJECT TYPE seen in its photo — if the photo shows a hide, render a hide; a bottle, a bottle; never morph it into the template's product form (e.g. never turn an unboxed product into a box). Render it as ONE single coherent object (never split it into disconnected pieces, and never show multiples unless the template does). RE-STAGE the product INTO the template's scene — do NOT paste it: re-photograph it as if it were shot in that exact environment, matching the scene's camera angle, perspective, lighting direction, color temperature, reflections and shadow behavior (e.g. if the template's product leans against a tiled wall in daylight, the new product must sit in that same tiled-wall daylight scene with the same grounding). Give it real volume and dimension, adapt its pose and orientation to fit the composition naturally, and ground it with the same shadow style the template uses. POSITION: place it at the SAME position and size ratio as the template's product — if the template's product occupies the right side, yours must occupy the right side; never center it unless the template does. Never leave hard cut-out edges or a floating pasted look: blend the product's edges with the scene lighting. LAYERING: match the template's stacking order exactly — any card, speech bubble or text panel that sits in front of the product in the template must stay fully in front, uncovered and readable; the product must never cut across, poke through or overlap a text card beyond what the template shows. Never show it as a flat cut-out pasted on top, and never replace it with a generic product. Match the product photo's exact shape, colors and texture — it must look premium, tactile and desirable. IDENTITY DETAILS (CRITICAL): whatever is printed, stitched, embossed, woven or engraved on the real product must survive — the brand mark on a garment's chest or sleeve, the tag, the logo on a shoe, the model name on a device, a pattern, a stripe, a stitching colour, a distinctive shape. Someone who owns this product has to recognise it as the same one. Do not clean it up, simplify it, remove a label or move a mark somewhere else. NOTHING MAY BE ADDED EITHER: no tooling, embossing, engraving, stamping, carving, print, pattern, stitching, weave or texture that is not visible in the supplied photo. A plain surface stays plain — decorating it invents a product the user does not sell, and someone who orders it will receive something else.${packagingRule}${labelFidelityRule}${scaleRule}${instanceBlock}${onBodyRule}`
@@ -1026,8 +1101,38 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 	const castingPorDefecto = personMode === 'described' && personaEnPalabras
 		? `render the person described under VISUAL IDENTITY above, ${mediumWord}, coherent with the scene.`
 		: 'keep them essentially as in the template (same apparent gender, age and role), only refreshed to look natural in the new ad.';
+	/**
+	 * El default se escribe una vez, no una vez por persona.
+	 *
+	 * Estaba dentro del `map`, así que un aviso con cuatro caras repetía cuatro
+	 * veces la misma frase de ciento treinta caracteres. Y el recordatorio del
+	 * medio venía además al pie, cuando la regla del medio ya abre el prompt como
+	 * lo primero que hay que leer: repetirla acá no agregaba nada y ocupaba lugar
+	 * que hace falta para lo que sí falta decir sobre las personas.
+	 */
+	const sinDireccion = people.filter((p) => !p.directive?.trim()).length;
 	const peopleBlock = people.length
-		? `\n5. PEOPLE — The ad shows ${people.length === 1 ? 'a person' : 'people'}. For each, follow the direction:\n${people.map((p, i) => `   - Person ${i + 1}${p.where ? ` (${p.where})` : ''}: ${p.directive?.trim() ? `render them as — ${p.directive.trim()}. Render them ${mediumWord}, coherent with the scene.` : castingPorDefecto}`).join('\n')}\nRender every person in the template's own medium (${medium || 'photographic'}), well-integrated into the scene lighting, never distorted.`
+		? `\n5. PEOPLE — The ad shows ${people.length === 1 ? 'a person' : 'people'}. For each, follow the direction:\n${people.map((p, i) => `   - Person ${i + 1}${p.where ? ` (${p.where})` : ''}: ${p.directive?.trim() ? `render them as — ${p.directive.trim()}` : 'no direction given'}`).join('\n')}${sinDireccion ? `\nWith no direction: ${castingPorDefecto}` : ''}${looksIllustrated ? `\nDraw every person in the template's own style (${medium}), integrated into the scene, never distorted.` : ''}`
+		: '';
+
+	/**
+	 * Una persona en un anuncio fotográfico tiene que parecer una foto.
+	 *
+	 * Salían con acabado de plástico: piel sin poros, brillo parejo de muñeca,
+	 * cara perfectamente simétrica, ojos muertos, manos con los dedos mal. Es lo
+	 * primero que delata que un anuncio lo hizo una IA, y con eso el creativo no
+	 * se puede publicar por más que la maqueta esté perfecta.
+	 *
+	 * Va detrás de `looksIllustrated` y no suelto: si el ganador es un dibujo,
+	 * pedir piel con poros contradice la regla del medio, que es la instrucción
+	 * que más parecido aporta de todo el prompt. En un ganador ilustrado la
+	 * persona sigue saliendo ilustrada, y esto no se emite. Tampoco se emite
+	 * cuando no hay nadie en el aviso, que es la mayoría de los casos: así el
+	 * prompt no paga estos caracteres cuando no tiene a quién aplicárselos.
+	 */
+	const hayAlguien = people.length > 0 || personMode === 'upload' || personMode === 'described';
+	const realismoRule = hayAlguien && !looksIllustrated
+		? `\nPHOTOGRAPHIC SKIN (CRITICAL) — Anyone who appears reads as a PHOTOGRAPH of a real person: pores and fine lines, a face never perfectly symmetrical, light with real falloff and a catchlight in the eye, five correct fingers at the right scale. Never the plastic AI finish: poreless airbrushed skin, waxy sheen, moulded hair, dead eyes.`
 		: '';
 
 	// Comparación: qué poner en los ítems que NO son el producto héroe.
@@ -1150,7 +1255,7 @@ WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The use
 4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
 ${layoutFidelityRule}${encajeRule}${catalogRule}${qualityRule}${TEXT_RENDERING_RULE}${semanticPaletteRule}${identityBlock}
 ${logoDecision}
-${peopleBlock}${comparisonBlock}${comparisonContext}${creativeDecisionBlock}
+${peopleBlock}${realismoRule}${comparisonBlock}${comparisonContext}${creativeDecisionBlock}
 
 USER DIRECTION
 ${input.brief || 'None.'}`;
