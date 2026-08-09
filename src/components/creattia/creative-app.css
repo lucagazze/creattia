@@ -443,7 +443,7 @@
 .studio-plan-nombre { display: flex; align-items: center; gap: 8px; }
 .studio-plan-orb { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 8px; background: linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%); color: #fff; box-shadow: 0 6px 14px rgba(25,23,29,.26); }
 .studio-plan-card small { color: #706a75; font-size: 11.5px; font-weight: 800; letter-spacing: .12em; }
-.studio-plan-card > strong { display: block; margin: 11px 0 8px; font-size: 12px; }
+.studio-plan-card > strong { display: flex; align-items: center; gap: 8px; margin: 11px 0 8px; font-size: 12px; }
 .studio-plan-card > p { height: 3px; margin: 0; border-radius: 4px; background: #37323b; overflow: hidden; }
 .studio-plan-card > p span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7950eb, #aa86ff); }
 .studio-plan-card footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; color: #77717c; font-size: 12px; }
