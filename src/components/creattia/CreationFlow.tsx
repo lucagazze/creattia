@@ -185,11 +185,17 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * primero no significaba lo que decía: el prompt seguía conservando a las
 	 * personas del ganador, así que quien quería un aviso sin nadie no tenía
 	 * ninguna forma de pedirlo.
+	 *
+	 * Desde esta pantalla solo se llega a tres de los cuatro valores. 'ai' y
+	 * 'none' salen del análisis y no se preguntan; 'upload' es la única que se
+	 * elige a mano, dentro de las decisiones para clonar. 'described' quedó sin
+	 * puerta: describir a la persona con palabras es exactamente lo que se
+	 * escribe en esas decisiones, y tener las dos cosas hacía que el usuario
+	 * contestara la misma pregunta dos veces, a veces distinto.
 	 */
 	const [personMode, setPersonMode] = useState<PersonMode>('ai');
-	/** La recomendación que salió del análisis, para marcarla en la interfaz. */
+	/** La recomendación que salió del análisis: es la que manda si nadie la pisa. */
 	const [personModeSugerido, setPersonModeSugerido] = useState<PersonMode>('ai');
-	const [personDescription, setPersonDescription] = useState('');
 	const [avatarFiles, setAvatarFiles] = useState<File[]>([]);
 	const [avatarPreviews, setAvatarPreviews] = useState<string[]>([]);
 	const [avatarConsent, setAvatarConsent] = useState(false);
@@ -547,7 +553,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * el usuario eligió en el navegador ya no existen en ningún lado.
 	 */
 	async function guardarAvatarCargado(): Promise<string> {
-		if (avatarFiles.length < 4) throw new Error('Subí al menos 4 imágenes del avatar para mantener su identidad.');
+		// Con una foto alcanza para fijar la cara. El piso de cuatro dejaba afuera
+		// al que tiene una sola buena foto suya, que es el caso más común.
+		if (!avatarFiles.length) throw new Error('Subí al menos una foto de la persona.');
 		if (!avatarConsent) throw new Error('Confirmá que tenés permiso para usar esas imágenes.');
 		const avatarForm = new FormData();
 		avatarForm.set('name', 'Avatar de esta generación');
@@ -599,10 +607,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				form.set('productFacts', manualProductFacts.trim());
 			}
 			form.set('personMode', personMode);
-			if (personMode === 'described') {
-				if (!personDescription.trim()) throw new Error('Escribí cómo querés que sea la persona del anuncio.');
-				form.set('avatarDescription', personDescription.trim());
-			}
 			if (personMode === 'upload') form.set('avatarId', await guardarAvatarCargado());
 			form.set('plan', JSON.stringify(planRevisado()));
 
@@ -745,9 +749,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				productIds = [productPayload.product.id];
 			}
 
-			if (personMode === 'described' && !personDescription.trim()) {
-				throw new Error('Escribí cómo querés que sea la persona del anuncio.');
-			}
 			const carouselAvatarId = personMode === 'upload' ? await guardarAvatarCargado() : '';
 
 			const pathPrefixId = parseInt(ad.imagePath.split('/')[0], 10);
@@ -764,7 +765,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					productDescription: manualProductFacts.trim(),
 					avatarId: carouselAvatarId || null,
 					personMode,
-					avatarDescription: personMode === 'described' ? personDescription.trim() : '',
+					avatarDescription: '',
 					format, language, colorMode, typoMode, brandSource,
 					// La corrección manual de la paleta no viajaba: los colores se podían
 					// editar en la revisión y el carrusel se generaba igual con los
@@ -1144,69 +1145,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								onToggleProduct={(productId) => setSelectedProductIds((current) => current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId])}
 							/>
 						)}
-						{/* Quién aparece en el anuncio.
-						    Se decide ACÁ y solo acá: estaba también en "Mi marca", y
-						    tener la misma configuración en dos pantallas dejaba la duda
-						    de cuál mandaba a la hora de generar. */}
-						<section className="person-decision" aria-label="Persona en el anuncio">
-							<div className="person-decision-head">
-								<strong>{isService ? '¿Quién aparece en el anuncio?' : '¿Querés mostrar una persona?'}</strong>
-								<small>
-									{personModeSugerido === 'ai'
-										? `${wantsFullCarousel ? 'El carrusel ganador muestra' : 'El anuncio ganador muestra'} ${personasVisibles.length === 1 ? 'una persona' : `${personasVisibles.length} personas`}: sacarla${personasVisibles.length === 1 ? '' : 's'} cambia lo que hace funcionar al aviso, así que por defecto la IA decide quién ocupa ese lugar.`
-										: `${wantsFullCarousel ? 'Ninguna página del carrusel ganador muestra' : 'El anuncio ganador no muestra'} a nadie, así que por defecto el tuyo tampoco.`}
-								</small>
-							</div>
-							<div className="person-decision-options" role="radiogroup" aria-label="Persona en el anuncio">
-								{([
-									['none', 'Sin persona'],
-									['ai', 'Que la IA elija'],
-									['described', 'Yo la describo'],
-									['upload', 'Cargar avatar'],
-								] as Array<[PersonMode, string]>).map(([modo, texto]) => (
-									<button
-										key={modo}
-										type="button" role="radio" aria-checked={personMode === modo}
-										className={personMode === modo ? 'active' : ''}
-										onClick={() => setPersonMode(modo)}
-									>
-										{texto}
-										{personModeSugerido === modo && <em>recomendado</em>}
-									</button>
-								))}
-							</div>
-							<p className="person-decision-consecuencia">
-								{personMode === 'none'
-									? 'No va a aparecer nadie: ni caras, ni manos, ni siluetas de fondo. Donde el ganador tiene una persona va a ir el producto o el escenario.'
-									: personMode === 'ai'
-										? 'La IA elige quién aparece mirando el anuncio ganador y tu producto. Es la opción para cuando no te importa la cara concreta, sino que la escena funcione.'
-										: personMode === 'described'
-											? 'Se va a construir una persona con lo que escribas, sin fotos de por medio. Sirve para fijar edad, aspecto, ropa y actitud sin depender de nadie real.'
-											: 'Vamos a usar tus fotos para que salga siempre la misma cara. Es la única opción que mantiene una identidad reconocible entre creativos.'}
-							</p>
-							{personMode === 'described' && (
-								<textarea
-									value={personDescription}
-									onChange={(event) => setPersonDescription(event.target.value)}
-									rows={3}
-									maxLength={600}
-									aria-label="Cómo tiene que ser la persona del anuncio"
-									placeholder="Ej: mujer de unos 35, pelo castaño recogido, ropa deportiva neutra, actitud relajada y cercana, mirando a cámara"
-									className="person-decision-texto"
-								/>
-							)}
-							{personMode === 'upload' && (
-								<div>
-									<input type="file" id="creation-avatar-files" accept="image/png,image/jpeg,image/webp" multiple className="hidden-file-input" onChange={(event) => {
-										const files = event.target.files ? Array.from(event.target.files).slice(0, 12) : [];
-										setAvatarFiles(files); setAvatarPreviews(files.map((file) => URL.createObjectURL(file))); event.target.value = '';
-									}} />
-									<label htmlFor="creation-avatar-files" className="uploader-label" style={{ display: 'inline-flex', width: 'auto' }}>Subir 4–12 imágenes de la misma persona/avatar</label>
-									{avatarPreviews.length > 0 && <div className="extra-previews-grid" style={{ marginTop: '10px' }}>{avatarPreviews.map((preview) => <div className="preview-thumb" key={preview}><img src={preview} alt="Referencia de avatar" /></div>)}</div>}
-									<label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginTop: '10px', fontSize: '12px', color: '#5f5a67' }}><input type="checkbox" checked={avatarConsent} onChange={(event) => setAvatarConsent(event.target.checked)} /> Confirmo que tengo permiso para usar estas imágenes.</label>
-								</div>
-							)}
-						</section>
 						{/* Los colores se muestran y se editan ACÁ, en la revisión.
 						    Antes se pedían en el paso previo, cuando todavía no había
 						    nada analizado: se decidía a ciegas sobre colores que después
@@ -1386,8 +1324,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							<div style={{ padding: '14px 16px', marginBottom: '18px', border: '1px solid #eee9f2', borderRadius: '12px', background: '#fcfbfe', color: '#716d79', fontSize: '13px' }}>No detectamos textos de publicación fuera del producto. Se conservarán únicamente los textos y detalles que ya pertenecen al producto real.</div>
 						)}
 
-						{/* Decisiones contextuales: no se limita a comparaciones. */}
-						{creativeDecisions.length > 0 && (
+						{/* Decisiones contextuales: no se limita a comparaciones.
+						    También se abre cuando lo único que hay para decidir es de
+						    quién es la cara: la carga de avatar vive adentro de este
+						    bloque y sin esta condición quedaba sin puerta de entrada en
+						    un ganador que muestra gente pero no dejó ninguna duda. */}
+						{(creativeDecisions.length > 0 || personasVisibles.length > 0) && (
 							<section className="creative-decisions-review" aria-label="Decisiones contextuales del anuncio" style={{ marginBottom: '18px', padding: '16px', border: '1px solid #e6ddf5', borderRadius: '12px', background: 'linear-gradient(135deg, #fcfaff, #fff)' }}>
 								<div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '12px' }}>
 									<span aria-hidden="true" style={{ width: '30px', height: '30px', borderRadius: '9px', display: 'grid', placeItems: 'center', background: '#eee7ff', color: '#744bde', fontSize: '16px' }}>✦</span>
@@ -1453,6 +1395,61 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 											)}
 										</div>
 									))}
+									{/* De quién es la cara: una decisión más de este mismo bloque.
+									    Antes esto vivía arriba, en "¿Querés mostrar una persona?",
+									    con cuatro opciones —sin persona, que la IA elija, yo la
+									    describo, cargar avatar—, y dos centímetros más abajo la IA
+									    preguntaba acá el tipo de modelo, el estilo de foto y quién
+									    usa el producto. Era la misma decisión dos veces, y con dos
+									    respuestas que podían contradecirse entre sí. Las tres
+									    primeras opciones ya se contestan escribiendo en las
+									    decisiones de arriba; la única que no se puede escribir es
+									    "usá ESTA cara", y es la que quedó. Sin elegirla, manda la
+									    recomendación que salió del análisis: la IA elige si el
+									    ganador muestra gente, nadie si no muestra. */}
+									{personasVisibles.length > 0 && (
+										<div style={{ padding: '12px 14px', border: '1px solid #eee6f2', borderRadius: '11px', background: '#fff' }}>
+											<strong style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#3f3560', marginBottom: '5px' }}>
+												<span>👤 Quién pone la cara</span>
+											</strong>
+											<p style={{ margin: '0 0 8px', fontSize: '12.5px', lineHeight: 1.45, color: '#3f3560', fontWeight: 600 }}>
+												{personasVisibles.length === 1 ? 'El ganador muestra una persona' : `El ganador muestra ${personasVisibles.length} personas`}. ¿La elige la IA o usás fotos tuyas?
+											</p>
+											<div className="decision-options">
+												<button
+													type="button"
+													className={personMode !== 'upload' ? 'active' : ''}
+													onClick={() => setPersonMode(personModeSugerido === 'upload' ? 'ai' : personModeSugerido)}
+												>
+													Que la IA elija
+												</button>
+												<button
+													type="button"
+													className={personMode === 'upload' ? 'active' : ''}
+													onClick={() => setPersonMode('upload')}
+												>
+													Usar mis fotos
+												</button>
+											</div>
+											{personMode === 'upload' && (
+												<div style={{ marginTop: '10px' }}>
+													<input type="file" id="creation-avatar-files" accept="image/png,image/jpeg,image/webp" multiple className="hidden-file-input" onChange={(event) => {
+														const files = event.target.files ? Array.from(event.target.files).slice(0, 12) : [];
+														setAvatarFiles(files); setAvatarPreviews(files.map((file) => URL.createObjectURL(file))); event.target.value = '';
+													}} />
+													{/* Pedía cuatro como mínimo y era un cerrojo, no un consejo:
+													    el que tenía una sola foto buena de su cara no podía usar
+													    la función. Con una alcanza para fijar la identidad; que
+													    dos o tres la sostengan mejor entre creativos es
+													    información útil, no un requisito. */}
+													<label htmlFor="creation-avatar-files" className="uploader-label" style={{ display: 'inline-flex', width: 'auto' }}>Subir fotos de la persona</label>
+													<p style={{ margin: '8px 0 0', fontSize: '12px', color: '#716d79', lineHeight: 1.45 }}>Con una foto alcanza. Con dos o tres, tomadas de ángulos distintos, la cara sale más parecida de un creativo a otro.</p>
+													{avatarPreviews.length > 0 && <div className="extra-previews-grid" style={{ marginTop: '10px' }}>{avatarPreviews.map((preview) => <div className="preview-thumb" key={preview}><img src={preview} alt="Referencia de avatar" /></div>)}</div>}
+													<label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginTop: '10px', fontSize: '12px', color: '#5f5a67' }}><input type="checkbox" checked={avatarConsent} onChange={(event) => setAvatarConsent(event.target.checked)} /> Confirmo que tengo permiso para usar estas imágenes.</label>
+												</div>
+											)}
+										</div>
+									)}
 								</div>
 							</section>
 						)}

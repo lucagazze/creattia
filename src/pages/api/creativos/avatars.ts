@@ -4,7 +4,15 @@ import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia
 export const prerender = false;
 
 const ASSETS = 'creative-assets';
-const MIN_IMAGES = 4;
+/**
+ * Con una foto alcanza.
+ *
+ * Estaba en cuatro y no era un consejo, era un cerrojo: el que quería usar su
+ * propia cara y tenía una sola foto buena no podía usar la función. El modelo
+ * fija la identidad con una; dos o tres desde ángulos distintos la sostienen
+ * mejor entre creativos, y eso se dice en la pantalla en vez de exigirlo.
+ */
+const MIN_IMAGES = 1;
 const MAX_IMAGES = 12;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const mimeExtensions: Record<string, string> = {
