@@ -67,3 +67,26 @@ describe('marca cuando se elige sin logo', () => {
 		}
 	});
 });
+
+describe('marcas de terceros y la foto del ganador', () => {
+	test('los logos de prensa del ganador nunca se copian', () => {
+		/**
+		 * Un anuncio de asesoría financiera con la fila "As featured in" —FOX
+		 * Business, Bloomberg, WSJ, Forbes, CNBC— se clonó para un proveedor de
+		 * cuero y esos logos quedaron tal cual. No es un detalle de diseño: afirma
+		 * una cobertura de prensa que ese negocio no tiene.
+		 */
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, null, false);
+		assert.match(prompt, /THIRD-PARTY MARKS ARE NEVER COPIED/);
+		assert.match(prompt, /press logos/i);
+		assert.match(prompt, /not merely a design detail/i);
+	});
+
+	test('la foto del ganador no puede sobrevivir con el producto encima', () => {
+		// En el mismo caso quedó la pareja de jubilados en la costa y el cuero
+		// pegado adelante: se lee como un collage y la escena no tiene sentido.
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, null, false);
+		assert.match(prompt, /THE TEMPLATE'S PHOTOGRAPH DOES NOT SURVIVE/);
+		assert.match(prompt, /Pasting the new product ON TOP/);
+	});
+});
