@@ -518,6 +518,55 @@ describe('qué manda cuando dos reglas se cruzan', () => {
 });
 
 /**
+ * El fondo de un aviso de moda es el diseño, no el escenario.
+ *
+ * Se clonó un anuncio montado sobre una caseta de playa a rayas azules y blancas
+ * y volvió con la modelo contra una pared de hormigón gris. La pose estaba
+ * copiada y la tipografía también, y el aviso no se parecía en nada: las rayas
+ * eran la mitad de su fuerza.
+ *
+ * La causa era un hueco entre dos reglas puestas para otra cosa. `styleNotes`
+ * tiene prohibido describir contenido fotográfico —para que la escena del ganador
+ * no se cuele en el render— y el bloque de áreas de imagen ordena no heredar el
+ * entorno del template —para que un cuero no termine flotando sobre agua—. Un
+ * fondo que ES el diseño caía justo en el medio: una regla prohíbe describirlo y
+ * la otra manda reemplazarlo.
+ */
+describe('el telón del ganador sobrevive', () => {
+	const conTelon = {
+		referenceHasProduct: true,
+		textZones: [],
+		backdrop: 'vertical stripes, #1F3A5F navy and #F2EFE6 off-white, one stripe ≈ 12% of the canvas width',
+		imageSlots: [{ where: 'full bleed', showsNow: 'modelo con vestido floral', replaceWith: 'una modelo con la remera apoyada contra una pared urbana' }],
+	} as any;
+
+	test('el fondo medido llega al render con sus colores', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, conTelon, false);
+		assert.match(prompt, /THE BACKDROP IS DESIGN, NOT SCENERY/);
+		assert.match(prompt, /#1F3A5F navy and #F2EFE6 off-white/);
+	});
+
+	/** El punto entero: que lo propuesto para el área no le gane al telón. */
+	test('lo propuesto para el área ya no autoriza cambiar la superficie', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, conTelon, false);
+		assert.match(prompt, /Nothing said below about replacing the template's setting applies to it/);
+		assert.match(prompt, /what stays is the palette, the layout, the graphic devices and the backdrop/);
+		assert.doesNotMatch(prompt, /what does not stay is the surface/);
+	});
+
+	test('sin telón medido no se inventa el bloque', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, { referenceHasProduct: true, textZones: [] } as any, false);
+		assert.doesNotMatch(prompt, /THE BACKDROP IS DESIGN/);
+	});
+
+	/** Un texto centrado que vuelve pegado a la izquierda rompe la composición. */
+	test('la alineación del texto es parte de la maqueta', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, conTelon, false);
+		assert.match(prompt, /centred stays centred, flush-left stays flush-left/);
+	});
+});
+
+/**
  * Un departamento no es un objeto que se lleva a otra escena: ES la escena.
  *
  * Se pasó la URL de un departamento y el anuncio salió mostrando OTRO
