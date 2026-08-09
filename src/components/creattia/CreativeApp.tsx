@@ -1402,7 +1402,11 @@ export default function CreativeApp() {
 							<div className="studio-plan-card">
 								<strong className="studio-plan-nombre"><span className="studio-plan-orb"><Icon name="spark" size={15}/></span>{planLabel(profile)}</strong>
 						<p><span style={{ width: `${Math.min(100, profile.credits / (profile.monthlyCredits || 1) * 100)}%` }}/></p>
-								<footer><span>{profile.credits} {profile.credits === 1 ? 'generación' : 'generaciones'}</span><button onClick={() => navigateTo('plans')}>Ver planes</button></footer>
+								{/* Cierra el cajón y sube, igual que todos los ítems de arriba. Era
+							    el único que no lo hacía: en el teléfono tocabas "Ver planes",
+							    la vista cambiaba detrás y el menú quedaba abierto tapándola
+							    entera, así que parecía que el botón no había hecho nada. */}
+							<footer><span>{profile.credits} {profile.credits === 1 ? 'generación' : 'generaciones'}</span><button onClick={() => { navigateTo('plans'); setMobileMenu(false); irArriba(); }}>Ver planes</button></footer>
 							</div>
 						)}
 					

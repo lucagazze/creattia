@@ -3151,32 +3151,6 @@
    a colar un `order` en un breakpoint: el orden lo define la lista de planes. */
 .studio-plans-grid article { order: 0 !important; }
 
-/* En el teléfono entraba una sola tarjeta por pantalla: para comparar seis
-   planes había que scrollear seis veces, y así no se compara nada — cuando
-   llegás al cuarto ya no te acordás qué traía el primero. De a dos y más chicas
-   se ven dos y media de una, que alcanza para leer la escalera de precios.
-   Se achica todo junto y no solo el ancho: una tarjeta de 160px con el precio a
-   42px y los beneficios a 13px queda igual de alta que antes. */
-@media (max-width: 640px) {
-	.studio-plans-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
-	.studio-plans-grid article { padding: 22px 13px !important; border-radius: 18px !important; }
-	.studio-plans-grid article > h3 { font-size: 17px !important; }
-	.plan-description { font-size: 11.5px !important; min-height: 46px !important; margin: 0 0 10px !important; }
-	.plan-price-row { min-height: 30px !important; margin: 6px 0 13px !important; }
-	.plan-price-val { font-size: 30px !important; }
-	.plan-price-val b { font-size: 14px !important; }
-	.plan-price-freq { font-size: 12px !important; margin-bottom: 4px !important; }
-	.plan-price-custom { font-size: 21px !important; }
-	.plan-yearly-note { font-size: 11px !important; }
-	.plan-yearly-note strong { font-size: 11.5px !important; }
-	.plan-subscribe-btn { height: 42px !important; border-radius: 21px !important; font-size: 12.5px !important; margin-bottom: 14px !important; }
-	.studio-plans-grid ul { padding-top: 14px !important; gap: 9px !important; }
-	.studio-plans-grid li { font-size: 11.5px !important; gap: 7px !important; }
-	/* La insignia monta sobre el borde superior: a tamaño de escritorio no entra
-	   en una tarjeta de media pantalla y se sale por los dos costados. */
-	.most-popular-badge { font-size: 10px !important; padding: 3px 9px !important; }
-}
-
 /* Con cinco columnas la tarjeta mide 212px en un notebook de 1440: 24px de
    padding a cada lado dejaban 164px de contenido, tres precios se salían del
    borde derecho y 19 de los 28 beneficios caían en dos renglones. Con 20 quedan
@@ -3260,11 +3234,6 @@
 	display: flex !important;
 	align-items: flex-end !important;
 	margin: 10px 0 20px !important;
-	/* El alto de la fila lo daba el número, y la tarjeta "A medida" no tiene
-	   número: sin un piso, esa tarjeta subía todo lo de abajo y quedaba con el
-	   botón desalineado de los otros cinco. 42px es exactamente el alto de un
-	   precio. */
-	min-height: 42px !important;
 }
 
 /* "$69.99 /mes" a 48px necesita 180px y en la tarjeta de cinco columnas hay 172:
@@ -3312,28 +3281,58 @@
 /* El plan que no se contrata solo: arriba de Agency el volumen deja de tener
    tarifa de lista. Se distingue con borde punteado y no con otro color fuerte,
    porque el acento de esta grilla ya lo tiene la tarjeta más elegida y dos
-   tarjetas peleando por la mirada no destacan ninguna. */
+   tarjetas peleando por la mirada no destacan ninguna.
+
+   OCUPA LA FILA ENTERA. Como sexta tarjeta de una grilla de cinco columnas caía
+   sola en un renglón nuevo, pegada a la izquierda, con cuatro huecos vacíos al
+   lado: se leía como un plan que sobró, no como el escalón que sigue. Y no hay
+   número de columnas que lo arregle — a seis columnas la tarjeta baja a 177px y
+   ya a 212 hubo que achicar el precio para que entrara. Como banda al pie el
+   ancho deja de ser un problema y encima gana la lectura: cierra la escalera. */
 .studio-plans-grid article.plan-a-medida {
+	grid-column: 1 / -1 !important;
 	border: 1.5px dashed #cfc6dd !important;
 	background: #fcfbfe !important;
 }
-.plan-price-custom {
-	font-size: 26px !important;
-	font-weight: 800 !important;
-	line-height: 1 !important;
-	letter-spacing: -0.02em !important;
-	color: #19171d !important;
-}
-/* Es un enlace y no un botón —abre WhatsApp— pero tiene que medirse y verse
-   igual que los otros cinco: con la altura de un `<a>` suelto, la última tarjeta
-   de la fila quedaba con el pie corrido respecto de sus vecinas. */
+/* Es un enlace y no un botón —abre WhatsApp— así que hay que darle la caja que
+   un `<a>` no trae. `height` fija no: "Escribinos por WhatsApp" pasaba a dos
+   renglones en una tarjeta angosta y el texto se salía por arriba y por abajo
+   del pill negro. Con mínimo y padding, el botón crece con el texto. */
 .plan-subscribe-link {
 	display: flex !important;
 	align-items: center !important;
 	justify-content: center !important;
 	gap: 8px !important;
+	height: auto !important;
+	min-height: 48px !important;
+	padding: 12px 22px !important;
+	line-height: 1.25 !important;
+	text-align: center !important;
 	background: #19171d !important;
 	text-decoration: none !important;
+}
+
+/* En pantalla ancha la banda se lee en una línea: qué es, qué incluye y por
+   dónde se pide. Apilado ocupaba media pantalla de alto para decir cuatro cosas
+   cortas. Debajo de 700px vuelve a apilarse, que es lo que entra. */
+@media (min-width: 700px) {
+	.studio-plans-grid article.plan-a-medida {
+		display: grid !important;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
+		grid-template-areas: "titulo lista boton" "desc lista boton";
+		align-items: center;
+		column-gap: 30px;
+		row-gap: 3px;
+		padding: 24px 26px !important;
+	}
+	.plan-a-medida > h3 { grid-area: titulo; align-self: end; margin: 0 !important; }
+	.plan-a-medida > .plan-description { grid-area: desc; align-self: start; min-height: 0 !important; margin: 0 !important; }
+	/* Con `.plan-a-medida > ul` la especificidad empata con `.studio-plans-grid ul`
+	   y ganaba el borde de arriba por orden de aparición: quedaba una línea gris
+	   suelta flotando sobre la lista, sin nada arriba de la que separarla. Se
+	   nombra la grilla para desempatar. */
+	.studio-plans-grid article.plan-a-medida > ul { grid-area: lista; display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px !important; padding: 0 !important; border-top: 0 !important; }
+	.plan-a-medida > .plan-subscribe-link { grid-area: boton; width: auto !important; margin: 0 !important; white-space: nowrap !important; }
 }
 
 .studio-plans-grid ul {
@@ -6738,4 +6737,32 @@
 	height: auto;
 	display: block;
 	object-fit: contain;
+}
+
+/* En el teléfono entraba una sola tarjeta por pantalla: para comparar seis
+   planes había que scrollear seis veces, y así no se compara nada — cuando
+   llegás al cuarto ya no te acordás qué traía el primero. De a dos y más chicas
+   se ven dos y media de una, que alcanza para leer la escalera de precios.
+   Se achica todo junto y no solo el ancho: una tarjeta de 160px con el precio a
+   42px y los beneficios a 13px queda igual de alta que antes. */
+@media (max-width: 640px) {
+	.studio-plans-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+	.studio-plans-grid article { padding: 22px 13px !important; border-radius: 18px !important; }
+	.studio-plans-grid article > h3 { font-size: 17px !important; }
+	.plan-description { font-size: 11.5px !important; min-height: 46px !important; margin: 0 0 10px !important; }
+	/* 30px dejaban "$39.99 /mes" tocando el borde derecho de una tarjeta de media
+	   pantalla: no llegaba a desbordar, pero se leía apretado contra el filo. A 26
+	   entra con aire y sigue siendo lo más grande de la tarjeta. */
+	.plan-price-row { margin: 6px 0 13px !important; }
+	.plan-price-val { font-size: 26px !important; }
+	.plan-price-val b { font-size: 13px !important; }
+	.plan-price-freq { font-size: 11.5px !important; margin-bottom: 3px !important; }
+	.plan-yearly-note { font-size: 11px !important; }
+	.plan-yearly-note strong { font-size: 11.5px !important; }
+	.plan-subscribe-btn { height: 42px !important; border-radius: 21px !important; font-size: 12.5px !important; margin-bottom: 14px !important; }
+	.studio-plans-grid ul { padding-top: 14px !important; gap: 9px !important; }
+	.studio-plans-grid li { font-size: 11.5px !important; gap: 7px !important; }
+	/* La insignia monta sobre el borde superior: a tamaño de escritorio no entra
+	   en una tarjeta de media pantalla y se sale por los dos costados. */
+	.most-popular-badge { font-size: 10px !important; padding: 3px 9px !important; }
 }

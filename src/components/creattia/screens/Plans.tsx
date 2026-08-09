@@ -108,7 +108,11 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 		const escalones = Math.floor((Math.min(maxCredits, escrito) - minCredits) / creditStep);
 		return minCredits + escalones * creditStep;
 	})();
-	const unitPrice = Number(config.unitPrice || 0.3);
+	// El valor de reserva quedó en 0.30, que fue el precio hasta que pasó a 0.49:
+	// si el endpoint no contesta, la pantalla anunciaba un precio por token que ya
+	// no existe. No se puede comprar en ese estado —el botón queda deshabilitado—
+	// pero el número igual se lee, y un precio viejo en pantalla es una promesa.
+	const unitPrice = Number(config.unitPrice || 0.49);
 	const totalPrice = (unitPrice * safeQuantity).toFixed(2);
 	// "USD 0.49" y no "u$s 0.49": el símbolo criollo se lee informal y encima
 	// repetía la moneda dos veces en la misma frase.
@@ -515,12 +519,9 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 		<article className="plan-a-medida">
 			<h3>{planAMedida.name}</h3>
 			<small className="plan-description">{planAMedida.description}</small>
-			<div className="plan-price-row">
-				<span className="plan-price-custom">Hablemos</span>
-			</div>
-			<p className="plan-yearly-note plan-unit-note">
-				<span>Los tokens que <strong>necesites</strong></span>
-			</p>
+			{/* Sin fila de precio ni de tokens: no tiene ninguno de los dos, y el
+			    "Hablemos" que ocupaba ese lugar competía en tamaño con el nombre del
+			    plan y no decía nada que el botón no dijera mejor. */}
 			<a
 				className="plan-subscribe-btn plan-subscribe-link"
 				href={whatsappAMedida()}
