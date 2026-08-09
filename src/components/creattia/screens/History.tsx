@@ -1,5 +1,5 @@
-import { precargarImagenes } from '../../../lib/creattia/image-ready';
-import { ImagenDeTarjeta } from '../carga-por-pantalla';
+import { precargarImagen, precargarImagenes } from '../../../lib/creattia/image-ready';
+import { ImagenDeTarjeta, useCercaDePantalla } from '../carga-por-pantalla';
 import { useReferenceUrl } from '../../../lib/creattia/reference-urls';
 import UrlInput from '../UrlInput';
 import { Icon } from '../Icon';
@@ -9,7 +9,7 @@ import type { ActiveBatch, AppSession, Generation, Product } from '../app-types'
 import { groupCarouselHistory } from '../history-utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { downloadCarousel, downloadImage } from '../download';
-import { signOriginalGeneration, useFullGenerationUrl } from '../../../lib/creattia/generation-image';
+import { signOriginalGeneration, urlVigente, useFullGenerationUrl } from '../../../lib/creattia/generation-image';
 import { useMasonry } from '../use-masonry';
 /** Historial de generaciones: tarjetas, lightbox y la referencia ganadora. */
 
@@ -357,18 +357,34 @@ export function GenerationCard({
 	 */
 	const [portadaVisible, setPortadaVisible] = useState(false);
 	useEffect(() => { setPortadaVisible(false); }, [active.imageUrl]);
-	// El resto de las páginas del carrusel se precargan recién cuando la portada
-	// entró: sin esto, cada vez que tocabas la flecha la imagen se descargaba en
-	// ese mismo momento y se sentía trabado en vez de pasar al toque. Van por la
-	// cola de `image-ready` y no por el observador porque no están en el DOM:
-	// nadie puede verlas venir hasta que alguien toca la flecha.
+	/**
+	 * Las páginas del carrusel se piden cuando la TARJETA se acerca a la pantalla.
+	 *
+	 * Antes la señal era `portadaVisible`, o sea que la portada hubiera TERMINADO
+	 * de bajar. Se veía así: pasabas a la página 2 de un carrusel y quedaba el
+	 * cartel de "Casi listo…" un rato largo, porque esa imagen no estaba pedida
+	 * por nadie todavía. Y era peor de lo que parece: `portadaVisible` se apaga en
+	 * cada cambio de página, así que la precarga se cortaba justo cuando hacía
+	 * falta. Ahora manda el mismo observador que decide todo lo demás de la
+	 * grilla; la bajada sigue yendo por la cola de `image-ready` porque estas
+	 * páginas no están en el DOM y ningún observador puede verlas venir.
+	 *
+	 * Se piden por su firma vigente y no por la que quedó guardada en el estado:
+	 * después de renovar, la vieja da 400 y la precarga sería trabajo tirado.
+	 */
+	const { ref: refTarjeta, cerca: tarjetaCerca } = useCercaDePantalla<HTMLElement>();
 	useEffect(() => {
-		if (!isCarousel || !portadaVisible) return;
-		precargarImagenes(slides!.map((slide) => slide.imageUrl));
-	}, [isCarousel, slides, portadaVisible]);
+		if (!isCarousel || !tarjetaCerca) return;
+		precargarImagenes(slides!.map((slide) => urlVigente(slide.imageUrl)));
+	}, [isCarousel, slides, tarjetaCerca]);
 	const goToSlide = (delta: number) => {
 		if (!isCarousel) return;
-		setSlideIndex((prev) => (prev + delta + slides!.length) % slides!.length);
+		const proxima = (slideIndex + delta + slides!.length) % slides!.length;
+		// La que se acaba de pedir se adelanta a lo que haya en la cola: con ciento
+		// cincuenta tarjetas precargando sus páginas, la que la persona tiene
+		// delante puede quedar decenas de lugares atrás.
+		void precargarImagen(urlVigente(slides![proxima].imageUrl), true);
+		setSlideIndex(proxima);
 	};
 
 	useEffect(() => {
@@ -390,7 +406,8 @@ export function GenerationCard({
 	}, [contextMenu]);
 
 	return (
-		<article 
+		<article
+			ref={refTarjeta}
 			className="studio-generation-card"
 			draggable="true"
 			onDragStart={(e) => {
