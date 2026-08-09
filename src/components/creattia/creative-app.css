@@ -4209,8 +4209,12 @@
 	min-width: 0;
 }
 
+/* Un desplegable con "🇦🇷 Español" adentro no necesita 680px: estirado hasta el
+   ancho de la columna se lee como un campo de texto largo y desbalancea la
+   pantalla contra las tarjetas de identidad que van justo abajo. En celular
+   sigue ocupando todo, que ahí sí corresponde. */
 .creation-language-select {
-	width: min(100%, 680px);
+	width: min(100%, 320px);
 }
 
 .batch-select {
