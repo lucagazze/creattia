@@ -31,7 +31,11 @@ export async function resolveAvatarReferences(input: {
 		const { data: rows, error: rowsError } = await input.admin.from('creative_avatar_images')
 			.select('storage_path,sort_order').eq('avatar_id', avatar.id).eq('user_id', input.userId).order('sort_order').limit(12);
 		if (rowsError) throw rowsError;
-		if ((rows || []).length < 4) throw new Error('El avatar necesita al menos 4 imágenes antes de poder usarse.');
+		// Con una foto alcanza para fijar la cara. El piso de cuatro estaba acá
+		// además de en el endpoint, así que bajarlo allá no alcanzó: la generación
+		// salía, se cobraba el crédito y recién en el worker moría con "el avatar
+		// necesita al menos 4 imágenes". El peor lugar donde poner un límite.
+		if (!(rows || []).length) throw new Error('Ese avatar no tiene ninguna foto cargada.');
 		const images: VisualImage[] = [];
 		for (const row of evenlySample(rows || [], 8)) {
 			const { data: blob, error } = await input.admin.storage.from('creative-assets').download(row.storage_path);
@@ -44,7 +48,7 @@ export async function resolveAvatarReferences(input: {
 
 	const files = (input.directImages || []).filter((entry): entry is File => entry instanceof File && entry.size > 0).slice(0, 13);
 	if (!input.directConsent) throw new Error('Confirmá que tenés permiso para usar las imágenes del avatar.');
-	if (files.length < 4) throw new Error('Subí al menos 4 fotos para usar una identidad consistente.');
+	if (!files.length) throw new Error('Subí al menos una foto de la persona.');
 	if (files.length > 12) throw new Error('Podés usar hasta 12 fotos por avatar.');
 	for (const file of files) {
 		if (!acceptedTypes.has(file.type)) throw new Error('Las fotos del avatar deben ser PNG, JPG o WebP.');

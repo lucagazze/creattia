@@ -404,7 +404,17 @@
 .studio-nav > p,
 .studio-nav button { flex-shrink: 0; }
 
-.studio-nav { margin-top: 18px; display: flex; flex-direction: column; gap: 5px; }
+/* El menú se centra en el alto que le queda libre.
+   Estaba clavado arriba y el bloque de abajo —marca, configuración, plan, cuenta—
+   anclado al pie, así que en cualquier pantalla alta quedaba un pozo vacío en el
+   medio del lateral y los cinco ítems apretados contra el techo.
+   El nav toma todo el sobrante (`flex-grow: 1`) y centra sus ítems adentro. Con
+   `margin: auto` no alcanzaba: el bloque de abajo también empuja con margen
+   automático, así que el espacio libre se repartía en tercios y el menú quedaba
+   por encima del centro real. `flex-shrink: 0` se conserva a propósito —es lo que
+   evita que en una pantalla corta el menú se comprima en vez de scrollear— y por
+   eso el grow va escrito como `1 0 auto` y no como `1`. */
+.studio-nav { flex: 1 0 auto; justify-content: center; padding-top: 18px; display: flex; flex-direction: column; gap: 5px; }
 .studio-nav > p { margin: 0 10px 11px; color: #6f6974; font-size: 11.5px; font-weight: 800; letter-spacing: .16em; }
 .studio-nav button {
 	width: 100%;
@@ -6521,9 +6531,23 @@
 	display: flex; align-items: center; gap: 11px; margin-top: 10px;
 	padding: 9px 11px; border-radius: 10px; border: 1px solid #eee9f2; background: #faf8fc;
 }
+/* Damero atrás del logo, no blanco.
+   La mayoría de los logos de marca son PNG blancos con fondo transparente —están
+   hechos para ir sobre una foto oscura—, y sobre el blanco de antes quedaban
+   literalmente invisibles: se veía un recuadro vacío y parecía que no se había
+   traído ningún logo. Con el damero se distingue lo blanco de lo transparente,
+   que es justo lo que hay que poder ver acá. */
 .logo-decision-preview img {
 	width: 52px; height: 52px; flex: none; object-fit: contain;
-	border-radius: 8px; background: #fff; border: 1px solid #f0ecf5; padding: 5px;
+	border-radius: 8px; border: 1px solid #f0ecf5; padding: 5px;
+	background-color: #fff;
+	background-image:
+		linear-gradient(45deg, #e3dfe9 25%, transparent 25%),
+		linear-gradient(-45deg, #e3dfe9 25%, transparent 25%),
+		linear-gradient(45deg, transparent 75%, #e3dfe9 75%),
+		linear-gradient(-45deg, transparent 75%, #e3dfe9 75%);
+	background-size: 12px 12px;
+	background-position: 0 0, 0 6px, 6px -6px, -6px 0;
 }
 .logo-decision-preview span { font-size: 12px; line-height: 1.45; color: #716d79; }
 .logo-decision-preview-vacio {
@@ -6531,6 +6555,15 @@
 	border: 1px solid #f6e2c8; background: #fdf7ee;
 	font-size: 12px; line-height: 1.45; color: #8a6224;
 }
+/* La salida del callejón, al lado del problema: elegir "con logo" sin tener
+   archivo dejaba el anuncio sin logo y sin nada que tocar para resolverlo. */
+.logo-decision-salidas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
+.logo-decision-salidas button {
+	min-height: 32px; padding: 0 12px; border-radius: 999px;
+	border: 1px solid #e3cfa6; background: #fff; color: #8a6224;
+	font-family: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
+}
+.logo-decision-salidas button:hover { border-color: #c9a86a; color: #6f4d16; }
 
 @media (max-width: 640px) {
 	.logo-decision-options,
@@ -6765,4 +6798,24 @@
 	/* La insignia monta sobre el borde superior: a tamaño de escritorio no entra
 	   en una tarjeta de media pantalla y se sale por los dos costados. */
 	.most-popular-badge { font-size: 10px !important; padding: 3px 9px !important; }
+}
+
+/* Flechas para recorrer un ganador de carrusel dentro del modal de referencia.
+   Antes se veía sólo la página que se había abierto y no había forma de llegar a
+   las demás — y en un carrusel la secuencia ES la referencia: cómo abre, cómo
+   desarrolla y cómo cierra. Mirar una página suelta esconde justo eso. */
+.ref-modal-arrow {
+	position: absolute; top: 50%; transform: translateY(-50%);
+	width: 38px; height: 38px; border: 0; border-radius: 50%;
+	background: rgba(255,255,255,.94); color: #19171d;
+	font-size: 24px; line-height: 1; cursor: pointer;
+	box-shadow: 0 6px 18px rgba(0,0,0,.24);
+}
+.ref-modal-arrow.prev { left: 10px; }
+.ref-modal-arrow.next { right: 10px; }
+.ref-modal-contador {
+	position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+	padding: 4px 10px; border-radius: 999px;
+	background: rgba(25,23,29,.78); color: #fff;
+	font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
 }

@@ -8,6 +8,7 @@ import './creative-app.css';
 
 
 import { driveBatchWorkers } from './UrlBatchSection';
+import { generacionDesdeFila } from './history-utils';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
 
 import { fetchLibraryItems, fetchReferenceUrls, useReferenceUrl, useReferenceUrls } from '../../lib/creattia/reference-urls';
@@ -701,28 +702,11 @@ export default function CreativeApp() {
 					} else if (records?.length) {
 						const signedByPath = await signGenerationPaths(client, records.map((record: any) => record.output_path), { thumb: true });
 						const mapped = records.map((record: any) => {
-							const imgUrl = record.output_path ? signedByPath.get(record.output_path) || '' : '';
-
 							const creative = loadedCatalog.find((item) => item.id === record.template_id);
-							return {
-								id: record.id,
-								title: record.title,
-								imageUrl: imgUrl,
-								outputPath: record.output_path || null,
-								format: record.format,
-								createdAt: record.created_at || new Date().toISOString(),
-								category: creative ? ringMeta[creative.ring]?.label : 'Creativo',
-								templateId: record.template_id,
-								preset: record.variant_key || record.settings_snapshot?.preset || 'fiel',
-								imageType: record.image_type || record.settings_snapshot?.imageType || 'product',
-								productId: record.product_id || record.settings_snapshot?.productId || '',
-								productIds: record.settings_snapshot?.productIds || (record.product_id ? [record.product_id] : []),
-								batchId: record.batch_id || record.id,
-								outputIndex: record.output_index || 1,
-								referencePath: record.settings_snapshot?.referencePath || '',
-								referenceName: record.settings_snapshot?.referenceName || '',
-								status: record.status || (imgUrl ? 'completed' : 'processing'),
-							};
+							return generacionDesdeFila(record, {
+								imageUrl: record.output_path ? signedByPath.get(record.output_path) || '' : '',
+								categoria: creative ? ringMeta[creative.ring]?.label : undefined,
+							});
 						});
 						setHistory(mapped);
 					}
@@ -784,7 +768,13 @@ export default function CreativeApp() {
 		const interval = setInterval(async () => {
 			try {
 				const { data: records } = await client.from('creative_generations')
-					.select('id,title,output_path,format,created_at,template_id,status,error_code,settings_snapshot')
+					// `batch_id`, `output_index` y `variant_key` faltaban acá, y sin ellos
+					// las páginas de un carrusel que entran por este polling nacen sueltas:
+					// `groupCarouselHistory` agrupa por `preset === 'carrusel'` y `batchId`,
+					// así que un carrusel recién generado se veía partido —las páginas que
+					// alcanzó a escribir el polling del lote agrupadas, y las que llegaron
+					// por acá como tarjetas separadas— hasta recargar la página.
+					.select('id,title,output_path,format,created_at,template_id,status,error_code,settings_snapshot,batch_id,output_index,variant_key,image_type,product_id')
 					// Las fallidas no se muestran: cerrar una pendiente la marca
 					// 'failed' y así desaparece de la grilla.
 					.in('status', ['completed', 'processing'])
@@ -807,18 +797,7 @@ export default function CreativeApp() {
 						const existing = map.get(r.id);
 						if (!existing) {
 							changed = true;
-							map.set(r.id, {
-								id: r.id,
-								title: r.title,
-								imageUrl: imgUrl,
-								format: r.format,
-								createdAt: r.created_at || new Date().toISOString(),
-								category: 'Creativo',
-								templateId: r.template_id,
-								referencePath: (r as any).settings_snapshot?.referencePath || '',
-								referenceName: (r as any).settings_snapshot?.referenceName || '',
-								status: imgUrl ? 'completed' : r.status,
-							} as any);
+							map.set(r.id, generacionDesdeFila(r, { imageUrl: imgUrl }));
 						} else if ((existing as any).status !== r.status || (!existing.imageUrl && imgUrl)) {
 							// La URL firmada cambia en cada poll: comparar por URL haría
 							// re-renderizar (y recargar la imagen) cada 2,5 segundos.
@@ -1160,27 +1139,7 @@ export default function CreativeApp() {
 			for (const row of data) {
 				const imgUrl = row.output_path ? signedByPath.get(row.output_path) || '' : '';
 
-				updatedGenerations.push({
-					id: row.id,
-					title: row.title,
-					imageUrl: imgUrl,
-					format: row.format,
-					createdAt: row.created_at || new Date().toISOString(),
-					category: 'Creativo',
-					templateId: row.template_id,
-					preset: row.variant_key || '',
-					imageType: row.image_type || 'product',
-					productId: row.product_id || '',
-					productIds: row.settings_snapshot?.productIds || [],
-					batchId: row.batch_id,
-					outputIndex: row.output_index,
-					referencePath: row.settings_snapshot?.referencePath || '',
-					referenceName: row.settings_snapshot?.referenceName || '',
-					subjectMode: row.settings_snapshot?.subjectMode || 'product',
-					sourceUrl: row.settings_snapshot?.sourceUrl || '',
-					error: row.error_code || '',
-					status: row.status,
-				} as any);
+				updatedGenerations.push(generacionDesdeFila(row, { imageUrl: imgUrl }));
 			}
 
 			if (updatedGenerations.length) {

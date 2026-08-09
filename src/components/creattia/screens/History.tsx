@@ -9,7 +9,7 @@ import type { ActiveBatch, AppSession, Generation, Product } from '../app-types'
 import { groupCarouselHistory } from '../history-utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { downloadCarousel, downloadImage } from '../download';
-import { signOriginalGeneration, urlVigente, useFullGenerationUrl } from '../../../lib/creattia/generation-image';
+import { puedeRefirmarse, refirmarUrl, signOriginalGeneration, urlVigente, useFullGenerationUrl } from '../../../lib/creattia/generation-image';
 import { useMasonry } from '../use-masonry';
 /** Historial de generaciones: tarjetas, lightbox y la referencia ganadora. */
 
@@ -244,14 +244,29 @@ export function WinnerReferenceModal({
 	onToggleLike,
 	onUse,
 }: {
-	reference: { path: string; name: string };
+	/** `paths` trae las demás páginas cuando el ganador es un carrusel. */
+	reference: { path: string; name: string; paths?: string[] };
 	isLiked?: boolean;
 	onClose: () => void;
 	onToggleLike?: (path: string) => void;
 	onUse?: (path: string) => void;
 }) {
+	/**
+	 * Un ganador de carrusel se mira entero, no solo por la página que se abrió.
+	 *
+	 * Se veía una sola imagen y no había forma de llegar a las demás: justamente
+	 * la referencia de un carrusel es la secuencia —cómo abre, cómo desarrolla,
+	 * cómo cierra— y mostrar una página suelta esconde lo único que hay que
+	 * entender de él.
+	 */
+	const paginas = reference.paths?.length ? reference.paths : [reference.path];
+	const [indice, setIndice] = useState(0);
+	useEffect(() => { setIndice(Math.max(0, paginas.indexOf(reference.path))); }, [reference.path, reference.paths]);
+	const esCarrusel = paginas.length > 1;
+	const pagina = paginas[Math.min(indice, paginas.length - 1)] || reference.path;
+	const irA = (delta: number) => setIndice((previo) => (previo + delta + paginas.length) % paginas.length);
 	// El bucket es privado: la referencia se muestra con URL firmada.
-	const referenceUrl = useReferenceUrl(reference.path);
+	const referenceUrl = useReferenceUrl(pagina);
 	return (
 		<div className="ref-modal" onClick={(event) => { event.stopPropagation(); onClose(); }} role="dialog" aria-modal="true" aria-label="Anuncio ganador de referencia">
 			<div className="ref-modal-box" onClick={(event) => event.stopPropagation()}>
@@ -262,8 +277,13 @@ export function WinnerReferenceModal({
 					</div>
 					<button type="button" onClick={onClose} aria-label="Cerrar">✕</button>
 				</div>
-				<div className="ref-modal-visual">
-					<img src={referenceUrl} alt={reference.name || 'Anuncio ganador'} />
+				<div className="ref-modal-visual" style={{ position: 'relative' }}>
+					<img src={referenceUrl} alt={esCarrusel ? `${reference.name || 'Anuncio ganador'} — página ${indice + 1}` : (reference.name || 'Anuncio ganador')} />
+					{esCarrusel && <>
+						<button type="button" className="ref-modal-arrow prev" aria-label="Página anterior del ganador" onClick={(event) => { event.stopPropagation(); irA(-1); }}>‹</button>
+						<button type="button" className="ref-modal-arrow next" aria-label="Página siguiente del ganador" onClick={(event) => { event.stopPropagation(); irA(1); }}>›</button>
+						<span className="ref-modal-contador">{indice + 1} / {paginas.length}</span>
+					</>}
 				</div>
 				<div className="ref-modal-context">
 					<span>REFERENCIA ORIGINAL</span>
@@ -337,7 +357,7 @@ export function GenerationCard({
 	const [showFolderDropdown, setShowFolderDropdown] = useState(false);
 	const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 	// El anuncio ganador de referencia se ve en un modal, no en una pestaña nueva.
-	const [refPreview, setRefPreview] = useState<{ path: string; name: string } | null>(null);
+	const [refPreview, setRefPreview] = useState<{ path: string; name: string; paths?: string[] } | null>(null);
 	const [slideIndex, setSlideIndex] = useState(0);
 	const isCarousel = Boolean(slides && slides.length > 1);
 	/** Bajar un carrusel tarda: sin aviso el icono parece no responder. */
@@ -651,7 +671,7 @@ export function GenerationCard({
 								onClick={(event) => {
 									event.preventDefault();
 									event.stopPropagation();
-									setRefPreview({ path: active.referencePath!, name: active.referenceName || '' });
+									setRefPreview({ path: active.referencePath!, name: active.referenceName || '', paths: slides?.map((s) => s.referencePath || '').filter(Boolean) });
 								}}
 								title={`Inspirado en el anuncio ganador${active.referenceName ? ` de ${active.referenceName}` : ''} — tocá para verlo`}
 							>
@@ -836,7 +856,9 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 	const [error, setError] = useState('');
 	const [showReference, setShowReference] = useState(false);
 	// Ganador de referencia en modal, sin salir de la app.
-	const [lightboxRef, setLightboxRef] = useState<{ path: string; name: string } | null>(null);
+	const [lightboxRef, setLightboxRef] = useState<{ path: string; name: string; paths?: string[] } | null>(null);
+	/** Contra qué URL ya se gastó el reintento de firma en la imagen grande. */
+	const reintentadaEnVisor = useRef('');
 	const [revisionFormat, setRevisionFormat] = useState<string>(item.format || 'original');
 	// Nunca se agrega el logo solo: el usuario lo pide a propósito, tocando este botón.
 	const [includeLogo, setIncludeLogo] = useState(false);
@@ -1014,7 +1036,23 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 			<div className="studio-lightbox-panel" onClick={(event) => event.stopPropagation()} style={{ position: 'relative', display: 'flex', gap: '22px', alignItems: 'stretch', maxWidth: '1100px', width: '100%', maxHeight: '90vh' }}>
 				<button onClick={onClose} aria-label="Cerrar" style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 8, border: 0, background: 'rgba(255,255,255,0.94)', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', color: '#19171d', fontSize: '16px', fontWeight: 700, boxShadow: '0 4px 14px rgba(0,0,0,0.22)' }}>✕</button>
 				<div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ flex: '1 1 auto', display: 'grid', placeItems: 'center', minWidth: 0, position: 'relative', touchAction: isCarousel ? 'pan-y' : 'auto' }}>
-					<img src={showReference && activeItem.referenceUrl ? activeItem.referenceUrl : fullUrl} alt={activeItem.title} style={{ maxWidth: '100%', maxHeight: '86vh', borderRadius: '14px', boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }} />
+					{/* La imagen grande también pide firma nueva cuando falla.
+					    Era un `<img>` pelado: con la firma vencida —la app abierta un
+					    rato largo, o la pestaña dormida— quedaba el marco roto y no
+					    había forma de recuperarlo sin recargar la página entera. Pasa
+					    especialmente al pasar de página en un carrusel, que es cuando se
+					    piden imágenes que no se habían pedido antes. */}
+					<img
+						src={showReference && activeItem.referenceUrl ? activeItem.referenceUrl : fullUrl}
+						alt={activeItem.title}
+						onError={(evento) => {
+							const rota = evento.currentTarget.src;
+							if (!puedeRefirmarse(rota) || reintentadaEnVisor.current === rota) return;
+							reintentadaEnVisor.current = rota;
+							void refirmarUrl(rota);
+						}}
+						style={{ maxWidth: '100%', maxHeight: '86vh', borderRadius: '14px', boxShadow: '0 30px 80px rgba(0,0,0,0.5)' }}
+					/>
 					{isCarousel && !showReference && <>
 						<button type="button" aria-label="Página anterior" onClick={() => goToSlide(-1)} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '40px', height: '40px', border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#19171d', fontSize: '25px', cursor: 'pointer', boxShadow: '0 6px 18px rgba(0,0,0,.25)' }}>‹</button>
 						<button type="button" aria-label="Página siguiente" onClick={() => goToSlide(1)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', width: '40px', height: '40px', border: 0, borderRadius: '50%', background: 'rgba(255,255,255,.92)', color: '#19171d', fontSize: '25px', cursor: 'pointer', boxShadow: '0 6px 18px rgba(0,0,0,.25)' }}>›</button>
@@ -1036,7 +1074,7 @@ export function ImageLightbox({ item, slides, session, onClose, onStarted, onGen
 					{activeItem.referencePath && (
 						<button
 							type="button"
-							onClick={() => setLightboxRef({ path: activeItem.referencePath!, name: activeItem.referenceName || '' })}
+							onClick={() => setLightboxRef({ path: activeItem.referencePath!, name: activeItem.referenceName || '', paths: carouselSlides.map((s) => s.referencePath || '').filter(Boolean) })}
 							style={{
 								width: '100%', font: 'inherit', cursor: 'pointer',
 								display: 'flex', alignItems: 'center', gap: '10px', padding: '9px',

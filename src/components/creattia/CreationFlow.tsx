@@ -298,6 +298,15 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const [logoRoto, setLogoRoto] = useState(false);
 	useEffect(() => { setLogoRoto(false); }, [logoQueSePondria]);
+	/**
+	 * Si hay un archivo de logo que efectivamente se pueda pegar en la imagen.
+	 *
+	 * Sin esto, "Con logo de la URL" salía marcado como RECOMENDADO aunque no se
+	 * hubiera podido traer ningún archivo: se elegía la opción recomendada, abajo
+	 * aparecía un recuadro vacío y el anuncio salía sin logo igual. La
+	 * recomendación tiene que mirar lo que hay, no lo que el ganador hace.
+	 */
+	const hayLogoUsable = Boolean(logoQueSePondria) && !logoRoto;
 
 	// `slide` viene sellado por el análisis de cada página del carrusel: es lo que
 	// permite agrupar los textos por imagen y devolverle a cada página lo suyo.
@@ -313,6 +322,18 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const personasVisibles = people.filter((persona) => persona && (persona.description || persona.directive || persona.where));
 	const [comparisons, setComparisons] = useState<Array<{ slide?: number; where?: string; role?: string; description?: string; directive?: string }>>([]);
 	const [creativeDecisions, setCreativeDecisions] = useState<Array<{ slide?: number; type?: string; title?: string; where?: string; description?: string; question?: string; defaultStrategy?: string; options?: string[]; confidence?: string; directive?: string }>>([]);
+	/**
+	 * Dónde va la opción de usar fotos propias: dentro de la primera decisión que
+	 * ya pregunta por la persona del anuncio.
+	 *
+	 * Vivía en una tarjeta aparte, pegada abajo de esa misma pregunta, así que la
+	 * pantalla preguntaba dos veces por lo mismo y las respuestas podían chocar:
+	 * "una mujer con estilo urbano" en una y "usar mis fotos" en la otra, sin
+	 * forma de saber cuál mandaba. Es una sola decisión con una opción más.
+	 */
+	const indiceDecisionDePersona = personasVisibles.length
+		? creativeDecisions.findIndex((decision) => decision?.type === 'person')
+		: -1;
 	/** Qué decisiones tienen abierto el campo para escribir una respuesta propia. */
 	const [escribiendo, setEscribiendo] = useState<Set<number>>(new Set());
 	const [comparisonGuidance, setComparisonGuidance] = useState('');
@@ -323,6 +344,42 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	} as const);
 
 	const label = { display: 'block', fontSize: '13px', fontWeight: 800, color: '#744bde', marginBottom: '9px', letterSpacing: '.01em' } as const;
+	/**
+	 * Qué le falta a la carga de fotos para poder generar.
+	 *
+	 * Sin esto, elegir "usar mis fotos" y no subir ninguna dejaba seguir: se
+	 * gastaba el crédito, arrancaba la generación y recién el worker cortaba con
+	 * "el avatar necesita al menos 4 imágenes", que además de tarde era falso. La
+	 * pantalla tiene que decirlo ANTES, que es cuando todavía se puede resolver.
+	 */
+	const faltaParaElAvatar = personMode !== 'upload'
+		? ''
+		: !avatarFiles.length
+			? 'Subí al menos una foto de la persona para poder generar.'
+			: !avatarConsent
+				? 'Confirmá que tenés permiso para usar esas fotos.'
+				: '';
+	/**
+	 * La carga de fotos de la persona. Se usa dentro de la decisión que ya
+	 * pregunta por ella y, si el análisis no dejó ninguna, en su propia tarjeta.
+	 */
+	const cargaDeAvatar = (
+		<div style={{ marginTop: '10px' }}>
+			<input type="file" id="creation-avatar-files" accept="image/png,image/jpeg,image/webp" multiple className="hidden-file-input" onChange={(event) => {
+				const files = event.target.files ? Array.from(event.target.files).slice(0, 12) : [];
+				setAvatarFiles(files); setAvatarPreviews(files.map((file) => URL.createObjectURL(file))); event.target.value = '';
+			}} />
+			{/* Pedía cuatro como mínimo y era un cerrojo, no un consejo: el que tiene
+			    una sola foto buena suya no podía usar la función. Con una alcanza
+			    para fijar la identidad; que dos o tres la sostengan mejor entre
+			    creativos es información útil, no un requisito. */}
+			<label htmlFor="creation-avatar-files" className="uploader-label" style={{ display: 'inline-flex', width: 'auto' }}>Subir fotos de la persona</label>
+			<p style={{ margin: '8px 0 0', fontSize: '12px', color: '#716d79', lineHeight: 1.45 }}>Con una foto alcanza. Con dos o tres, tomadas de ángulos distintos, la cara sale más parecida de un creativo a otro.</p>
+			{avatarPreviews.length > 0 && <div className="extra-previews-grid" style={{ marginTop: '10px' }}>{avatarPreviews.map((preview) => <div className="preview-thumb" key={preview}><img src={preview} alt="Referencia de avatar" /></div>)}</div>}
+			<label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginTop: '10px', fontSize: '12px', color: '#5f5a67' }}><input type="checkbox" checked={avatarConsent} onChange={(event) => setAvatarConsent(event.target.checked)} /> Confirmo que tengo permiso para usar estas imágenes.</label>
+			{faltaParaElAvatar && <p style={{ margin: '9px 0 0', padding: '8px 10px', borderRadius: '9px', background: '#fdf0f3', color: '#b02a4a', fontSize: '12px', fontWeight: 700, lineHeight: 1.4 }}>⚠️ {faltaParaElAvatar}</p>}
+		</div>
+	);
 	// Carrusel completo con productos distintos: 1 URL por página, en orden.
 	// El resto de los casos (mismo producto, o solo una página) piden 1 solo.
 	const urlsNeeded = wantsFullCarousel && !carouselSameProduct ? carouselSlides.length : 1;
@@ -1208,7 +1265,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 										className={includeLogo ? 'active' : ''}
 									>
 										Con logo de {origenDelLogo}
-										{ganadorTieneLogoDibujado && <em>recomendado</em>}
+										{ganadorTieneLogoDibujado && hayLogoUsable && <em>recomendado</em>}
 									</button>
 									<button
 										type="button" role="radio" aria-checked={!includeLogo}
@@ -1216,7 +1273,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 										onClick={() => setIncludeLogo(false)}
 									>
 										Sin logo
-										{!ganadorTieneLogoDibujado && <em>recomendado</em>}
+										{(!ganadorTieneLogoDibujado || !hayLogoUsable) && <em>recomendado</em>}
 									</button>
 								</div>
 								{/* Qué pasa con cada opción, dicho para alguien que no sabe de
@@ -1262,18 +1319,29 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									</>
 								)}
 								{includeLogo && (
-									logoQueSePondria && !logoRoto ? (
+									hayLogoUsable ? (
 										<div className="logo-decision-preview">
-											<img src={logoQueSePondria} alt={`Logo de ${origenDelLogo}`} onError={() => setLogoRoto(true)} />
-											<span>Este es el logo que vamos a poner. Si no es el de tu marca, cambiá la identidad en el paso de estilo.</span>
+											{/* Sobre damero: casi todos los logos de marca son blancos con
+											    fondo transparente y sobre blanco no se veía ninguno. */}
+											<img src={logoQueSePondria} alt={`Logo traído de ${origenDelLogo}`} onError={() => setLogoRoto(true)} />
+											<span>Este es el logo que trajimos de {origenDelLogo} y el que vamos a poner. Si no es el de tu marca, cambiá la identidad en el paso de estilo.</span>
 										</div>
 									) : (
-										<p className="logo-decision-preview-vacio">
-											{logoRoto
-												? `Encontramos un logo en ${origenDelLogo} pero el archivo no se puede abrir, así que lo más probable es que el anuncio salga sin él.`
-												: `No encontramos ningún archivo de logo en ${origenDelLogo}, así que no vamos a poder colocarlo.`}
-											{' '}{brandSource === 'mine' ? 'Subí tu logo en Mi marca' : 'Probá con la identidad de Mi marca'} o generá sin logo.
-										</p>
+										/* Elegir "con logo" sin tener archivo terminaba en un anuncio sin
+										   logo y sin aviso: la salida tiene que estar acá mismo, no en una
+										   pantalla a la que hay que ir a buscar. */
+										<div className="logo-decision-preview-vacio">
+											<p style={{ margin: 0 }}>
+												{logoRoto
+													? `Encontramos un logo en ${origenDelLogo} pero el archivo no se puede abrir, así que el anuncio va a salir sin él.`
+													: `No encontramos ningún archivo de logo en ${origenDelLogo}, así que no hay nada para colocar.`}
+												{' '}Sin logo, donde el ganador firma va a ir escrito el nombre de tu negocio con la tipografía del aviso — que para la mayoría de los casos queda mejor que un logo pegado.
+											</p>
+											<div className="logo-decision-salidas">
+												<button type="button" onClick={() => setIncludeLogo(false)}>Generar sin logo</button>
+												{brandSource !== 'mine' && <button type="button" onClick={() => setBrandSource('mine')}>Usar el logo de Mi marca</button>}
+											</div>
+										</div>
 									)
 								)}
 							</section>
@@ -1364,15 +1432,44 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 													<button
 														key={opcion}
 														type="button"
-														className={decision.directive === opcion ? 'active' : ''}
-														onClick={() => setCreativeDecisions(creativeDecisions.map((current, decisionIndex) =>
-															decisionIndex === index
-																? { ...current, directive: current.directive === opcion ? '' : opcion }
-																: current))}
+														className={decision.directive === opcion && !(index === indiceDecisionDePersona && personMode === 'upload') ? 'active' : ''}
+														onClick={() => {
+															// Elegir una opción escrita descarta las fotos: son dos
+															// respuestas a la misma pregunta y sólo una puede valer.
+															if (index === indiceDecisionDePersona && personMode === 'upload') setPersonMode(personModeSugerido === 'upload' ? 'ai' : personModeSugerido);
+															setCreativeDecisions(creativeDecisions.map((current, decisionIndex) =>
+																decisionIndex === index
+																	? { ...current, directive: current.directive === opcion ? '' : opcion }
+																	: current));
+														}}
 													>
 														{opcion}
 													</button>
 												))}
+												{/* Cargar fotos propias es una respuesta más a esta misma
+												    pregunta. Estaba en una tarjeta aparte —"Quién pone la
+												    cara"— justo debajo de esta, así que la pantalla
+												    preguntaba dos veces por la persona del anuncio y las
+												    dos respuestas podían contradecirse: elegías "una mujer
+												    con estilo urbano" arriba y "usar mis fotos" abajo, y no
+												    había forma de saber cuál mandaba. Acá está claro que es
+												    una sola decisión y que elegir las fotos descarta las
+												    otras opciones. */}
+												{index === indiceDecisionDePersona && (
+													<button
+														type="button"
+														className={personMode === 'upload' ? 'active' : ''}
+														onClick={() => {
+															// Las fotos mandan sobre cualquier descripción: dejar
+															// escrita "un hombre joven casual" mientras se suben
+															// fotos de otra persona es pedir dos cosas distintas.
+															setPersonMode('upload');
+															setCreativeDecisions(creativeDecisions.map((current, i) => i === index ? { ...current, directive: '' } : current));
+														}}
+													>
+														📷 Usar mis fotos
+													</button>
+												)}
 												<button
 													type="button"
 													className={`decision-write${escribiendo.has(index) ? ' active' : ''}`}
@@ -1385,6 +1482,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 													{escribiendo.has(index) ? 'Cerrar' : '✎ Escribir otra'}
 												</button>
 											</div>
+											{index === indiceDecisionDePersona && personMode === 'upload' && cargaDeAvatar}
 											{(escribiendo.has(index) || (decision.directive && !(decision.options || []).includes(decision.directive))) && (
 												<input
 													value={decision.directive || ''}
@@ -1395,19 +1493,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 											)}
 										</div>
 									))}
-									{/* De quién es la cara: una decisión más de este mismo bloque.
-									    Antes esto vivía arriba, en "¿Querés mostrar una persona?",
-									    con cuatro opciones —sin persona, que la IA elija, yo la
-									    describo, cargar avatar—, y dos centímetros más abajo la IA
-									    preguntaba acá el tipo de modelo, el estilo de foto y quién
-									    usa el producto. Era la misma decisión dos veces, y con dos
-									    respuestas que podían contradecirse entre sí. Las tres
-									    primeras opciones ya se contestan escribiendo en las
-									    decisiones de arriba; la única que no se puede escribir es
-									    "usá ESTA cara", y es la que quedó. Sin elegirla, manda la
-									    recomendación que salió del análisis: la IA elige si el
-									    ganador muestra gente, nadie si no muestra. */}
-									{personasVisibles.length > 0 && (
+									{/* Cuando el análisis ve gente pero no deja ninguna decisión de
+									    persona donde colgar la opción de las fotos, la pregunta va
+									    suelta acá. Es el único caso en que aparece por separado. */}
+									{personasVisibles.length > 0 && indiceDecisionDePersona < 0 && (
 										<div style={{ padding: '12px 14px', border: '1px solid #eee6f2', borderRadius: '11px', background: '#fff' }}>
 											<strong style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#3f3560', marginBottom: '5px' }}>
 												<span>👤 Quién pone la cara</span>
@@ -1428,26 +1517,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 													className={personMode === 'upload' ? 'active' : ''}
 													onClick={() => setPersonMode('upload')}
 												>
-													Usar mis fotos
+													📷 Usar mis fotos
 												</button>
 											</div>
-											{personMode === 'upload' && (
-												<div style={{ marginTop: '10px' }}>
-													<input type="file" id="creation-avatar-files" accept="image/png,image/jpeg,image/webp" multiple className="hidden-file-input" onChange={(event) => {
-														const files = event.target.files ? Array.from(event.target.files).slice(0, 12) : [];
-														setAvatarFiles(files); setAvatarPreviews(files.map((file) => URL.createObjectURL(file))); event.target.value = '';
-													}} />
-													{/* Pedía cuatro como mínimo y era un cerrojo, no un consejo:
-													    el que tenía una sola foto buena de su cara no podía usar
-													    la función. Con una alcanza para fijar la identidad; que
-													    dos o tres la sostengan mejor entre creativos es
-													    información útil, no un requisito. */}
-													<label htmlFor="creation-avatar-files" className="uploader-label" style={{ display: 'inline-flex', width: 'auto' }}>Subir fotos de la persona</label>
-													<p style={{ margin: '8px 0 0', fontSize: '12px', color: '#716d79', lineHeight: 1.45 }}>Con una foto alcanza. Con dos o tres, tomadas de ángulos distintos, la cara sale más parecida de un creativo a otro.</p>
-													{avatarPreviews.length > 0 && <div className="extra-previews-grid" style={{ marginTop: '10px' }}>{avatarPreviews.map((preview) => <div className="preview-thumb" key={preview}><img src={preview} alt="Referencia de avatar" /></div>)}</div>}
-													<label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginTop: '10px', fontSize: '12px', color: '#5f5a67' }}><input type="checkbox" checked={avatarConsent} onChange={(event) => setAvatarConsent(event.target.checked)} /> Confirmo que tengo permiso para usar estas imágenes.</label>
-												</div>
-											)}
+											{personMode === 'upload' && cargaDeAvatar}
 										</div>
 									)}
 								</div>
@@ -1530,13 +1603,19 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 
 						<div className="wiz-actions">
 							<button type="button" className="wiz-back" onClick={() => { setPhase('setup'); setFormStep(3); }} disabled={phase === 'starting'}>← Ajustes</button>
-							<button
+							{/* No se puede aprobar con la carga de fotos a medias: el crédito se
+						    cobra al arrancar y el error aparecía después, con la generación
+						    ya paga y fallada. El motivo va escrito al lado del botón, no
+						    solo en la tarjeta de la decisión, que puede haber quedado
+						    scrolleada fuera de la pantalla. */}
+						<button
 								type="button"
 								onClick={() => void approveReviewedGeneration()}
-								disabled={phase === 'starting'}
+								disabled={phase === 'starting' || Boolean(faltaParaElAvatar)}
+								title={faltaParaElAvatar || undefined}
 								className="url-batch-submit-btn"
 							>
-								{phase === 'starting' ? <><span className="studio-spinner small" aria-hidden="true" /> Generando imagen…</> : <span>Aprobar y generar ✓ · {count} {count === 1 ? 'crédito' : 'créditos'}</span>}
+								{phase === 'starting' ? <><span className="studio-spinner small" aria-hidden="true" /> Generando imagen…</> : faltaParaElAvatar ? <span>Falta una foto de la persona</span> : <span>Aprobar y generar ✓ · {count} {count === 1 ? 'crédito' : 'créditos'}</span>}
 							</button>
 						</div>
 					</>}
