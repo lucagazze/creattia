@@ -120,3 +120,41 @@ describe('la miniatura del logo muestra el archivo que se va a usar', () => {
 		assert.match(leer('src/components/creattia/UrlBatchSection.tsx'), /brandLogoUrl: data\.brandLogoUrl/);
 	});
 });
+
+describe('texto sobre una curva', () => {
+	test('el arco no crece: se acorta el texto', () => {
+		/**
+		 * El ganador tenía "NEW IN" —seis caracteres— en un arco corto metido en la
+		 * esquina. El reemplazo salió con "CREA CON INTELIGENCIA ARTIFICIAL", cinco
+		 * veces más largo: el arco se estiró hasta el centro del lienzo y dejó de
+		 * ser un sello de esquina para competir con el titular. Con un texto más
+		 * largo todavía, se habría ido de la imagen.
+		 */
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, null, false);
+		assert.match(prompt, /CURVED TEXT KEEPS ITS CURVE/);
+		assert.match(prompt, /may NOT exceed the original's character count/);
+		assert.match(prompt, /leave the corner empty/i);
+	});
+
+	test('el arco observado viaja al render con su tope de caracteres', () => {
+		const analisis = {
+			textZones: [{
+				where: 'esquina superior izquierda',
+				original: 'NEW IN',
+				replacement: 'RECIÉN',
+				onCurve: 'arco que abraza la esquina superior izquierda, cubre un cuarto de giro, sentido horario',
+			}],
+		} as any;
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, analisis, false);
+		assert.match(prompt, /THIS TEXT SITS ON A CURVE/);
+		assert.match(prompt, /cubre un cuarto de giro/);
+		// El tope sale del largo del original, no de un número inventado.
+		assert.match(prompt, /no more than 6 characters/);
+	});
+
+	test('una zona recta no arrastra la regla del arco', () => {
+		const analisis = { textZones: [{ where: 'titular', original: 'HOLA', replacement: 'CHAU' }] } as any;
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, analisis, false);
+		assert.doesNotMatch(prompt, /THIS TEXT SITS ON A CURVE/);
+	});
+});
