@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactEventHandler } from 'react';
 import { ratioDeImagen, registrarFalla, registrarImagen } from '../../lib/creattia/image-ready';
+import { puedeRefirmarse, refirmarUrl, useUrlVigente } from '../../lib/creattia/generation-image';
 
 /**
  * Las imágenes de las grillas se piden por pantallazo: primero lo que se mira.
@@ -131,18 +132,35 @@ export function ImagenDeTarjeta({
 }) {
 	const { ref, cerca } = useCercaDePantalla<HTMLImageElement>();
 	const [cargada, setCargada] = useState(false);
-	// La URL firmada se renueva cada tanto y las páginas de un carrusel cambian
-	// dentro de la misma tarjeta: sin reiniciar, la tarjeta seguiría creyendo que
-	// ya tiene puesta una foto que en realidad es la anterior.
+	/**
+	 * La URL de verdad, que puede no ser la que llegó por props.
+	 *
+	 * Las firmas de Supabase vencen y las pantallas guardan en su estado la que
+	 * les tocó al cargar el historial, que con las horas queda vieja. Acá se
+	 * traduce a la que sirve ahora. Es a propósito que la traducción viva en este
+	 * componente y no en quien lo usa: renovar hacia arriba obligaría a reescribir
+	 * `history[i].imageUrl`, y eso re-renderiza la grilla entera y hace parpadear
+	 * ciento cincuenta tarjetas que estaban perfectas.
+	 */
+	const vigente = useUrlVigente(url);
+	// Contra qué URL ya se gastó el reintento. Va por URL y no por un booleano
+	// porque la tarjeta de un carrusel cambia de página sin desmontarse: cada
+	// página tiene derecho a su propio intento.
+	const reintentada = useRef('');
+	// Las páginas de un carrusel cambian dentro de la misma tarjeta: sin
+	// reiniciar, la tarjeta seguiría creyendo que ya tiene puesta una foto que en
+	// realidad es la anterior. Una renovación de firma NO pasa por acá —es la
+	// misma imagen— y por eso no apaga el `cargada`: si lo hiciera, cada renovación
+	// desvanecería la grilla entera de golpe.
 	useEffect(() => { setCargada(false); }, [url]);
 
-	const pedir = cerca && Boolean(url);
+	const pedir = cerca && Boolean(vigente);
 	const clases = `${className}${cargada ? ' cargada' : ''}`.trim();
 
 	return (
 		<img
 			ref={ref}
-			src={pedir ? url : undefined}
+			src={pedir ? vigente : undefined}
 			/* Un `<img>` sin `src` dibuja su `alt` COMO TEXTO: hasta que la foto se
 			   pide se veía el nombre del anuncio escrito en el lugar de la imagen.
 			   Vacío significa "decorativa" y no dibuja nada; el texto de verdad entra
@@ -170,6 +188,18 @@ export function ImagenDeTarjeta({
 				onCargada?.();
 			}}
 			onError={(evento) => {
+				// Una firma vencida devuelve 400 y el `<img>` se queda roto hasta que
+				// alguien recargue la página. El reloj que renueva firmas cubre el caso
+				// normal, pero no llega cuando la pestaña estuvo dormida horas y el
+				// navegador reintenta la bajada apenas despierta. Se pide una firma
+				// nueva y se reintenta una sola vez; cuando la traiga, el render la toma
+				// solo. Esto es únicamente para lo que firmamos nosotros: una referencia
+				// de otro bucket sigue derecho al camino de siempre.
+				if (puedeRefirmarse(vigente) && reintentada.current !== vigente) {
+					reintentada.current = vigente;
+					void refirmarUrl(vigente).then((nueva) => { if (!nueva) registrarFalla(url); });
+					return;
+				}
 				// Quien se hace cargo del error, se hace cargo del todo. La biblioteca
 				// reintenta una vez —el CDN devuelve 429 bajo carga— y si acá se
 				// marcara la falla al primer error, la pantalla sacaría la tarjeta del
