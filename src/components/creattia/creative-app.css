@@ -969,7 +969,7 @@
 }
 
 @media (max-width: 900px) {
-	.library-explorer { grid-template-columns:1fr; }.library-category-tree { position:static; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }.library-category-tree > p { grid-column:1/-1; }.studio-plans-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.studio-plans-grid article.featured { order:-1; }
+	.library-explorer { grid-template-columns:1fr; }.library-category-tree { position:static; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }.library-category-tree > p { grid-column:1/-1; }.studio-plans-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 	.library-ad-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.library-discovery-hero { min-height:220px; padding:30px; }.library-discovery-hero h1 { font-size:34px; }
 	.studio-sidebar { width:230px; transform:translateX(-102%); transition:transform .25s ease; box-shadow:20px 0 60px rgba(15,11,18,.25); }
 	.studio-sidebar.is-open { transform:translateX(0); }
@@ -3143,6 +3143,40 @@
 	}
 }
 
+/* Los planes se leen siempre de menor a mayor: Gratis, Básico, Pro, Scale,
+   Agency. Debajo de 900px había un `order: -1` sobre la tarjeta destacada para
+   subir el plan recomendado arriba de todo, y el efecto real era otro: en el
+   teléfono aparecía Pro primero y después Gratis y Básico, o sea la escalera de
+   precios rota justo donde se la mira más. Se deja fijado para que nadie vuelva
+   a colar un `order` en un breakpoint: el orden lo define la lista de planes. */
+.studio-plans-grid article { order: 0 !important; }
+
+/* En el teléfono entraba una sola tarjeta por pantalla: para comparar seis
+   planes había que scrollear seis veces, y así no se compara nada — cuando
+   llegás al cuarto ya no te acordás qué traía el primero. De a dos y más chicas
+   se ven dos y media de una, que alcanza para leer la escalera de precios.
+   Se achica todo junto y no solo el ancho: una tarjeta de 160px con el precio a
+   42px y los beneficios a 13px queda igual de alta que antes. */
+@media (max-width: 640px) {
+	.studio-plans-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+	.studio-plans-grid article { padding: 22px 13px !important; border-radius: 18px !important; }
+	.studio-plans-grid article > h3 { font-size: 17px !important; }
+	.plan-description { font-size: 11.5px !important; min-height: 46px !important; margin: 0 0 10px !important; }
+	.plan-price-row { min-height: 30px !important; margin: 6px 0 13px !important; }
+	.plan-price-val { font-size: 30px !important; }
+	.plan-price-val b { font-size: 14px !important; }
+	.plan-price-freq { font-size: 12px !important; margin-bottom: 4px !important; }
+	.plan-price-custom { font-size: 21px !important; }
+	.plan-yearly-note { font-size: 11px !important; }
+	.plan-yearly-note strong { font-size: 11.5px !important; }
+	.plan-subscribe-btn { height: 42px !important; border-radius: 21px !important; font-size: 12.5px !important; margin-bottom: 14px !important; }
+	.studio-plans-grid ul { padding-top: 14px !important; gap: 9px !important; }
+	.studio-plans-grid li { font-size: 11.5px !important; gap: 7px !important; }
+	/* La insignia monta sobre el borde superior: a tamaño de escritorio no entra
+	   en una tarjeta de media pantalla y se sale por los dos costados. */
+	.most-popular-badge { font-size: 10px !important; padding: 3px 9px !important; }
+}
+
 /* Con cinco columnas la tarjeta mide 212px en un notebook de 1440: 24px de
    padding a cada lado dejaban 164px de contenido, tres precios se salían del
    borde derecho y 19 de los 28 beneficios caían en dos renglones. Con 20 quedan
@@ -3226,6 +3260,11 @@
 	display: flex !important;
 	align-items: flex-end !important;
 	margin: 10px 0 20px !important;
+	/* El alto de la fila lo daba el número, y la tarjeta "A medida" no tiene
+	   número: sin un piso, esa tarjeta subía todo lo de abajo y quedaba con el
+	   botón desalineado de los otros cinco. 42px es exactamente el alto de un
+	   precio. */
+	min-height: 42px !important;
 }
 
 /* "$69.99 /mes" a 48px necesita 180px y en la tarjeta de cinco columnas hay 172:
@@ -3268,6 +3307,33 @@
 .plan-subscribe-btn:disabled {
 	opacity: 0.55 !important;
 	cursor: default !important;
+}
+
+/* El plan que no se contrata solo: arriba de Agency el volumen deja de tener
+   tarifa de lista. Se distingue con borde punteado y no con otro color fuerte,
+   porque el acento de esta grilla ya lo tiene la tarjeta más elegida y dos
+   tarjetas peleando por la mirada no destacan ninguna. */
+.studio-plans-grid article.plan-a-medida {
+	border: 1.5px dashed #cfc6dd !important;
+	background: #fcfbfe !important;
+}
+.plan-price-custom {
+	font-size: 26px !important;
+	font-weight: 800 !important;
+	line-height: 1 !important;
+	letter-spacing: -0.02em !important;
+	color: #19171d !important;
+}
+/* Es un enlace y no un botón —abre WhatsApp— pero tiene que medirse y verse
+   igual que los otros cinco: con la altura de un `<a>` suelto, la última tarjeta
+   de la fila quedaba con el pie corrido respecto de sus vecinas. */
+.plan-subscribe-link {
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	gap: 8px !important;
+	background: #19171d !important;
+	text-decoration: none !important;
 }
 
 .studio-plans-grid ul {
@@ -4209,7 +4275,12 @@
 /* La salida al pie de la grilla: se lee como el resto de la nota y solo el verbo
    se destaca, porque es un desvío para el que no compra, no la acción principal
    de la pantalla. */
-.plan-note-tokens { margin-top: 6px !important; }
+/* Los 6px de antes dejaban la nota pegada al pie de las tarjetas, como si fuera
+   la última línea de la quinta: se leía de corrido con la lista de beneficios de
+   Agency en vez de como lo que es, el desvío para el que no quiere suscribirse.
+   La tarjeta destacada además monta su insignia 12px por fuera del borde
+   superior, así que el bloque necesita respirar por los dos lados. */
+.plan-note-tokens { margin-top: 32px !important; }
 .plan-note-tokens button {
 	padding: 0; border: 0; background: none; color: #744bde; cursor: pointer;
 	font: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 3px;
@@ -6189,6 +6260,18 @@
 }
 .billing-switch button.active em { background: #d6f2e3; }
 
+/* Dos niveles, uno debajo del otro: primero QUÉ se compra, después cada cuánto
+   se cobra. En una sola fila —Mensual · Anual · Tokens sueltos— la compra suelta
+   se leía como una tercera forma de pagar la suscripción, que es justamente lo
+   contrario de lo que es. */
+.billing-switch-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
+.billing-switch-stack .billing-switch { margin: 0; }
+/* El segundo nivel cuelga del primero, así que pesa menos. Con los dos idénticos
+   quedaban dos filas de píldoras iguales una arriba de la otra y no se leía cuál
+   manda sobre cuál. */
+.billing-switch-ciclo { background: transparent; border-color: #ece7f2; padding: 3px; }
+.billing-switch-ciclo button { min-height: 34px; padding: 0 14px; font-size: 12.5px; }
+
 /* Lo que se cobra de verdad, debajo del precio por mes. */
 .plan-yearly-note {
 	display: flex; flex-direction: column; gap: 2px;
@@ -6197,12 +6280,14 @@
 .plan-yearly-note strong { font-size: 13px; color: #19171d; }
 .plan-yearly-note span { color: #716d79; }
 .plan-unit-note { margin-top: -4px; }
-/* La tarjeta destacada es negra: el #19171d de arriba dejaba la cantidad de
-   tokens escrita en negro sobre negro. Pasaba desapercibido mientras el dato
-   vivía en la lista de beneficios, pero ahora es el número más importante de la
-   tarjeta y en el plan más elegido no se veía. */
-.studio-plans-grid .featured .plan-yearly-note strong { color: #fff; }
-.studio-plans-grid .featured .plan-yearly-note span { color: #c4bcc9; }
+/* Acá vivían dos reglas que pintaban de blanco la cantidad de tokens de la
+   tarjeta destacada. Tenían sentido cuando esa tarjeta era negra; después se
+   unificaron todas en blanco ("Plans Page Cards Uniformity" migró el título, la
+   descripción, el precio y la lista) y estas dos quedaron. El resultado era
+   blanco sobre blanco: en el plan Pro se leía "por mes" a secas, sin el número
+   adelante, que es justo el dato que decide la compra. Se borran en vez de
+   repintarse: las reglas de arriba ya dan el color correcto sobre blanco, y la
+   tarjeta destacada se distingue por el borde y la insignia, no por el fondo. */
 
 /* En el teléfono son tres opciones donde antes había dos, y con `flex: 1` no
    entraban: los botones no bajan del ancho de su contenido, así que la fila se

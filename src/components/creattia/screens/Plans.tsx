@@ -1,4 +1,4 @@
-import { subscriptionPlans, yearlyPriceFor, yearlySavingsFor } from '../../../lib/creattia/subscription-plans';
+import { planAMedida, subscriptionPlans, whatsappAMedida, yearlyPriceFor, yearlySavingsFor } from '../../../lib/creattia/subscription-plans';
 import { isSupabaseConfigured, supabase } from '../../../lib/creattia/supabase-browser';
 import { Icon } from '../Icon';
 import { activeSubscriptionStatuses, getSessionId, getSessionToken, paidSubscriptionStatuses, planRank } from '../app-session';
@@ -217,17 +217,22 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 	const [pendingPlanChange, setPendingPlanChange] = useState<{ planCode: string; direction: 'up' | 'down' } | null>(null);
 	const [confirmingCancel, setConfirmingCancel] = useState(false);
 	/**
-	 * Mensual, anual o tokens sueltos. Estaba clavado en 'monthly': el cobro anual
-	 * existía en el servidor pero no había forma de llegar a él desde la pantalla.
+	 * Dos decisiones, en dos niveles, porque son de distinto orden.
 	 *
-	 * 'credits' entró después por el mismo motivo del otro lado: quien no quiere
-	 * una suscripción hoy veía cinco planes con renovación mensual y nada más. La
-	 * compra suelta vivía abajo de todo, después de la grilla y del cartel de
-	 * cancelación, así que en el teléfono había que scrollear una pantalla y media
-	 * para descubrir que existía. El que no quería suscribirse simplemente se iba.
+	 * Antes las tres opciones estaban en la misma fila: Mensual · Anual · Tokens
+	 * sueltos. Leído así, "tokens sueltos" parecía una tercera forma de pagar la
+	 * suscripción, cuando en realidad es lo contrario de suscribirse. Primero se
+	 * elige QUÉ se compra —un plan o tokens— y recién dentro de los planes cada
+	 * cuánto se cobra. La segunda fila solo aparece cuando hay algo que decidir en
+	 * ella; mostrar "Mensual | Anual" mientras se miran los tokens sueltos era
+	 * ofrecer una elección que no se aplica a nada de lo que hay en pantalla.
+	 *
+	 * El ciclo se conserva al ir y volver de los tokens: quien estaba mirando el
+	 * anual vuelve al anual.
 	 */
-	const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly' | 'credits'>('monthly');
-	const comprandoTokens = billingCycle === 'credits';
+	const [vista, setVista] = useState<'planes' | 'tokens'>('planes');
+	const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+	const comprandoTokens = vista === 'tokens';
 	/**
 	 * Cambia a la compra suelta y sube.
 	 *
@@ -238,7 +243,7 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 	 * de la página sin entender qué pasó.
 	 */
 	function verTokensSueltos() {
-		setBillingCycle('credits');
+		setVista('tokens');
 		if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 	async function changePlan(planCode: string, direction: 'up' | 'down') {
@@ -384,24 +389,34 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 			</div>
 		)}
 
-		{/* Mensual o anual. Antes no existía la opción y el anual era inalcanzable.
-		    La tercera opción es la salida para el que no quiere suscribirse. */}
-		<div className="billing-switch" role="radiogroup" aria-label="Modalidad de cobro">
-			<button
-				type="button" role="radio" aria-checked={billingCycle === 'monthly'}
-				className={billingCycle === 'monthly' ? 'active' : ''}
-				onClick={() => setBillingCycle('monthly')}
-			>Mensual</button>
-			<button
-				type="button" role="radio" aria-checked={billingCycle === 'yearly'}
-				className={billingCycle === 'yearly' ? 'active' : ''}
-				onClick={() => setBillingCycle('yearly')}
-			>Anual <em>2 meses gratis</em></button>
-			<button
-				type="button" role="radio" aria-checked={comprandoTokens}
-				className={comprandoTokens ? 'active' : ''}
-				onClick={() => setBillingCycle('credits')}
-			>Tokens sueltos</button>
+		{/* Primer nivel: qué se compra. Segundo nivel: cada cuánto se cobra. */}
+		<div className="billing-switch-stack">
+			<div className="billing-switch" role="radiogroup" aria-label="Qué querés comprar">
+				<button
+					type="button" role="radio" aria-checked={!comprandoTokens}
+					className={!comprandoTokens ? 'active' : ''}
+					onClick={() => setVista('planes')}
+				>Planes</button>
+				<button
+					type="button" role="radio" aria-checked={comprandoTokens}
+					className={comprandoTokens ? 'active' : ''}
+					onClick={() => setVista('tokens')}
+				>Tokens</button>
+			</div>
+			{!comprandoTokens && (
+				<div className="billing-switch billing-switch-ciclo" role="radiogroup" aria-label="Cada cuánto se cobra">
+					<button
+						type="button" role="radio" aria-checked={billingCycle === 'monthly'}
+						className={billingCycle === 'monthly' ? 'active' : ''}
+						onClick={() => setBillingCycle('monthly')}
+					>Mensual</button>
+					<button
+						type="button" role="radio" aria-checked={billingCycle === 'yearly'}
+						className={billingCycle === 'yearly' ? 'active' : ''}
+						onClick={() => setBillingCycle('yearly')}
+					>Anual <em>2 meses gratis</em></button>
+				</div>
+			)}
 		</div>
 
 		{error && <p className="studio-form-error">{error}</p>}
@@ -492,7 +507,31 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 				<ul>{plan.features.map((f, i) => <li key={i} className={f.active ? 'active-feature' : 'inactive-feature'}>{f.active ? <Icon name="check" size={14}/> : <Icon name="close" size={14}/>} {f.name}</li>)}</ul>
 			</article>;
 
-		})}</div>
+		})}
+		{/* Va suelta al final y no dentro de `subscriptionPlans` porque no es un
+		    plan: no tiene precio, no tiene código y nadie la puede contratar solo.
+		    Esa lista la leen el webhook de Mercado Pago, el panel admin y la home,
+		    y una fila sin precio ahí obliga a filtrarla en cada uno. */}
+		<article className="plan-a-medida">
+			<h3>{planAMedida.name}</h3>
+			<small className="plan-description">{planAMedida.description}</small>
+			<div className="plan-price-row">
+				<span className="plan-price-custom">Hablemos</span>
+			</div>
+			<p className="plan-yearly-note plan-unit-note">
+				<span>Los tokens que <strong>necesites</strong></span>
+			</p>
+			<a
+				className="plan-subscribe-btn plan-subscribe-link"
+				href={whatsappAMedida()}
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				Escribinos por WhatsApp
+			</a>
+			<ul>{planAMedida.features.map((f, i) => <li key={i} className="active-feature"><Icon name="check" size={14}/> {f.name}</li>)}</ul>
+		</article>
+		</div>
 		{/* La salida para el que llegó hasta acá y ninguna suscripción le cierra.
 		    Sin este renglón la única puerta a los tokens sueltos es una pestaña
 		    arriba de todo, que en el teléfono ya quedó fuera de pantalla. */}

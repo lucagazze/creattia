@@ -156,6 +156,39 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 ];
 
 /**
+ * El plan que no se contrata por acá: se conversa.
+ *
+ * Arriba de Agency el volumen deja de tener una tarifa de lista —son equipos que
+ * piden otra cantidad de tokens, otro límite de marcas o facturación distinta— y
+ * hasta ahora esa conversación no existía: quien necesitaba más que Agency
+ * llegaba al final de la grilla y no tenía a dónde ir.
+ *
+ * Vive FUERA de `subscriptionPlans` a propósito. Esa lista es la tabla de precios
+ * del negocio: la leen el webhook de Mercado Pago para acreditar tokens, el panel
+ * admin, el límite de marcas y la home. Meter acá una tarjeta sin precio ni
+ * `code` obligaría a filtrarla en cada uno de esos lugares, y el día que alguien
+ * se olvide de un filtro el error cae del lado del cobro.
+ */
+export const planAMedida = {
+	name: 'A medida',
+	description: 'Más volumen, más marcas o facturación propia. Lo armamos con vos.',
+	/** El botón abre WhatsApp: es donde efectivamente se responde. */
+	whatsapp: '5493476245523',
+	mensaje: 'Hola, necesito un plan a medida de Creattia.',
+	features: [
+		{ name: 'Todo lo del plan Agency', active: true },
+		{ name: 'La cantidad de tokens que necesites', active: true },
+		{ name: 'Marcas activas sin tope', active: true },
+		{ name: 'Facturación y soporte a medida', active: true },
+	],
+};
+
+/** El link de WhatsApp del plan a medida, con el mensaje ya escrito. */
+export function whatsappAMedida() {
+	return `https://wa.me/${planAMedida.whatsapp}?text=${encodeURIComponent(planAMedida.mensaje)}`;
+}
+
+/**
  * Marcas activas habilitadas por plan. Fuente única: la oferta comercial de
  * arriba. `brands.ts` tenía su propia tabla, sin 'agency', así que la cuenta más
  * cara del catálogo terminaba limitada a 1 marca — el valor de reserva.
