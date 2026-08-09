@@ -365,7 +365,46 @@
 .studio-logo small { font-size: 12px; color: #8b8590; letter-spacing: .08em; text-transform: uppercase; }
 .studio-close-menu { display: none; }
 
-.studio-nav { margin-top: 41px; display: flex; flex-direction: column; gap: 5px; }
+/**
+ * Zona scrolleable del menú lateral.
+ *
+ * El aside es `position: fixed` con el alto de la pantalla y adentro tenía todo
+ * suelto en un flex en columna. En celulares bajos (un 360x640 con la barra del
+ * navegador comiendo alto, o cualquier pantalla de 560px útiles) no entraba, y
+ * como ningún hijo tenía flex-shrink, flexbox los achataba a todos: los ítems
+ * perdían alto, los espacios se cerraban y "Mi cuenta" con el mail quedaba
+ * cortado abajo del borde, sin ninguna forma de llegar. Con Configuración
+ * desplegada era peor todavía.
+ *
+ * Ahora el logo y la X quedan fijos arriba y todo lo demás vive acá adentro:
+ * cada bloque conserva su alto real y lo que sobra se scrollea. El `min-height:0`
+ * es lo que permite que un hijo de un flex container pueda ser más chico que su
+ * contenido; sin eso el `overflow-y` no llega a activarse nunca.
+ */
+.studio-sidebar-scroll {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	overflow-y: auto;
+	overflow-x: hidden;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+	scroll-behavior: smooth;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+.studio-sidebar-scroll::-webkit-scrollbar { width: 0; height: 0; }
+
+/* Los espacios entre bloques tienen que quedarse quietos: si estos hijos pueden
+   encogerse, volvemos al menú comprimido en vez del menú scrolleable. */
+.studio-sidebar-head,
+.studio-sidebar-scroll > .studio-nav,
+.studio-sidebar-scroll > .studio-sidebar-bottom,
+.studio-nav > p,
+.studio-nav button { flex-shrink: 0; }
+
+.studio-nav { margin-top: 18px; display: flex; flex-direction: column; gap: 5px; }
 .studio-nav > p { margin: 0 10px 11px; color: #6f6974; font-size: 11.5px; font-weight: 800; letter-spacing: .16em; }
 .studio-nav button {
 	width: 100%;
@@ -925,6 +964,9 @@
 	.library-ad-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.library-discovery-hero { min-height:220px; padding:30px; }.library-discovery-hero h1 { font-size:34px; }
 	.studio-sidebar { width:230px; transform:translateX(-102%); transition:transform .25s ease; box-shadow:20px 0 60px rgba(15,11,18,.25); }
 	.studio-sidebar.is-open { transform:translateX(0); }
+	/* En el panel de celular el aire entre el logo y "ESPACIO DE TRABAJO" era casi
+	   la mitad de lo que se veía al abrir el menú, con el título recién a 118px. */
+	.studio-nav { margin-top:8px; }
 	.studio-close-menu { position:absolute; display:grid; place-items:center; right:14px; top:22px; width:36px; height:36px; border:1px solid #ece8f0; border-radius:10px; background:#f6f4f9; color:#6f6a75; cursor:pointer; transition:background .15s ease, color .15s ease; }
 	.studio-close-menu:hover { background:#efeaf6; color:#3a3540; }
 	.studio-mobile-scrim { position:fixed; inset:0; z-index:45; display:block; background:rgba(15,12,17,.45); backdrop-filter:blur(3px); opacity:0; pointer-events:none; transition:opacity .2s; }
@@ -3163,21 +3205,57 @@
 /* ========================================================
    PLANS AND PRICING READABILITY & BRAND ALIGNMENT
    ======================================================== */
+/* Son cinco planes y la grilla pedía cuatro columnas: Agency bajaba solo a una
+   segunda fila, descolgado del resto. Y como las columnas eran `1fr` a secas,
+   nunca achicaban por debajo del ancho mínimo de la tarjeta (~229px), así que
+   entre 1100 y 1300px de ventana la grilla se pasaba del contenedor y el
+   `overflow-x: clip` de .studio-content cortaba la cuarta tarjeta al medio.
+   `minmax(0, 1fr)` deja que el texto se acomode en vez de que la tarjeta se
+   salga.
+
+   Acá adentro no hay 1280px de ancho como en la landing: el menú lateral se
+   lleva 248px y el contenido otros 76 de padding. Recién arriba de 1440px de
+   ventana quedan ~1116px reales, que es lo que permite cinco columnas de 212px
+   sin que el precio de Agency se salga de la tarjeta. Debajo de eso van tres
+   arriba y dos abajo, que se lee mucho mejor que cuatro más una huérfana.
+
+   El piso de 225px del auto-fit es lo que hace que en una tablet de 768 o 1024
+   entren tres columnas: con 260 entraban dos y quedaba la quinta tarjeta sola
+   en una tercera fila. */
 .studio-plans-grid {
-	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important;
+	grid-template-columns: repeat(auto-fit, minmax(225px, 1fr)) !important;
+	gap: 14px !important;
 	max-width: none !important;
 	margin: 30px 0 0 !important;
 }
-@media (min-width: 1100px) {
+@media (min-width: 1101px) {
 	.studio-plans-grid {
-		grid-template-columns: repeat(4, 1fr) !important;
+		grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+	}
+}
+@media (min-width: 1440px) {
+	.studio-plans-grid {
+		grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+	}
+}
+/* Con el menú plegado el lateral pasa de 248 a 72px, así que sobran 176px y las
+   cinco columnas ya entran desde 1264px de ventana: el mismo ancho de tarjeta
+   que da 1440 con el menú abierto. */
+@media (min-width: 1264px) {
+	.creative-app-shell.sidebar-minimized .studio-plans-grid {
+		grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
 	}
 }
 
+/* Con cinco columnas la tarjeta mide 212px en un notebook de 1440: 24px de
+   padding a cada lado dejaban 164px de contenido, tres precios se salían del
+   borde derecho y 19 de los 28 beneficios caían en dos renglones. Con 20 quedan
+   172, no se sale ninguno y el radio baja a 22 porque 24px de curva sobre una
+   tarjeta de este ancho se comían la esquina. */
 .studio-plans-grid article {
 	border: 1px solid #e9e6ed !important;
-	border-radius: 24px !important;
-	padding: 32px 24px !important;
+	border-radius: 22px !important;
+	padding: 30px 20px !important;
 	background: #fff !important;
 	color: #19171d !important;
 	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.02) !important;
@@ -3193,10 +3271,17 @@
 	box-shadow: 0 20px 45px -10px rgba(236, 68, 146, 0.15) !important;
 }
 
+/* El `right: 15px` viene del bloque viejo, de cuando el badge iba pegado a la
+   esquina. Acá se centra con left:50% + translateX(-50%), pero ese `right`
+   sobreviviente le fijaba la caja en "media tarjeta menos 15px": a 212px de
+   tarjeta la caja daba 89px para un texto de 116, el texto se desbordaba a la
+   derecha y "MÁS ELEGIDO" quedaba 8px corrido del centro, cada vez más corrido
+   cuanto más angosta la tarjeta. */
 .most-popular-badge {
 	position: absolute !important;
 	top: -12px !important;
 	left: 50% !important;
+	right: auto !important;
 	transform: translateX(-50%) !important;
 	background: linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%) !important;
 	color: #FFF !important;
@@ -3233,8 +3318,11 @@
 	margin: 10px 0 20px !important;
 }
 
+/* "$97.70 /mes" a 48px necesita 180px y en la tarjeta de cinco columnas hay 172:
+   el precio del plan Agency se salía por el borde derecho. A 42px entra con
+   aire y deja de pelearle el tamaño al nombre del plan. */
 .plan-price-val {
-	font-size: 48px !important;
+	font-size: 42px !important;
 	font-weight: 800 !important;
 	line-height: 1 !important;
 	color: #19171d !important;

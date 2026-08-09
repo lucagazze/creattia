@@ -1,9 +1,10 @@
+import { escucharVueltaALaPantalla } from '../../../lib/creattia/ingreso-en-curso';
 import { isSupabaseConfigured, supabase } from '../../../lib/creattia/supabase-browser';
 import { Icon } from '../Icon';
 import { PROFILE_KEY, SESSION_KEY, defaultProfile, loadLocal, saveLocal } from '../app-storage';
 import type { AppSession, DemoSession } from '../app-types';
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 /** Login, registro y el estado de "no pudimos crear tu cuenta". */
 
 export function authRedirectUrl() {
@@ -18,13 +19,36 @@ export function AuthScreen({ onSession }: { onSession: (session: AppSession) => 
 	const [fullName, setFullName] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
-	const [loading, setLoading] = useState(false);
+	/**
+	 * Un ingreso a la vez, y quién lo tiene tomado.
+	 *
+	 * Antes era un `loading` de sí o no compartido por los dos caminos. El de
+	 * Google lo prendía y ya no volvía a ejecutarse nada acá —se va de la página—,
+	 * así que quien abría Google y volvía atrás porque en realidad quería entrar
+	 * con su correo se encontraba el botón "Ingresar" en gris para siempre.
+	 *
+	 * Sigue siendo un estado solo, a propósito: con uno por camino se podía
+	 * mandar el ingreso con correo mientras Google ya estaba llevándose la
+	 * página, y terminaban compitiendo dos sesiones. Lo que cambia es que ahora
+	 * se sabe cuál está en curso, y el de Google se suelta al volver.
+	 */
+	const [enCurso, setEnCurso] = useState<'email' | 'google' | null>(null);
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
 
+	// El del correo siempre termina en su `finally`; el de Google no termina
+	// nunca de este lado, así que su única salida es que la persona vuelva.
+	useEffect(() => {
+		if (enCurso !== 'google') return;
+		return escucharVueltaALaPantalla(() => setEnCurso(null), window);
+	}, [enCurso]);
+
 	async function submit(event: FormEvent) {
 		event.preventDefault();
-		setError(''); setNotice(''); setLoading(true);
+		// Enter en un campo con el botón deshabilitado no manda el formulario, pero
+		// eso depende del navegador y el candado de verdad tiene que estar acá.
+		if (enCurso) return;
+		setError(''); setNotice(''); setEnCurso('email');
 		try {
 			if (isSupabaseConfigured && supabase) {
 				if (mode === 'signup') {
@@ -48,7 +72,7 @@ export function AuthScreen({ onSession }: { onSession: (session: AppSession) => 
 			}
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo ingresar.');
-		} finally { setLoading(false); }
+		} finally { setEnCurso(null); }
 	}
 
 	function enterDemo() {
@@ -65,12 +89,13 @@ export function AuthScreen({ onSession }: { onSession: (session: AppSession) => 
 	}
 
 	async function signInWithGoogle() {
+		if (enCurso) return;
 		setError(''); setNotice('');
 		if (!isSupabaseConfigured || !supabase) {
 			setError('El acceso con Google todavía no está disponible en esta demo.');
 			return;
 		}
-		setLoading(true);
+		setEnCurso('google');
 		try {
 			const { error: authError } = await supabase.auth.signInWithOAuth({
 				provider: 'google',
@@ -79,7 +104,7 @@ export function AuthScreen({ onSession }: { onSession: (session: AppSession) => 
 			if (authError) throw authError;
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo continuar con Google.');
-			setLoading(false);
+			setEnCurso(null);
 		}
 	}
 
@@ -93,7 +118,7 @@ export function AuthScreen({ onSession }: { onSession: (session: AppSession) => 
 						<h2>{mode === 'signup' ? 'Creá imágenes que venden en minutos' : 'Volvé a tu espacio creativo'}</h2>
 						<p>{mode === 'signup' ? 'Tus primeras 3 imágenes son gratis. Sin tarjeta.' : 'Ingresá para seguir creando con tu marca.'}</p>
 					</div>
-						<button className="studio-google-button" type="button" onClick={signInWithGoogle} disabled={loading}><img src="/images/creattia/google-g.svg" alt=""/>Continuar con Google</button>
+						<button className="studio-google-button" type="button" onClick={signInWithGoogle} disabled={enCurso !== null}><img src="/images/creattia/google-g.svg" alt=""/>Continuar con Google</button>
 						<div className="studio-auth-divider"><span>o</span></div>
 						<form onSubmit={submit}>
 							{mode === 'signup' && <label>Tu nombre<input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="¿Cómo te llamás?" autoComplete="name" required /></label>}
@@ -101,7 +126,7 @@ export function AuthScreen({ onSession }: { onSession: (session: AppSession) => 
 							<label>Contraseña<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" minLength={8} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required /></label>
 							{error && <p className="studio-form-error">{error}</p>}
 							{notice && <p className="studio-form-notice">{notice}</p>}
-							<button className="studio-primary-button" disabled={loading || !email.trim() || !password}>{loading ? <span className="studio-spinner small"/> : <>{mode === 'signup' ? 'Crear cuenta gratis' : 'Ingresar'}<Icon name="arrow" size={18}/></>}</button>
+							<button className="studio-primary-button" disabled={enCurso !== null || !email.trim() || !password}>{enCurso === 'email' ? <span className="studio-spinner small"/> : <>{mode === 'signup' ? 'Crear cuenta gratis' : 'Ingresar'}<Icon name="arrow" size={18}/></>}</button>
 						</form>
 					{!isSupabaseConfigured && <button className="studio-demo-entry" onClick={enterDemo}>Entrar directo con la cuenta demo</button>}
 					<small className="studio-terms">Al continuar aceptás los <a href="/terminos/">términos</a> y la <a href="/privacidad/">política de privacidad</a>.</small>
