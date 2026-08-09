@@ -1,7 +1,7 @@
 ---
 export const prerender = true;
 import Layout from '../layouts/Layout.astro';
-import { subscriptionPlans } from '../lib/creattia/subscription-plans';
+import { subscriptionPlans, YEARLY_PAID_MONTHS } from '../lib/creattia/subscription-plans';
 import { showcaseUrl } from '../lib/creattia/showcase';
 
 
@@ -666,7 +666,14 @@ const faqs = [
 			<div class="section-header max-w-[800px] margin-auto">
 				<span class="section-tag">PLANES</span>
 				<h2>Elegí tu plan para crear imágenes que venden.</h2>
-				<p class="section-desc">Todos los planes pagos incluyen la biblioteca completa. Elegí el volumen de tokens mensuales que necesitás.</p>
+				{/* Los tokens son mensuales en las dos modalidades, y hay que decirlo
+				    acá: el plan anual se cobra una sola vez y la lectura natural es
+				    que también entrega todo junto. No: entrega los mismos tokens cada
+				    mes, y lo que se ahorra son los meses que no se pagan. */}
+				<p class="section-desc">
+					Todos los planes pagos incluyen la biblioteca completa. Elegí el volumen de tokens mensuales que necesitás.
+					También podés pagar el año de una: son {12 - YEARLY_PAID_MONTHS} meses gratis y los tokens se cargan igual, mes a mes.
+				</p>
 			</div>
 
 			<div class="plans-grid">
@@ -681,6 +688,12 @@ const faqs = [
 							<b class="amount">{plan.priceLabel}</b>
 							{plan.price > 0 && <span class="period">/mes</span>}
 						</div>
+
+						{/* Cuántos tokens entran, resaltado y arriba del botón. Estaba
+						    escondido como un renglón más de la lista de beneficios, entre
+						    "soporte por email" y "marcas activas", así que había que leer
+						    seis ítems para encontrar el dato que decide la compra. */}
+						<p class="plan-credits"><strong>{plan.tokensLabel}</strong> por mes</p>
 
 						<a href={plan.href} class="plan-cta">
 							<span>{plan.cta}</span>
@@ -3214,9 +3227,15 @@ const faqs = [
 
 	.plan-credits {
 		display: block;
-		font-size: 16px;
-		font-weight: 700;
-		margin-bottom: 24px;
+		margin: 0 0 22px;
+		font-size: 14px;
+		font-weight: 500;
+		color: var(--text-grey);
+	}
+
+	.plan-credits strong {
+		font-weight: 800;
+		color: var(--text-dark);
 	}
 
 	.plan-cta {
@@ -3679,7 +3698,15 @@ const faqs = [
 		align-items: flex-end;
 		gap: 5px;
 		min-height: 64px;
-		margin-bottom: 22px;
+		/* Los tokens del mes van pegados al precio: son la otra mitad del mismo
+		   dato. Con los 22px de antes quedaban flotando entre el precio y el
+		   botón, como si fueran un beneficio suelto más. */
+		margin-bottom: 8px;
+	}
+
+	.plan-credits {
+		margin-bottom: 20px;
+		font-size: 13.5px;
 	}
 
 	.plan-price .currency {

@@ -1,10 +1,20 @@
 import type { APIRoute } from 'astro';
 import { ADMIN_PLAN_LABELS, ADMIN_PLAN_CODES, isAdminEmail } from '../../../lib/creattia/admin';
 import { authenticateRequest, getAdminClient, json } from '../../../lib/creattia/server';
+import { subscriptionPlans } from '../../../lib/creattia/subscription-plans';
 
 export const prerender = false;
 
-const PLAN_PRICES: Record<string, number> = { creator: 9.99, pro: 24.99, scale: 49.99, agency: 97.70 };
+/**
+ * Con esto se calcula la facturación recurrente que muestra el panel.
+ *
+ * Estaba copiada a mano y quedó con los precios de la escalera anterior, así que
+ * después de cambiarlos el panel iba a seguir informando un MRR inflado —Agency
+ * a USD 97.70 cuando se cobran 69.99— sin que nada avisara. Sale de la oferta.
+ */
+const PLAN_PRICES: Record<string, number> = Object.fromEntries(
+	subscriptionPlans.filter((plan) => plan.price > 0).map((plan) => [plan.code, plan.price]),
+);
 const DAY = 24 * 60 * 60 * 1000;
 const ACTIVE_WINDOW_MS = 10 * 60 * 1000;
 

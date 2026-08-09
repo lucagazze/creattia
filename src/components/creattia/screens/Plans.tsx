@@ -42,8 +42,11 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 	 * nunca podía quedar vacío: para escribir 3 había que borrar el 1 y no se
 	 * podía, terminabas con 13 o 31. Ahora se deja escribir libremente y el valor
 	 * se acota recién al calcular el total y al pagar.
+	 *
+	 * Arranca vacío y se completa con el mínimo que devuelve el servidor: dejarlo
+	 * clavado en un número acá era volver a tener la regla escrita en dos lados.
 	 */
-	const [quantity, setQuantity] = useState('1');
+	const [quantity, setQuantity] = useState('');
 	const [error, setError] = useState('');
 
 	useEffect(() => {
@@ -53,7 +56,12 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 		})
 		.then(r => r.json())
 		.then(data => {
-			if (active) setConfig(data);
+			if (!active) return;
+			setConfig(data);
+			// El campo arranca en el mínimo que manda el servidor. Dejarlo vacío
+			// mostraría "Total a pagar" calculado sobre una cantidad que no está
+			// escrita en ningún lado de la pantalla.
+			setQuantity(String(Number(data?.minCredits) || 10));
 		})
 		.catch(() => null);
 		return () => { active = false; };
@@ -82,7 +90,24 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 	if (!config) return <div className="studio-loading-panel" style={{ marginTop: '36px', minHeight: '120px' }}><span className="studio-spinner" aria-hidden="true" /><p>Cargando opciones de pago…</p></div>;
 	const unconfigured = !config.configured;
 	const maxCredits = Number(config.maxCredits || 1000);
-	const safeQuantity = Math.min(maxCredits, Math.max(1, Math.floor(Number(quantity) || 1)));
+	const minCredits = Number(config.minCredits || 10);
+	const creditStep = Math.max(1, Number(config.creditStep || 5));
+	/**
+	 * La cantidad que se va a mandar al checkout, ya redondeada a la regla.
+	 *
+	 * Los tokens sueltos se venden de a `creditStep` desde `minCredits`, y el
+	 * servidor rechaza con un 400 cualquier otra cantidad. Si acá no se ajustara,
+	 * escribir 13 en el campo terminaba en "Los tokens sueltos se compran de a
+	 * 5…" recién después de tocar Continuar: el error llega al final, cuando la
+	 * persona ya decidió pagar. Se acomoda al escalón más cercano hacia abajo
+	 * —nunca se cobra más de lo que la persona escribió— y se acota al tope.
+	 */
+	const safeQuantity = (() => {
+		const escrito = Math.floor(Number(quantity) || 0);
+		if (escrito <= minCredits) return minCredits;
+		const escalones = Math.floor((Math.min(maxCredits, escrito) - minCredits) / creditStep);
+		return minCredits + escalones * creditStep;
+	})();
 	const unitPrice = Number(config.unitPrice || 0.3);
 	const totalPrice = (unitPrice * safeQuantity).toFixed(2);
 	// "USD 0.49" y no "u$s 0.49": el símbolo criollo se lee informal y encima
@@ -103,7 +128,10 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 	// Atajos para los tres volúmenes que se piden siempre. Escribir un número en
 	// un campo vacío es una decisión más: quien entra acá ya descartó suscribirse
 	// y hay que darle algo para tocar, no otro formulario.
-	const atajos = [5, 20, 50].filter((cantidad) => cantidad <= maxCredits);
+	// El atajo de 5 quedó fuera de la regla cuando el mínimo pasó a 10: el botón
+	// se veía, se podía tocar y el checkout lo rechazaba con un 400.
+	const atajos = [10, 20, 50]
+		.filter((cantidad) => cantidad >= minCredits && cantidad <= maxCredits && (cantidad - minCredits) % creditStep === 0);
 
 	return (
 		<div id="buy-credits-section" style={{ marginTop: '30px', padding: '24px', background: '#f5f2f9', border: '1px solid #e2dee8', borderRadius: '16px' }}>
@@ -125,7 +153,7 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 			<div className="credit-checkout-grid">
 				<div style={{ background: '#fff', border: '1px solid #e9e6ed', borderRadius: '12px', padding: '18px', boxShadow: '0 4px 12px rgba(25, 23, 29, 0.03)' }}>
 					<label htmlFor="credit-quantity" style={{ display: 'block', marginBottom: '7px', color: '#19171d', fontSize: '15px', fontWeight: 800 }}>¿Cuántos tokens querés comprar?</label>
-					<p style={{ margin: '0 0 14px', color: '#716d79', fontSize: '12.5px', lineHeight: 1.45 }}>Elegí cualquier cantidad. Cada token equivale a una imagen generada.</p>
+					<p style={{ margin: '0 0 14px', color: '#716d79', fontSize: '12.5px', lineHeight: 1.45 }}>Desde {minCredits} tokens, de a {creditStep}. Cada token equivale a una imagen generada.</p>
 					{atajos.length > 0 && (
 						<div className="credit-quick-picks">
 							{atajos.map((cantidad) => (
@@ -143,14 +171,18 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 							id="credit-quantity"
 							type="number"
 							inputMode="numeric"
-							min={1}
+							min={minCredits}
 							max={maxCredits}
-							step={1}
+							step={creditStep}
 							value={quantity}
 							onChange={(event) => {
 								const escrito = event.target.value;
 								// Se permite el campo vacío mientras se escribe; solo se
-								// descartan las letras y los números fuera de rango.
+								// descartan las letras y los números fuera de rango. El
+								// mínimo y el escalón NO se aplican acá: forzarlos en cada
+								// tecla es el mismo problema de antes con otro número —para
+								// llegar a 25 hay que pasar por el 2— así que se acomodan
+								// recién al salir del campo.
 								if (escrito === '') { setQuantity(''); return; }
 								const numero = Number(escrito);
 								if (!Number.isFinite(numero)) return;
@@ -161,7 +193,7 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 						/>
 						<span style={{ color: '#716d79', fontSize: '13px' }}>tokens</span>
 					</div>
-					<small style={{ display: 'block', marginTop: '9px', color: '#8b8290', fontSize: '11px' }}>Podés comprar de 1 a {maxCredits} tokens en una sola operación.</small>
+					<small style={{ display: 'block', marginTop: '9px', color: '#8b8290', fontSize: '11px' }}>El mínimo es {minCredits} tokens y de ahí se suman de a {creditStep} ({minCredits}, {minCredits + creditStep}, {minCredits + creditStep * 2}…), hasta {maxCredits} en una sola operación.</small>
 				</div>
 				<div style={{ background: '#fff', border: '1px solid #d8c5fa', borderRadius: '12px', padding: '18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 4px 16px rgba(116, 75, 222, 0.08)' }}>
 					<div><span style={{ display: 'block', color: '#716d79', fontSize: '12px' }}>Total a pagar</span><strong style={{ display: 'block', marginTop: '5px', color: '#744bde', fontSize: '30px', letterSpacing: '-.03em' }}>{symbol}{totalPrice}</strong>{/* Estaba escrito a mano en 0.30 y el precio real venía del servidor: la
@@ -260,11 +292,20 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 			return {
 				tono: 'ok' as const,
 				titulo: `Tenés el plan ${plan.name} activo`,
-				// Se dice explícitamente que el cobro sigue solo: es la pregunta que
-				// más se hace en una suscripción y no estaba contestada en ningún lado.
+				/**
+				 * Se dice explícitamente que el cobro sigue solo: es la pregunta que
+				 * más se hace en una suscripción y no estaba contestada en ningún lado.
+				 *
+				 * La carga de tokens y el cobro se cuentan por separado a propósito.
+				 * Antes se decía "se renueva el {fecha} y se te cargan N tokens", con
+				 * la fecha del próximo cobro: en el plan anual esa fecha está a un año,
+				 * así que le prometía a quien pagó el año que sus tokens se cargan
+				 * recién en 2027. Los tokens entran todos los meses en los dos planes;
+				 * lo que cambia es cada cuánto se cobra.
+				 */
 				detalle: hasta
-					? `Se renueva solo el ${hasta} y se te cargan ${plan.credits} tokens nuevos. Se sigue cobrando todos los meses hasta que canceles. Podés cambiar de plan cuando quieras: el precio nuevo se aplica en esa fecha.`
-					: `Se renueva solo cada mes con ${plan.credits} tokens nuevos, y se sigue cobrando hasta que canceles.`,
+					? `Se te cargan ${plan.credits} tokens nuevos cada mes y el próximo cobro es el ${hasta}. Se sigue cobrando hasta que canceles. Podés cambiar de plan cuando quieras: el precio nuevo se aplica en esa fecha.`
+					: `Se te cargan ${plan.credits} tokens nuevos cada mes, y se sigue cobrando hasta que canceles.`,
 			};
 		}
 		return null;
@@ -420,17 +461,26 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 					<span className="plan-price-val"><b>$</b>{price}</span>
 					<span className="plan-price-freq">{frequencyText}</span>
 				</div>
+				{/* Decía "recibís 480 tokens de una" y dejó de ser cierto: el anual se
+				    cobra una vez pero entrega los tokens mes a mes, igual que el
+				    mensual. Aparte de la exactitud, "480 tokens de una" se vendía
+				    peor: suena a un stock que hay que administrar, cuando lo que se
+				    contrata es la misma producción mensual con dos meses de regalo. */}
 				{esAnual && (
 					<p className="plan-yearly-note">
 						<strong>${yearlyPriceFor(plan.price).toFixed(2)} una vez al año</strong>
-						<span>Ahorrás ${ahorroAnual.toFixed(2)} · recibís {(plan.credits || 0) * 12} tokens de una</span>
+						<span>Ahorrás ${ahorroAnual.toFixed(2)} · <strong>{plan.tokensLabel}</strong> nuevos cada mes</span>
 					</p>
 				)}
-				{!isFreePlan && !esAnual && plan.credits ? (
+				{/* Los tokens del mes, resaltados y sin el precio por unidad al lado.
+				    Esa cuenta —"$0.62 por token"— se leía contra los $0.49 del token
+				    suelto y hacía parecer que el plan era el negocio caro, cuando lo
+				    que compra un plan es la biblioteca entera más el volumen. */}
+				{!esAnual && (
 					<p className="plan-yearly-note plan-unit-note">
-						<span>{plan.credits} tokens por mes · ${(plan.price / plan.credits).toFixed(2)} por token</span>
+						<span><strong>{plan.tokensLabel}</strong> por mes</span>
 					</p>
-				) : null}
+				)}
 				<button
 					className="plan-subscribe-btn"
 					style={{ background: plan.featured ? 'linear-gradient(104deg, rgb(62, 134, 198) 0%, rgb(166, 102, 170) 22%, rgb(236, 68, 146) 50%, rgb(238, 68, 84) 76%, rgb(240, 84, 39) 100%)' : '#744bde' }}
@@ -443,7 +493,6 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 			</article>;
 
 		})}</div>
-		<p className="studio-plan-note">Pago seguro con Mercado Pago. Los tokens de tu plan se renuevan cada mes y podés cancelar cuando quieras.</p>
 		{/* La salida para el que llegó hasta acá y ninguna suscripción le cierra.
 		    Sin este renglón la única puerta a los tokens sueltos es una pestaña
 		    arriba de todo, que en el teléfono ya quedó fuera de pantalla. */}

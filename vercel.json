@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/creativos/cron/recarga-anual",
+      "schedule": "0 6 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

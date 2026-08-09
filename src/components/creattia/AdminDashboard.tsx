@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { Activity, CalendarDays, CircleDollarSign, CreditCard, FileText, MailCheck, ReceiptText, ShieldCheck, UserRound, WalletCards, X } from 'lucide-react';
 import './admin-dashboard.css';
 import { MetricsSection } from './MetricsSection';
+import { subscriptionPlans } from '../../lib/creattia/subscription-plans';
 
 type AdminDashboardProps = { session: any };
 type Section = 'overview' | 'metrics' | 'users' | 'payments' | 'activity';
@@ -9,12 +10,17 @@ type UserFilter = 'all' | 'active' | 'trial' | 'override' | 'unconfirmed';
 type UserSort = 'recent' | 'created' | 'usage' | 'payments' | 'credits';
 type ContextMenuState = { userId: string; x: number; y: number };
 
-const planOptions = [
-	{ code: 'creator', label: 'Básico', credits: 5, price: 9.99 },
-	{ code: 'pro', label: 'Pro', credits: 60, price: 24.99 },
-	{ code: 'scale', label: 'Scale', credits: 120, price: 49.99 },
-	{ code: 'agency', label: 'Agency', credits: 300, price: 97.70 },
-];
+/**
+ * Los planes que el panel puede asignar a mano.
+ *
+ * Estaban copiados acá con los números de una escalera vieja: el menú ofrecía
+ * "Agency · 300 tokens · $97.70/mes" cuando el plan que se cobra da 145 tokens
+ * por USD 69.99. El servidor siempre acreditó lo correcto —lee la oferta real—,
+ * así que lo único que pasaba es que el admin regalaba accesos a ciegas.
+ */
+const planOptions = subscriptionPlans
+	.filter((plan) => plan.credits)
+	.map((plan) => ({ code: plan.code, label: plan.name, credits: plan.credits ?? 0, price: plan.price }));
 
 function authHeaders(session: any) {
 	const token = session?.access_token || '';

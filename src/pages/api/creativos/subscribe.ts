@@ -17,65 +17,84 @@ export const prerender = false;
 /**
  * Planes y créditos.
  *
- * Costo real por imagen terminada: USD 0.082 — USD 0.078 de gpt-image-2 medium
- * más USD 0.004 del análisis de layout (medido con el consumo de tokens que
- * devuelven las APIs, jul-2026).
+ * Costo real por imagen terminada: USD 0.24 (0.236 de gpt-image-2 en calidad
+ * 'high' más 0.004 del análisis del ganador). TODAS las imágenes salen en
+ * 'high', sin nivel elegible por el usuario: en 'medium' el texto sale con
+ * bordes blandos y el modelo le agrega sombras y halos, que es justo lo que
+ * delata a un anuncio hecho con IA. Una imagen, un crédito.
  *
  * Los créditos de acá tienen que ir en línea con el precio configurado en
  * Mercado Pago. Con estos precios el margen queda por encima del 50% incluso si
  * el usuario consume el 100% de sus créditos:
  *
- * Costo real por imagen: USD 0.24 (0.236 de gpt-image-2 'high' + 0.004 del
- * análisis del ganador). TODAS las imágenes salen en 'high', sin nivel elegible
- * por el usuario: en 'medium' el texto sale con bordes blandos y el modelo le
- * agrega sombras y halos, que es justo lo que delata a un anuncio hecho con IA.
- * Una imagen, un crédito.
- *
-
- *
- *   Básico    USD 9.99/mes  ->   5 tokens -> USD 2.00 por token -> margen 88%
- *   Pro       USD 24.99/mes ->  40 tokens -> USD 0.62 por token -> margen 62%
- *   Scale     USD 49.99/mes ->  90 tokens -> USD 0.56 por token -> margen 57%
- *   Agency    USD 97.70/mes -> 190 tokens -> USD 0.51 por token -> margen 53%
+ *   Gratis    USD  0.00/mes ->   1 token  -> regalo               -> sin margen
+ *   Básico    USD  9.99/mes ->   5 tokens -> USD 1.9980 por token -> margen 88.0%
+ *   Pro       USD 19.99/mes ->  40 tokens -> USD 0.4998 por token -> margen 52.0%
+ *   Scale     USD 39.99/mes ->  82 tokens -> USD 0.4877 por token -> margen 50.8%
+ *   Agency    USD 69.99/mes -> 145 tokens -> USD 0.4827 por token -> margen 50.3%
  *
  * Esos márgenes son con el usuario consumiendo el 100% de sus créditos; con el
  * consumo real típico (55%) todos quedan bastante por encima.
  *
- * Compra suelta sin suscripción: USD 0.49 por imagen (margen 51%).
+ * Compra suelta sin suscripción: USD 0.49 por imagen (margen 51.0%).
  *
  * REGLA: ningún plan puede quedar por debajo del 50% de margen. Con el costo
  * actual eso fija un piso de USD 0.48 por token. Lo verifica un test.
+ *
+ * Por qué Básico casi no trae tokens
+ * ----------------------------------
+ * Los USD 9.99 compran la entrada, no el volumen: la biblioteca completa de
+ * anuncios que hoy están funcionando. Cinco tokens sueltos valen USD 2.45, así
+ * que el resto del precio es, explícitamente, el acceso. Darle una cantidad que
+ * compita con Pro rompe las dos reglas a la vez: para bajar de los USD 0.49 del
+ * token suelto haría falta darle 21 tokens, y con 21 el margen cae a 49.5%. No
+ * hay ningún número que sirva, así que este plan se vende por lo que abre y no
+ * por lo que rinde.
+ *
+ * El techo y el piso casi se tocan
+ * --------------------------------
+ * El token suelto vale USD 0.49 y el piso de margen está en USD 0.48: los planes
+ * de volumen tienen que vivir dentro de esa franja de un centavo. De ahí salen
+ * cantidades raras como 82 y 145 en vez de 80 y 150 —con 80 el precio por token
+ * queda por encima del de Pro y se rompe la escalera, y con 150 el margen cae a
+ * 48.6%—, y de ahí sale también que entre Pro y Agency el ahorro por token sea
+ * de apenas 3.4%: no entra más. Pro queda un centavo por encima del token suelto
+ * (USD 0.4998) porque bajarlo a 41 tokens obliga a Scale y Agency a precios por
+ * token que ya no respetan el piso del 50%. Si algún día se quiere una escalera
+ * que se sienta como un descuento de verdad, la palanca no son estos cuatro
+ * precios sino el token suelto: a USD 0.49 deja el mismo margen que un plan, así
+ * que no puede funcionar como precio de lista.
  *
  * Si cambiás el precio en Mercado Pago, actualizá los créditos de acá o el
  * margen se rompe.
  */
 const plans = {
-	creator: { 
+	creator: {
 		monthly: { env: 'MERCADO_PAGO_PLAN_CREATOR_ID', fallback: 'MERCADO_PAGO_PLAN_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_CREATOR_YEARLY_ID', fallback: 'MERCADO_PAGO_PLAN_YEARLY_ID' },
 		price: 9.99,
 		credits: 5,
 		reason: 'Creattia — Básico'
 	},
-	pro: { 
+	pro: {
 		monthly: { env: 'MERCADO_PAGO_PLAN_PRO_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_PRO_YEARLY_ID' },
-		price: 24.99,
+		price: 19.99,
 		credits: 40,
-		reason: 'Creattia — Pro' 
+		reason: 'Creattia — Pro'
 	},
-	scale: { 
+	scale: {
 		monthly: { env: 'MERCADO_PAGO_PLAN_SCALE_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_SCALE_YEARLY_ID' },
-		price: 49.99,
-		credits: 90,
-		reason: 'Creattia — Scale' 
+		price: 39.99,
+		credits: 82,
+		reason: 'Creattia — Scale'
 	},
 	agency: {
 		monthly: { env: 'MERCADO_PAGO_PLAN_AGENCY_ID' },
 		yearly: { env: 'MERCADO_PAGO_PLAN_AGENCY_YEARLY_ID' },
-		price: 97.70,
-		credits: 190,
+		price: 69.99,
+		credits: 145,
 		reason: 'Creattia — Agency'
 	},
 } as const;
@@ -108,6 +127,36 @@ async function cancelProviderSubscription(subscriptionId: string, accessToken: s
 			// checkout: el pendiente quedaba trabado para siempre.
 			body: JSON.stringify({ status: 'cancelled' }),
 		});
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * El checkout que quedó abierto, si todavía sirve para pagar.
+ *
+ * Mercado Pago no deja tener dos suscripciones abiertas del mismo pagador para
+ * el mismo plan: mientras el pendiente siga vivo de su lado, cada
+ * `POST /preapproval` vuelve con 400. Y un pendiente que nunca se autorizó
+ * tampoco se puede cancelar. Con las dos puertas cerradas la única salida real
+ * es devolver el enlace del pago que la persona había empezado: no cobró nada y
+ * sigue siendo válido.
+ *
+ * Solo se reutiliza si la referencia coincide exactamente —misma cuenta, mismo
+ * plan, mismo ciclo—. Mandar a alguien a pagar un plan que no eligió es peor que
+ * no abrirle nada.
+ */
+async function checkoutPendienteReutilizable(subscriptionId: string, accessToken: string, referencia: string) {
+	try {
+		const response = await fetch(`https://api.mercadopago.com/preapproval/${encodeURIComponent(subscriptionId)}`, {
+			headers: { authorization: `Bearer ${accessToken}` },
+		});
+		if (!response.ok) return null;
+		const pendiente = await response.json().catch(() => null) as Record<string, any> | null;
+		if (!pendiente || pendiente.status !== 'pending') return null;
+		if (String(pendiente.external_reference || '') !== referencia) return null;
+		const checkout = pendiente.init_point || pendiente.sandbox_init_point;
+		return typeof checkout === 'string' && checkout ? checkout : null;
 	} catch {
 		return null;
 	}
@@ -258,23 +307,44 @@ export const POST: APIRoute = async ({ request, url }) => {
 		return json({ error: 'Ya tenés una suscripción activa.', code: 'SUBSCRIPTION_EXISTS', currentPlanCode: existing?.plan_code || null }, 409);
 	}
 
-	if (existingIsPending && existing.provider_subscription_id) {
+	const pendienteViejo = existingIsPending ? existing?.provider_subscription_id || '' : '';
+	/**
+	 * El checkout viejo que Mercado Pago no dejó cancelar, si es que quedó uno.
+	 *
+	 * Se recuerda hasta el final: es la diferencia entre destrabar la cuenta y
+	 * dejarla muerta cuando el pedido del checkout nuevo también falla.
+	 */
+	let pendienteSinCancelar = '';
+	if (pendienteViejo) {
 		// Un checkout abandonado no cobró nada: si Mercado Pago no lo deja
 		// cancelar —porque nunca llegó a autorizarse, o porque ya venció— seguir
 		// adelante es seguro y es lo único que destraba al usuario. Antes esto
 		// cortaba con un 502 y dejaba la cuenta sin poder suscribirse jamás.
-		const cancelResponse = await cancelProviderSubscription(existing.provider_subscription_id, accessToken);
+		const cancelResponse = await cancelProviderSubscription(pendienteViejo, accessToken);
 		if (!cancelResponse?.ok) {
 			const detalle = await cancelResponse?.text().catch(() => '') || 'sin respuesta';
-			console.warn(`[subscribe] no se pudo cancelar el pendiente ${existing.provider_subscription_id}: ${detalle.slice(0, 200)}`);
+			console.warn(`[subscribe] no se pudo cancelar el pendiente ${pendienteViejo}: ${detalle.slice(0, 200)}`);
+			pendienteSinCancelar = pendienteViejo;
 		}
-		await admin.from('creative_subscriptions').update({ status: 'cancelled', updated_at: new Date().toISOString() })
-			.eq('user_id', auth.user.id).eq('provider', 'mercado_pago');
+		/**
+		 * Acá la fila se marcaba como 'cancelled' ANTES de saber si el checkout
+		 * nuevo llegaba a existir, y ese era el camino que trababa la cuenta.
+		 *
+		 * Mercado Pago rechaza el `POST /preapproval` justamente cuando el
+		 * pendiente sigue vivo de su lado, que es el caso en el que el `PUT` de
+		 * cancelación acaba de fallar. Con la fila ya en 'cancelled', el intento
+		 * siguiente veía una suscripción dada de baja, no volvía a limpiar nada y
+		 * mandaba otro pedido que Mercado Pago rechazaba igual: 502 en cada clic,
+		 * para siempre, y sin ningún rastro local del pendiente que había que
+		 * cancelar. No hace falta escribir nada: si el pago nuevo se crea, el
+		 * upsert de más abajo pisa la fila entera.
+		 */
 	}
 
+	const referenciaExterna = `${auth.user.id}:${planCode}:${billingCycle}`;
 	const preapprovalPayload: Record<string, unknown> = {
 		payer_email: auth.user.email,
-		external_reference: `${auth.user.id}:${planCode}:${billingCycle}`,
+		external_reference: referenciaExterna,
 		reason: plan.reason,
 		back_url: `${siteUrl}/app/?subscription=return`,
 	};
@@ -304,42 +374,61 @@ export const POST: APIRoute = async ({ request, url }) => {
 	});
 
 	const payload = await response.json().catch(() => ({}));
-	const checkoutUrl = payload.init_point || payload.sandbox_init_point;
-	if (checkoutUrl) {
-		const navegador = datosDelNavegador(request);
-		void trackEvent(admin, 'checkout_abierto', auth.user.id, { plan: planCode, ciclo: billingCycle, monto: transactionAmount }, {}, navegador);
-		// Último momento en que la persona está del otro lado: el cobro lo va a
-		// confirmar Mercado Pago contra el webhook, desde su servidor, sin la IP ni
-		// las cookies del píxel. Se guardan acá para que el Purchase de la
-		// suscripción —el ingreso principal— llegue a Meta con algo con qué atarlo.
-		void guardarDatosDelNavegador(admin, auth.user.id, navegador);
-	}
+	let checkoutUrl: string = payload.init_point || payload.sandbox_init_point || '';
+	let suscripcionEnMercadoPago: string = payload.id ? String(payload.id) : '';
 	if (!response.ok || !checkoutUrl) {
-		return json({ error: payload.message || 'Mercado Pago no pudo iniciar la suscripción.' }, 502);
+		/**
+		 * Último recurso antes de dejar a la persona sin poder pagar.
+		 *
+		 * Si el pendiente no se pudo cancelar, este rechazo es casi siempre el mismo
+		 * problema visto del otro lado: Mercado Pago no abre un segundo checkout
+		 * mientras el primero siga vivo. Ese primero no cobró nada y su enlace sigue
+		 * sirviendo, así que se lo devolvemos y termina el pago que había empezado.
+		 */
+		const reutilizado = pendienteSinCancelar
+			? await checkoutPendienteReutilizable(pendienteSinCancelar, accessToken, referenciaExterna)
+			: null;
+		if (!reutilizado) {
+			return json({ error: payload.message || 'Mercado Pago no pudo iniciar la suscripción.' }, 502);
+		}
+		checkoutUrl = reutilizado;
+		suscripcionEnMercadoPago = pendienteSinCancelar;
 	}
+	const navegador = datosDelNavegador(request);
+	void trackEvent(admin, 'checkout_abierto', auth.user.id, { plan: planCode, ciclo: billingCycle, monto: transactionAmount }, {}, navegador);
+	// Último momento en que la persona está del otro lado: el cobro lo va a
+	// confirmar Mercado Pago contra el webhook, desde su servidor, sin la IP ni
+	// las cookies del píxel. Se guardan acá para que el Purchase de la
+	// suscripción —el ingreso principal— llegue a Meta con algo con qué atarlo.
+	void guardarDatosDelNavegador(admin, auth.user.id, navegador);
 
 	const { error: subscriptionError } = await admin.from('creative_subscriptions').upsert({
 		user_id: auth.user.id,
 		provider: 'mercado_pago',
-		provider_subscription_id: payload.id,
+		provider_subscription_id: suscripcionEnMercadoPago,
 		plan_code: planCode,
 		status: 'pending',
 		monthly_credits: plan.credits,
+		// El ciclo de cobro NO se escribe acá: un checkout abierto todavía no
+		// contrató nada, y la modalidad real la fija el webhook cuando Mercado Pago
+		// confirma. Escribirla desde este endpoint tampoco sería gratis: si el
+		// despliegue se adelanta a la migración, la columna no existe y nadie
+		// podría abrir un pago.
 		updated_at: new Date().toISOString(),
 	}, { onConflict: 'user_id,provider' });
 	if (subscriptionError) {
-		await cancelProviderSubscription(String(payload.id), accessToken);
+		await cancelProviderSubscription(suscripcionEnMercadoPago, accessToken);
 		return json({ error: 'No pudimos preparar el pago de forma segura. No se creó ninguna suscripción.' }, 500);
 	}
 	const { data: updatedProfile, error: profileError } = await admin.from('creative_profiles').update({
 		subscription_status: 'pending',
 		plan_code: planCode,
 		credits_monthly: plan.credits,
-		mercado_pago_subscription_id: payload.id,
+		mercado_pago_subscription_id: suscripcionEnMercadoPago,
 		updated_at: new Date().toISOString(),
 	}).eq('user_id', auth.user.id).select('user_id').maybeSingle();
 	if (profileError || !updatedProfile) {
-		await cancelProviderSubscription(String(payload.id), accessToken);
+		await cancelProviderSubscription(suscripcionEnMercadoPago, accessToken);
 		await admin.from('creative_subscriptions').update({ status: 'cancelled', updated_at: new Date().toISOString() })
 			.eq('user_id', auth.user.id).eq('provider', 'mercado_pago');
 		return json({ error: 'No pudimos preparar el pago de forma segura. No se creó ninguna suscripción.' }, 500);
@@ -368,7 +457,19 @@ export const DELETE: APIRoute = async ({ request }) => {
 	const response = await cancelProviderSubscription(subscription.provider_subscription_id, accessToken);
 	const payload = await response?.json().catch(() => ({})) || {};
 	if (response?.ok) void trackEvent(admin, 'plan_cancelado', auth.user.id, { plan: subscription.status }, {}, datosDelNavegador(request));
-	if (!response?.ok) return json({ error: payload.message || 'Mercado Pago no pudo cancelar la suscripción.' }, 502);
+	/**
+	 * Un checkout pendiente se da de baja acá aunque Mercado Pago diga que no.
+	 *
+	 * Sobre un preapproval que nunca se autorizó la API contesta 400: no hay nada
+	 * que cancelar porque nunca hubo un cobro. Devolver 502 dejaba a la persona con
+	 * un "pago pendiente" pegado a la cuenta que no se podía sacar de ninguna
+	 * forma. Sobre una suscripción autorizada el 502 se mantiene: ahí el cobro es
+	 * real, y marcarla de baja de nuestro lado sin que Mercado Pago la corte es
+	 * seguir cobrándole todos los meses a alguien que cree que se dio de baja.
+	 */
+	if (!response?.ok && subscription.status !== 'pending') {
+		return json({ error: payload.message || 'Mercado Pago no pudo cancelar la suscripción.' }, 502);
+	}
 
 	const now = new Date().toISOString();
 	const { error: subscriptionError } = await admin.from('creative_subscriptions').update({ status: 'cancelled', updated_at: now })

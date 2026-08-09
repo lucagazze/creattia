@@ -17,8 +17,39 @@ export const prerender = false;
 const DEFAULT_UNIT_PRICE = 0.49;
 const MAX_CREDITS_PER_CHECKOUT = 1000;
 
+/**
+ * Los tokens sueltos se venden de a 5, arrancando en 10.
+ *
+ * Se podían comprar de a uno: USD 0.49 de ticket, una sola imagen, y la misma
+ * vuelta completa por el checkout de Mercado Pago cada vez que la persona quería
+ * generar algo. El dueño fijó el piso en 10 y el paso en 5 para que la compra
+ * suelta valga el viaje y siga siendo la opción cara —es lo que empuja a
+ * suscribirse—.
+ *
+ * El paso arranca desde el mínimo, así que las cantidades válidas son 10, 15,
+ * 20, 25… Como el mínimo es múltiplo de 5, eso es lo mismo que "múltiplo de 5 y
+ * no menor a 10", pero se escribe con el mínimo adelante para que cambiar
+ * cualquiera de los dos números no rompa la regla.
+ */
+const MIN_CREDITS_PER_CHECKOUT = 10;
+const CREDIT_STEP = 5;
+
 function getUnitPrice() {
 	return DEFAULT_UNIT_PRICE;
+}
+
+/**
+ * La misma regla que aplica la pantalla, pero acá manda.
+ *
+ * El campo de cantidad vive en el navegador y el pedido se puede armar a mano:
+ * si esto no se valida del lado del servidor, el mínimo y el paso son una
+ * sugerencia y alguien puede seguir pagando de a un token.
+ */
+function cantidadPermitida(quantity: number) {
+	return Number.isInteger(quantity)
+		&& quantity >= MIN_CREDITS_PER_CHECKOUT
+		&& quantity <= MAX_CREDITS_PER_CHECKOUT
+		&& (quantity - MIN_CREDITS_PER_CHECKOUT) % CREDIT_STEP === 0;
 }
 
 export const GET: APIRoute = async ({ request }) => {
@@ -57,6 +88,11 @@ export const GET: APIRoute = async ({ request }) => {
 			? { monto: montoACobrar, moneda: monedaDeCobro }
 			: null,
 		maxCredits: MAX_CREDITS_PER_CHECKOUT,
+		// El mínimo y el paso los decide el servidor y la pantalla los obedece: si
+		// estuvieran escritos a mano en el componente, cambiar la regla acá dejaría
+		// la app ofreciendo cantidades que el checkout rechaza con un 400.
+		minCredits: MIN_CREDITS_PER_CHECKOUT,
+		creditStep: CREDIT_STEP,
 		configured: unitPrice > 0 && Boolean(accessToken) && convertible,
 	});
 };
@@ -74,8 +110,12 @@ export const POST: APIRoute = async ({ request, url }) => {
 
 	const body = await request.json().catch(() => ({}));
 	const quantity = Number(body.quantity);
-	if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_CREDITS_PER_CHECKOUT) {
-		return json({ error: `Elegí entre 1 y ${MAX_CREDITS_PER_CHECKOUT} créditos.` }, 400);
+	if (!cantidadPermitida(quantity)) {
+		return json({
+			error: `Los tokens sueltos se compran de a ${CREDIT_STEP}, desde ${MIN_CREDITS_PER_CHECKOUT}: `
+				+ `${MIN_CREDITS_PER_CHECKOUT}, ${MIN_CREDITS_PER_CHECKOUT + CREDIT_STEP}, ${MIN_CREDITS_PER_CHECKOUT + CREDIT_STEP * 2}… `
+				+ `hasta ${MAX_CREDITS_PER_CHECKOUT} en una sola compra.`,
+		}, 400);
 	}
 
 	// Cada llamada crea una preferencia en Mercado Pago. Nadie abre veinte

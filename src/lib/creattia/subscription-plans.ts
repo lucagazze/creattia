@@ -8,6 +8,19 @@ export type SubscriptionPlan = {
 	name: string;
 	price: number;
 	credits?: number;
+	/**
+	 * Los tokens tal como se anuncian en la tarjeta, para poder resaltarlos.
+	 *
+	 * La cantidad vivía suelta dentro de un texto de la lista de beneficios
+	 * ("40 tokens al mes"), así que se perdía entre los otros seis renglones: el
+	 * dato que más pesa en la decisión se leía igual que "soporte por email". Acá
+	 * queda como un campo aparte para que la pantalla lo imprima en negrita
+	 * arriba, y no como una frase más.
+	 *
+	 * El plan gratuito también lo tiene aunque no venda créditos: su token mensual
+	 * no se cobra, pero la persona necesita ver que existe y que se renueva.
+	 */
+	tokensLabel: string;
 	/** Marcas activas simultáneas que habilita el plan. */
 	brandLimit: number;
 	description: string;
@@ -35,20 +48,35 @@ export function yearlySavingsFor(monthlyPrice: number): number {
 	return Math.round((monthlyPrice * 12 - yearlyPriceFor(monthlyPrice)) * 100) / 100;
 }
 
-/** Fuente única de verdad para precios, tokens y beneficios de la oferta. */
+/**
+ * Fuente única de verdad para precios, tokens y beneficios de la oferta.
+ *
+ * La tabla completa con precio por token y margen está en el encabezado de
+ * `pages/api/creativos/subscribe.ts`, que es donde se cobra. Acá va lo que ve el
+ * usuario; los números tienen que ser los mismos y hay tests que lo verifican.
+ *
+ * El precio por token ya no se anuncia en ninguna tarjeta. Se decía "≈ $0.62 por
+ * token" al lado de un token suelto de $0.49 y la gente leía que el plan era más
+ * caro que comprar de a uno, cuando lo que compra un plan es la biblioteca
+ * completa más el volumen. El número servía para justificar el precio adentro y
+ * no para venderlo afuera.
+ */
 export const subscriptionPlans: SubscriptionPlan[] = [
 	{
 		code: 'free',
 		name: 'Gratis',
 		price: 0,
-		description: 'Probá Creattia con 1 token y una muestra de cada ángulo.',
+		// Decía "1 token" a secas y se leía como un token único de bienvenida: la
+		// gente lo gastaba y daba por terminada la prueba. Se renueva todos los
+		// meses, y decirlo es lo que hace que vuelva.
+		tokensLabel: '1 token',
+		description: 'Probá Creattia con 1 token por mes y una muestra de cada ángulo.',
 		brandLimit: 1,
 		featured: false,
 		features: [
-			{ name: '1 token de regalo', active: true },
 			{ name: '5 creativos por ángulo para explorar', active: true },
-			{ name: 'Biblioteca completa bloqueada', active: true },
-			{ name: 'Comprá tokens cuando quieras', active: true },
+			{ name: 'Muestra gratuita de la biblioteca', active: true },
+			{ name: 'Comprá tokens sueltos cuando quieras', active: true },
 			{ name: '1 marca activa', active: true },
 			{ name: 'Sin tarjeta para empezar', active: true },
 		],
@@ -58,14 +86,18 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 		name: 'Básico',
 		price: 9.99,
 		credits: 5,
-		description: 'Biblioteca completa y 5 tokens mensuales para empezar a crear.',
+		tokensLabel: '5 tokens',
+		// Lo que se compra acá es la puerta, no el volumen: la biblioteca entera de
+		// anuncios que hoy están funcionando. Los cinco tokens alcanzan para probar
+		// el flujo completo con la marca propia; el que necesita producir de verdad
+		// tiene el escalón siguiente a diez dólares de distancia.
+		description: 'Entrá a la biblioteca completa de ganadores. Incluye 5 tokens por mes.',
 		brandLimit: 1,
 		featured: false,
 		features: [
 			{ name: 'Biblioteca completa de ganadores', active: true },
-			{ name: '5 tokens incluidos por mes', active: true },
-			{ name: 'Tokens extra disponibles', active: true },
 			{ name: 'Todos los ángulos, estáticos y carruseles', active: true },
+			{ name: 'Tokens extra cuando los necesites', active: true },
 			{ name: '1 marca activa', active: true },
 			{ name: 'Cancelá cuando quieras', active: true },
 		],
@@ -73,17 +105,17 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 	{
 		code: 'pro',
 		name: 'Pro',
-		price: 24.99,
+		price: 19.99,
 		credits: 40,
-		description: 'Hasta 40 tokens mensuales para marcas en crecimiento.',
+		tokensLabel: '40 tokens',
+		description: 'El primer plan de volumen: un anuncio nuevo por semana, sin quedarte corto.',
 		brandLimit: 2,
-		// El plan que se recomienda: es el que mejor relación deja por token y el
-		// que sostiene un ritmo de producción real. Destacar el más barato empuja
-		// a un plan de cinco imágenes que se agota en la primera semana.
+		// El plan que se recomienda: es el primero que deja producir a ritmo real.
+		// Destacar el de entrada empuja a un plan de cinco imágenes que se agota en
+		// los primeros días y termina en una cancelación.
 		featured: true,
 		features: [
-			{ name: '40 tokens al mes', active: true },
-			{ name: '≈ $0.62 por token — el mejor equilibrio', active: true },
+			{ name: 'Todo lo del plan Básico', active: true },
 			{ name: 'Hasta 4 generaciones simultáneas', active: true },
 			{ name: 'Hasta 2 marcas activas', active: true },
 			{ name: 'Soporte prioritario por email', active: true },
@@ -92,14 +124,14 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 	{
 		code: 'scale',
 		name: 'Scale',
-		price: 49.99,
-		credits: 90,
-		description: 'Hasta 90 tokens mensuales para producir a mayor volumen.',
+		price: 39.99,
+		credits: 82,
+		tokensLabel: '82 tokens',
+		description: 'Para probar varios ángulos por semana y renovar antes de que se cansen.',
 		brandLimit: 4,
 		featured: false,
 		features: [
-			{ name: '90 tokens al mes', active: true },
-			{ name: '≈ $0.56 por token — menor costo', active: true },
+			{ name: 'Todo lo del plan Pro', active: true },
 			{ name: 'Hasta 6 generaciones simultáneas', active: true },
 			{ name: 'Hasta 4 marcas activas', active: true },
 			{ name: 'Soporte prioritario y acceso anticipado', active: true },
@@ -108,14 +140,14 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 	{
 		code: 'agency',
 		name: 'Agency',
-		price: 97.70,
-		credits: 190,
-		description: 'Hasta 190 tokens mensuales para agencias y equipos grandes.',
+		price: 69.99,
+		credits: 145,
+		tokensLabel: '145 tokens',
+		description: 'Para agencias y equipos que sostienen varias marcas al mismo tiempo.',
 		brandLimit: 6,
 		featured: false,
 		features: [
-			{ name: '190 tokens al mes', active: true },
-			{ name: '≈ $0.51 por token — mejor costo', active: true },
+			{ name: 'Todo lo del plan Scale', active: true },
 			{ name: 'Generaciones simultáneas ilimitadas', active: true },
 			{ name: 'Hasta 6 marcas activas', active: true },
 			{ name: 'Soporte prioritario y acceso anticipado', active: true },

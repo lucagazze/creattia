@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { beforeEach, describe, test, vi } from 'vitest';
-import { createFakeSupabase, type FakeSupabaseOptions } from './helpers/fake-supabase';
+import { aplicarClavesPrimarias, createFakeSupabase, type FakeSupabaseOptions } from './helpers/fake-supabase';
 
 /**
  * El circuito del dinero, de punta a punta.
@@ -53,7 +53,7 @@ vi.mock('../src/lib/creattia/events', async (importOriginal) => {
 	};
 });
 
-const { POST: buyCredits } = await import('../src/pages/api/creativos/buy-credits');
+const { GET: opcionesDeCompra, POST: buyCredits } = await import('../src/pages/api/creativos/buy-credits');
 const { POST: webhook } = await import('../src/pages/api/creativos/webhook/mercadopago');
 
 const perfilGratis = {
@@ -68,6 +68,7 @@ function setup(overrides: FakeSupabaseOptions = {}) {
 			creative_subscriptions: [],
 			creative_credit_purchases: [],
 			creative_subscription_payments: [],
+			creative_subscription_refills: [],
 			...overrides.tables,
 		},
 		rpc: {
@@ -107,36 +108,20 @@ function setup(overrides: FakeSupabaseOptions = {}) {
 }
 
 /**
- * La idempotencia real la da la base, no el código: `payment_id` es la clave
- * primaria tanto de `creative_credit_purchases` como de
- * `creative_subscription_payments`, así que insertar el mismo pago dos veces
+ * La idempotencia real la da la base, no el código: la clave natural del cobro
+ * es la clave primaria de la tabla, así que insertar el mismo pago dos veces
  * revienta con `23505` y el endpoint lo trata como ya acreditado. Ese choque es
- * justamente la señal de "este cobro ya se pagó una vez".
- *
- * El cliente falso no tiene índices, así que sin esto las pruebas de webhooks
- * repetidos estarían comprobando el comportamiento del doble, no el de
- * producción —y pasarían igual aunque la protección no existiera—.
+ * justamente la señal de "este cobro ya se pagó una vez". El mes del plan anual
+ * usa el mismo mecanismo con `refill_id`.
  */
-const TABLAS_CON_PAGO_UNICO = ['creative_credit_purchases', 'creative_subscription_payments'];
+const CLAVES_PRIMARIAS = {
+	creative_credit_purchases: 'payment_id',
+	creative_subscription_payments: 'payment_id',
+	creative_subscription_refills: 'refill_id',
+};
 
 function aplicarClavePrimaria() {
-	const fromOriginal = fake.client.from.bind(fake.client);
-	fake.client.from = ((tabla: string) => {
-		const chain = fromOriginal(tabla);
-		if (!TABLAS_CON_PAGO_UNICO.includes(tabla)) return chain;
-		const insertOriginal = chain.insert.bind(chain);
-		chain.insert = (rows: any) => {
-			const nuevas = Array.isArray(rows) ? rows : [rows];
-			const repetida = nuevas.some((fila) => (fake.tables[tabla] || [])
-				.some((existente: any) => existente.payment_id === fila.payment_id));
-			if (repetida) {
-				const fallo = { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } };
-				return { ...chain, select: () => fallo, then: (resolver: any) => resolver(fallo) } as any;
-			}
-			return insertOriginal(rows);
-		};
-		return chain;
-	}) as any;
+	aplicarClavesPrimarias(fake, CLAVES_PRIMARIAS);
 }
 
 function creditos() {
@@ -184,7 +169,7 @@ describe('compra suelta de créditos', () => {
 		respuestasMP = [{ contiene: 'checkout/preferences', body: { init_point: 'https://mp.test/pagar' } }];
 
 		const respuesta = await buyCredits({ request: new Request('https://creattia.app/api/creativos/buy-credits', {
-			method: 'POST', body: JSON.stringify({ quantity: 4 }), headers: { 'content-type': 'application/json' },
+			method: 'POST', body: JSON.stringify({ quantity: 20 }), headers: { 'content-type': 'application/json' },
 		}), url: new URL('https://creattia.app/api/creativos/buy-credits') } as any);
 		const payload = await respuesta.json();
 
@@ -193,17 +178,64 @@ describe('compra suelta de créditos', () => {
 		// El agujero que había: este archivo importaba trackEvent y no lo llamaba.
 		const abierto = eventos.find((evento) => evento.event === 'checkout_abierto');
 		assert.ok(abierto, 'abrir el checkout de créditos no reportó nada');
-		assert.equal(abierto!.props.cantidad, 4);
-		assert.equal(abierto!.compra.valor, 0.49 * 4);
+		assert.equal(abierto!.props.cantidad, 20);
+		assert.equal(abierto!.compra.valor, 0.49 * 20);
 	});
 
 	test('una cantidad fuera de rango no llega a Mercado Pago', async () => {
-		for (const quantity of [0, -3, 1001, 2.5, 'muchos']) {
+		for (const quantity of [0, -3, 1001, 12.5, 'muchos']) {
 			const respuesta = await buyCredits({ request: new Request('https://creattia.app/api/creativos/buy-credits', {
 				method: 'POST', body: JSON.stringify({ quantity }), headers: { 'content-type': 'application/json' },
 			}), url: new URL('https://creattia.app/api/creativos/buy-credits') } as any);
 			assert.equal(respuesta.status, 400, `se aceptó una cantidad inválida: ${quantity}`);
 		}
+	});
+
+	/**
+	 * Los tokens sueltos se venden de a 5 y arrancan en 10.
+	 *
+	 * La regla vive en la pantalla y en el endpoint, y la que manda es la del
+	 * endpoint: el campo de cantidad está en el navegador y el pedido se puede
+	 * armar a mano, así que sin esta validación el mínimo y el paso son una
+	 * sugerencia y se puede seguir pagando de a un token.
+	 */
+	describe('mínimo de 10 tokens y de a 5', () => {
+		async function comprar(quantity: unknown) {
+			return buyCredits({ request: new Request('https://creattia.app/api/creativos/buy-credits', {
+				method: 'POST', body: JSON.stringify({ quantity }), headers: { 'content-type': 'application/json' },
+			}), url: new URL('https://creattia.app/api/creativos/buy-credits') } as any);
+		}
+
+		test('por debajo de 10 no se puede comprar', async () => {
+			for (const quantity of [1, 2, 5, 9]) {
+				const respuesta = await comprar(quantity);
+				assert.equal(respuesta.status, 400, `se aceptaron ${quantity} tokens, por debajo del mínimo`);
+			}
+		});
+
+		test('entre escalón y escalón tampoco', async () => {
+			for (const quantity of [11, 13, 17, 22, 999]) {
+				const respuesta = await comprar(quantity);
+				assert.equal(respuesta.status, 400, `se aceptaron ${quantity} tokens, que no caen en un escalón de 5`);
+			}
+		});
+
+		test('10, 15, 20 y el tope entran', async () => {
+			for (const quantity of [10, 15, 20, 25, 100, 1000]) {
+				respuestasMP = [{ contiene: 'checkout/preferences', body: { init_point: 'https://mp.test/pagar' } }];
+				const respuesta = await comprar(quantity);
+				assert.equal(respuesta.status, 200, `se rechazaron ${quantity} tokens, que sí cumplen la regla`);
+			}
+		});
+
+		test('la pantalla recibe el mínimo y el paso desde el servidor', async () => {
+			// Si estuvieran escritos a mano en el componente, cambiar la regla acá
+			// dejaría la app ofreciendo cantidades que el checkout rechaza con 400.
+			const respuesta = await opcionesDeCompra({ request: new Request('https://creattia.app/api/creativos/buy-credits'), url: new URL('https://creattia.app/api/creativos/buy-credits') } as any);
+			const payload = await respuesta.json();
+			assert.equal(payload.minCredits, 10);
+			assert.equal(payload.creditStep, 5);
+		});
 	});
 
 	test('el pago aprobado acredita exactamente lo comprado y reporta la compra', async () => {
@@ -430,12 +462,43 @@ describe('suscripción', () => {
 		assert.equal(eventos.some((evento) => evento.event === 'suscripcion_pagada'), false);
 	});
 
-	test('el plan anual acredita los doce meses juntos', async () => {
+	test('el plan anual acredita UN mes, no doce', async () => {
+		/**
+		 * Se acreditaba `planCredits × 12` de una: Pro anual arrancaba con 480
+		 * tokens disponibles. El año se cobra igual, pero el costo real de esos 480
+		 * —USD 0.24 cada uno— se puede consumir en la primera semana con once meses
+		 * de servicio todavía por delante. Los meses siguientes los entrega la
+		 * tarea diaria, un mes por vez.
+		 */
 		respuestasMP = [preapproval({ external_reference: `${USER.id}:pro:yearly` })];
 
 		await webhook({ request: notificacion('subscription_preapproval', 'sub-1'), url: new URL('https://creattia.app/api/creativos/webhook/mercadopago?type=subscription_preapproval&data.id=sub-1') } as any);
 
-		assert.equal(perfil().credits_remaining, 40 * 12);
+		assert.equal(perfil().credits_remaining, 40, 'el anual entregó más de un mes de una sola vez');
+		assert.equal(perfil().credits_monthly, 40, 'el plan tiene que quedar valuado en tokens por mes, no por año');
+		const suscripcion = fake.tables.creative_subscriptions.find((fila: any) => fila.user_id === USER.id) as any;
+		assert.equal(suscripcion.billing_cycle, 'yearly');
+		assert.ok(suscripcion.cycle_anchor_at, 'sin anclaje la recarga mensual no sabe desde cuándo contar');
+		// El primer mes queda anotado como entregado para que la tarea diaria no lo
+		// vuelva a entregar.
+		assert.equal(fake.tables.creative_subscription_refills.length, 1);
+		assert.equal(fake.tables.creative_subscription_refills[0].cycle_index, 1);
+	});
+
+	test('el anual repetido no mueve el anclaje ni suma otro mes', async () => {
+		// Si el anclaje se moviera con cada aviso, el reparto de los doce meses
+		// arrancaría de cero cada vez que Mercado Pago reintenta una notificación.
+		respuestasMP = [preapproval({ external_reference: `${USER.id}:pro:yearly` })];
+		const pedir = () => webhook({ request: notificacion('subscription_preapproval', 'sub-1'), url: new URL('https://creattia.app/api/creativos/webhook/mercadopago?type=subscription_preapproval&data.id=sub-1') } as any);
+
+		await pedir();
+		const anclaje = (fake.tables.creative_subscriptions[0] as any).cycle_anchor_at;
+		perfil().credits_remaining = 9; // ya gastó parte del mes
+		await pedir();
+
+		assert.equal((fake.tables.creative_subscriptions[0] as any).cycle_anchor_at, anclaje, 'un aviso repetido corrió el arranque del año');
+		assert.equal(perfil().credits_remaining, 9, 'un aviso repetido rellenó el mes');
+		assert.equal(fake.tables.creative_subscription_refills.length, 1);
 	});
 
 	test('una notificación sin firma válida no toca nada', async () => {

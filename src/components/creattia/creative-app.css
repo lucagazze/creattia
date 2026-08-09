@@ -3228,7 +3228,7 @@
 	margin: 10px 0 20px !important;
 }
 
-/* "$97.70 /mes" a 48px necesita 180px y en la tarjeta de cinco columnas hay 172:
+/* "$69.99 /mes" a 48px necesita 180px y en la tarjeta de cinco columnas hay 172:
    el precio del plan Agency se salía por el borde derecho. A 42px entra con
    aire y deja de pelearle el tamaño al nombre del plan. */
 .plan-price-val {
@@ -6197,6 +6197,12 @@
 .plan-yearly-note strong { font-size: 13px; color: #19171d; }
 .plan-yearly-note span { color: #716d79; }
 .plan-unit-note { margin-top: -4px; }
+/* La tarjeta destacada es negra: el #19171d de arriba dejaba la cantidad de
+   tokens escrita en negro sobre negro. Pasaba desapercibido mientras el dato
+   vivía en la lista de beneficios, pero ahora es el número más importante de la
+   tarjeta y en el plan más elegido no se veía. */
+.studio-plans-grid .featured .plan-yearly-note strong { color: #fff; }
+.studio-plans-grid .featured .plan-yearly-note span { color: #c4bcc9; }
 
 /* En el teléfono son tres opciones donde antes había dos, y con `flex: 1` no
    entraban: los botones no bajan del ancho de su contenido, así que la fila se

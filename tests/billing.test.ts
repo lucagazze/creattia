@@ -184,6 +184,34 @@ const WORST_CASE_RENDER = 0.236;
 const IMAGE_COST = WORST_CASE_RENDER + ANALYSIS_COST;
 /** Regla de negocio: ningún plan por debajo de esto. */
 const MIN_MARGIN = 0.50;
+/** Lo que sale un token sin suscripción. Mismo número que DEFAULT_UNIT_PRICE en buy-credits.ts. */
+const LOOSE_TOKEN_PRICE = 0.49;
+
+/**
+ * La escalera vigente, con la cuenta hecha a mano.
+ *
+ * Los números salen del encabezado de `subscribe.ts`, que es la fuente de verdad
+ * del negocio. Repetirlos acá no es duplicar por duplicar: es lo que hace que
+ * cambiar una cantidad "para probar" falle en vez de pasar en silencio, porque
+ * los tests de abajo derivan todo del catálogo y siempre se cumplirían solos.
+ */
+const ESCALERA = [
+	{ code: 'creator', price: 9.99, credits: 5 },
+	{ code: 'pro', price: 19.99, credits: 40 },
+	{ code: 'scale', price: 39.99, credits: 82 },
+	{ code: 'agency', price: 69.99, credits: 145 },
+];
+
+test('la escalera de precios es la que se acordó', () => {
+	const vendidos = subscriptionPlans.filter((plan) => plan.credits).map((plan) => ({
+		code: plan.code, price: plan.price, credits: plan.credits,
+	}));
+	assert.deepEqual(vendidos, ESCALERA);
+	// El plan gratuito no vende créditos y por eso no está en la tabla de cobro:
+	// si algún día aparece con `credits`, el webhook empezaría a aceptar 'free'
+	// como plan pago desde una referencia externa.
+	assert.equal(subscriptionPlans.find((plan) => plan.code === 'free')?.credits, undefined);
+});
 
 test('ningún plan deja menos del 50% de margen', () => {
 	// Si mañana sube el costo del modelo o alguien baja un precio, este test
@@ -201,19 +229,63 @@ test('ningún plan deja menos del 50% de margen', () => {
 });
 
 test('el crédito suelto también deja más del 50%', () => {
-	// Mismo número que DEFAULT_UNIT_PRICE en buy-credits.ts.
-	const singleCreditPrice = 0.49;
-	const margin = (singleCreditPrice - IMAGE_COST) / singleCreditPrice;
+	const margin = (LOOSE_TOKEN_PRICE - IMAGE_COST) / LOOSE_TOKEN_PRICE;
 	assert.ok(margin >= MIN_MARGIN, `el crédito suelto deja ${(margin * 100).toFixed(0)}%`);
 });
 
 test('a más volumen, mejor precio por token', () => {
 	// La escalera comercial: un plan más caro nunca puede salir más caro por token.
+	// Se exige que baje de verdad, no que empate: si dos planes salen lo mismo por
+	// token, subir de plan deja de tener sentido y el más caro no se vende.
 	const paid = subscriptionPlans.filter((plan) => plan.credits).sort((a, b) => a.price - b.price);
 	for (let index = 1; index < paid.length; index += 1) {
 		const previous = paid[index - 1].price / paid[index - 1].credits!;
 		const current = paid[index].price / paid[index].credits!;
-		assert.ok(current <= previous, `${paid[index].code} sale más caro por token que ${paid[index - 1].code}`);
+		assert.ok(current < previous, `${paid[index].code} no sale más barato por token que ${paid[index - 1].code}`);
+	}
+});
+
+/**
+ * Los planes de volumen tienen que salir menos por token que comprar suelto.
+ *
+ * Es lo único que empuja a suscribirse: si el token del plan sale igual o más
+ * que el de la compra sin compromiso, la suscripción solo se justifica por la
+ * biblioteca y el plan más caro no tiene argumento.
+ *
+ * Básico queda afuera a propósito —lo que vende son los USD 9.99 de acceso a la
+ * biblioteca, no volumen— y Pro también, por un centavo: con 41 tokens sí baja
+ * de USD 0.49, pero entonces Scale y Agency no pueden bajar de ahí sin perforar
+ * el piso del 50%. Está explicado en el encabezado de subscribe.ts.
+ */
+test('los planes de volumen salen menos por token que el token suelto', () => {
+	const porVolumen = subscriptionPlans.filter((plan) => plan.credits && plan.credits >= 80);
+	assert.ok(porVolumen.length >= 2, 'la escalera perdió sus planes de volumen');
+	for (const plan of porVolumen) {
+		const perCredit = plan.price / plan.credits!;
+		assert.ok(perCredit < LOOSE_TOKEN_PRICE, `${plan.code}: USD ${perCredit.toFixed(4)} por token, igual o más que suelto`);
+	}
+});
+
+test('la cantidad de tokens que se muestra es la que se acredita', () => {
+	// La tarjeta imprime `tokensLabel` en negrita y el cobro usa `credits`: son
+	// dos campos distintos del mismo dato, así que pueden separarse sin que nadie
+	// se entere hasta que un cliente reclame los tokens que le prometió la página.
+	for (const plan of subscriptionPlans) {
+		const anunciados = Number(plan.tokensLabel.match(/\d+/)?.[0]);
+		assert.ok(Number.isFinite(anunciados), `${plan.code} no anuncia ninguna cantidad de tokens`);
+		if (plan.credits) assert.equal(anunciados, plan.credits, `${plan.code}: la tarjeta dice ${anunciados} y se acreditan ${plan.credits}`);
+		else assert.equal(anunciados, 1, 'el plan gratuito regala un token por mes');
+	}
+});
+
+test('ninguna tarjeta anuncia el precio por token', () => {
+	// Se leía "≈ $0.62 por token" al lado de un token suelto de $0.49 y la
+	// conclusión era que el plan salía más caro, cuando lo que compra un plan es
+	// la biblioteca completa más el volumen.
+	for (const plan of subscriptionPlans) {
+		for (const texto of [plan.description, ...plan.features.map((item) => item.name)]) {
+			assert.doesNotMatch(texto, /por token/i, `${plan.code} vuelve a mostrar el precio por token`);
+		}
 	}
 });
 

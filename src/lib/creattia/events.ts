@@ -38,6 +38,15 @@ export type ProductEvent =
 	 * confirmado por Mercado Pago sale como Purchase con su importe real.
 	 */
 	| 'suscripcion_pagada'
+	/**
+	 * La entrega mensual de un plan anual.
+	 *
+	 * No es un cobro —el año se pagó una sola vez— pero sí es la única señal de
+	 * que la tarea diaria está corriendo. Sin esto, que la recarga deje de
+	 * ejecutarse se descubre recién cuando un cliente anual reclama que hace dos
+	 * meses no le entran tokens.
+	 */
+	| 'tokens_del_mes_acreditados'
 	| 'plan_cancelado'
 	| 'webhook_recibido'
 	| 'webhook_firma_rechazada'

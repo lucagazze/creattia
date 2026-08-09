@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { fail, getAdminClient, json } from '../../../../lib/creattia/server';
 import { planCredits } from '../../../../lib/creattia/subscription-plans';
+import { anclarCicloAnual, registrarCicloDeCobro } from '../../../../lib/creattia/ciclo-anual';
 import { trackEvent } from '../../../../lib/creattia/events';
 import { datosDelNavegadorGuardados } from '../../../../lib/creattia/meta-capi';
 
@@ -230,7 +231,18 @@ export const POST: APIRoute = async ({ request, url }) => {
 		if (!currentProfile) return json({ received: true, ignored: 'perfil inexistente' });
 
 		const nextPeriod = subscription.next_payment_date || null;
-		const monthlyCredits = planCredits[planCode] * (yearly ? 12 : 1);
+		/**
+		 * Un mes, no doce.
+		 *
+		 * Acá se acreditaba `planCredits × 12` cuando el cobro era anual: Pro anual
+		 * entregaba 480 tokens el primer día. El cobro del año entra igual, pero el
+		 * costo real de esos tokens —USD 0.24 cada uno— se puede consumir entero en
+		 * la primera semana con once meses de servicio por delante. El anual pasa a
+		 * entregar mes a mes; los meses 2 al 12 los reparte la tarea diaria de
+		 * /api/creativos/cron/recarga-anual, porque en el plan anual Mercado Pago no
+		 * vuelve a avisar hasta el año que viene.
+		 */
+		const monthlyCredits = planCredits[planCode];
 		const now = new Date().toISOString();
 		const { error: subscriptionError } = await admin.from('creative_subscriptions').upsert({
 			user_id: userId,
@@ -244,6 +256,10 @@ export const POST: APIRoute = async ({ request, url }) => {
 			updated_at: now,
 		}, { onConflict: 'user_id,provider' });
 		if (subscriptionError) return fail('mercadopago-webhook', subscriptionError, 'No se pudo procesar la notificación.');
+		// Con la entrega mensual, monthly_credits ya no distingue anual de mensual:
+		// los dos guardan el mismo número. El ciclo queda explícito porque es lo
+		// que decide a quién le reparte los meses la tarea diaria.
+		await registrarCicloDeCobro(admin, userId, yearly);
 
 		/**
 		 * Un cobro, una recarga. La factura es la que manda, no las fechas.
@@ -310,6 +326,14 @@ export const POST: APIRoute = async ({ request, url }) => {
 		if (shouldRefill) {
 			const { error: refillError } = await admin.rpc('apply_subscription_refill', { p_user_id: userId, p_monthly: monthlyCredits });
 			if (refillError) return fail('mercadopago-webhook', refillError, 'No se pudieron acreditar los créditos del mes.', 500, userId);
+			// El año arranca recién ahora, con el cobro confirmado: el anclaje se
+			// mueve después de acreditar y no antes, así un aviso repetido no
+			// reinicia el reparto de los doce meses.
+			if (yearly) {
+				await anclarCicloAnual(admin, {
+					userId, subscriptionId: String(subscription.id || preapprovalId), planCode, credits: monthlyCredits,
+				});
+			}
 		}
 		// Cobro de suscripción confirmado: es una compra y se reporta como tal. El
 		// id de la factura hace de clave del evento, así que un reintento del
@@ -378,8 +402,15 @@ export const POST: APIRoute = async ({ request, url }) => {
 		if (!currentProfile) return json({ received: true, ignored: 'perfil inexistente' });
 		const periodChanged = Boolean(nextPeriod && nextPeriod !== currentProfile?.subscription_period_end);
 		const shouldRefill = status === 'authorized' && (currentProfile?.subscription_status !== 'authorized' || periodChanged);
-		// Anual: se acreditan los 12 meses juntos en cada renovación anual.
-		const monthlyCredits = planCredits[planCode] * (yearly ? 12 : 1);
+		/**
+		 * El anual también entrega un mes por vez.
+		 *
+		 * Esta línea acreditaba los doce meses juntos en la primera autorización:
+		 * "480 tokens de una" a quien contrataba Pro anual. Se cobra el año, pero se
+		 * entrega mes a mes — el resto de los meses los reparte la tarea diaria de
+		 * /api/creativos/cron/recarga-anual.
+		 */
+		const monthlyCredits = planCredits[planCode];
 		/**
 		 * La fecha de fin solo se pisa cuando llega una nueva.
 		 *
@@ -411,6 +442,9 @@ export const POST: APIRoute = async ({ request, url }) => {
 			updated_at: new Date().toISOString(),
 		}, { onConflict: 'user_id,provider' });
 		if (subscriptionError) return fail('mercadopago-webhook', subscriptionError, 'No se pudo procesar la notificación.');
+		// Quién es anual y quién no lo usa la tarea diaria para saber a quién le
+		// tiene que repartir los meses 2 al 12.
+		await registrarCicloDeCobro(admin, userId, yearly);
 		const { data: updatedProfile, error: profileUpdateError } = await admin.from('creative_profiles')
 			.update(profileUpdate).eq('user_id', userId).select('user_id').maybeSingle();
 		if (profileUpdateError) return fail('mercadopago-webhook', profileUpdateError, 'No se pudo actualizar el perfil.', 500, userId);
@@ -420,6 +454,14 @@ export const POST: APIRoute = async ({ request, url }) => {
 		if (shouldRefill) {
 			const { error: refillError } = await admin.rpc('apply_subscription_refill', { p_user_id: userId, p_monthly: monthlyCredits });
 			if (refillError) return fail('mercadopago-webhook', refillError, 'No se pudieron acreditar los créditos del plan.', 500, userId);
+			// Desde acá se cuentan los doce meses del año pagado. Va después de
+			// acreditar: si se anclara al recibir el aviso, una notificación repetida
+			// correría la fecha sin cobro nuevo y el reparto arrancaría de cero.
+			if (yearly) {
+				await anclarCicloAnual(admin, {
+					userId, subscriptionId: String(subscription.id || dataId), planCode, credits: monthlyCredits,
+				});
+			}
 		}
 		/**
 		 * La primera autorización de la suscripción: acá es donde se convierte.

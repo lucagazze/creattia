@@ -209,5 +209,43 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
 	return { client, tables, storage, calls };
 }
 
+/**
+ * Le pone clave primaria a las tablas que el código usa como candado.
+ *
+ * Toda la protección contra acreditar dos veces —la compra suelta, la factura de
+ * la suscripción, el mes del plan anual— está apoyada en el mismo truco: se
+ * inserta primero y se acredita solo si el insert entró, porque un choque contra
+ * la clave primaria (23505) ES la señal de "esto ya se acreditó".
+ *
+ * Este cliente falso no tiene índices, así que sin esto las pruebas de reintentos
+ * estarían midiendo el comportamiento del doble y no el de producción: pasarían
+ * igual aunque la protección no existiera.
+ *
+ * `claves` mapea tabla → columna que hace de clave primaria.
+ */
+export function aplicarClavesPrimarias(
+	fake: { client: any; tables: Record<string, Row[]> },
+	claves: Record<string, string>,
+) {
+	const fromOriginal = fake.client.from.bind(fake.client);
+	fake.client.from = ((tabla: string) => {
+		const chain = fromOriginal(tabla);
+		const columna = claves[tabla];
+		if (!columna) return chain;
+		const insertOriginal = chain.insert.bind(chain);
+		chain.insert = (rows: Row | Row[]) => {
+			const nuevas = Array.isArray(rows) ? rows : [rows];
+			const repetida = nuevas.some((fila) => (fake.tables[tabla] || [])
+				.some((existente: Row) => existente[columna] === fila[columna]));
+			if (repetida) {
+				const fallo = { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } };
+				return { ...chain, select: () => fallo, then: (resolver: (valor: any) => any) => resolver(fallo) };
+			}
+			return insertOriginal(rows);
+		};
+		return chain;
+	});
+}
+
 /** PNG mínimo válido: alcanza para que el código detecte el tipo por sus bytes. */
 export const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13]);
