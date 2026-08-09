@@ -6302,6 +6302,26 @@
 	padding: 3px 7px; border-radius: 999px; background: #e7f7ee; color: #1c7a48;
 }
 .logo-decision-options button.active em { background: #d6f2e3; }
+/* Dónde termina el archivo del logo. Se elegía a ciegas: la opción decía "con
+   logo" y nada más, así que nadie esperaba verlo aparecer en una esquina que el
+   anuncio ganador no tenía. */
+.logo-decision-consecuencia { margin: 10px 0 0; font-size: 12px; line-height: 1.45; color: #716d79; }
+/* El logo puesto delante de los ojos antes de gastar el crédito: se generaba
+   con el logo viejo, o con el de otra marca, y se descubría en la imagen final. */
+.logo-decision-preview {
+	display: flex; align-items: center; gap: 11px; margin-top: 10px;
+	padding: 9px 11px; border-radius: 10px; border: 1px solid #eee9f2; background: #faf8fc;
+}
+.logo-decision-preview img {
+	width: 52px; height: 52px; flex: none; object-fit: contain;
+	border-radius: 8px; background: #fff; border: 1px solid #f0ecf5; padding: 5px;
+}
+.logo-decision-preview span { font-size: 12px; line-height: 1.45; color: #716d79; }
+.logo-decision-preview-vacio {
+	margin: 10px 0 0; padding: 9px 11px; border-radius: 10px;
+	border: 1px solid #f6e2c8; background: #fdf7ee;
+	font-size: 12px; line-height: 1.45; color: #8a6224;
+}
 
 @media (max-width: 640px) {
 	.logo-decision-options { flex-direction: column; }

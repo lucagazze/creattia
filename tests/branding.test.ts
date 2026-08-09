@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, test } from 'vitest';
 import { buildClonePrompt } from '../src/lib/creattia/generation-pipeline';
 
@@ -88,5 +89,34 @@ describe('marcas de terceros y la foto del ganador', () => {
 		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, null, false);
 		assert.match(prompt, /THE TEMPLATE'S PHOTOGRAPH DOES NOT SURVIVE/);
 		assert.match(prompt, /Pasting the new product ON TOP/);
+	});
+});
+
+/**
+ * La pantalla que pregunta "¿incluir tu logo?" muestra el archivo que se va a
+ * pegar. Esa miniatura solo sirve si es el mismo archivo que baja el servidor:
+ * una miniatura equivocada, o un "no tenemos ningún logo" cuando sí lo hay, es
+ * peor que no mostrar nada, porque la decisión se toma antes de gastar el
+ * crédito y la imagen no se puede rehacer gratis.
+ */
+describe('la miniatura del logo muestra el archivo que se va a usar', () => {
+	const leer = (ruta: string) => readFileSync(new URL(`../${ruta}`, import.meta.url), 'utf8');
+
+	test('"Mi marca" muestra el logo del perfil, que es el que baja la generación', () => {
+		// `generate.ts`, el worker de lotes y los videos bajan todos
+		// `creative_profiles.logo_path`. El logo de cada fila de marca puede faltar
+		// aunque el perfil tenga uno: el que se detecta al analizar el sitio del
+		// negocio se guarda únicamente en el perfil.
+		assert.match(leer('src/pages/api/creativos/brands.ts'), /profileLogoUrl/);
+		for (const ruta of ['src/components/creattia/CreationFlow.tsx', 'src/components/creattia/UrlBatchSection.tsx']) {
+			assert.match(leer(ruta), /payload\?\.profileLogoUrl/, `${ruta} muestra un logo distinto del que se va a pegar`);
+		}
+	});
+
+	test('el lote por URL guarda el logo detectado en el sitio', () => {
+		// El servidor ya lo devolvía; sin guardarlo en la revisión la pantalla
+		// afirmaba que no había ninguno y el anuncio salía igual con logo.
+		assert.match(leer('src/pages/api/creativos/batch-url.ts'), /brandLogoUrl: logoDeLaUrl/);
+		assert.match(leer('src/components/creattia/UrlBatchSection.tsx'), /brandLogoUrl: data\.brandLogoUrl/);
 	});
 });

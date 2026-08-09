@@ -14,6 +14,7 @@ import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creat
 import { alcanceDesde, buildClonePrompt, mergePaletteOverride, parseBrandOverride, parsePaletteOverride, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
+import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -151,6 +152,10 @@ export const POST: APIRoute = async ({ request }) => {
 	if (!openAIKey && !googleKey) return json({ error: 'Falta configurar GOOGLE_AI_API_KEY u OPENAI_API_KEY.', requiresConfiguration: true }, 503);
 	const admin = getAdminClient();
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
+
+	// Se lee antes de tocar el formulario: `request.formData()` consume el cuerpo,
+	// pero las cabeceras siguen ahí y la generación puede tardar minutos.
+	const navegador = datosDelNavegador(request);
 
 	let generationIds: string[] = [];
 	const completedIds = new Set<string>();
@@ -775,7 +780,7 @@ The result must look like the same image with only that one adjustment applied.`
 		// Se deja constancia de lo que se pidió ANTES de pedirlo: si el motor se
 		// cuelga o el proceso muere, el intento igual quedó registrado. Midiendo
 		// solo los finales, un problema del motor se ve como menos demanda.
-		void trackEvent(admin, 'generacion_pedida', auth.user!.id, { cantidad: count, formato: effectiveFormat, tier, sujeto: subjectMode });
+		void trackEvent(admin, 'generacion_pedida', auth.user!.id, { cantidad: count, formato: effectiveFormat, tier, sujeto: subjectMode }, {}, navegador);
 		/**
 		 * Una imagen que falla no se lleva puestas a las que sí salieron.
 		 *
@@ -809,7 +814,7 @@ The result must look like the same image with only that one adjustment applied.`
 				tier,
 				promptCaracteres: prompt.length,
 				...(usage ? { tokensEntrada: usage.entrada, tokensSalida: usage.salida, tokensEntradaImagen: usage.entradaImagen, tokensEntradaTexto: usage.entradaTexto } : {}),
-			});
+			}, {}, navegador);
 			return buffer;
 		}));
 		const outputBuffers: Buffer[] = [];
@@ -915,7 +920,7 @@ The result must look like the same image with only that one adjustment applied.`
 		// Las fallas se contaban solas en la tabla de generaciones, pero no en la
 		// serie de eventos, así que en las métricas una caída del motor se veía
 		// como un bajón de demanda y no como lo que era.
-		void trackEvent(admin, 'generacion_fallida', auth.user.id, { motivo: message.slice(0, 300), cantidad: failedIds.length });
+		void trackEvent(admin, 'generacion_fallida', auth.user.id, { motivo: message.slice(0, 300), cantidad: failedIds.length }, {}, navegador);
 		const closed = await closeGenerationsAndCountRefunds(admin, auth.user.id, failedIds, message);
 		const refundAmount = Math.min(
 			Math.max(0, reservedCount - completedIds.size * creditsPerImage),

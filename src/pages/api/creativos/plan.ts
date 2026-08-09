@@ -3,6 +3,7 @@ import { analyzeReferenceLayout, normalizeImageInput } from '../../../lib/creatt
 import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { trackEvent } from '../../../lib/creattia/events';
+import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
 
 export const prerender = false;
 /**
@@ -168,7 +169,7 @@ export const POST: APIRoute = async ({ request }) => {
 		});
 		if (!analysis) return json({ error: 'No pudimos analizar el anuncio. Probá de nuevo.' }, 502);
 
-		void trackEvent(admin, 'referencia_analizada', auth.user.id, { sujeto: subjectMode, idioma: language || 'auto' });
+		void trackEvent(admin, 'referencia_analizada', auth.user.id, { sujeto: subjectMode, idioma: language || 'auto' }, {}, datosDelNavegador(request));
 		return json({ analysis: { ...analysis, subjectType: analysis.subjectType || subjectMode, brandPalette: analysis.brandPalette || brandPalette }, originalRatio });
 	} catch (error) {
 		// El mensaje crudo del error salía al cliente: con un productId que no es

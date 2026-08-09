@@ -6,6 +6,7 @@ import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { loadWinners } from '../../../lib/creattia/winner-picker';
 import { FREE_PREVIEW_REFERENCE_PATHS, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
 import { trackEvent } from '../../../lib/creattia/events';
+import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
 
 export const prerender = false;
 export const maxDuration = 60;
@@ -156,7 +157,7 @@ export const POST: APIRoute = async ({ request }) => {
 			const primera = paginas.find((row: any) => (row.settings_snapshot?.carouselIndex || row.output_index) === 1);
 			if (primera?.settings_snapshot?.referencePath !== slides[0]) continue;
 			console.warn(`[carousel-start] envío duplicado del usuario ${userId}: se reutiliza el lote ${loteExistente}`);
-			void trackEvent(admin, 'checkout_duplicado', userId, { tipo: 'carrusel', paginas: count });
+			void trackEvent(admin, 'checkout_duplicado', userId, { tipo: 'carrusel', paginas: count }, {}, datosDelNavegador(request));
 			return json({
 				batchId: loteExistente,
 				generations: [...paginas].sort((a: any, b: any) => (a.output_index || 0) - (b.output_index || 0)),
@@ -177,7 +178,7 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const batchId = crypto.randomUUID();
-		void trackEvent(admin, 'carrusel_pedido', userId, { paginas: count, sujeto: subjectMode, formato: format });
+		void trackEvent(admin, 'carrusel_pedido', userId, { paginas: count, sujeto: subjectMode, formato: format }, {}, datosDelNavegador(request));
 		const generationRows = slides.map((slidePath, index) => {
 			const productId = productIds.length ? (productIds.length === 1 ? productIds[0] : productIds[index]) : null;
 			const product = productId ? byId.get(productId) : null;

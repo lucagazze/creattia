@@ -8,6 +8,7 @@ import { normalizeExternalUrl } from '../../../lib/creattia/safe-fetch';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 import { countProductImages, upsertProductMediaRows } from '../../../lib/creattia/product-media';
 import { trackEvent } from '../../../lib/creattia/events';
+import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
 
 export const prerender = false;
 export const maxDuration = 300;
@@ -254,6 +255,10 @@ export const POST: APIRoute = async ({ request }) => {
 		// la URL que se analiza puede ser de otra marca (un producto de eBay, de
 		// Frávega, de un competidor) y pisar "Mi marca" con eso hacía que un
 		// anuncio de una PlayStation terminara firmado por una curtiembre.
+		// El logo detectado además vuelve en la respuesta: la revisión pregunta si
+		// incluirlo y hasta ahora se contestaba sin haberlo visto nunca, así que
+		// el logo aparecía por primera vez en la imagen ya generada y pagada.
+		let logoDeLaUrl = '';
 		if (productUrl && storedProductId) {
 			try {
 				const origin = new URL(productUrl).origin;
@@ -267,6 +272,7 @@ export const POST: APIRoute = async ({ request }) => {
 					styleSummary: style.styleSummary || '',
 					logoUrl: style.logoUrl || '',
 				};
+				logoDeLaUrl = brandFromUrl.logoUrl;
 				await admin.from('creative_products')
 					.update({ metadata: { ...(storedProduct?.metadata || {}), brandFromUrl } })
 					.eq('id', storedProductId).eq('user_id', userId);
@@ -354,7 +360,7 @@ export const POST: APIRoute = async ({ request }) => {
 			tipoPagina: scannedPage?.pageType || 'desconocido',
 			productos: (scannedPage?.products || []).length,
 			origen: 'lote',
-		});
+		}, {}, datosDelNavegador(request));
 		return json({
 			// De qué habla la página, para que la revisión pueda ofrecer "la tienda"
 			// igual que en la generación individual.
@@ -382,6 +388,9 @@ export const POST: APIRoute = async ({ request }) => {
 				],
 				productUrl,
 			},
+			// El archivo de logo que se detectó en el sitio, para poder mostrarlo
+			// antes de que la persona decida si lo quiere en el anuncio.
+			brandLogoUrl: logoDeLaUrl,
 			mode,
 			// Los necesita /api/creativos/next-reference para filtrar los reemplazos
 			// sin volver a analizar el producto en cada clic.

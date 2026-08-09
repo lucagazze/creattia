@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { fail, getAdminClient, json } from '../../../../lib/creattia/server';
 import { planCredits } from '../../../../lib/creattia/subscription-plans';
 import { trackEvent } from '../../../../lib/creattia/events';
+import { datosDelNavegadorGuardados } from '../../../../lib/creattia/meta-capi';
 
 export const prerender = false;
 
@@ -158,13 +159,23 @@ export const POST: APIRoute = async ({ request, url }) => {
 			if (purchaseError.code === '23505') return json({ received: true, duplicated: true });
 			return fail('mercadopago-webhook', purchaseError, 'No se pudo procesar la notificación.');
 		}
+		/**
+		 * Con qué emparejar la compra: lo que se guardó al abrir el checkout.
+		 *
+		 * Este pedido lo hace el servidor de Mercado Pago, así que sus cabeceras son
+		 * las de Mercado Pago: mandar esa IP y ese user-agent sería peor que no
+		 * mandar nada, porque Meta trataría de emparejar la compra contra un centro
+		 * de datos. Los del comprador quedaron anotados minutos antes, cuando abrió
+		 * el pago desde su navegador.
+		 */
+		const navegador = await datosDelNavegadorGuardados(admin, userId);
 		// El id del pago hace de clave del evento: si el webhook se reintenta —o si
 		// el navegador también lo reporta— Meta lo cuenta una sola vez.
 		void trackEvent(admin, 'tokens_comprados', userId, { cantidad: credits, monto: payment.transaction_amount || null, paymentId: String(payment.id) }, {
 			valor: Number(payment.transaction_amount) || 0,
 			moneda: payment.currency_id || 'USD',
 			email: payment.payer?.email || null,
-		});
+		}, navegador);
 		const { error: creditError } = await admin.rpc('add_purchased_credits', { p_user_id: userId, p_amount: credits });
 		if (creditError) {
 			// Permitimos que Mercado Pago reintente el webhook si la acreditación
@@ -303,6 +314,11 @@ export const POST: APIRoute = async ({ request, url }) => {
 		// Cobro de suscripción confirmado: es una compra y se reporta como tal. El
 		// id de la factura hace de clave del evento, así que un reintento del
 		// webhook no la cuenta dos veces.
+		//
+		// La IP y las cookies salen de lo guardado al abrir el checkout: en una
+		// renovación pueden tener meses, pero la `_fbc` sigue apuntando al clic que
+		// trajo a ese cliente, que es exactamente lo que hay que atribuir.
+		const navegador = await datosDelNavegadorGuardados(admin, userId);
 		void trackEvent(admin, 'suscripcion_pagada', userId, {
 			plan: planCode, ciclo: yearly ? 'anual' : 'mensual', renovacion: true, paymentId: String(dataId),
 		}, {
@@ -313,7 +329,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 			// asociar a quien vio el anuncio.
 			email: payment.payer?.email || subscription.payer_email || null,
 			plan: planCode,
-		});
+		}, navegador);
 		return json({ received: true, refilled: shouldRefill ? monthlyCredits : 0 });
 	}
 
@@ -414,6 +430,10 @@ export const POST: APIRoute = async ({ request, url }) => {
 		 * El monto sale de la suscripción, que es lo que Mercado Pago va a cobrar.
 		 */
 		if (status === 'authorized' && shouldRefill) {
+			// La conversión que más vale de todo el negocio. Los datos de
+			// emparejamiento son los que dejó la persona al abrir el checkout, hace
+			// unos minutos: acá no hay navegador, del otro lado está Mercado Pago.
+			const navegador = await datosDelNavegadorGuardados(admin, userId);
 			void trackEvent(admin, 'suscripcion_pagada', userId, {
 				plan: planCode, ciclo: yearly ? 'anual' : 'mensual', renovacion: false, paymentId: String(subscription.id || dataId),
 			}, {
@@ -421,7 +441,7 @@ export const POST: APIRoute = async ({ request, url }) => {
 				moneda: subscription.auto_recurring?.currency_id || 'USD',
 				email: subscription.payer_email || null,
 				plan: planCode,
-			});
+			}, navegador);
 		}
 	}
 

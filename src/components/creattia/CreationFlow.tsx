@@ -152,17 +152,18 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [paletteOverride, setPaletteOverride] = useState<Record<string, string>>({});
 	const [typoMode, setTypoMode] = useState<'winner' | 'url' | 'brand'>('winner');
 	const [brandSource, setBrandSource] = useState('url');
-	const [includeLogo, setIncludeLogo] = useState(false);
 	/**
-	 * Si el usuario ya decidió a mano sobre el logo.
+	 * El logo arranca apagado y no se enciende solo nunca.
 	 *
-	 * El valor por defecto sigue siendo "sin logo": alguna vez fue al revés y
-	 * varios flujos terminaban agregando el logo guardado sin que nadie lo
-	 * pidiera. Lo que cambia es que ahora, cuando el análisis ve que el ganador
-	 * lleva marca, se pre-elige la opción recomendada — pero solo si la persona
-	 * todavía no tocó nada, para no pisar una decisión suya.
+	 * Se pre-elegía "con logo" cuando el análisis marcaba que el ganador llevaba
+	 * marca, pero ese aviso se prende igual con un emblema dibujado que con el
+	 * nombre puesto en tipografía, que es la enorme mayoría de los casos. Contra
+	 * un ganador firmado con el nombre no hay ningún hueco donde pegar un
+	 * archivo, así que el logo del cliente terminaba apareciendo en una esquina
+	 * cualquiera del aviso, sin que nadie lo hubiera pedido. Encenderlo es una
+	 * decisión de la persona; acá solo se recomienda.
 	 */
-	const logoElegidoAMano = useRef(false);
+	const [includeLogo, setIncludeLogo] = useState(false);
 	// Carrusel completo: en cuáles páginas va el logo. Vacío = en ninguna.
 	const [logoCarouselPages, setLogoCarouselPages] = useState<Set<number>>(new Set());
 	const count = wantsFullCarousel ? carouselSlides.length : 1;
@@ -205,6 +206,69 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			|| (importedProducts[0] as any)?.metadata?.brandFromUrl?.palette
 			|| null;
 	})();
+	/**
+	 * Si el ganador firma con un logo DIBUJADO (un emblema, un escudo, un
+	 * símbolo), que es el único caso donde poner el archivo del logo propio tiene
+	 * dónde entrar.
+	 *
+	 * `templateHasLogoSlot` sola no alcanza: se prende igual cuando el ganador
+	 * firma escribiendo su nombre en una tipografía, que es lo que pasa casi
+	 * siempre. En esos avisos el clon escribe el nombre del negocio en ese mismo
+	 * lugar y el archivo del logo no hace falta para nada.
+	 */
+	const ganadorTieneLogoDibujado = Boolean(plan?.templateHasLogoSlot && !plan?.logoIsWordmark);
+	/** El ganador firma con el nombre escrito: ese lugar lo hereda el negocio. */
+	const ganadorFirmaConElNombre = Boolean(plan?.templateHasLogoSlot && plan?.logoIsWordmark);
+
+	/**
+	 * El logo que se detectó en la web del producto: sale del escaneo de la URL,
+	 * que lo deja guardado con el producto importado. Es el mismo archivo que el
+	 * servidor vuelve a bajar al generar con logo.
+	 */
+	const logoDeLaUrl: string = (() => {
+		const elegido = importedProducts.find((item: any) => selectedProductIds.includes(item.id) && item?.metadata?.brandFromUrl?.logoUrl);
+		return (elegido as any)?.metadata?.brandFromUrl?.logoUrl
+			|| (importedProducts[0] as any)?.metadata?.brandFromUrl?.logoUrl
+			|| '';
+	})();
+	/**
+	 * El logo guardado en "Mi marca".
+	 *
+	 * Vive en un bucket privado, así que la miniatura no se puede armar sola en
+	 * el navegador: la URL la firma el servidor y dura una hora. Se pide recién
+	 * en la revisión, que es donde aparece la pregunta del logo.
+	 *
+	 * Se usa `profileLogoUrl` y no el logo de ninguna marca de la lista: el que
+	 * el servidor baja al generar es el del perfil. Es el mismo archivo salvo en
+	 * un caso, y ese caso importa —el logo que se detecta al analizar el sitio
+	 * del negocio queda solo en el perfil—, así que mirando las marcas la
+	 * miniatura decía "no tenemos logo" y el anuncio salía con uno.
+	 */
+	const [logoDeMiMarca, setLogoDeMiMarca] = useState('');
+	useEffect(() => {
+		if (phase !== 'review' || brandSource !== 'mine' || !token) return;
+		let cancelado = false;
+		void fetch('/api/creativos/brands', { headers: { authorization: `Bearer ${token}` } })
+			.then((response) => response.ok ? response.json() : null)
+			.then((payload) => {
+				if (cancelado) return;
+				setLogoDeMiMarca(typeof payload?.profileLogoUrl === 'string' ? payload.profileLogoUrl : '');
+			})
+			.catch(() => { /* sin miniatura se sigue pudiendo elegir */ });
+		return () => { cancelado = true; };
+	}, [phase, brandSource, token]);
+	/** El archivo concreto que se pegaría si se elige "con logo". */
+	const logoQueSePondria = brandSource === 'mine' ? logoDeMiMarca : brandSource === 'url' ? logoDeLaUrl : '';
+	const origenDelLogo = brandSource === 'mine' ? 'Mi marca' : 'la URL';
+	/**
+	 * El link del logo existe pero la imagen no carga. Pasa con logos detectados
+	 * en webs ajenas: el archivo se movió o el sitio no lo sirve afuera. Sin esto
+	 * quedaba el ícono de imagen rota justo donde había que confiar en lo que se
+	 * iba a poner en el anuncio.
+	 */
+	const [logoRoto, setLogoRoto] = useState(false);
+	useEffect(() => { setLogoRoto(false); }, [logoQueSePondria]);
+
 	const [zones, setZones] = useState<Array<{ where?: string; messageRole?: string; original?: string; replacement?: string; onProduct?: boolean }>>([]);
 	const [people, setPeople] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
 	const [comparisons, setComparisons] = useState<Array<{ where?: string; role?: string; description?: string; directive?: string }>>([]);
@@ -401,10 +465,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			setComparisons(Array.isArray(analysis.comparisonItems) ? analysis.comparisonItems.map((c: any) => ({ ...c, directive: '' })) : []);
 			setCreativeDecisions(Array.isArray(analysis.creativeDecisions) ? analysis.creativeDecisions.map((decision: any) => ({ ...decision, directive: '' })) : []);
 			setComparisonGuidance('');
-			// El ganador lleva marca: se sugiere poner la propia en ese lugar.
-			if (!logoElegidoAMano.current && analysis?.templateHasLogoSlot && brandSource !== 'none') {
-				setIncludeLogo(true);
-			}
 			setPhase('review');
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo analizar la referencia.');
@@ -919,8 +979,16 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 										<span className="picker-label">Logo en el carrusel</span>
 										<div className="batch-style-options">
 											<button type="button" className={logoCarouselPages.size === 0 ? 'active' : ''} onClick={() => setLogoCarouselPages(new Set())}>Sin logo</button>
-											<button type="button" className={logoCarouselPages.size > 0 ? 'active' : ''} onClick={() => setLogoCarouselPages(new Set(carouselSlides.map((_, i) => i)))}>Con logo de {brandSource === 'mine' ? 'Mi marca' : 'la URL'}</button>
+											<button type="button" className={logoCarouselPages.size > 0 ? 'active' : ''} onClick={() => setLogoCarouselPages(new Set(carouselSlides.map((_, i) => i)))}>Con logo de {origenDelLogo}</button>
 										</div>
+										{/* Acá todavía no se analizó ninguna página, así que no se sabe
+										    cuáles firman con un logo dibujado: se avisa dónde puede
+										    terminar el archivo y se deja la decisión en la persona. */}
+										<small className="batch-brand-note">
+											{logoCarouselPages.size > 0
+												? 'Vamos a colocar el archivo del logo de tu marca en las páginas elegidas. En las que el ganador no tenga un logo dibujado, va a ir en un lugar nuevo que el diseño original no tenía.'
+												: 'No se coloca ningún archivo de logo. Donde el carrusel ganador tenga escrito el nombre de su marca, va a ir escrito el nombre de tu negocio.'}
+										</small>
 										{logoCarouselPages.size > 0 && (
 											<>
 												<small className="batch-brand-note">Tocá una página para sacarle el logo — por defecto va en todas.</small>
@@ -1118,29 +1186,58 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								<div className="logo-decision-head">
 									<strong>¿Incluir tu logo?</strong>
 									<small>
-										{plan.templateHasLogoSlot
-											? `El anuncio ganador lleva su marca${plan.logoDescription ? ` (${plan.logoDescription})` : ''}. Te conviene poner la tuya en ese mismo lugar: si queda vacío, el aviso se ve incompleto.`
-											: 'El anuncio ganador no muestra ninguna marca. Agregarla sumaría un elemento que el diseño original no tiene.'}
+										{ganadorTieneLogoDibujado
+											? `El anuncio ganador firma con un logo dibujado${plan.logoDescription ? ` (${plan.logoDescription})` : ''}: tu logo entra en ese mismo lugar, sin agregarle nada nuevo al diseño.`
+											: ganadorFirmaConElNombre
+												? `El anuncio ganador firma con el nombre de su marca escrito${plan.logoDescription ? ` (${plan.logoDescription})` : ''}, no con un logo dibujado. En ese mismo lugar va a ir escrito el nombre de tu negocio, pongas o no el logo.`
+												: 'El anuncio ganador no muestra ninguna marca en ningún lado.'}
 									</small>
 								</div>
 								<div className="logo-decision-options" role="radiogroup" aria-label="Incluir logo">
 									<button
 										type="button" role="radio" aria-checked={includeLogo}
 										className={includeLogo ? 'active' : ''}
-										onClick={() => { logoElegidoAMano.current = true; setIncludeLogo(true); }}
+										onClick={() => setIncludeLogo(true)}
 									>
-										Con logo de {brandSource === 'mine' ? 'Mi marca' : 'la URL'}
-										{plan.templateHasLogoSlot && <em>recomendado</em>}
+										Con logo de {origenDelLogo}
+										{ganadorTieneLogoDibujado && <em>recomendado</em>}
 									</button>
 									<button
 										type="button" role="radio" aria-checked={!includeLogo}
 										className={!includeLogo ? 'active' : ''}
-										onClick={() => { logoElegidoAMano.current = true; setIncludeLogo(false); }}
+										onClick={() => setIncludeLogo(false)}
 									>
 										Sin logo
-										{!plan.templateHasLogoSlot && <em>recomendado</em>}
+										{!ganadorTieneLogoDibujado && <em>recomendado</em>}
 									</button>
 								</div>
+								{/* Qué pasa con cada opción, dicho para alguien que no sabe de
+								    diseño: lo que hay que entender es dónde va a terminar el
+								    archivo del logo, que es lo que sorprendía al ver la imagen. */}
+								<p className="logo-decision-consecuencia">
+									{includeLogo
+										? (ganadorTieneLogoDibujado
+											? 'Vamos a colocar el archivo del logo de tu marca en la imagen, en el mismo lugar y del mismo tamaño que el logo del anuncio ganador.'
+											: 'Vamos a colocar el archivo del logo de tu marca en un lugar nuevo de la imagen: el anuncio ganador no tiene ningún logo dibujado, así que hay que abrirle un espacio que el diseño original no tenía.')
+										: (ganadorFirmaConElNombre || ganadorTieneLogoDibujado
+											? 'No se coloca ningún archivo de logo. Donde el anuncio ganador tiene su marca va a ir escrito el nombre de tu negocio, con la tipografía del aviso.'
+											: 'No se coloca ningún archivo de logo, y como el anuncio ganador tampoco muestra una marca, la imagen sale igual de limpia que el original.')}
+								</p>
+								{includeLogo && (
+									logoQueSePondria && !logoRoto ? (
+										<div className="logo-decision-preview">
+											<img src={logoQueSePondria} alt={`Logo de ${origenDelLogo}`} onError={() => setLogoRoto(true)} />
+											<span>Este es el logo que vamos a poner. Si no es el de tu marca, cambiá la identidad en el paso de estilo.</span>
+										</div>
+									) : (
+										<p className="logo-decision-preview-vacio">
+											{logoRoto
+												? `Encontramos un logo en ${origenDelLogo} pero el archivo no se puede abrir, así que lo más probable es que el anuncio salga sin él.`
+												: `No encontramos ningún archivo de logo en ${origenDelLogo}, así que no vamos a poder colocarlo.`}
+											{' '}{brandSource === 'mine' ? 'Subí tu logo en Mi marca' : 'Probá con la identidad de Mi marca'} o generá sin logo.
+										</p>
+									)
+								)}
 							</section>
 						)}
 

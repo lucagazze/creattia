@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 import { trackEvent } from '../../../lib/creattia/events';
+import { datosDelNavegador, guardarDatosDelNavegador } from '../../../lib/creattia/meta-capi';
 import {
 	esAutoPago,
 	getMercadoPagoAccount,
@@ -183,10 +184,15 @@ export const POST: APIRoute = async ({ request, url }) => {
 	// El valor que se reporta es el que se va a cobrar de verdad, en la moneda en
 	// la que se cobra: un importe en pesos etiquetado como dólares le enseña a
 	// Meta un ticket promedio que no existe y desajusta toda la optimización.
+	const navegador = datosDelNavegador(request);
 	void trackEvent(admin, 'checkout_abierto', auth.user.id, { tipo: 'creditos', cantidad: quantity, monto: precioUnitario * quantity }, {
 		valor: precioUnitario * quantity,
 		moneda: currency,
 		email: auth.user.email,
-	});
+	}, navegador);
+	// Última parada antes de irse a Mercado Pago: acá se guardan la IP y las
+	// cookies del píxel, porque cuando el pago se confirme quien va a avisar es
+	// el servidor de Mercado Pago y no va a traer nada de esto.
+	void guardarDatosDelNavegador(admin, auth.user.id, navegador);
 	return json({ checkoutUrl: payload.init_point });
 };

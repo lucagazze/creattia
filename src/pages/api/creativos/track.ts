@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
-import { trackEvent, type ProductEvent } from '../../../lib/creattia/events';
+import { anotarRegistroSiEsNuevo, trackEvent, type ProductEvent } from '../../../lib/creattia/events';
+import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
 
 export const prerender = false;
 
@@ -24,6 +25,11 @@ export const prerender = false;
  *     Meta— inventadas, así que no se aceptan por acá bajo ninguna forma.
  *  3. Tope de uso: un bucle en el cliente no puede inflar el embudo ni llenar la
  *     tabla de eventos.
+ *
+ * `cuenta_creada` NO está en la lista y es a propósito: es una conversión de las
+ * que Meta usa para optimizar, así que aceptarla por acá sería regalársela a
+ * cualquiera que sepa repetir un POST. Se deduce en el servidor, contra la base,
+ * a partir de este mismo aviso.
  */
 const PERMITIDOS = new Set<ProductEvent>(['app_abierta', 'planes_vistos']);
 
@@ -43,6 +49,20 @@ export const POST: APIRoute = async ({ request }) => {
 	const dentroDelLimite = await checkRateLimit(admin, auth.user.id, `track:${evento}`, 60, 3600);
 	if (!dentroDelLimite) return json({ ok: true, ignorado: 'limite' });
 
-	await trackEvent(admin, evento, auth.user.id, {});
+	// Este es el único evento que nace en el navegador, así que es donde las
+	// cookies del píxel llegan más frescas: el `app_abierta` de la primera visita
+	// desde un anuncio es el que trae la `_fbc` recién plantada.
+	const navegador = datosDelNavegador(request);
+
+	/**
+	 * El alta de la cuenta se resuelve acá porque este es el primer pedido
+	 * autenticado que hace cualquiera al entrar: no hay ningún endpoint por el que
+	 * pase el registro y solo el registro —la sesión la crea Supabase de su lado y
+	 * `/auth/callback` solo redirige—. La función decide sola si es la primera vez
+	 * o no; llamarla en cada aviso es justamente lo que la hace confiable.
+	 */
+	await anotarRegistroSiEsNuevo(admin, auth.user, navegador);
+
+	await trackEvent(admin, evento, auth.user.id, {}, {}, navegador);
 	return json({ ok: true });
 };

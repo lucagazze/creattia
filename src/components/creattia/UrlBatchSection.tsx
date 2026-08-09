@@ -149,6 +149,8 @@ type BatchPreview = {
 	count: number;
 	wearable?: boolean;
 	hasImage?: boolean;
+	/** El archivo de logo que se detectó en el sitio de la marca, si lo hubo. */
+	brandLogoUrl?: string;
 	/** La página entera: permite ofrecer "la tienda" igual que en el individual. */
 	page?: {
 		pageType?: 'product' | 'service' | 'catalog';
@@ -235,7 +237,17 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 	const [paletteOverride, setPaletteOverride] = useState<Record<string, string>>({});
 	const [typoMode, setTypoMode] = useState('winner');
 	const [brandSource, setBrandSource] = useState('url');
+	/**
+	 * El logo va apagado por defecto y no se enciende solo.
+	 *
+	 * Casi ningún ganador firma con un emblema dibujado: firma escribiendo el
+	 * nombre de la marca. Cuando eso pasa, el clon escribe el nombre del negocio
+	 * en ese mismo lugar sin necesitar ningún archivo, y pedir el logo solo
+	 * consigue que aparezca pegado en un rincón que el aviso original no tenía.
+	 */
 	const [includeLogo, setIncludeLogo] = useState(false);
+	/** El logo guardado en "Mi marca", firmado por el servidor para poder verlo. */
+	const [logoDeMiMarca, setLogoDeMiMarca] = useState('');
 	const [extraImages, setExtraImages] = useState<File[]>([]);
 	const [extraImagePreviews, setExtraImagePreviews] = useState<string[]>([]);
 
@@ -262,6 +274,17 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 
 	/** Los colores que se detectaron en la web de la marca, si los hubo. */
 	const paletaDetectada: Record<string, string> | null = (preview?.page?.store as any)?.palette || null;
+
+	/** El archivo de logo concreto que se pegaría si se pide "con logo". */
+	const logoQueSePondria = brandSource === 'mine' ? logoDeMiMarca : brandSource === 'url' ? (preview?.brandLogoUrl || '') : '';
+	const origenDelLogo = brandSource === 'mine' ? 'Mi marca' : 'la URL';
+	/**
+	 * El link del logo existe pero la imagen no carga: el logo detectado en una
+	 * web ajena puede haberse movido o no servirse afuera. Mostrar el ícono de
+	 * imagen rota justo acá es peor que decir que no lo tenemos.
+	 */
+	const [logoRoto, setLogoRoto] = useState(false);
+	useEffect(() => { setLogoRoto(false); }, [logoQueSePondria]);
 
 	/**
 	 * De qué habla el lote. La persona elige el alcance —todo el negocio o algo
@@ -339,6 +362,33 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 		return accessToken;
 	};
 
+	/**
+	 * El logo de "Mi marca" vive en un bucket privado, así que la miniatura la
+	 * tiene que firmar el servidor. Se pide recién en la revisión, que es donde
+	 * se pregunta si el logo entra o no en el anuncio.
+	 *
+	 * `profileLogoUrl` es el archivo que el worker del lote baja de verdad
+	 * (`creative_profiles.logo_path`); el de cada fila de marca puede no existir
+	 * aunque el perfil sí tenga uno.
+	 */
+	useEffect(() => {
+		if (step !== 'review' || brandSource !== 'mine') return;
+		let cancelado = false;
+		void (async () => {
+			const accessToken = await getAccessToken();
+			if (!accessToken || cancelado) return;
+			try {
+				const response = await fetch('/api/creativos/brands', { headers: { authorization: `Bearer ${accessToken}` } });
+				if (!response.ok) return;
+				const payload = await response.json();
+				if (cancelado) return;
+				setLogoDeMiMarca(typeof payload?.profileLogoUrl === 'string' ? payload.profileLogoUrl : '');
+			} catch { /* sin miniatura se sigue pudiendo elegir */ }
+		})();
+		return () => { cancelado = true; };
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [step, brandSource, session]);
+
 	// PASO 1 — Analizar el producto y proponer las referencias ganadoras.
 	// No cobra créditos: solo devuelve los ganadores para que el usuario revise.
 	const handleScan = async (e: React.FormEvent) => {
@@ -382,7 +432,10 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 			const data = await response.json();
 			if (!response.ok) throw new Error(data.error || 'No se pudo analizar el producto.');
 
-			setPreview({ product: data.product, count: data.count, wearable: data.wearable, hasImage: data.hasImage, page: data.page || null });
+			// `brandLogoUrl` es el logo que el escaneo encontró en el sitio: sin
+			// guardarlo acá, la revisión no tiene qué mostrar y termina afirmando que
+			// no hay ningún logo cuando el anuncio se va a generar con uno.
+			setPreview({ product: data.product, count: data.count, wearable: data.wearable, hasImage: data.hasImage, page: data.page || null, brandLogoUrl: data.brandLogoUrl || '' });
 			// Lo detectado manda, pero se puede corregir en la revisión.
 			setAlcanceOverride(null);
 			setPaletteOverride({});
@@ -927,9 +980,31 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 										<span className="picker-label">Logo en el anuncio</span>
 										<div className="batch-style-options">
 											<button type="button" className={!includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(false)} aria-pressed={!includeLogo}>Sin logo</button>
-										<button type="button" className={includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(true)} aria-pressed={includeLogo}>Con logo de {brandSource === 'mine' ? 'Mi marca' : 'la URL'}</button>
+										<button type="button" className={includeLogo ? 'active' : ''} onClick={() => setIncludeLogo(true)} aria-pressed={includeLogo}>Con logo de {origenDelLogo}</button>
 										</div>
-										<small className="batch-brand-note">{includeLogo ? 'Lo agregamos en el espacio del diseño cuando el anuncio tenga lugar para él.' : 'El anuncio sale solo con tu producto, sin logo ni marca de agua.'}</small>
+										{/* Acá se eligen varios ganadores a la vez, así que no se sabe
+										    cuáles firman con un logo dibujado: lo único honesto es
+										    decir dónde puede terminar el archivo. */}
+										<small className="batch-brand-note">
+											{includeLogo
+												? 'Vamos a colocar el archivo del logo de tu marca en la imagen. En los anuncios ganadores que no tengan un logo dibujado, va a ir en un lugar nuevo que el diseño original no tenía.'
+												: 'No se coloca ningún archivo de logo. Donde el anuncio ganador tenga escrito el nombre de su marca, va a ir escrito el nombre de tu negocio.'}
+										</small>
+										{includeLogo && (
+											logoQueSePondria && !logoRoto ? (
+												<div className="logo-decision-preview">
+													<img src={logoQueSePondria} alt={`Logo de ${origenDelLogo}`} onError={() => setLogoRoto(true)} />
+													<span>Este es el logo que vamos a poner en los {count} anuncios.</span>
+												</div>
+											) : (
+												<p className="logo-decision-preview-vacio">
+													{logoRoto
+														? `Encontramos un logo en ${origenDelLogo} pero el archivo no se puede abrir, así que lo más probable es que los anuncios salgan sin él.`
+														: `No encontramos ningún archivo de logo en ${origenDelLogo}, así que no vamos a poder colocarlo.`}
+													{' '}{brandSource === 'mine' ? 'Subí tu logo en Mi marca' : 'Probá con la identidad de Mi marca'} o generá sin logo.
+												</p>
+											)
+										)}
 									</div>
 								)}
 							</div>

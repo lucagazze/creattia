@@ -3,6 +3,7 @@ import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from 
 
 import { yearlyPriceFor } from '../../../lib/creattia/subscription-plans';
 import { trackEvent } from '../../../lib/creattia/events';
+import { datosDelNavegador, guardarDatosDelNavegador } from '../../../lib/creattia/meta-capi';
 import {
 	esAutoPago,
 	getMercadoPagoAccount,
@@ -305,7 +306,13 @@ export const POST: APIRoute = async ({ request, url }) => {
 	const payload = await response.json().catch(() => ({}));
 	const checkoutUrl = payload.init_point || payload.sandbox_init_point;
 	if (checkoutUrl) {
-		void trackEvent(admin, 'checkout_abierto', auth.user.id, { plan: planCode, ciclo: billingCycle, monto: transactionAmount });
+		const navegador = datosDelNavegador(request);
+		void trackEvent(admin, 'checkout_abierto', auth.user.id, { plan: planCode, ciclo: billingCycle, monto: transactionAmount }, {}, navegador);
+		// Último momento en que la persona está del otro lado: el cobro lo va a
+		// confirmar Mercado Pago contra el webhook, desde su servidor, sin la IP ni
+		// las cookies del píxel. Se guardan acá para que el Purchase de la
+		// suscripción —el ingreso principal— llegue a Meta con algo con qué atarlo.
+		void guardarDatosDelNavegador(admin, auth.user.id, navegador);
 	}
 	if (!response.ok || !checkoutUrl) {
 		return json({ error: payload.message || 'Mercado Pago no pudo iniciar la suscripción.' }, 502);
@@ -360,7 +367,7 @@ export const DELETE: APIRoute = async ({ request }) => {
 
 	const response = await cancelProviderSubscription(subscription.provider_subscription_id, accessToken);
 	const payload = await response?.json().catch(() => ({})) || {};
-	if (response?.ok) void trackEvent(admin, 'plan_cancelado', auth.user.id, { plan: subscription.status });
+	if (response?.ok) void trackEvent(admin, 'plan_cancelado', auth.user.id, { plan: subscription.status }, {}, datosDelNavegador(request));
 	if (!response?.ok) return json({ error: payload.message || 'Mercado Pago no pudo cancelar la suscripción.' }, 502);
 
 	const now = new Date().toISOString();

@@ -41,7 +41,7 @@ export const GET: APIRoute = async ({ request }) => {
 	const [{ data: brands, error }, { data: profile }] = await Promise.all([
 		admin.from('creative_brands').select('id,name,website_url,logo_path,brand_colors,brand_style,created_at')
 			.eq('user_id', auth.user.id).eq('is_active', true).order('created_at', { ascending: true }),
-		admin.from('creative_profiles').select('active_brand_id,plan_code').eq('user_id', auth.user.id).maybeSingle(),
+		admin.from('creative_profiles').select('active_brand_id,plan_code,logo_path').eq('user_id', auth.user.id).maybeSingle(),
 	]);
 	if (error) return fail('brands', error, 'No se pudo completar la operación sobre tus marcas.');
 
@@ -55,9 +55,27 @@ export const GET: APIRoute = async ({ request }) => {
 		return { ...brand, logoUrl };
 	}));
 
+	/**
+	 * El archivo que de verdad se pega en el anuncio.
+	 *
+	 * No es el de la fila de la marca: al generar con "Mi marca", tanto
+	 * `generate.ts` como el worker de lotes y los videos bajan
+	 * `creative_profiles.logo_path`. Activar una marca copia su logo al perfil,
+	 * pero el logo que se detecta solo al analizar el sitio del negocio se guarda
+	 * únicamente en el perfil y nunca llega a una fila de marca. Mirando las
+	 * marcas, la pantalla que pregunta "¿incluir tu logo?" contestaba que no
+	 * había ninguno justo en los casos en que sí lo hay.
+	 */
+	let profileLogoUrl = '';
+	if (profile?.logo_path) {
+		const { data: signed } = await admin.storage.from('creative-assets').createSignedUrl(profile.logo_path, 3600);
+		profileLogoUrl = signed?.signedUrl || '';
+	}
+
 	return json({
 		brands: withLogos,
 		activeBrandId: profile?.active_brand_id || null,
+		profileLogoUrl,
 		limit: brandLimitFor(planCode),
 		planCode,
 	});
