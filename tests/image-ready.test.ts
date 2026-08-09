@@ -159,6 +159,33 @@ describe('precarga de imágenes', () => {
 		const nuevas = pendientes.slice(encoladas).map((p) => p.src);
 		assert.equal(nuevas[0], urgente, 'la urgente no se adelantó en la cola');
 	});
+
+	test('un lote urgente se baja en el orden en que se pidió, no al revés', async () => {
+		/**
+		 * De acá salía la queja "se cargan las de abajo de todo y va subiendo".
+		 *
+		 * "Urgente" quería decir meter la entrada al FRENTE de la cola. Con un
+		 * pedido suelto está bien; con un lote no, porque se recorre el array hacia
+		 * adelante y cada `unshift` empuja al anterior más atrás: la cola terminaba
+		 * con el lote dado vuelta. En "Mis imágenes" cada tarjeta pedía su imagen
+		 * como urgente al montarse, así que las fotos entraban desde la última de
+		 * la grilla hacia arriba y lo que la persona tenía delante llegaba último.
+		 */
+		const ocupadas = Array.from({ length: 8 }, (_, i) => url(`ocupa-${i}`));
+		precargarImagenes(ocupadas);
+		const enCurso = pendientes.length;
+		assert.equal(enCurso, 8, 'la prueba necesita las ocho ranuras ocupadas');
+
+		const lote = Array.from({ length: 4 }, (_, i) => url(`urgente-${i}`));
+		precargarImagenes(lote, true);
+
+		// Se liberan las ranuras: entra el lote entero, y tiene que entrar en orden.
+		pendientes.slice(0, enCurso).forEach((pendiente) => pendiente.cargar());
+		await soltarMicrotareas();
+
+		const nuevas = pendientes.slice(enCurso).map((p) => p.src);
+		assert.deepEqual(nuevas.slice(0, lote.length), lote, 'el lote urgente salió al revés');
+	});
 });
 
 describe('la barra superior acompaña el scroll', () => {

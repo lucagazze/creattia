@@ -8,7 +8,8 @@ import { canAccessVideoFeature } from '../../lib/creattia/video-access';
 import CreationFlow from './CreationFlow';
 import VideoCreationFlow from './VideoCreationFlow';
 import { useReferenceUrls } from '../../lib/creattia/reference-urls';
-import { imagenFallada, imagenLista as imagenListaParaMostrar, precargarImagenes, ratioDeImagen } from '../../lib/creattia/image-ready';
+import { imagenFallada, precargarImagenes } from '../../lib/creattia/image-ready';
+import { ImagenDeTarjeta } from './carga-por-pantalla';
 import { useMasonry } from './use-masonry';
 
 /**
@@ -611,11 +612,9 @@ export default function WinnersLibrary({
 	 * esqueletos hasta que terminaban de bajar veinte imágenes, aunque en pantalla
 	 * entraran seis. Y al scrollear volvía a pasar lo mismo con cada bloque.
 	 *
-	 * Ahora las tarjetas se dibujan enseguida y cada imagen la pide el navegador
-	 * cuando su tarjeta se acerca a la pantalla (`loading="lazy"`). Las de la
-	 * primera pantalla van en `eager` y con prioridad alta, así que son las
-	 * primeras en salir. El navegador ya sabe hacer esto mejor que nosotros: mide
-	 * la distancia real al viewport y ajusta según la conexión.
+	 * Ahora las tarjetas se dibujan enseguida y cada imagen se pide cuando su
+	 * tarjeta entra en la zona cercana a la pantalla, con un observador por tarjeta
+	 * (`ImagenDeTarjeta`). Las de la primera pantalla, además, con prioridad alta.
 	 *
 	 * Que no salte nada se resuelve reservando el lugar de cada imagen con su
 	 * proporción antes de que baje, y midiendo la altura real cuando entra.
@@ -1270,8 +1269,8 @@ export default function WinnersLibrary({
 						const isVideo = item.metadata?.mediaType === 'video';
 						const urlFor = (path: string) => (path.startsWith('http') ? path : signedUrls[path] || '');
 						const imageUrl = item.imageUrl || urlFor(item.imagePath);
-						// Acá solo llegan tarjetas cuya portada ya está decodificada: el
-						// filtro está en `visibleItems`, no en el render.
+						// Sin URL firmada no hay nada que mostrar todavía: la tarjeta aparece
+						// en cuanto el servidor devuelve la firma de su portada.
 						if (!imageUrl) return null;
 
 						// Carrusel: varias páginas para navegar dentro de la misma tarjeta.
@@ -1481,35 +1480,19 @@ export default function WinnersLibrary({
 										</>
 									)}
 
-									<img
-										src={slideUrl}
+									{/* La foto se pide cuando la tarjeta se acerca a la pantalla, no
+									    por su número de orden: `loading="lazy"` hacía casi lo mismo,
+									    pero acá la cercanía tiene que decidir además qué rutas se
+									    mandan a firmar, así que manda un solo mecanismo para las dos
+									    cosas. El fundido y el lugar reservado los maneja el propio
+									    componente. */}
+									<ImagenDeTarjeta
+										url={slideUrl}
 										alt={item.name}
-										/* La portada ya está decodificada cuando la tarjeta se
-										   monta, así que entra visible: esperar un `onLoad` que
-										   ya ocurrió dejaba la imagen en opacidad 0. Las páginas
-										   de un carrusel sí pueden no estar todavía, y para esas
-										   el fundido se activa al cargar. */
-										className={`library-card-imagen${imagenListaParaMostrar(slideUrl) ? ' cargada' : ''}`}
-										style={{
-											width: '100%', height: 'auto', display: 'block', pointerEvents: 'none',
-											/* El lugar de la imagen, reservado antes de que baje: sin esto la
-											   tarjeta nace con altura casi cero y pega un salto al llegar la
-											   foto. Se usa la proporción real si ya se conoce y, si no, la
-											   vertical típica de un anuncio. Al cargar se quita, para que
-											   mande el tamaño verdadero. */
-											aspectRatio: imagenListaParaMostrar(slideUrl) ? undefined : (ratioDeImagen(slideUrl) || 0.8),
-										}}
-										/* Las primeras salen ya; el resto las pide el navegador cuando su
-										   tarjeta se acerca a la pantalla. */
-										loading={idx < 6 ? 'eager' : 'lazy'}
-										fetchPriority={idx < 6 ? 'high' : 'auto'}
-										decoding="async"
-										onLoad={(event) => {
-											event.currentTarget.classList.add('cargada');
-											// Ya se sabe el tamaño real: la reserva estorba.
-											event.currentTarget.style.aspectRatio = '';
-										}}
-										onError={(event) => {
+										className="library-card-imagen"
+										style={{ width: '100%', height: 'auto', display: 'block', pointerEvents: 'none' }}
+										prioritaria={idx < 6}
+										onFalla={(event) => {
 											// Reintento único: el CDN a veces devuelve 429 bajo carga.
 											const img = event.currentTarget;
 											if (!img.dataset.retried) {

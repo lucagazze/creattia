@@ -1,4 +1,5 @@
-import { imagenLista, precargarImagen, precargarImagenes, ratioDeImagen, useAvisoDeCarga } from '../../../lib/creattia/image-ready';
+import { precargarImagenes } from '../../../lib/creattia/image-ready';
+import { ImagenDeTarjeta } from '../carga-por-pantalla';
 import { useReferenceUrl } from '../../../lib/creattia/reference-urls';
 import UrlInput from '../UrlInput';
 import { Icon } from '../Icon';
@@ -343,26 +344,27 @@ export function GenerationCard({
 	const active = isCarousel ? slides![Math.min(slideIndex, slides!.length - 1)] : item;
 	const referenceThumbUrl = useReferenceUrl(active.referencePath);
 	const deleteIds = isCarousel ? slides!.map((slide) => slide.id) : active.id;
-	// Precarga el resto de las páginas del carrusel apenas se ve la tarjeta:
-	// sin esto, cada vez que tocás la flecha se descargaba la imagen recién
-	// en ese momento y se sentía trabado en vez de pasar al toque.
-	useEffect(() => {
-		if (!isCarousel) return;
-		precargarImagenes(slides!.map((slide) => slide.imageUrl));
-	}, [isCarousel, slides]);
 	/**
-	 * La imagen recién terminada no se muestra hasta estar pintada.
+	 * Si la portada ya se ve o no.
 	 *
-	 * Al terminar una generación el sondeo le pone la URL a la tarjeta y el `<img>`
-	 * arrancaba vacío: la tarjeta se quedaba un instante en blanco justo en el
-	 * momento que la persona estaba esperando. Se mantiene el aviso de "generando"
-	 * unos milisegundos más y la imagen entra ya completa.
+	 * Es lo que decide si sobre la imagen va el cartel de "Casi listo…". Antes esto
+	 * lo contestaba `imagenLista()`, o sea el precargador del módulo, y de ahí salía
+	 * el problema de fondo: el `<img>` no se renderizaba hasta que ESA descarga
+	 * terminaba, así que el navegador nunca veía una imagen fuera de pantalla que
+	 * pudiera despriorizar. Ahora la imagen se monta apenas la tarjeta se acerca y
+	 * es ella misma la que avisa cuando terminó.
 	 */
-	useAvisoDeCarga();
+	const [portadaVisible, setPortadaVisible] = useState(false);
+	useEffect(() => { setPortadaVisible(false); }, [active.imageUrl]);
+	// El resto de las páginas del carrusel se precargan recién cuando la portada
+	// entró: sin esto, cada vez que tocabas la flecha la imagen se descargaba en
+	// ese mismo momento y se sentía trabado en vez de pasar al toque. Van por la
+	// cola de `image-ready` y no por el observador porque no están en el DOM:
+	// nadie puede verlas venir hasta que alguien toca la flecha.
 	useEffect(() => {
-		precargarImagen(active.imageUrl, true);
-	}, [active.imageUrl]);
-	const imagenPintada = imagenLista(active.imageUrl);
+		if (!isCarousel || !portadaVisible) return;
+		precargarImagenes(slides!.map((slide) => slide.imageUrl));
+	}, [isCarousel, slides, portadaVisible]);
 	const goToSlide = (delta: number) => {
 		if (!isCarousel) return;
 		setSlideIndex((prev) => (prev + delta + slides!.length) % slides!.length);
@@ -514,7 +516,7 @@ export function GenerationCard({
 						<small>{active.error || 'Probá de nuevo en unos segundos.'}</small>
 						{onCancel && <button type="button" onClick={(event) => { event.stopPropagation(); onCancel(); }}>Limpiar</button>}
 					</div>
-				) : !imagenPintada ? (
+				) : !active.imageUrl ? (
 					<div
 						style={{
 							width: '100%',
@@ -533,8 +535,8 @@ export function GenerationCard({
 						}}
 					>
 						<span className="studio-spinner" style={{ width: '28px', height: '28px' }} />
-						<strong style={{ fontSize: '12.5px', color: '#19171d' }}>{active.imageUrl ? 'Casi listo…' : 'Generando anuncio…'}</strong>
-						{onCancel && !active.imageUrl && (
+						<strong style={{ fontSize: '12.5px', color: '#19171d' }}>Generando anuncio…</strong>
+						{onCancel && (
 							<button
 								type="button"
 								onClick={(event) => { event.stopPropagation(); onCancel(); }}
@@ -550,19 +552,39 @@ export function GenerationCard({
 					</div>
 				) : (
 					<>
-						{/* Primero lo que se ve. Las de la primera pantalla salen ya; el resto
-						    las pide el navegador cuando su tarjeta se acerca, en vez de bajar
-						    las ciento cincuenta de una. El lugar queda reservado con la
-						    proporción, para que la grilla no salte al llegar cada foto. */}
-						<img
-							src={active.imageUrl}
+						{/* Primero lo que se ve. La imagen se pide cuando la tarjeta se acerca
+						    a la pantalla, no cuando le toca por posición en la lista: entre
+						    las cercanas, las de la primera pantalla van con prioridad alta. */}
+						<ImagenDeTarjeta
+							url={active.imageUrl}
 							alt={item.title}
-							loading={posicion < 6 ? 'eager' : 'lazy'}
-							fetchPriority={posicion < 6 ? 'high' : 'auto'}
-							decoding="async"
-							style={{ aspectRatio: ratioDeImagen(active.imageUrl) || 0.8 }}
-							onLoad={(event) => { event.currentTarget.style.aspectRatio = ''; }}
+							prioritaria={posicion < 6}
+							onCargada={() => setPortadaVisible(true)}
 						/>
+						{/* El aviso va ENCIMA de la imagen, no en su lugar.
+						    Reemplazarla obligaba a tener la foto bajada antes de poder
+						    dibujar el `<img>`, y eso es lo que dejaba al navegador sin nada
+						    que priorizar por cercanía a la pantalla. Como capa, la imagen ya
+						    está en el DOM pidiéndose mientras el cartel sigue puesto. */}
+						{!portadaVisible && (
+							<div
+								style={{
+									position: 'absolute',
+									inset: 0,
+									background: 'linear-gradient(135deg, #f8f5fc 0%, #efe7f8 100%)',
+									display: 'flex',
+									flexDirection: 'column',
+									alignItems: 'center',
+									justifyContent: 'center',
+									gap: '10px',
+									padding: '20px',
+									textAlign: 'center',
+								}}
+							>
+								<span className="studio-spinner" style={{ width: '28px', height: '28px' }} />
+								<strong style={{ fontSize: '12.5px', color: '#19171d' }}>Casi listo…</strong>
+							</div>
+						)}
 						{isCarousel && (
 							<>
 								<button type="button" className="carousel-arrow carousel-arrow-prev" aria-label="Página anterior" onClick={(event) => { event.preventDefault(); event.stopPropagation(); goToSlide(-1); }}>‹</button>

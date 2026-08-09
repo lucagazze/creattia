@@ -16,15 +16,21 @@ import { useEffect, useMemo, useState } from 'react';
  * bytes, no que el navegador ya los convirtió en píxeles —decodificar un JPEG
  * grande en el hilo principal es lo que produce el tirón—.
  *
- * Cómo se usa. Las vistas piden el prefijo listo (`usePrefijoListo`) y renderizan
- * solo eso: las tarjetas entran en bloque, ya con su imagen y con su altura
- * final, así que nada de lo que ya estaba en pantalla se mueve. Mientras tanto se
- * muestran esqueletos al final de la grilla, que es el único lugar donde crecer
- * no molesta a nadie.
+ * Hasta dónde llega esto. Las grillas grandes —"Mis imágenes", "Anuncios
+ * guardados" y la biblioteca de ganadores— ya NO bajan sus fotos por acá: cada
+ * tarjeta le pone el `src` a su propio `<img>` cuando se acerca a la pantalla
+ * (ver `carga-por-pantalla.tsx`). Tener dos mecanismos bajando lo mismo era el
+ * problema, no la solución: la cola imponía su propio orden y el navegador se
+ * encontraba la imagen ya en caché, sin nada que priorizar. Lo que sí sigue
+ * pasando por acá es lo que NO está en el DOM y por lo tanto ningún observador
+ * puede ver: las páginas de un carrusel que todavía no se abrió, la próxima
+ * carta del mazo de Descubrir, el tramo siguiente del catálogo.
  *
  * Todo el estado es de módulo, no de componente: las mismas referencias
  * aparecen en la grilla, en el lightbox y en el historial, y una imagen ya
  * decodificada tiene que estar disponible al instante en la siguiente vista.
+ * Por eso los `<img>` de las grillas anotan acá lo que bajaron
+ * (`registrarImagen`) aunque no hayan pedido nada a la cola.
  */
 
 /** Cuántas bajadas en paralelo. Más que esto no acelera: satura la red y hace que las primeras tarden más. */
@@ -45,8 +51,23 @@ const resueltas = new Map<string, Resultado>();
 const enVuelo = new Map<string, Promise<Resultado>>();
 const oyentes = new Set<() => void>();
 
-/** Cola de espera: se atiende en orden de pedido, con las urgentes adelante. */
-const cola: Array<{ url: string; resolver: (resultado: Resultado) => void }> = [];
+type Entrada = { url: string; resolver: (resultado: Resultado) => void };
+
+/**
+ * Dos filas, las dos por orden de llegada: primero se vacía la urgente.
+ *
+ * Antes era una sola fila y "urgente" quería decir `unshift`, o sea meterse al
+ * frente. Con un pedido suelto funcionaba; con un LOTE no: `precargarImagenes`
+ * recorre el array hacia adelante y hace un `unshift` por elemento, así que la
+ * cola terminaba con el lote dado vuelta y se bajaba de atrás para adelante. En
+ * "Mis imágenes" eso se veía clarísimo — las ciento cincuenta tarjetas pedían su
+ * imagen como urgente al montarse y las fotos entraban desde la última de la
+ * grilla hacia arriba. Con una fila aparte, lo urgente sigue pasando adelante de
+ * lo que no lo es, pero dentro del lote se respeta el orden que pidió quien
+ * llamó, que es siempre el orden en que se van a ver.
+ */
+const cola: Entrada[] = [];
+const colaUrgente: Entrada[] = [];
 let activas = 0;
 
 function avisar() {
@@ -86,8 +107,8 @@ function cargar(url: string): Promise<Resultado> {
 }
 
 function atenderCola() {
-	while (activas < EN_PARALELO && cola.length) {
-		const siguiente = cola.shift()!;
+	while (activas < EN_PARALELO && (colaUrgente.length || cola.length)) {
+		const siguiente = (colaUrgente.length ? colaUrgente.shift() : cola.shift())!;
 		activas += 1;
 		void cargar(siguiente.url).then((resultado) => {
 			activas -= 1;
@@ -111,9 +132,7 @@ export function precargarImagen(url: string, urgente = false): Promise<Resultado
 	if (enCurso) return enCurso;
 
 	const promesa = new Promise<Resultado>((resolver) => {
-		const entrada = { url, resolver };
-		if (urgente) cola.unshift(entrada);
-		else cola.push(entrada);
+		(urgente ? colaUrgente : cola).push({ url, resolver });
 		atenderCola();
 	}).then((resultado) => {
 		resueltas.set(url, resultado);
@@ -128,6 +147,38 @@ export function precargarImagen(url: string, urgente = false): Promise<Resultado
 /** Precarga un conjunto en el orden dado, sin esperar el resultado. */
 export function precargarImagenes(urls: Array<string | null | undefined>, urgente = false) {
 	for (const url of urls) if (url) void precargarImagen(url, urgente);
+}
+
+/**
+ * Anota una imagen que bajó el `<img>` de una tarjeta, no la cola de acá.
+ *
+ * Las grillas dejaron de precargar y le pasan el `src` directo a su elemento,
+ * que es lo que permite que el pedido siga a la pantalla. Pero la proporción que
+ * se aprende ahí sirve igual en el resto de la app: la misma referencia aparece
+ * en el visor, en el historial y en la fila de recientes, y sin este registro
+ * cada pantalla volvería a reservar el lugar a ciegas con la proporción por
+ * defecto y a pegar el salto de layout cuando llega la foto de verdad.
+ */
+export function registrarImagen(url: string, ratio: number) {
+	if (!url || resueltas.get(url)?.ok) return;
+	resueltas.set(url, { ok: true, ratio: ratio > 0 ? ratio : 0 });
+	// Si además había una precarga en vuelo por esta misma URL, su resultado va a
+	// llegar después y escribir lo mismo: no hace falta cancelarla.
+	avisar();
+}
+
+/**
+ * Anota que una imagen de una tarjeta no se pudo mostrar.
+ *
+ * Lo mismo que `registrarImagen` pero del lado feo: las pantallas que sacan del
+ * render lo que falló —para no dejar un marco roto en el medio de la grilla—
+ * preguntan por `imagenFallada()`, y esa respuesta la daba la precarga. Sin este
+ * registro, una referencia borrada del bucket volvería a dejar el hueco.
+ */
+export function registrarFalla(url: string) {
+	if (!url || resueltas.has(url)) return;
+	resueltas.set(url, { ok: false, ratio: 0 });
+	avisar();
 }
 
 /** ¿Esta imagen ya está decodificada y se puede mostrar sin trabajo pendiente? */

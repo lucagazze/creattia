@@ -66,11 +66,22 @@ export function useMasonry(dependencias: DependencyList) {
 				tarjeta.style.gridRowEnd = `span ${Math.max(1, Math.ceil(alto + separacion))}`;
 			}
 		};
-		// Las imágenes terminan de decodificar en cualquier momento y cambian el
-		// alto de su tarjeta: agrupar las mediciones en un frame evita recalcular
-		// la grilla entera una vez por imagen.
+		// La PRIMERA medición va sincrónica, sin esperar un frame.
+		//
+		// Una tarjeta sin span ocupa una fila de 1px, así que hasta que se mide por
+		// primera vez la grilla entera está amontonada arriba de todo. Eso no era
+		// grave mientras solo se viera un cuadro mal dibujado durante un frame, pero
+		// ahora el observador que decide qué imágenes pedir mira posiciones reales:
+		// si mira la grilla amontonada, ve las ciento cincuenta tarjetas dentro de
+		// la pantalla y las pide todas de una, que es justo lo que se quiere evitar.
+		// Midiendo acá, la grilla ya tiene su alto verdadero antes de que se calcule
+		// ninguna intersección —los efectos de layout corren antes que los efectos
+		// normales de los hijos, que es donde cada tarjeta se pone a observar—.
+		medir();
+		// De ahí en adelante sí se agrupa por frame: las imágenes terminan de
+		// decodificar en cualquier momento y cambian el alto de su tarjeta, y sin
+		// agrupar se recalcularía la grilla entera una vez por imagen.
 		const programar = () => { if (!frame) frame = requestAnimationFrame(medir); };
-		programar();
 		const observadorDeAlto = new ResizeObserver(programar);
 		observadorDeAlto.observe(grilla);
 		for (const tarjeta of Array.from(grilla.children)) observadorDeAlto.observe(tarjeta);
