@@ -60,7 +60,7 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 		credits: 5,
 		description: 'Biblioteca completa y 5 tokens mensuales para empezar a crear.',
 		brandLimit: 1,
-		featured: true,
+		featured: false,
 		features: [
 			{ name: 'Biblioteca completa de ganadores', active: true },
 			{ name: '5 tokens incluidos por mes', active: true },
@@ -77,7 +77,10 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 		credits: 40,
 		description: 'Hasta 40 tokens mensuales para marcas en crecimiento.',
 		brandLimit: 2,
-		featured: false,
+		// El plan que se recomienda: es el que mejor relación deja por token y el
+		// que sostiene un ritmo de producción real. Destacar el más barato empuja
+		// a un plan de cinco imágenes que se agota en la primera semana.
+		featured: true,
 		features: [
 			{ name: '40 tokens al mes', active: true },
 			{ name: '≈ $0.62 por token — el mejor equilibrio', active: true },

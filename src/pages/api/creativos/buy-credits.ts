@@ -29,21 +29,32 @@ export const GET: APIRoute = async ({ request }) => {
 	// dólares y cobrar pesos es la forma más rápida de que alguien abandone el
 	// pago en la pantalla siguiente.
 	const account = accessToken ? await getMercadoPagoAccount(accessToken) : null;
-	const currency = account?.currency
+	const monedaDeCobro = account?.currency
 		|| import.meta.env.CREDIT_CURRENCY
 		|| process.env.CREDIT_CURRENCY
 		|| 'USD';
-	let precioMostrado = unitPrice;
+	let montoACobrar = unitPrice;
 	let convertible = true;
 	try {
-		precioMostrado = resolverMonto(unitPrice, currency, tipoDeCambioConfigurado()).amount;
+		montoACobrar = resolverMonto(unitPrice, monedaDeCobro, tipoDeCambioConfigurado()).amount;
 	} catch {
 		convertible = false;
 	}
+	/**
+	 * Los precios se muestran en dólares y se cobran en la moneda de la cuenta.
+	 *
+	 * El precio de la oferta está pensado en dólares —es la unidad en la que se
+	 * calculan los márgenes y la que figura en toda la web—, pero la cuenta de
+	 * Mercado Pago solo liquida su moneda local. Devolver el importe ya convertido
+	 * hacía que la app mostrara pesos en un lugar y dólares en otro. Van los dos:
+	 * el de la vidriera y el que va a aparecer en el resumen de la tarjeta.
+	 */
 	return json({
-		unitPrice: precioMostrado,
-		unitPriceUsd: unitPrice,
-		currency,
+		unitPrice,
+		currency: 'USD',
+		cobro: convertible && monedaDeCobro !== 'USD'
+			? { monto: montoACobrar, moneda: monedaDeCobro }
+			: null,
 		maxCredits: MAX_CREDITS_PER_CHECKOUT,
 		configured: unitPrice > 0 && Boolean(accessToken) && convertible,
 	});
