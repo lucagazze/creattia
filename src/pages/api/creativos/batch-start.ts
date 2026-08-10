@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { loadWinners } from '../../../lib/creattia/winner-picker';
 import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
-import { parsePaletteOverride } from '../../../lib/creattia/generation-pipeline';
+import { parsePaletteOverride, parsePersonMode } from '../../../lib/creattia/generation-pipeline';
 import { FREE_PREVIEW_REFERENCE_PATHS, freePreviewAngleFor, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
 import { countProductImages } from '../../../lib/creattia/product-media';
 import { SUBJECT_MODES, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
@@ -62,6 +62,18 @@ export const POST: APIRoute = async ({ request }) => {
 		// El usuario elige explícitamente si quiere el logo en el anuncio o no —
 		// antes se agregaba solo si había uno disponible, sin preguntar.
 		const includeLogo = brandSource !== 'none' && Boolean(body?.includeLogo);
+		/**
+		 * Quién aparece en los anuncios del lote.
+		 *
+		 * Faltaba sólo acá. El Studio y el carrusel lo mandan desde siempre y el
+		 * worker —que es el mismo para los tres— lo lee del snapshot, así que un lote
+		 * salía con lo que el worker asume por defecto: sin forma de pedir "sin
+		 * persona" ni de usar un avatar propio. Se mandaba a generar veinte anuncios
+		 * a ciegas en la única entrada donde más caro sale equivocarse.
+		 */
+		const avatarId = String(body?.avatarId || '').trim();
+		const personMode = parsePersonMode(body?.personMode, avatarId ? 'upload' : 'ai');
+		const avatarDescription = personMode === 'described' ? String(body?.avatarDescription || '').trim().slice(0, 600) : '';
 
 		// En modo manual se permite continuar sin foto; el nombre y la descripción
 		// siguen siendo obligatorios para que el anuncio tenga contexto.
@@ -95,15 +107,41 @@ export const POST: APIRoute = async ({ request }) => {
 		// ruta arbitraria del cliente.
 		const siteOrigin = new URL(request.url).origin;
 		const allWinners = await loadWinners(siteOrigin);
-		const byPath = new Map(allWinners.map((winner) => [winner.imagePath, winner]));
-		const approved = paths.map((path) => byPath.get(path)).filter((winner): winner is NonNullable<typeof winner> => Boolean(winner));
+		/**
+		 * El índice conoce las páginas de un carrusel, no sólo su portada.
+		 *
+		 * Estaba armado como `imagePath -> winner`, o sea únicamente portadas. Al
+		 * elegir la segunda página de un carrusel para generar UNA imagen suelta, la
+		 * ruta existía en la biblioteca pero no en este mapa, y salía "esa referencia
+		 * ya no está disponible": en la práctica, de un carrusel sólo se podía clonar
+		 * la primera página. `carousel-start` ya indexaba las dos cosas; esto empareja
+		 * los dos caminos.
+		 */
+		const byPath = new Map<string, typeof allWinners[number]>();
+		for (const winner of allWinners) {
+			byPath.set(winner.imagePath, winner);
+			for (const slide of winner.metadata?.carouselImages || []) {
+				if (!byPath.has(slide)) byPath.set(slide, winner);
+			}
+		}
+		/**
+		 * Se guarda la ruta ELEGIDA, no la portada del ganador al que pertenece.
+		 *
+		 * Con `winner.imagePath` a secas, pedir la página 3 devolvía un clon de la
+		 * página 1: el mismo error que el de arriba, sólo que en silencio y después
+		 * de cobrar el crédito.
+		 */
+		const approved = paths
+			.map((path) => { const winner = byPath.get(path); return winner ? { winner, referencePath: path } : null; })
+			.filter((elegido): elegido is { winner: typeof allWinners[number]; referencePath: string } => Boolean(elegido));
 		if (approved.length !== paths.length) {
 			return json({ error: 'Alguna de las referencias elegidas ya no está disponible en la biblioteca.' }, 400);
 		}
 		// Además de existir, tienen que estar habilitadas para el plan: una cuenta
-		// sin suscripción solo puede lanzar lotes con el preview gratuito.
+		// sin suscripción solo puede lanzar lotes con el preview gratuito. El permiso
+		// lo da el ganador, así que una página suelta hereda el de su carrusel.
 		if (!hasFullLibraryAccess(access)) {
-			const locked = approved.filter((winner) => !FREE_PREVIEW_REFERENCE_PATHS.has(winner.imagePath) && !freePreviewAngleFor(winner));
+			const locked = approved.map(({ winner }) => winner).filter((winner) => !FREE_PREVIEW_REFERENCE_PATHS.has(winner.imagePath) && !freePreviewAngleFor(winner));
 			if (locked.length) {
 				return json({
 					error: 'Algunas de esas referencias son parte de la biblioteca completa. Activá un plan para usarlas.',
@@ -130,7 +168,7 @@ export const POST: APIRoute = async ({ request }) => {
 		}
 
 		const batchId = crypto.randomUUID();
-		const generationRows = approved.map((winner, index) => ({
+		const generationRows = approved.map(({ winner, referencePath }, index) => ({
 			user_id: userId,
 			template_id: winner.templateId || 1,
 			// El ganador queda en el settings_snapshot para conservar la referencia
@@ -157,7 +195,10 @@ export const POST: APIRoute = async ({ request }) => {
 				imageType: 'product',
 				textMode,
 				allowNoProductImage,
-				referencePath: winner.imagePath,
+				referencePath,
+				personMode,
+				avatarId: avatarId || null,
+				avatarDescription,
 				referenceName: winner.name,
 				referenceLeaf: winner.categoryLeaf || '',
 				templateId: winner.templateId || null,
