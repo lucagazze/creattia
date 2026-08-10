@@ -240,7 +240,26 @@ describe('cada modo llega distinto al render', () => {
 		);
 		assert.match(prompt, /VISUAL IDENTITY REFERENCE/);
 		assert.match(prompt, /Sofía, la fundadora/);
-		assert.match(prompt, /Do not merge different people, invent a new face or turn the avatar into a product/);
+		assert.match(prompt, /Never merge two people or invent a face/);
+	});
+
+	/**
+	 * Las fotos fijan la persona, no el vestuario.
+	 *
+	 * Son fotos de otro día y con otra ropa: heredarlas viste al modelo con algo
+	 * que no es lo que se está vendiendo. Y la contextura importa tanto como la
+	 * cara — reconocer a alguien es también reconocer su cuerpo.
+	 */
+	test('cargar avatar: fija la cara Y la contextura', () => {
+		const prompt = buildClonePrompt({ ...base, personMode: 'upload', avatarImageCount: 3 } as any, conGente, false);
+		assert.match(prompt, /face, bone structure, skin tone, eyes, hair, and BODY — build, height, proportions/);
+		assert.match(prompt, /a slim person may not come back athletic/);
+	});
+
+	test('cargar avatar: la ropa la pone el anuncio, no las fotos', () => {
+		const prompt = buildClonePrompt({ ...base, personMode: 'upload', avatarImageCount: 3 } as any, conGente, false);
+		assert.match(prompt, /They do NOT fix the clothing, the setting or the pose/);
+		assert.match(prompt, /dress them in what is being advertised/);
 	});
 
 	test('sin persona sigue diciendo que no va nadie aunque el ganador no muestre a nadie', () => {

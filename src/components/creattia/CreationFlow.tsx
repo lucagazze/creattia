@@ -366,7 +366,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const cargaDeAvatar = (
 		<div style={{ marginTop: '10px' }}>
 			<input type="file" id="creation-avatar-files" accept="image/png,image/jpeg,image/webp" multiple className="hidden-file-input" onChange={(event) => {
-				const files = event.target.files ? Array.from(event.target.files).slice(0, 12) : [];
+				const files = event.target.files ? Array.from(event.target.files).slice(0, 6) : [];
 				setAvatarFiles(files); setAvatarPreviews(files.map((file) => URL.createObjectURL(file))); event.target.value = '';
 			}} />
 			{/* Pedía cuatro como mínimo y era un cerrojo, no un consejo: el que tiene
@@ -374,7 +374,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			    para fijar la identidad; que dos o tres la sostengan mejor entre
 			    creativos es información útil, no un requisito. */}
 			<label htmlFor="creation-avatar-files" className="uploader-label" style={{ display: 'inline-flex', width: 'auto' }}>Subir fotos de la persona</label>
-			<p style={{ margin: '8px 0 0', fontSize: '12px', color: '#716d79', lineHeight: 1.45 }}>Con una foto alcanza. Con dos o tres, tomadas de ángulos distintos, la cara sale más parecida de un creativo a otro.</p>
+			<p style={{ margin: '8px 0 0', fontSize: '12px', color: '#716d79', lineHeight: 1.45 }}>Con una foto alcanza; podés subir hasta 6. Con dos o tres de ángulos distintos —frente, perfil, medio cuerpo— la cara y la contextura salen más parecidas de un creativo a otro. La ropa no importa: en el anuncio va a llevar lo que estés vendiendo.</p>
 			{avatarPreviews.length > 0 && <div className="extra-previews-grid" style={{ marginTop: '10px' }}>{avatarPreviews.map((preview) => <div className="preview-thumb" key={preview}><img src={preview} alt="Referencia de avatar" /></div>)}</div>}
 			<label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginTop: '10px', fontSize: '12px', color: '#5f5a67' }}><input type="checkbox" checked={avatarConsent} onChange={(event) => setAvatarConsent(event.target.checked)} /> Confirmo que tengo permiso para usar estas imágenes.</label>
 			{faltaParaElAvatar && <p style={{ margin: '9px 0 0', padding: '8px 10px', borderRadius: '9px', background: '#fdf0f3', color: '#b02a4a', fontSize: '12px', fontWeight: 700, lineHeight: 1.4 }}>⚠️ {faltaParaElAvatar}</p>}
@@ -621,7 +621,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		// no puede dejar colada la descripción del modo anterior en el prompt.
 		avatarForm.set('description', 'Referencias visuales guardadas desde el flujo de generación.');
 		avatarForm.set('consentConfirmed', 'true');
-		avatarFiles.slice(0, 12).forEach((file) => avatarForm.append('images', file));
+		avatarFiles.slice(0, 6).forEach((file) => avatarForm.append('images', file));
 		const respuesta = await fetch('/api/creativos/avatars', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: avatarForm });
 		const payload = await respuesta.json().catch(() => ({}));
 		if (!respuesta.ok || !payload.avatar?.id) throw new Error(payload.error || 'No se pudo guardar el avatar.');

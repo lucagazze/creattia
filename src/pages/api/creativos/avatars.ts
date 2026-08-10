@@ -13,7 +13,15 @@ const ASSETS = 'creative-assets';
  * mejor entre creativos, y eso se dice en la pantalla en vez de exigirlo.
  */
 const MIN_IMAGES = 1;
-const MAX_IMAGES = 12;
+/**
+ * Seis fotos alcanzan y sobran para fijar una identidad.
+ *
+ * Doce eran un pedido incómodo —poca gente tiene doce fotos buenas y parejas de
+ * sí misma— y encima el motor no las usa todas: de lo cargado se muestrea una
+ * selección repartida. Con seis se cubren frente, perfiles y medio cuerpo, que
+ * es lo que hace falta para la cara y la contextura.
+ */
+const MAX_IMAGES = 6;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const mimeExtensions: Record<string, string> = {
 	'image/jpeg': 'jpg',
