@@ -223,38 +223,7 @@ describe('encaje del texto y tipografía', () => {
 		assert.match(prompt, /do not substitute a generic sans-serif/i);
 	});
 
-	/**
-	 * `styleNotes` describe fondo, paleta y recursos gráficos, no la letra. Se lo
-	 * pegaba bajo "TYPOGRAPHY" como sustituto de una descripción tipográfica real,
-	 * y con eso se colaba la ESCENA del ganador en el render: de ahí salió un
-	 * cuero flotando sobre agua, que era el fondo del anuncio de colágeno.
-	 */
-	test('la descripción del fondo no se cuela en la regla de tipografía', () => {
-		/**
-		 * `styleNotes` describe el fondo y los recursos gráficos, no la letra.
-		 * Pegado bajo TYPOGRAPHY colaba la escena del ganador en el render: de ahí
-		 * salió un cuero flotando sobre agua, que era el fondo del anuncio original.
-		 *
-		 * La solución de entonces fue no usarlo en ningún lado, y eso costó caro por
-		 * el otro extremo: el análisis medía "una banda inferior de borde ondulado" y
-		 * ese dato se tiraba, así que el pie salía siempre liso. Ahora entra, pero en
-		 * su propio bloque de recursos gráficos — nunca dentro del de tipografía.
-		 */
-		const conFondo = { ...analisis, styleNotes: 'fondo acuático turquesa para dar frescura' };
-		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, conFondo, false);
-		const bloqueTipografia = prompt.slice(prompt.indexOf('TYPOGRAPHY'), prompt.indexOf('TYPOGRAPHY') + 900);
-		assert.doesNotMatch(bloqueTipografia, /fondo acuático/, 'la escena se coló dentro de la tipografía');
-		assert.match(prompt, /GRAPHIC DEVICES AND SURFACES[\s\S]*fondo acuático/, 'los recursos gráficos medidos tienen que llegar al render');
-	});
 
-	test('el orden de capas llega al render', () => {
-		// El producto cruzaba POR ENCIMA de la banda inferior en el ganador y salía
-		// apoyado sobre ella: nada se ve mal, pero el aviso queda plano.
-		const conCapas = { ...analisis, layerOrder: 'tarjeta adelante, producto en el medio cruzando sobre la banda, banda atrás' };
-		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, conCapas, false);
-		assert.match(prompt, /DEPTH AND STACKING ORDER/);
-		assert.match(prompt, /cruzando sobre la banda/);
-	});
 
 	test('con tipografía de marca elegida, manda esa', () => {
 		const prompt = buildClonePrompt({ ...base, subjectMode: 'product', typoMode: 'brand', brandTypography: { headings: 'Poppins' } } as any, analisis, false);
@@ -467,8 +436,8 @@ describe('lo que se rompió al probar más casos', () => {
 	test('prohíbe cortar una palabra para que entre', () => {
 		const prompt = buildClonePrompt(base4, { referenceHasProduct: true, textZones: [] } as any, false);
 		assert.match(prompt, /MARGINS ARE PART OF THE DESIGN/);
-		assert.match(prompt, /never truncate one/);
-		assert.match(prompt, /No letter may touch, overlap or cross an edge/);
+		assert.match(prompt, /Remove a whole word and rewrite the line instead/);
+		assert.match(prompt, /No letter may touch or cross an edge/);
 	});
 
 	/** Un cuero liso salió repujado: eso es un producto que el usuario no vende. */
@@ -517,210 +486,9 @@ describe('qué manda cuando dos reglas se cruzan', () => {
 	});
 });
 
-/**
- * El telón vuelve, sin las dos frases que hicieron el desastre.
- *
- * La primera versión de esta regla devolvió el anuncio del COMPETIDOR entero: su
- * producto, su marca y sus textos en inglés. Dos cosas la causaron, y las dos
- * están fijadas acá para que no puedan volver a entrar:
- *
- * · La regla del render terminaba diciendo que nada de lo dicho sobre reemplazar
- *   el escenario se le aplicaba al telón. Eso es permiso explícito para ignorar
- *   la regla que hace todo el trabajo de clonar.
- * · El analizador tenía instrucción de tratar el fondo como telón ANTE LA DUDA.
- *   En un aviso que es una grilla de cuadrantes con fotos adentro, eso significa
- *   medir la pieza entera como telón.
- */
-describe('el telón se reconstruye sin anular el reemplazo', () => {
-	const base2 = { ...base, subjectMode: 'product' as const };
-	const conTelon = {
-		referenceHasProduct: true,
-		textZones: [],
-		backdrop: 'vertical stripes, #1f3a5f navy and #f2efe6 off-white, one stripe ≈ 12% of the canvas width',
-		imageSlots: [{ where: 'full bleed', showsNow: 'modelo con vestido floral', replaceWith: 'la modelo con la remera' }],
-	} as any;
 
-	test('el telón medido llega al render con sus colores', () => {
-		const prompt = buildClonePrompt(base2, conTelon, false);
-		assert.match(prompt, /THE BACKDROP IS DESIGN, NOT SCENERY/);
-		assert.match(prompt, /#1f3a5f navy and #f2efe6 off-white/);
-	});
 
-	/** La frase exacta que devolvió el anuncio del competidor. */
-	test('NO dice que las reglas de reemplazo no se le aplican', () => {
-		const prompt = buildClonePrompt(base2, conTelon, false);
-		assert.doesNotMatch(prompt, /Nothing said below about replacing the template's setting applies to it/);
-		assert.match(prompt, /This covers ONLY that surface/);
-	});
 
-	/** La regla que obliga a repintar la superficie de cada área sigue entera. */
-	test('la superficie del template sigue sin conservarse', () => {
-		const prompt = buildClonePrompt(base2, conTelon, false);
-		// La contradiccion que habia: el telon manda reconstruir la superficie sobre
-		// la que esta montada la pieza, y este bloque mandaba no conservar "la
-		// superficie" a secas. Ahora se distingue: lo que no se conserva es lo que
-		// esta DENTRO de cada foto; el telon del conjunto no es eso.
-		assert.match(prompt, /what does not stay is what is INSIDE each photo/);
-		assert.match(prompt, /The backdrop the whole piece sits on is not that and stays/);
-	});
-
-	test('sin telón medido no se emite el bloque', () => {
-		assert.doesNotMatch(buildClonePrompt(base2, { referenceHasProduct: true, textZones: [] } as any, false), /THE BACKDROP IS DESIGN/);
-	});
-
-	/** La deuda del revert: se había prometido reponerla y no se hizo. */
-	test('la alineación del texto volvió a la regla de maqueta', () => {
-		assert.match(buildClonePrompt(base2, conTelon, false), /centred stays centred, flush-left stays flush-left/);
-	});
-});
-
-/**
- * La paleta del ganador, en números y no en prosa.
- *
- * "Conservá los colores exactos del template" es una orden sin contenido: el
- * modelo la cumple a ojo y el verde vuelve otro verde. Los colores se describían
- * en `styleNotes` como "fondo verde intenso, titular crema", y de ahí salía que
- * los fondos cambiaran de color aun pidiendo conservarlos.
- *
- * Y con "colores del ganador" la revisión no mostraba NINGÚN color, así que el
- * caso más usado de los tres era el único sin forma de ver ni corregir la paleta
- * antes de gastar el crédito.
- */
-describe('los colores del ganador se miden y se pueden corregir', () => {
-	const base2 = { ...base, subjectMode: 'product' as const };
-	const medido = {
-		referenceHasProduct: true,
-		textZones: [],
-		winnerPalette: { background: '#00a651', headline: '#f5efe0', accent: '#1b7f4f', secondary: '#e8c547' },
-	} as any;
-
-	test('los hex medidos llegan al render', () => {
-		const prompt = buildClonePrompt(base2, medido, false);
-		assert.match(prompt, /measured off the reference: background #00a651, headline #f5efe0, accent #1b7f4f, secondary #e8c547/);
-	});
-
-	test('sin medición se conserva la instrucción de siempre', () => {
-		const prompt = buildClonePrompt(base2, { referenceHasProduct: true, textZones: [] } as any, false);
-		assert.match(prompt, /Do not change the background color or palette/);
-		assert.doesNotMatch(prompt, /measured off the reference/);
-	});
-
-	/**
-	 * En modo ganador la paleta de marca sólo puede venir de una corrección hecha
-	 * a mano en la revisión, y tiene que alcanzar SÓLO a lo corregido.
-	 */
-	test('un color corregido a mano se aplica sin tocar el resto', () => {
-		const prompt = buildClonePrompt(
-			{ ...base2, brandPalette: { background: '#101820', text: '', accent: '' } } as any,
-			medido,
-			false,
-		);
-		assert.match(prompt, /The advertiser corrected the background to #101820/);
-		assert.match(prompt, /leave every other colour of the template exactly as it is/);
-		// Y no se convierte en un restyle de marca, que es otra cosa.
-		assert.doesNotMatch(prompt, /COLOR RESTYLE/);
-	});
-
-	test('sin corrección no se inventa la frase', () => {
-		assert.doesNotMatch(buildClonePrompt(base2, medido, false), /The advertiser corrected/);
-	});
-});
-
-/**
- * La letra del ganador es la mitad del anuncio.
- *
- * Clonando un aviso de miel —titular serif, en minúsculas, con una palabra en
- * itálica y dos etiquetas de texto suelto abajo— volvió una grotesca condensada
- * ULTRA BOLD EN MAYÚSCULAS y las etiquetas metidas en pastillas blancas que el
- * ganador no tiene. La maqueta y la paleta estaban bien; la pieza no se parecía.
- *
- * Dos causas, las dos de dónde y cómo se dice, no de qué se dice: la regla de
- * tipografía vivía enterrada dentro del punto 4, a quince mil caracteres de
- * profundidad y compartiendo oración con la de color, mientras el medio y la
- * geometría —las que mejor se obedecen— abren el prompt. Y no nombraba la CLASE
- * de letra ni la caja, que son justo las dos cosas que se dieron vuelta.
- */
-describe('la tipografía del ganador se respeta', () => {
-	const base2 = { ...base, subjectMode: 'product' as const };
-	const analisis = { referenceHasProduct: true, textZones: [] } as any;
-
-	test('la clase de letra se nombra: una serif no vuelve sans', () => {
-		const prompt = buildClonePrompt(base2, analisis, false);
-		assert.match(prompt, /same CLASS \(serif, sans, slab, script/);
-		assert.match(prompt, /a serif ad redrawn in a sans is a different ad/);
-	});
-
-	test('un titular en minúsculas no se promueve a mayúsculas', () => {
-		assert.match(buildClonePrompt(base2, analisis, false), /sentence case stays sentence case, never promoted to ALL CAPS/);
-	});
-
-	/** Va con el medio y la geometría, no al final entre las reglas de detalle. */
-	test('la tipografía se dice temprano, no enterrada en el punto 4', () => {
-		const prompt = buildClonePrompt(base2, analisis, false);
-		assert.ok(prompt.indexOf('TYPOGRAPHY') < prompt.indexOf('4. STRICT FIDELITY'), 'la tipografía quedó después del punto 4');
-	});
-
-	/** Las dos etiquetas sueltas del ganador volvieron dentro de pastillas. */
-	test('no se inventa una caja detrás de un texto que va suelto', () => {
-		assert.match(buildClonePrompt(base2, analisis, false), /a box, pill or card behind a line of text that sits loose on the background/);
-	});
-
-	/**
-	 * Elegir otra fuente cambia la fuente y nada más: la caja, el peso y la
-	 * itálica de énfasis son composición del ganador, no tipografía de la marca.
-	 */
-	test('con tipografía de marca se conserva todo lo demás que se midió', () => {
-		const prompt = buildClonePrompt(
-			{ ...base2, typoMode: 'brand', brandTypography: { headings: 'Poppins' } } as any,
-			{ ...analisis, typography: { headline: 'serif, regular, sentence case', body: 'sans, light' } },
-			false,
-		);
-		assert.match(prompt, /Poppins/);
-		assert.match(prompt, /ONLY the font family changes/);
-		// La medición del ganador viaja igual: antes se tiraba entera.
-		assert.match(prompt, /MEASURED IN THIS TEMPLATE/);
-		assert.match(prompt, /serif, regular, sentence case/);
-	});
-});
-
-/**
- * El color del texto lo decide el panel donde cae, no el nombre del rol.
- *
- * Clonando un ganador que tiene el titular en blanco sobre un cuadrante de
- * color, el clon puso el titular con el color de TEXTO de la marca sobre el
- * cuadrante verde. Se leía, pero apagado y peor que el original. La regla decía
- * "aplicá cada color a su rol semántico", y el color de texto se midió contra el
- * FONDO CLARO del sitio: sobre un bloque pintado es justamente donde no fue
- * medido.
- */
-describe('el texto se adapta al panel donde cae', () => {
-	const conPaleta = {
-		...base,
-		subjectMode: 'product' as const,
-		colorMode: 'url' as const,
-		brandColors: ['#80aa8d', '#2d3e46'],
-		brandPalette: { background: '#ffffff', text: '#333333', accent: '#80aa8d', secondary: '#2d3e46' },
-	};
-
-	test('sobre un panel de color el texto usa el fondo, no el color de texto', () => {
-		const prompt = buildClonePrompt(conPaleta as any, { referenceHasProduct: true, textZones: [] } as any, false);
-		assert.match(prompt, /Over a panel painted in ACCENT or SECONDARY, text takes BACKGROUND/);
-		assert.match(prompt, /NEVER TEXT, which was measured against the light background/);
-	});
-
-	test('los roles se declaran como roles y no como asignación fija', () => {
-		const prompt = buildClonePrompt(conPaleta as any, { referenceHasProduct: true, textZones: [] } as any, false);
-		assert.match(prompt, /These are ROLES, not a fixed colour per element/);
-		assert.match(prompt, /legibility wins/);
-	});
-
-	test('con los colores del ganador no se emite ninguna paleta de marca', () => {
-		// En modo ganador los colores del template se conservan tal cual: el
-		// contraste ya está resuelto y la regla no tiene nada que decidir.
-		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, { referenceHasProduct: true, textZones: [] } as any, false);
-		assert.doesNotMatch(prompt, /SEMANTIC BRAND PALETTE/);
-	});
-});
 
 /**
  * Un departamento no es un objeto que se lleva a otra escena: ES la escena.
