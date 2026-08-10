@@ -495,17 +495,25 @@ export default function WinnersLibrary({
 	}, [preselectedTemplateId, items]);
 
 	useEffect(() => {
-		if (preselectedWinnerPath && items.length > 0) {
+		if (!preselectedWinnerPath) return;
+		// Si lo preseleccionado es el ganador del borrador, se entró desde "seguí
+		// donde estabas" y se abre CON EL ANUNCIO GUARDADO, sin buscarlo en la
+		// grilla. Buscarlo fallaba callado cuando el ganador no estaba entre los
+		// cargados —otra pestaña de la biblioteca, un filtro puesto, la lista
+		// todavía a medio traer— y la persona caía en una grilla cualquiera sin
+		// que nada le dijera por qué. El borrador ya guarda el anuncio entero.
+		if (borrador?.ad?.imagePath === preselectedWinnerPath) {
+			setRetomar(true);
+			handleUseIdea(borrador.ad as WinnerItem);
+			if (onClearPreselectedWinner) onClearPreselectedWinner();
+			return;
+		}
+		if (items.length > 0) {
 			const match = items.find(item => item.imagePath === preselectedWinnerPath);
-			if (match) {
-				// Si lo que se preseleccionó es justo el ganador del borrador, se
-				// entró desde "seguí donde estabas": no hay que volver a preguntar.
-				if (borrador?.ad?.imagePath === preselectedWinnerPath) setRetomar(true);
-				handleUseIdea(match);
-			}
+			if (match) handleUseIdea(match);
 			if (onClearPreselectedWinner) onClearPreselectedWinner();
 		}
-	}, [preselectedWinnerPath, items]);
+	}, [preselectedWinnerPath, items, borrador]);
 
 	// Predicados de cada filtro por separado: así se puede combinar "todos
 	// menos uno" para que cada dropdown muestre el conteo real considerando
