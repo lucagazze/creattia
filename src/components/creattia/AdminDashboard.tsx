@@ -269,29 +269,64 @@ function ActivitySection({ activity, onOpenUser }: { activity: any[]; onOpenUser
 	return <section className="admin-panel admin-table-panel"><PanelHeading kicker="AUDITORÍA DE PRODUCTO" title="Actividad reciente" /><ActivityList activity={activity} onOpenUser={onOpenUser} large /></section>;
 }
 
+/**
+ * Con qué se hizo cada creativo, sin salir del feed.
+ *
+ * Mostraba solo el resultado, así que para saber de qué anuncio ganador salió o
+ * qué url había puesto la persona había que ir a buscarlo a mano a la base. Que
+ * es justo lo que uno mira cuando quiere entender por qué una imagen salió como
+ * salió.
+ *
+ * La fila dejó de ser un <button>: adentro ahora hay cosas que se abren por su
+ * cuenta —cada miniatura, la url del producto— y un botón no puede contener
+ * otro. El área de texto sigue abriendo la ficha del usuario.
+ */
 function ActivityList({ activity, onOpenUser, large = false }: { activity: any[]; onOpenUser: (id: string) => void; large?: boolean }) {
+	const dominio = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
 	return (
 		<div className={`admin-activity-list ${large ? 'large' : ''}`}>
 			{activity.map((item: any, index: number) => (
-				<button key={`${item.type}-${item.createdAt}-${index}`} onClick={() => item.userId && onOpenUser(item.userId)}>
-					{/* La miniatura del creativo cuando existe; si no, el icono del tipo de evento. */}
-					{item.thumbUrl
-						? <img className="admin-activity-thumb" src={item.thumbUrl} alt="" loading="lazy" decoding="async" />
-						: <span className={`admin-activity-icon ${item.type}`}>{item.type === 'signup' ? '+' : item.type === 'payment' ? '$' : item.type === 'subscription' ? '◆' : item.type === 'video' ? '▶' : '✦'}</span>}
-					<span className="admin-activity-copy">
+				<div className="admin-activity-row" key={`${item.type}-${item.createdAt}-${index}`}>
+					{/* Referencia → resultado, en ese orden y con una flecha en el medio:
+					    es la lectura que uno hace, de qué salió y en qué terminó. */}
+					<span className="admin-activity-par">
+						{item.referenceUrl
+							? <a className="admin-activity-thumb-link" href={item.referenceUrl} target="_blank" rel="noreferrer" title={item.referenceName || 'Referencia usada'}>
+								<img className="admin-activity-thumb is-ref" src={item.referenceUrl} alt="" loading="lazy" decoding="async" />
+								<em>ref</em>
+							</a>
+							: null}
+						{item.referenceUrl && item.thumbUrl ? <i className="admin-activity-flecha" aria-hidden="true">→</i> : null}
+						{item.thumbUrl
+							? <a className="admin-activity-thumb-link" href={item.thumbUrl} target="_blank" rel="noreferrer" title="Abrir el resultado">
+								<img className="admin-activity-thumb" src={item.thumbUrl} alt="" loading="lazy" decoding="async" />
+							</a>
+							: !item.referenceUrl
+								? <span className={`admin-activity-icon ${item.type}`}>{item.type === 'signup' ? '+' : item.type === 'payment' ? '$' : item.type === 'subscription' ? '◆' : item.type === 'video' ? '▶' : '✦'}</span>
+								: null}
+					</span>
+					<button type="button" className="admin-activity-copy" onClick={() => item.userId && onOpenUser(item.userId)}>
 						<strong>{item.title}</strong>
 						<small>
 							{/* Quién lo hizo: antes había que abrir la ficha para saberlo. */}
 							{item.email && <span className="admin-activity-author">{item.name || item.email}</span>}
 							{item.description}
 						</small>
-					</span>
+						{/* De qué ganador salió, dicho con palabras: la miniatura sola no
+						    alcanza para reconocerlo entre cincuenta parecidos. */}
+						{item.referenceName && <small className="admin-activity-ref-nombre">Ref: {item.referenceName}</small>}
+					</button>
 					<span className="admin-activity-meta">
+						{/* La url que pasó la persona, abrible. Es el otro lado del par:
+						    la referencia dice de dónde salió la forma y ésta el producto. */}
+						{item.sourceUrl && (
+							<a className="admin-activity-url" href={item.sourceUrl} target="_blank" rel="noreferrer" title={item.sourceUrl}>{dominio(item.sourceUrl)}</a>
+						)}
 						{item.format && <em className="admin-activity-format">{item.format}</em>}
 						{item.status && <em className={`admin-activity-state is-${item.status}`}>{item.status === 'completed' ? 'listo' : item.status === 'failed' ? 'falló' : item.status}</em>}
 						<time>{dateLabel(item.createdAt)}</time>
 					</span>
-				</button>
+				</div>
 			))}
 			{!activity.length && <EmptyState label="Todavía no hay actividad para mostrar." />}
 		</div>

@@ -170,8 +170,14 @@ export const GET: APIRoute = async ({ request }) => {
 				userId: row.user_id,
 				status: row.status,
 				format: row.format || row.settings_snapshot?.format || null,
-				// Se firma abajo, en lote.
+				// Se firman abajo, las dos en la misma llamada.
 				outputPath: row.output_path || null,
+				// Con qué se hizo. El feed mostraba solo el resultado, así que para
+				// saber de qué anuncio ganador salió o qué url había puesto la
+				// persona había que ir a buscarlo a mano en la base.
+				referencePath: row.settings_snapshot?.referencePath || null,
+				referenceName: row.settings_snapshot?.referenceName || row.settings_snapshot?.templateName || null,
+				sourceUrl: row.settings_snapshot?.sourceUrl || null,
 				...authorOf(row.user_id),
 			})),
 			...videos.slice(0, 50).map((row: any) => ({
@@ -182,12 +188,15 @@ export const GET: APIRoute = async ({ request }) => {
 		].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()).slice(0, 60);
 
 		// Miniaturas de los creativos del feed, firmadas en una sola llamada.
-		const thumbPaths = [...new Set(activity.map((item: any) => item.outputPath).filter(Boolean))] as string[];
+		const thumbPaths = [...new Set(
+			activity.flatMap((item: any) => [item.outputPath, item.referencePath]).filter(Boolean)
+		)] as string[];
 		if (thumbPaths.length) {
 			const { data: signed } = await admin.storage.from('creative-assets').createSignedUrls(thumbPaths, 60 * 60);
 			const urlByPath = new Map((signed || []).map((row: any, index: number) => [row.path || thumbPaths[index], row.signedUrl]));
 			for (const item of activity as any[]) {
 				if (item.outputPath) item.thumbUrl = urlByPath.get(item.outputPath) || null;
+				if (item.referencePath) item.referenceUrl = urlByPath.get(item.referencePath) || null;
 			}
 		}
 

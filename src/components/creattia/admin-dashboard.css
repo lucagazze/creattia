@@ -26,7 +26,7 @@
 .admin-funnel-step { display: flex; gap: 10px; align-items: flex-start; padding: 14px 11px; border-radius: 12px; background: #f7f4fb; }.admin-funnel-step > span { color: #a996ca; font-size: 10px; font-weight: 900; }.admin-funnel-step strong { display: block; color: #2c2535; font-size: 23px; line-height: 1; }.admin-funnel-step small { display: block; margin-top: 5px; color: #897e93; font-size: 10px; line-height: 1.2; }
 .admin-mini-stat-row { display: flex; gap: 1px; padding: 1px 21px 21px; }.admin-mini-stat-row span { flex: 1; padding: 10px 11px; border-top: 1px solid #eee9f4; color: #897e93; font-size: 10px; }.admin-mini-stat-row b { display: block; color: #342c3d; font-size: 15px; }
 .admin-rank-list { padding: 2px 11px 12px; }.admin-rank-list > button { display: flex; align-items: center; width: 100%; gap: 10px; padding: 10px; border: 0; border-radius: 11px; background: transparent; text-align: left; cursor: pointer; }.admin-rank-list > button:hover { background: #f8f5fc; }.admin-rank-number { width: 19px; color: #b9afc4; font-size: 10px; font-weight: 900; }.admin-avatar { display: grid; flex: 0 0 31px; width: 31px; height: 31px; place-items: center; border-radius: 10px; background: linear-gradient(145deg, #ede5ff, #e1f1ff); color: #7049bd; font-size: 12px; font-weight: 900; }.admin-rank-copy, .admin-user-cell > span:last-child { min-width: 0; display: flex; flex-direction: column; gap: 2px; }.admin-rank-copy strong, .admin-user-cell strong { overflow: hidden; color: #382f40; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.admin-rank-copy small, .admin-user-cell small { overflow: hidden; color: #94899b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.admin-rank-list > button > b { margin-left: auto; color: #4b4055; font-size: 12px; }.admin-rank-list em { color: #998fa1; font-size: 9px; font-style: normal; font-weight: 500; }
-.admin-activity-list { padding: 0 12px 13px; }.admin-activity-list > button { display: flex; align-items: center; width: 100%; gap: 11px; padding: 11px 9px; border: 0; border-top: 1px solid #f0ecf4; background: transparent; text-align: left; cursor: pointer; }.admin-activity-list > button:hover { background: #fbf9fd; }.admin-activity-icon { display: grid; flex: 0 0 29px; width: 29px; height: 29px; place-items: center; border-radius: 9px; background: #f0eaff; color: #7048ba; font-size: 13px; font-weight: 900; }.admin-activity-icon.payment { background: #fff2df; color: #bd6b1f; }.admin-activity-icon.subscription { background: #eaf6ff; color: #3584b6; }.admin-activity-icon.signup { background: #eaf9f1; color: #278a59; }.admin-activity-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }.admin-activity-list strong { color: #37303f; font-size: 12.5px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.admin-activity-list small { display: flex; align-items: center; gap: 6px; color: #8b8194; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-activity-list { padding: 0 12px 13px; }.admin-activity-row { display: flex; align-items: center; width: 100%; gap: 11px; padding: 11px 9px; border: 0; border-top: 1px solid #f0ecf4; background: transparent; text-align: left; cursor: pointer; }.admin-activity-row:hover { background: #fbf9fd; }.admin-activity-icon { display: grid; flex: 0 0 29px; width: 29px; height: 29px; place-items: center; border-radius: 9px; background: #f0eaff; color: #7048ba; font-size: 13px; font-weight: 900; }.admin-activity-icon.payment { background: #fff2df; color: #bd6b1f; }.admin-activity-icon.subscription { background: #eaf6ff; color: #3584b6; }.admin-activity-icon.signup { background: #eaf9f1; color: #278a59; }.admin-activity-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }.admin-activity-list strong { color: #37303f; font-size: 12.5px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.admin-activity-list small { display: flex; align-items: center; gap: 6px; color: #8b8194; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 /* Miniatura del creativo: se ve qué se generó sin abrir la ficha. */
 .admin-activity-thumb { flex: 0 0 42px; width: 42px; height: 42px; border-radius: 10px; object-fit: cover; background: #f2eefa; border: 1px solid #ece7f2; }
 .admin-activity-author { flex: 0 0 auto; max-width: 190px; overflow: hidden; text-overflow: ellipsis; padding: 1px 7px; border-radius: 999px; background: #f2eefa; color: #6b4bb0; font-weight: 700; font-size: 10.5px; }
@@ -141,7 +141,7 @@
 
 /* En pantallas chicas el feed pasa a dos líneas para que no se corte el autor. */
 @media (max-width: 720px) {
-	.admin-activity-list > button { flex-wrap: wrap; row-gap: 6px; }
+	.admin-activity-row { flex-wrap: wrap; row-gap: 6px; }
 	.admin-activity-meta { margin-left: 53px; width: 100%; justify-content: flex-start; }
 	.admin-activity-author { max-width: 140px; }
 }
@@ -206,3 +206,31 @@
 .metrics-errors li > span { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
 .metrics-errors li > span b { font-size: 15px; color: #19171d; font-variant-numeric: tabular-nums; }
 .metrics-errors li > span em { font-style: normal; font-size: 11px; color: #8b8490; white-space: nowrap; }
+
+/* ─── Con qué se hizo cada creativo ───────────────────
+   El feed mostraba solo el resultado: para saber de qué anuncio ganador salió o
+   qué url había puesto la persona había que ir a buscarlo a la base, que es
+   justo lo que uno quiere ver cuando una imagen salió rara. */
+.admin-activity-par { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+.admin-activity-thumb-link { position: relative; display: block; line-height: 0; border-radius: 10px; }
+.admin-activity-thumb-link:hover { outline: 2px solid #c9b4f5; outline-offset: 1px; }
+/* La referencia va más chica y en gris: es de dónde salió, no el resultado. */
+.admin-activity-thumb.is-ref { width: 34px; height: 34px; flex-basis: 34px; opacity: .82; }
+.admin-activity-thumb-link em {
+	position: absolute; left: 2px; bottom: 2px; padding: 0 3px; border-radius: 4px;
+	background: rgba(25, 23, 29, .72); color: #fff; font-size: 8px; font-style: normal;
+	font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+}
+.admin-activity-flecha { flex: 0 0 auto; color: #b9b0c4; font-size: 12px; font-style: normal; }
+/* El texto sigue abriendo la ficha del usuario, ahora como botón propio. */
+.admin-activity-copy { border: 0; background: transparent; padding: 0; font-family: inherit; text-align: left; cursor: pointer; }
+.admin-activity-ref-nombre { color: #a49bad !important; font-size: 10.5px !important; }
+.admin-activity-url {
+	max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	padding: 1px 7px; border-radius: 6px; border: 1px solid #e6e0f0; background: #fbf9fd;
+	color: #7048ba; font-size: 10px; font-weight: 700; text-decoration: none;
+}
+.admin-activity-url:hover { border-color: #c9b4f5; background: #f4efff; }
+@media (max-width: 720px) {
+	.admin-activity-url { max-width: 120px; }
+}
