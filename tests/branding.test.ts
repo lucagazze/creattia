@@ -281,9 +281,49 @@ describe('el texto chico se mide, no se estima', () => {
 		false,
 	);
 
-	test('la medida del texto chico viaja al render', () => {
-		const prompt = conGeometria('headline cap-height 14% of width; body text cap-height 3.2% of width, lines set tight at 1.15x cap-height');
-		assert.match(prompt, /body text cap-height 3\.2% of width, lines set tight at 1\.15x cap-height/);
+	const conZonas = (zonas: any[]) => buildClonePrompt(
+		{ productNames: ['Silla'], productFacts: [], brief: '', brandName: 'BKF', colorMode: 'winner' as const, typoMode: 'winner' as const, subjectMode: 'product' as const },
+		{ referenceHasProduct: true, textZones: zonas } as any,
+		false,
+	);
+
+	/**
+	 * Un aviso tiene más de dos tamaños de texto. La tarjeta blanca del ejemplo
+	 * tiene tres —título, copia y descargo— y la copia del medio quedaba sin
+	 * medir: no es el titular ni es el texto más chico, que eran los dos únicos
+	 * bloques con un número. Salía más grande y más separada que en el ganador.
+	 */
+	test('cada bloque lleva su propia medida al render', () => {
+		const prompt = conZonas([
+			{ where: 'titular', original: 'COMODIDAD SIN IGUAL?', replacement: 'A', setIn: '13% of width, black, all caps, lines at 1.0x' },
+			{ where: 'copia de la tarjeta', original: 'La forma más fácil', replacement: 'B', setIn: '3.1% of width, bold, sentence case, lines at 1.15x' },
+			{ where: 'descargo al pie', original: 'hecha con cuero', replacement: 'C', setIn: '1.4% of width, regular, sentence case, lines at 1.3x' },
+		]);
+		for (const medida of ['13% of width, black, all caps', '3.1% of width, bold, sentence case', '1.4% of width, regular']) {
+			assert.ok(prompt.includes(medida), `falta la medida: ${medida}`);
+		}
+		// La regla que obliga a respetarlas va UNA vez, no pegada a cada zona:
+		// ocho copias de la misma frase son medio kilo de prompt contra el techo.
+		assert.match(prompt, /that measurement IS the block/);
+		assert.equal(prompt.match(/never bigger, never looser, never re-aligned/g)?.length, 1);
+	});
+
+	test('una zona sin medir no inventa un número', () => {
+		const prompt = conZonas([{ where: 'titular', original: 'HOLA', replacement: 'A' }]);
+		assert.doesNotMatch(prompt, /set it EXACTLY as measured on the template/);
+		// El encaje por caracteres sigue viajando igual.
+		assert.match(prompt, /the original is 4 characters/);
+	});
+
+	/**
+	 * La medida vivía también dentro de compositionGeometry. Dos lugares
+	 * diciendo lo mismo es exactamente como empiezan a decir distinto — ya pasó
+	 * con la decisión del logo, que se guiaba por el archivo adjunto en un lado
+	 * y por lo elegido en el otro.
+	 */
+	test('la medida del texto chico no quedó escrita dos veces', () => {
+		const prompt = conGeometria('headline cap-height 14% of width');
+		assert.doesNotMatch(prompt, /cap-height of the SMALLEST body text/i);
 	});
 
 	test('el bloqueo de geometría alcanza a los bloques chicos y al interlineado', () => {
@@ -298,8 +338,8 @@ describe('el texto chico se mide, no se estima', () => {
 	 * caracteres; ahora son cuatro y la última —justo la del texto chico, que va
 	 * al final— se perdía por el recorte.
 	 */
-	test('el recorte del campo deja lugar para las cuatro medidas', () => {
-		const largo = 'x'.repeat(880);
-		assert.match(conGeometria(largo), new RegExp('x{880}'));
+	test('el bloqueo de geometría sigue midiendo lo del lienzo', () => {
+		const prompt = conGeometria('headline cap-height 14% of width, outer margin 6%');
+		assert.match(prompt, /headline cap-height 14% of width, outer margin 6%/);
 	});
 });

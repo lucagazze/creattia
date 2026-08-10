@@ -158,6 +158,64 @@ describe('tamaño del prompt de render', () => {
 		assert.ok(prompt.length < 20000, `el prompt creció a ${prompt.length} caracteres`);
 	});
 
+	/**
+	 * El techo de arriba mide el total con SEIS zonas, y eso escondía dos cosas
+	 * distintas debajo de un solo número: las reglas, que son fijas, y la medida
+	 * de cada bloque de texto, que crece con el aviso.
+	 *
+	 * Confundirlas tiene las dos fallas posibles. Un aviso con diez zonas se
+	 * pasaba del techo sin que ningún test se enterara —porque el test fija seis—
+	 * y al mismo tiempo cualquier regla nueva podía entrar disimulada dentro del
+	 * margen que dejaban las zonas de prueba. Se miden separadas: la prosa fija
+	 * es lo que no tiene que crecer, y el dato por zona es justamente lo que se
+	 * agregó a propósito.
+	 */
+	const analisisCon = (zonas: number, setIn?: string) => ({
+		referenceHasProduct: true,
+		templateHasLogoSlot: true,
+		compositionGeometry: 'headline cap-height 14% of width, outer margin 6%',
+		textZones: Array.from({ length: zonas }, (_, i) => ({ where: `zona ${i}`, original: `O${i}`, replacement: `N${i}`, lines: 2, setIn })),
+	}) as any;
+
+	/**
+	 * OUTPUT QUALITY pedía "preferí texto suficientemente grande antes que texto
+	 * ilegible". Es permiso escrito para agrandar la copia, y estaba peleando
+	 * contra la medida de cada bloque — que es exactamente lo que se veía: la
+	 * tarjeta salía más grande que en el ganador. El resto del bloque repetía
+	 * TEXT RENDERING QUALITY, que además manda por estar marcado como prioridad
+	 * más alta, así que la contradicción la ganaba la frase suelta.
+	 */
+	test('nada autoriza a agrandar el texto para que se lea mejor', () => {
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisisCon(4, '3.1% of width, bold, flush-left'), true);
+		assert.doesNotMatch(prompt, /sufficiently large text/i);
+		assert.doesNotMatch(prompt, /over tiny unreadable text/i);
+	});
+
+	test('las REGLAS del prompt no crecen', () => {
+		const soloReglas = buildClonePrompt({ ...base, subjectMode: 'product' }, analisisCon(0), true);
+		assert.ok(soloReglas.length < 18500, `la prosa fija creció a ${soloReglas.length} caracteres`);
+	});
+
+	/**
+	 * Lo que cada zona agrega. Es el presupuesto que decide cuántos bloques de
+	 * texto entran antes de tocar el techo, así que una frase de más acá se paga
+	 * tantas veces como zonas tenga el anuncio.
+	 */
+	test('lo que agrega cada zona medida está acotado', () => {
+		const medida = '3.1% of width, bold, sentence case, near-black, flush-left, lines at 1.15x';
+		const sinZonas = buildClonePrompt({ ...base, subjectMode: 'product' }, analisisCon(0), true).length;
+		const conDiez = buildClonePrompt({ ...base, subjectMode: 'product' }, analisisCon(10, medida), true).length;
+		const porZona = (conDiez - sinZonas) / 10;
+		assert.ok(porZona < 210, `cada zona pasó a costar ${porZona} caracteres`);
+	});
+
+	/** Un aviso normal —hasta ocho bloques de texto, todos medidos— entra entero. */
+	test('ocho zonas medidas entran bajo el techo', () => {
+		const medida = '3.1% of width, bold, sentence case, near-black, flush-left, lines at 1.15x';
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisisCon(8, medida), true);
+		assert.ok(prompt.length < 20000, `con ocho zonas el prompt llegó a ${prompt.length} caracteres`);
+	});
+
 	test('no le pide al modelo una resolución que no va a producir', () => {
 		// Pedía "exportación 4K" mientras el motor renderiza a 1536: una
 		// instrucción que no se puede cumplir y solo agrega ruido.

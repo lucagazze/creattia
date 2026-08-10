@@ -59,6 +59,17 @@ export type LayoutAnalysis = {
 		onCurve?: string;
 	/** Si es un rótulo con línea guía, la parte del producto que señala. */
 		labels?: string;
+		/**
+		 * Cómo está compuesto ESTE bloque: cuerpo, peso, caja e interlineado.
+		 *
+		 * La letra se medía para dos roles nada más —titular y cuerpo— y el tamaño
+		 * para dos bloques: el titular y el texto más chico. Un aviso tiene más de
+		 * dos: en una tarjeta hay título, copia y descargo, y los tres se componen
+		 * distinto. Lo que quedaba entre los extremos no lo medía nadie, y es justo
+		 * donde el clon lo agranda y lo separa hasta que la tarjeta deja de
+		 * parecerse aunque cada bloque haya caído en su lugar.
+		 */
+		setIn?: string;
 		messageRole?: string;
 		replacement?: string;
 	}>;
@@ -407,12 +418,12 @@ Return STRICT JSON:
     "cta": "short adapted action, maximum 30 characters"
   },
   "textZones": [
-    { "slide": 1, "where": "PRECISE position: which corner or edge, and whether the block sits over the photo or outside it (e.g. 'white box overlapping the bottom-LEFT of the photo', 'red breadcrumb line above the headline')", "onProduct": true|false, "original": "exact text visibly present in the winning image", "lines": how many lines this block actually occupies in the template image, counted with your eyes (a headline broken across three lines is 3, not 1), "onCurve": "if this text sits on a CURVED baseline, say which corner or element the arc hugs, how much of a turn it covers and in which direction. Null when the baseline is straight", "labels": "if this text is a callout that names a part of the product (usually joined to it by a leader line or an arrow), name the part it points at; otherwise null", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product. NO INVENTED FIGURES: this string may contain a number, percentage, price, discount, timeframe, rating, review count or guarantee ONLY if that exact figure appears in the verified facts above. The template's own figures are NOT verified and must not be reused or adapted — if the original says 50%, the replacement says neither 50% nor 45%. Carry the same persuasive force with a qualitative claim instead. COPY THE CASE OF THE ORIGINAL EXACTLY: if the original is ALL CAPS the replacement is ALL CAPS, if it is Title Case it is Title Case, if it is sentence case it is sentence case. La caja es parte del diseño, no del contenido: cambiarla desarma la jerarquía aunque el texto sea correcto. LENGTH IS A HARD CONSTRAINT AND IT IS COUNTED IN CHARACTERS, NOT ESTIMATED: the replacement must be within 3 characters of the original — count them one by one before returning it — and never use more lines than the original. A 24-character original admits 21 to 27, nothing else. If the honest message does not fit, cut it down until it does — a shorter phrase that keeps the design intact beats a complete one that breaks it", "emphasis": "the visual emphasis applied to PART of this text and WHICH words carry it. The most common by far is a few words set in a HEAVIER WEIGHT than the rest of the same line, and it is the easiest one to miss: compare the stroke thickness of each word against its neighbours before deciding there is none. Also look for highlighter/marker background (say the colour), underline, a different colour, italics, a larger size or a boxed word. Write null ONLY when every word in this block is genuinely identical in weight, colour and size. Examples: 'the words \"10g\" and \"7 days\" are bold, the rest of the line is regular'; 'marker highlight in soft yellow over \"62 and have $1.3 million saved up\"'" }
+    { "slide": 1, "where": "PRECISE position: which corner or edge, and whether the block sits over the photo or outside it (e.g. 'white box overlapping the bottom-LEFT of the photo', 'red breadcrumb line above the headline')", "onProduct": true|false, "original": "exact text visibly present in the winning image", "lines": how many lines this block actually occupies in the template image, counted with your eyes (a headline broken across three lines is 3, not 1), "onCurve": "if this text sits on a CURVED baseline, say which corner or element the arc hugs, how much of a turn it covers and in which direction. Null when the baseline is straight", "labels": "if this text is a callout that names a part of the product (usually joined to it by a leader line or an arrow), name the part it points at; otherwise null", "setIn": "HOW THIS EXACT BLOCK IS SET, measured on the template image and not guessed from its role: cap-height as a % of the canvas WIDTH, weight, case, colour, alignment inside its own block (flush-left / centred / flush-right / justified) and — only if it wraps — line spacing as a multiple of its own cap-height (e.g. '3.1% of width, bold, sentence case, near-black, flush-left, lines at 1.15x'). Measure every block separately: an ad has more than two text sizes, and the ones between the headline and the smallest print are exactly where a clone drifts bigger and looser than the original.", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product. NO INVENTED FIGURES: this string may contain a number, percentage, price, discount, timeframe, rating, review count or guarantee ONLY if that exact figure appears in the verified facts above. The template's own figures are NOT verified and must not be reused or adapted — if the original says 50%, the replacement says neither 50% nor 45%. Carry the same persuasive force with a qualitative claim instead. COPY THE CASE OF THE ORIGINAL EXACTLY: if the original is ALL CAPS the replacement is ALL CAPS, if it is Title Case it is Title Case, if it is sentence case it is sentence case. La caja es parte del diseño, no del contenido: cambiarla desarma la jerarquía aunque el texto sea correcto. LENGTH IS A HARD CONSTRAINT AND IT IS COUNTED IN CHARACTERS, NOT ESTIMATED: the replacement must be within 3 characters of the original — count them one by one before returning it — and never use more lines than the original. A 24-character original admits 21 to 27, nothing else. If the honest message does not fit, cut it down until it does — a shorter phrase that keeps the design intact beats a complete one that breaks it", "emphasis": "the visual emphasis applied to PART of this text and WHICH words carry it. The most common by far is a few words set in a HEAVIER WEIGHT than the rest of the same line, and it is the easiest one to miss: compare the stroke thickness of each word against its neighbours before deciding there is none. Also look for highlighter/marker background (say the colour), underline, a different colour, italics, a larger size or a boxed word. Write null ONLY when every word in this block is genuinely identical in weight, colour and size. Examples: 'the words \"10g\" and \"7 days\" are bold, the rest of the line is regular'; 'marker highlight in soft yellow over \"62 and have $1.3 million saved up\"'" }
   ],
   "pressRow": { "detected": true|false, "heading": "the exact wording that introduces the row (\"As seen on\", \"As featured in\"), or null", "outlets": ["each outlet or seal shown, by name, so the advertiser can see what the winner claimed"], "where": "where the row sits in the layout" },
   "referenceHasProduct": true|false,
   "renderingMedium": "WHAT THIS IMAGE IS MADE OF, judged by looking at it, not by what it advertises. Be specific and name the medium first: 'photograph' / '3D cartoon render (Pixar-like stylised characters)' / '3D product render' / 'flat vector illustration' / 'hand-drawn illustration' / 'comic-book art' / '3D render composited with photographic elements' / 'screenshot or UI mockup' / 'photo collage with cut-out edges' / 'typographic poster, no imagery'. If characters or animals appear, say explicitly whether they are REAL PHOTOGRAPHED ones or STYLISED/ILLUSTRATED ones and describe the style (proportions, outlines, shading, eyes). This field decides how the whole new ad is rendered, so an error here makes the clone look like a different ad even when every block is in place.",
-  "compositionGeometry": "THE LAYOUT IN PROPORTIONS, as fractions of the canvas, so it can be rebuilt exactly. State: where the canvas is divided and by how much (e.g. 'a vertical divider at exactly 50% splits the canvas into two equal halves'); for each horizontal band, what it holds and what fraction of the height it takes (e.g. 'headline block occupies the top 18%, the two subjects the middle 62%, the closing text the bottom 20%'); the cap-height of the headline as a fraction of the canvas width; the cap-height of the SMALLEST body text the same way, together with its line spacing as a multiple of its own cap-height, measured baseline to baseline on a block that actually wraps (e.g. 'body text cap-height 3.2% of width, lines set tight at 1.15x cap-height'); and the outer margin as a fraction of the width. Measure with your eyes against the edges of the image — do not estimate from memory of similar ads.",
+  "compositionGeometry": "THE LAYOUT IN PROPORTIONS, as fractions of the canvas, so it can be rebuilt exactly. State: where the canvas is divided and by how much (e.g. 'a vertical divider at exactly 50% splits the canvas into two equal halves'); for each horizontal band, what it holds and what fraction of the height it takes (e.g. 'headline block occupies the top 18%, the two subjects the middle 62%, the closing text the bottom 20%'); the cap-height of the headline as a fraction of the canvas width; and the outer margin as a fraction of the width. Measure with your eyes against the edges of the image — do not estimate from memory of similar ads.",
   "templateHasLogoSlot": true|false — does the template visibly display a brand logo or brand wordmark (a natural spot where the advertiser brand belongs)?,
   "logoIsWordmark": true|false — is that brand mark simply the BRAND NAME SET IN TYPE (letters only, no emblem, shield, crest, seal, badge or pictorial symbol)? A name written in a styled typeface is still a wordmark → true. Only an actual drawn symbol, or a symbol locked up with the name, is false. Null if there is no brand mark at all.,
   "logoDescription": "if templateHasLogoSlot is true, briefly describe the mark itself (e.g. 'small wordmark in white caps'); else null",
@@ -549,7 +560,7 @@ Rules:
 			// El medio y la geometría entran tal cual al render, así que se acotan
 			// igual que el resto de los campos descriptivos.
 			parsed.renderingMedium = typeof parsed.renderingMedium === 'string' ? parsed.renderingMedium.trim().slice(0, 300) : '';
-			parsed.compositionGeometry = typeof parsed.compositionGeometry === 'string' ? parsed.compositionGeometry.trim().slice(0, 900) : '';
+			parsed.compositionGeometry = typeof parsed.compositionGeometry === 'string' ? parsed.compositionGeometry.trim().slice(0, 700) : '';
 			parsed.logoIsWordmark = parsed.logoIsWordmark === true;
 			parsed.logoWhere = typeof parsed.logoWhere === 'string' ? parsed.logoWhere.trim().slice(0, 80) : '';
 			parsed.pressRow = parsed.pressRow && typeof parsed.pressRow === 'object' && parsed.pressRow.detected === true
@@ -628,6 +639,7 @@ Rules:
 				// de tres líneas se contaba como una y el prompt terminaba pidiendo
 				// justamente lo contrario de lo que hay que reproducir.
 				lines: Number.isInteger(Number(zone?.lines)) && Number(zone.lines) >= 1 && Number(zone.lines) <= 12 ? Number(zone.lines) : undefined,
+				setIn: typeof zone?.setIn === 'string' && zone.setIn.trim() && !/^(null|none|n\/a)$/i.test(zone.setIn.trim()) ? zone.setIn.trim().slice(0, 95) : undefined,
 				labels: typeof zone?.labels === 'string' && zone.labels.trim() && !/^(null|none|n\/a)$/i.test(zone.labels.trim()) ? zone.labels.trim().slice(0, 160) : undefined,
 				replacement: stripWebReferences(zone?.replacement),
 			}));
@@ -869,10 +881,16 @@ SIDE MEANING MUST NOT FLIP — Whatever the template puts on the negative/"befor
 			// tres líneas se le pedía una sola: el prompt rompía lo que quería copiar.
 			// Sin el dato es preferible no decir nada que afirmar un número inventado.
 			const lineas = typeof zone.lines === 'number' && zone.lines >= 1
-				? `; keep it on EXACTLY ${zone.lines} line${zone.lines > 1 ? 's' : ''}, broken where the template breaks it`
+				? `; EXACTLY ${zone.lines} line${zone.lines > 1 ? 's' : ''}, broken where the template breaks them`
 				: '';
-			const encaje = largo || lineas
-				? ` — the original is ${largo} characters${lineas}; the replacement must occupy the same block at the same size${caja}`
+			// La medida de ESTE bloque, que es lo que le falta a "al mismo tamaño"
+			// para poder ganar: sin un número, el modelo compone al tamaño que le
+			// resulta cómodo de leer y la copia sale más grande y más aireada.
+			const compuesto = typeof (zone as any).setIn === 'string' && (zone as any).setIn.trim()
+				? `; as measured: ${(zone as any).setIn.trim()}`
+				: '';
+			const encaje = largo || lineas || compuesto
+				? ` — the original is ${largo} characters${lineas}${compuesto || '; the replacement must occupy the same block at the same size'}${caja}`
 				: caja;
 			// Un rótulo con línea guía solo funciona si lo que señala existe.
 			const rotulo = zone.labels
@@ -1193,7 +1211,7 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 	 * abajo y rompe el ritmo de la columna. Es más importante que el texto encaje
 	 * a que diga todo.
 	 */
-	const encajeRule = `\nTEXT FIT (CRITICAL) — Every replacement occupies the same space as the text it replaces: same lines, same size, same block height. Do NOT reflow the layout for a longer text, do not shrink the type, do not let a line wrap where the original did not. If it does not fit, SHORTEN it — cut whole words. A shorter phrase that keeps the rhythm beats a complete one that breaks it.
+	const encajeRule = `\nTEXT FIT (CRITICAL) — Every replacement occupies the same space as the text it replaces: same lines, same size, same block height. Where a block carries a measurement, that measurement IS the block: exactly that cap-height, weight, case, colour, alignment and leading, never bigger, never looser, never re-aligned. Type set slightly bigger and looser "so it reads well" is the commonest way a faithful clone still looks like another ad. Do NOT reflow the layout for a longer text, do not shrink the type, do not let a line wrap where the original did not. If it does not fit, SHORTEN it — cut whole words. A shorter phrase that keeps the rhythm beats a complete one that breaks it.
 MARGINS ARE PART OF THE DESIGN — Keep the same clear space between every text block and the edges as the template has. No letter may touch or cross an edge, and no word may be clipped or cut to make a line fit: "CON CAMELOT" never becomes "CON CAM". Remove a whole word and rewrite the line instead. Same inside a card, pill, badge or button: the text keeps its padding.`;
 	const strategyBlock = input.analysis?.messageStrategy
 		? `\nMESSAGE STRATEGY OF THE WINNING AD — preserve the same persuasion, adapted to ${productLabel}: ${input.analysis.messageStrategy}\n`
@@ -1226,7 +1244,7 @@ MARGINS ARE PART OF THE DESIGN — Keep the same clear space between every text 
 			: modoDeFirma === 'texto' && input.brandName
 				? `Write "${input.brandName}" exactly once, small and quiet, in a margin the layout already leaves empty, in the ad's own typeface and in a colour already present in it. Do not build a lockup, badge, footer bar, container or symbol for it, and never let it compete with the headline.`
 				: `Do not add a logo, wordmark, domain, watermark or brand badge.${isPhysicalSubject ? ' Preserve any genuine branding printed on the TARGET PRODUCT itself because it is part of the product, not an ad overlay.' : ''}`}`;
-	const layoutFidelityRule = `\nLAYOUT FIDELITY OF TEXT BLOCKS (CRITICAL) — Every text block keeps the place it has in the template: same corner, same side, same distance from the edges, same width, same alignment inside the block (centred stays centred, flush-left stays flush-left), and the same relationship with the photo — a block overlapping the image on the left overlaps on the left. Mirroring, recentring or resizing one breaks the composition that made the original work. Reproduce too any highlight, marker, underline or boxed word applied to part of a text: those marks tell the reader where to look.`;
+	const layoutFidelityRule = `\nLAYOUT FIDELITY OF TEXT BLOCKS (CRITICAL) — Every text block keeps the place it has in the template: same corner, same side, same distance from the edges, same width, and the same relationship with the photo — a block overlapping the image on the left overlaps on the left. Mirroring or moving one breaks the composition that made the original work. Reproduce too any highlight, marker, underline or boxed word applied to part of a text: those marks tell the reader where to look.`;
 
 	const catalogRule = isCatalogSubject
 		? `\nSUBJECT IS THE STORE, NOT ONE ITEM (CRITICAL) — This ad is about the business as a whole, not about a single product. The supplied photos are a SELECTION of what the store sells: show them together as a coherent group, collection or lineup, sharing the same lighting, scale logic and surface. Never present one of them as "the" hero product with the others as accessories, never invent a product that was not supplied, and never write a price or a claim that belongs to a single item. The message must work for the whole catalogue: what the store sells, for whom, and why choose it.
@@ -1235,7 +1253,7 @@ MARGINS ARE PART OF THE DESIGN — Keep the same clear space between every text 
    KEEP THE GRID UNIFORM — This rule overrides anything said earlier about re-shooting the image areas. If the template's cells are packshots on a plain background, EVERY cell stays a packshot on a plain background: same framing, same distance, same shadow, same margin. No cell may show hands, a person, a tool, a workbench, a step of the process or a lifestyle scene — a catalogue grid shows the PRODUCTS FOR SALE and nothing else — and the background may not vary between cells. The grid reads as a catalogue because it is regular; one different cell breaks it.` : ''}`
 		: '';
 
-	const qualityRule = `\nOUTPUT QUALITY (CRITICAL) — Do not downscale, blur or soften the final image. Keep edges, textures and shadows crisp and cleanly rendered in the template's own medium. Render every replacement text character sharply and legibly, with correct spelling, stable letterforms, consistent kerning and no gibberish, melted letters, duplicated words or accidental symbols. Prefer clean, sufficiently large text inside its original zones over tiny unreadable text. The result must look production-ready and stay perfectly crisp when viewed at 100% zoom.`;
+	const qualityRule = `\nOUTPUT QUALITY (CRITICAL) — Do not downscale, blur or soften the final image. Keep edges, textures and shadows crisp and cleanly rendered in the template's own medium. The result must look production-ready and stay perfectly crisp when viewed at 100% zoom.`;
 
 	return `The first input image is a WINNING AD TEMPLATE. Your job is to REMAKE THAT EXACT AD for a different advertiser — not to design a new ad inspired by it.
 
