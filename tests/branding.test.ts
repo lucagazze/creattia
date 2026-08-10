@@ -80,7 +80,10 @@ describe('marcas de terceros y la foto del ganador', () => {
 		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, null, false);
 		assert.match(prompt, /THIRD-PARTY MARKS ARE NEVER COPIED/);
 		assert.match(prompt, /press logos/i);
-		assert.match(prompt, /not merely a design detail/i);
+		assert.match(prompt, /not a design detail/i);
+		// El rótulo se va con los logos: sacando sólo los logos quedaba "APARECE EN"
+		// anunciando una fila que ya no existe, sobre una banda vacía.
+		assert.match(prompt, /INCLUDING the heading that introduces it/);
 	});
 
 	test('la foto del ganador no puede sobrevivir con el producto encima', () => {
