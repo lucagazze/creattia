@@ -35,3 +35,6 @@ comparacion-calidad/
 matriz/
 matriz-antes/
 .claves-anteriores.json
+
+# Scripts de un solo uso que se escriben durante una sesión de trabajo.
+zz-*
