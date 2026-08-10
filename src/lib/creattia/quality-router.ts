@@ -26,17 +26,10 @@ export type TierDecision = {
 const COST: Record<QualityTier, number> = { low: 0.035, medium: 0.082, high: 0.236 };
 
 /**
- * PRUEBA EN CURSO: por defecto TODAS las imágenes salen en 'high'.
+ * Por defecto TODAS las imágenes salen en 'medium'.
  *
- * Se sube a pedido, para comparar a ojo contra 'medium' con anuncios reales.
- * Cuesta 3x y tarda 3x, y ese número toca el margen de la oferta: 'high' son
- * USD 0.236 de render contra USD 0.082, sobre un costo declarado de USD 0.24 por
- * imagen y un piso de 50% de margen por plan. Si la diferencia visual no
- * justifica el costo, se vuelve cambiando esta línea o poniendo
- * IMAGE_QUALITY_TIER=medium, sin tocar nada más.
- *
- * Lo que sigue abajo es el razonamiento de cuando se bajó a 'medium', que sigue
- * siendo válido y es contra lo que hay que contrastar la prueba.
+ * Se probó 'high' a pedido y se volvió: cuesta 3x (USD 0.236 contra 0.082) y
+ * tarda 3x, y la diferencia no lo justificaba.
  *
  * Contra la falta de nitidez del texto se probó primero subir a 'high', pero
  * cuesta 3x y tarda 3x (180s contra 60s) para un problema que era de píxeles:
@@ -53,8 +46,8 @@ const COST: Record<QualityTier, number> = { low: 0.035, medium: 0.082, high: 0.2
  * dar la impresión de que el carrusel podía salir con otra calidad que el Studio.
  */
 function configuredTier(): QualityTier | 'auto' {
-	const raw = (process.env.IMAGE_QUALITY_TIER || import.meta.env.IMAGE_QUALITY_TIER || 'high').toLowerCase();
-	return raw === 'auto' || raw === 'low' || raw === 'medium' || raw === 'high' ? raw : 'high';
+	const raw = (process.env.IMAGE_QUALITY_TIER || import.meta.env.IMAGE_QUALITY_TIER || 'medium').toLowerCase();
+	return raw === 'auto' || raw === 'low' || raw === 'medium' || raw === 'high' ? raw : 'medium';
 }
 
 export function pickQualityTier(analysis: LayoutAnalysis | null): TierDecision {

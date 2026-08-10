@@ -219,10 +219,10 @@ describe('POST /api/creativos/generate', () => {
 		assert.equal(response.status, 202);
 		assert.equal(creditsNow(), 49, 'sigue costando 1 crédito');
 		await settleBackgroundWork();
-		// Sigue al nivel por defecto de `quality-router`, hoy en prueba con 'high'.
-		// Lo que este test cuida no es el valor sino que NO sea elegible por
-		// parámetro: una imagen cuesta 1 crédito salga como salga.
-		assert.equal(generateAdImage.mock.calls[0]?.[0].tier, 'high');
+		// Sigue al nivel por defecto de `quality-router`. Lo que este test cuida no
+		// es el valor sino que NO sea elegible por parámetro: una imagen cuesta 1
+		// crédito salga como salga.
+		assert.equal(generateAdImage.mock.calls[0]?.[0].tier, 'medium');
 	});
 
 	test('varias imágenes en un lote reservan y generan todas', async () => {
@@ -388,7 +388,7 @@ describe('POST /api/creativos/batch-worker', () => {
 		await batchWorker({ request: workerRequest() } as any);
 		// El punto es que coincida con el del Studio, no cuál es: si se mueve el
 		// default, los dos se mueven juntos o este test falla.
-		assert.equal(generateAdImage.mock.calls[0]![0].tier, 'high');
+		assert.equal(generateAdImage.mock.calls[0]![0].tier, 'medium');
 	});
 
 	test('no vuelve a generar una fila ya cerrada', async () => {

@@ -1,4 +1,5 @@
 import { analyzeReferenceLayout, buildReferenceClonePrompt, LANGUAGE_NAMES, type LayoutAnalysis } from './ad-analysis';
+import { buildPromptCorto } from './prompt-corto';
 import { generateAdImage, type EngineImage, type EngineUsage } from './image-engines';
 import { closestFormat } from './formats';
 import type { QualityTier } from './quality-router';
@@ -258,9 +259,36 @@ export async function analyzeReference(input: ReferenceCloneInput): Promise<Layo
 	}
 }
 
+/**
+ * Cuál de los dos prompts de render se usa.
+ *
+ * El largo ronda los 20.000 caracteres y treinta secciones marcadas CRITICAL:
+ * cada defecto observado agregó un bloque. La hipótesis del corto —que vive en
+ * `prompt-corto.ts` y ya estaba escrito— es que ese volumen DILUYE, y que dos
+ * principios bien dichos gobiernan mejor en 7.000: nada que no esté en el
+ * ganador, y nada del ganador salvo su estructura.
+ *
+ * Se elige por entorno y arranca en el largo, que es el que hoy produce las
+ * imágenes en producción. `RENDER_PROMPT=corto` cambia los tres caminos a la vez
+ * —Studio, lote y carrusel— sin tocar código, que es lo que permite comparar la
+ * MISMA referencia con los dos y decidir mirando, no discutiendo.
+ *
+ * OJO AL ADOPTARLO: el corto es anterior al trabajo de esta semana y todavía no
+ * conoce `targetClass` (inmueble y vehículo no se redibujan), `winnerPalette`
+ * (los colores del ganador en hexadecimal), `backdrop`, `personMode` (sin
+ * persona / usar mis fotos), la piel fotográfica, la web visible ni la
+ * consistencia entre páginas de un carrusel. Con el corto activo, esas siete
+ * cosas dejan de aplicarse.
+ */
+function usaPromptCorto() {
+	const elegido = String(process.env.RENDER_PROMPT || import.meta.env.RENDER_PROMPT || 'largo').toLowerCase();
+	return elegido === 'corto';
+}
+
 /** El prompt clon a partir del análisis. Separado para poder testearlo solo. */
 export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalysis | null, hasLogo: boolean) {
-	return buildReferenceClonePrompt({
+	const armar = usaPromptCorto() ? buildPromptCorto : buildReferenceClonePrompt;
+	return armar({
 		productNames: input.productNames,
 		productFacts: input.productFacts,
 		brandName: input.brandName,
