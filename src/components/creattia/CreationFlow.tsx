@@ -25,9 +25,12 @@ const FORMAT_ITEMS = [
 	{ id: '16:9', text: '16:9', desc: 'Panorámico', shape: 'wide' },
 ];
 
-export default function CreationFlow({ ad, session, onToast, onGenerationStarted, onGenerationRequested, onBack }: {
+export default function CreationFlow({ ad, session, onToast, onGenerationStarted, onGenerationRequested, onBack, retomarBorrador: retomarAlAbrir }: {
 	ad: any;
 	session: any;
+	/** Viene en true cuando se entró desde el aviso de la biblioteca: ahí el
+	 * borrador se restaura de una, sin pedir un segundo clic sobre lo mismo. */
+	retomarBorrador?: boolean;
 	onToast?: (message: string) => void;
 	onGenerationStarted?: (batch: { batchId: string; title: string; referenceUrl?: string; count: number }) => void;
 	onGenerationRequested?: () => void;
@@ -413,9 +416,19 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		const guardado = leerBorrador(usuarioId);
 		// Solo se ofrece si es del MISMO anuncio ganador que está abierto: retomar
 		// las decisiones de otro anuncio sobre este sería peor que no ofrecer nada.
-		if (guardado && guardado.ad?.imagePath && guardado.ad.imagePath === ad?.imagePath) setBorradorGuardado(guardado);
-		else if (guardado) borrarBorrador();
-	}, [usuarioId, ad?.imagePath]);
+		if (!guardado || guardado.ad?.imagePath !== ad?.imagePath) {
+			// De otro ganador: retomarlo acá sería pisar este con decisiones ajenas.
+			if (guardado) borrarBorrador();
+			return;
+		}
+		// Si se entró desde el aviso de la biblioteca ya se decidió retomarlo: se
+		// restaura solo. Si se entró por la grilla, se ofrece y decide la persona.
+		if (retomarAlAbrir) retomarDelBorrador(guardado);
+		else setBorradorGuardado(guardado);
+		// El borrador se lee al abrir y nada más. Releerlo en cada render haría
+		// que el aviso reapareciera encima del trabajo que se está haciendo.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [usuarioId, ad?.imagePath, retomarAlAbrir]);
 
 	/**
 	 * Lo que hay que volver a poner para que la revisión quede igual.
@@ -446,7 +459,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	});
 
 	/** Vuelve a poner lo guardado y salta directo a la revisión. */
-	function retomarBorrador(guardado: Borrador) {
+	function retomarDelBorrador(guardado: Borrador) {
 		const e = guardado.estado as any;
 		const poner = <T,>(valor: T | undefined, set: (v: T) => void) => { if (valor !== undefined) set(valor); };
 		poner(e.formStep, setFormStep); poner(e.copyMode, setCopyMode);
@@ -1078,7 +1091,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								<small>Lo dejaste {hace(borradorGuardado.guardadoEn)}, con el análisis del ganador y tus decisiones ya hechas. Podés retomarlo donde estaba.</small>
 							</div>
 							<div className="borrador-aviso-botones">
-								<button type="button" className="borrador-retomar" onClick={() => retomarBorrador(borradorGuardado)}>Seguir donde estaba</button>
+								<button type="button" className="borrador-retomar" onClick={() => retomarDelBorrador(borradorGuardado)}>Seguir donde estaba</button>
 								<button type="button" className="borrador-descartar" onClick={() => { borrarBorrador(); setBorradorGuardado(null); }}>Empezar de cero</button>
 							</div>
 						</div>

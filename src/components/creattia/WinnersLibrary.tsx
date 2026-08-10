@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { leerBorrador, borrarBorrador, hace, type Borrador } from '../../lib/creattia/borrador-de-creacion';
 import type { LucideIcon } from 'lucide-react';
 import { ArrowLeftRight, BadgePercent, BarChart3, Image as ImageIcon, Layers3, Lightbulb, ListChecks, Newspaper, Play, Sparkles, Star, SunMedium, Swords } from 'lucide-react';
 import { supabase } from '../../lib/creattia/supabase-browser';
@@ -288,6 +289,23 @@ export default function WinnersLibrary({
 
 	// Interactive generation modal states
 	const [activeAd, setActiveAd] = useState<WinnerItem | null>(null);
+	/**
+	 * El anuncio que quedó a punto de generarse, ofrecido ACÁ.
+	 *
+	 * El aviso vivía dentro del flujo de creación, que solo se monta una vez que
+	 * ya entraste a un ganador puntual: había que acordarse cuál era y volver a
+	 * buscarlo para recién ahí enterarse de que estaba guardado. Justo lo que no
+	 * pasa cuando te olvidaste. La biblioteca es donde se cae al volver, así que
+	 * es donde tiene que estar.
+	 */
+	const [borrador, setBorrador] = useState<Borrador | null>(null);
+	// `retomar` viaja al flujo para que restaure de una: si no, pediría un
+	// segundo clic sobre el mismo aviso que ya se tocó acá.
+	const [retomar, setRetomar] = useState(false);
+	useEffect(() => {
+		const usuarioId = session?.user?.id;
+		if (usuarioId) setBorrador(leerBorrador(usuarioId));
+	}, [session?.user?.id, activeAd]);
 	const [currentSlide, setCurrentSlide] = useState(0);
 	const [urlList, setUrlList] = useState<string[]>(['']); // dynamic multi-URL fields
 	const [manualFiles, setManualFiles] = useState<File[]>([]);
@@ -480,6 +498,9 @@ export default function WinnersLibrary({
 		if (preselectedWinnerPath && items.length > 0) {
 			const match = items.find(item => item.imagePath === preselectedWinnerPath);
 			if (match) {
+				// Si lo que se preseleccionó es justo el ganador del borrador, se
+				// entró desde "seguí donde estabas": no hay que volver a preguntar.
+				if (borrador?.ad?.imagePath === preselectedWinnerPath) setRetomar(true);
 				handleUseIdea(match);
 			}
 			if (onClearPreselectedWinner) onClearPreselectedWinner();
@@ -950,6 +971,7 @@ export default function WinnersLibrary({
 		return (
 			<CreationFlow
 				ad={activeAd}
+				retomarBorrador={retomar}
 				session={session}
 				onToast={onToast}
 				onGenerationStarted={onGenerationStarted}
@@ -1170,6 +1192,19 @@ export default function WinnersLibrary({
 					</button>
 				</div>
 			</div>
+
+			{borrador && (
+				<div className="borrador-aviso">
+					<div>
+						<strong>Tenías «{borrador.ad?.name || 'un anuncio'}» listo para generar</strong>
+						<small>Lo dejaste {hace(borrador.guardadoEn)}, con el análisis del ganador y tus decisiones ya hechas. Retomalo y solo queda apretar generar.</small>
+					</div>
+					<div className="borrador-aviso-botones">
+						<button type="button" className="borrador-retomar" onClick={() => { setRetomar(true); setActiveAd(borrador.ad); }}>Seguir donde estaba</button>
+						<button type="button" className="borrador-descartar" onClick={() => { borrarBorrador(); setBorrador(null); }}>Descartar</button>
+					</div>
+				</div>
+			)}
 
 			{/* Filtros activos: se ven abajo como chips para saber de un vistazo qué está aplicado, y sacar uno sin abrir la lista de nuevo. */}
 			{(() => {

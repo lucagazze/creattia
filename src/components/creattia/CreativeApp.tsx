@@ -1409,6 +1409,10 @@ export default function CreativeApp() {
 							history={history}
 							catalog={catalog} 
 							onView={navigateTo} 
+							// Se preselecciona el ganador y se va a la biblioteca: el mismo
+							// camino que ya usan los atajos, y ahí adentro el borrador se
+							// retoma solo por ser el ganador que el borrador guardó.
+							onRetomarBorrador={(imagePath) => { if (imagePath) { setPreselectedWinnerPath(imagePath); navigateTo('library'); } }}
 							onChoose={chooseCreative} 
 							onReuse={reuseGeneration} 
 							 onBatchCreated={(generations, batchId) => {

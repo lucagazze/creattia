@@ -7,7 +7,8 @@ import type { AppProfile, AppSession, Generation, View } from '../app-types';
 import { groupCarouselHistory } from '../history-utils';
 import { DiscoverGrid } from './Discover';
 import { GenerationCard } from './History';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { leerBorrador, borrarBorrador, hace, type Borrador } from '../../../lib/creattia/borrador-de-creacion';
 /** Pantalla de inicio: atajos, lote en curso y ganadores guardados. */
 
 export function Dashboard({
@@ -18,6 +19,7 @@ export function Dashboard({
 	catalog,
 	onView,
 	onChoose,
+	onRetomarBorrador,
 	onReuse,
 	randomWinners = [],
 	swipePool = [],
@@ -37,6 +39,8 @@ export function Dashboard({
 	email: string;
 	history: Generation[];
 	catalog: Creativo[];
+	/** Abre el ganador del borrador en la biblioteca y retoma la revisión. */
+	onRetomarBorrador?: (imagePath: string) => void;
 	onView: (view: View) => void;
 	onChoose: (creative: Creativo) => void;
 	onReuse: (generation: Generation) => void;
@@ -65,6 +69,12 @@ export function Dashboard({
 	const guardadosVisibles = likedWinners.slice(0, guardadosListos).filter((winner) => !imagenFallada(urlDeGuardado(winner)));
 	// Se precarga una sola vez: si el usuario la borra o la cambia, no se le
 	// vuelve a imponer en la próxima visita.
+	const [borrador, setBorrador] = useState<Borrador | null>(null);
+	useEffect(() => {
+		const usuarioId = session?.user?.id;
+		setBorrador(usuarioId ? leerBorrador(usuarioId) : null);
+	}, [session?.user?.id]);
+
 	useEffect(() => {
 		if (pendingProductUrl) onPendingProductUrlUsed?.();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,6 +82,25 @@ export function Dashboard({
 
 	return (
 		<>
+			{/* El anuncio que quedó a punto de generarse, ofrecido ACÁ.
+			    Vivía dentro del flujo de creación y después en la biblioteca, dos
+			    pantallas a las que hay que ir a propósito: para enterarse de que
+			    algo estaba guardado había que acordarse de qué ganador era y volver
+			    a buscarlo, que es justo lo que no pasa cuando te olvidaste. Inicio
+			    es donde se cae al abrir la app. */}
+			{borrador && (
+				<div className="borrador-aviso">
+					<div>
+						<strong>Tenías «{borrador.ad?.name || 'un anuncio'}» listo para generar</strong>
+						<small>Lo dejaste {hace(borrador.guardadoEn)}, con el análisis del ganador y tus decisiones ya hechas. Solo queda apretar generar.</small>
+					</div>
+					<div className="borrador-aviso-botones">
+						<button type="button" className="borrador-retomar" onClick={() => onRetomarBorrador?.(borrador.ad?.imagePath)}>Seguir donde estaba</button>
+						<button type="button" className="borrador-descartar" onClick={() => { borrarBorrador(); setBorrador(null); }}>Descartar</button>
+					</div>
+				</div>
+			)}
+
 			{/* ── Generador Masivo de Anuncios por URL ── */}
 			<UrlBatchSection
 				userCredits={profile.credits}
