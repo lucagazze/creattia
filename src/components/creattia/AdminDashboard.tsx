@@ -279,14 +279,19 @@ function ActivitySection({ activity, onOpenUser }: { activity: any[]; onOpenUser
  * quiso copiar, el producto que se puso, y en qué terminó—.
  */
 function VisorDeCreativo({ item, onClose }: { item: any; onClose: () => void }) {
-	// Las tres cosas en el orden en que se leen, salteando las que no estén.
-	const piezas = [
-		item.referenceUrl && { url: item.referenceUrl, etiqueta: 'Anuncio ganador elegido', pie: item.referenceName || '' },
-		...(item.productUrls || []).map((url: string, indice: number) => ({
-			url, etiqueta: (item.productUrls.length > 1 ? `Producto ${indice + 1}` : 'Producto elegido'), pie: item.productNames?.[indice] || '',
-		})),
-		item.thumbUrl && { url: item.thumbUrl, etiqueta: 'Resultado', pie: item.title || '' },
-	].filter(Boolean) as Array<{ url: string; etiqueta: string; pie: string }>;
+	// Tres bloques, en el orden en que se leen. El del medio puede traer varias
+	// fotos: de una url se bajan varias vistas del mismo producto y son las que
+	// el modelo mira para reconstruirlo, así que van todas y no solo la primera.
+	const fotosDelProducto: string[] = item.productUrls || [];
+	const bloques = [
+		item.referenceUrl && { urls: [item.referenceUrl], etiqueta: 'Anuncio ganador elegido', pie: item.referenceName || '' },
+		fotosDelProducto.length && {
+			urls: fotosDelProducto,
+			etiqueta: fotosDelProducto.length > 1 ? `Fotos del producto (${fotosDelProducto.length})` : 'Foto del producto',
+			pie: (item.productNames || []).join(' + '),
+		},
+		item.thumbUrl && { urls: [item.thumbUrl], etiqueta: 'Resultado', pie: item.title || '' },
+	].filter(Boolean) as Array<{ urls: string[]; etiqueta: string; pie: string }>;
 
 	// Escape cierra: es lo primero que se prueba cuando algo tapa la pantalla.
 	useEffect(() => {
@@ -308,18 +313,24 @@ function VisorDeCreativo({ item, onClose }: { item: any; onClose: () => void }) 
 					<button type="button" onClick={onClose} aria-label="Cerrar">✕</button>
 				</header>
 				<div className="visor-creativo-piezas">
-					{piezas.map((pieza, indice) => (
-						<figure key={pieza.url}>
-							<img src={pieza.url} alt={pieza.etiqueta} />
+					{bloques.map((bloque, indice) => (
+						<figure key={bloque.urls[0]} className={bloque.urls.length > 1 ? 'es-galeria' : ''}>
+							<div className="visor-creativo-imagenes">
+								{bloque.urls.map((url) => (
+									// Cada foto se abre en grande por su cuenta: en una galería de
+									// cinco, la miniatura no alcanza para mirar una costura.
+									<a key={url} href={url} target="_blank" rel="noreferrer"><img src={url} alt={bloque.etiqueta} /></a>
+								))}
+							</div>
 							<figcaption>
-								<span>{pieza.etiqueta}</span>
-								{pieza.pie && <small>{pieza.pie}</small>}
+								<span>{bloque.etiqueta}</span>
+								{bloque.pie && <small>{bloque.pie}</small>}
 							</figcaption>
-							{/* La flecha va ENTRE piezas, no después de la última. */}
-							{indice < piezas.length - 1 && <i className="visor-creativo-flecha" aria-hidden="true">→</i>}
+							{/* La flecha va ENTRE bloques, no después del último. */}
+							{indice < bloques.length - 1 && <i className="visor-creativo-flecha" aria-hidden="true">→</i>}
 						</figure>
 					))}
-					{!piezas.length && <EmptyState label="Esta generación no guardó imágenes." />}
+					{!bloques.length && <EmptyState label="Esta generación no guardó imágenes." />}
 				</div>
 			</div>
 		</div>

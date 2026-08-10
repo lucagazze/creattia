@@ -210,13 +210,36 @@ export const GET: APIRoute = async ({ request }) => {
 		// —el ganador da la forma, el producto da lo que se vende— y era la única
 		// que no se podía ver sin entrar a la base.
 		const idsDeProductos = [...new Set(activity.flatMap((item: any) => item.productIds || []))] as string[];
-		const fotoPorProducto = new Map<string, string>();
 		if (idsDeProductos.length) {
+			// TODAS las fotos de cada producto, no solo la principal: de una url se
+			// bajan varias vistas y son las que el modelo mira para reconstruir la
+			// prenda. Mostrar una sola no dice con qué se trabajó.
+			const fotosPorProducto = new Map<string, string[]>();
+			const { data: galeria } = await admin.from('creative_product_images')
+				.select('product_id,storage_path,sort_order')
+				.in('product_id', idsDeProductos.slice(0, 200))
+				.order('sort_order');
+			for (const fila of galeria || []) {
+				if (!fila.storage_path) continue;
+				const lista = fotosPorProducto.get(fila.product_id) || [];
+				lista.push(fila.storage_path);
+				fotosPorProducto.set(fila.product_id, lista);
+			}
+			// La principal del producto, por si la galería está vacía —productos
+			// cargados a mano, o de antes de que existiera esa tabla—.
 			const { data: filas } = await admin.from('creative_products')
 				.select('id,image_path').in('id', idsDeProductos.slice(0, 200));
-			for (const fila of filas || []) if (fila.image_path) fotoPorProducto.set(fila.id, fila.image_path);
+			for (const fila of filas || []) {
+				if (!fila.image_path) continue;
+				const lista = fotosPorProducto.get(fila.id) || [];
+				if (!lista.includes(fila.image_path)) lista.unshift(fila.image_path);
+				fotosPorProducto.set(fila.id, lista);
+			}
 			for (const item of activity as any[]) {
-				item.productPaths = (item.productIds || []).map((id: string) => fotoPorProducto.get(id)).filter(Boolean);
+				// Se acota por generación: una url puede haber dejado veinticuatro
+				// fotos, y firmar todas las de todo el feed sería una lista enorme
+				// para algo que se mira de a una generación por vez.
+				item.productPaths = (item.productIds || []).flatMap((id: string) => fotosPorProducto.get(id) || []).slice(0, 10);
 			}
 		}
 

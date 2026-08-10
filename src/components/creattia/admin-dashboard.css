@@ -292,6 +292,8 @@
 	.visor-creativo { padding: 12px; }
 	.visor-creativo-piezas { flex-direction: column; }
 	.visor-creativo-piezas figure { width: 100%; min-width: 0; }
+	.visor-creativo-imagenes,
+	.visor-creativo-piezas figure.es-galeria .visor-creativo-imagenes { height: auto; max-height: 46vh; }
 	.visor-creativo-flecha { top: auto; right: auto; bottom: -14px; left: 50%; transform: rotate(90deg); }
 }
 
@@ -303,3 +305,25 @@
 	padding: 1px 7px; border-radius: 6px; background: #f0eaff; color: #6a41b8;
 	font-size: 10.5px; font-style: normal; font-weight: 700;
 }
+
+/* La galería del producto: de una url se bajan varias vistas y son las que el
+   modelo mira para reconstruirlo. Mostrar una sola no dice con qué se trabajó. */
+/* Los tres bloques miden lo mismo de alto para que los tres pies queden a la
+   misma altura: con la galería más alta que las otras dos, su rótulo caía solo
+   noventa píxeles más abajo y se perdía la lectura de un vistazo. */
+.visor-creativo-imagenes { display: flex; flex-direction: column; gap: 6px; height: 56vh; }
+.visor-creativo-imagenes > a { flex: 1 1 auto; min-height: 0; }
+.visor-creativo-imagenes > a img { height: 100%; }
+.visor-creativo-imagenes a { display: block; line-height: 0; border-radius: 11px; }
+.visor-creativo-imagenes a:hover { outline: 2px solid #c9b4f5; outline-offset: 2px; }
+/* Con varias van en grilla de dos y más chicas: la comparación importa más que
+   el tamaño de cada una, y apiladas empujarían el resultado fuera de la
+   pantalla. Grilla y no flex porque con un número impar la última se estiraba a
+   lo ancho y empujaba el pie de foto, dejando los tres bloques desalineados.
+   El alto queda acotado: la galería scrollea sola y los tres pies quedan a la
+   misma altura, que es lo que permite leer los bloques de un vistazo. */
+.visor-creativo-piezas figure.es-galeria .visor-creativo-imagenes {
+	display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
+	height: 56vh; overflow-y: auto; align-content: start;
+}
+.visor-creativo-piezas figure.es-galeria img { max-height: 26vh; height: auto; width: 100%; }
