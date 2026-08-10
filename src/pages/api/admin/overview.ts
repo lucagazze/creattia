@@ -72,7 +72,7 @@ export const GET: APIRoute = async ({ request }) => {
 			 * Se pide solo el dia para que la consulta no crezca con el historial.
 			 */
 			admin.from('creative_events')
-				.select('event,user_id,created_at')
+				.select('event,user_id,created_at,props')
 				.in('event', ['app_abierta', 'landing_vista'])
 				.gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
 		]);
@@ -205,8 +205,20 @@ export const GET: APIRoute = async ({ request }) => {
 				// no sirve para eso: el dia que empezas a pautar, siete dias de historia
 				// tapan justamente lo que queres ver.
 				newUsersToday: users.filter((user: any) => withinDays(user.created_at, 1)).length,
+				// VISITAS = aperturas. VISITANTES = personas distintas. Se devuelven las
+				// dos: la primera dice cuanto se usa, la segunda cuanta gente hay, y
+				// mezclarlas es lo que hace que un tablero mienta hacia arriba.
 				appViewsToday: eventosDelDia.filter((row: any) => row.event === 'app_abierta').length,
 				landingViewsToday: eventosDelDia.filter((row: any) => row.event === 'landing_vista').length,
+				// La landing no tiene sesion, asi que los visitantes se cuentan por la
+				// huella diaria que deja el endpoint publico —un hash de IP y navegador que
+				// no se puede revertir y cambia todos los dias—.
+				landingVisitorsToday: new Set(
+					eventosDelDia
+						.filter((row: any) => row.event === 'landing_vista')
+						.map((row: any) => row.props?.visitante)
+						.filter(Boolean),
+				).size,
 				// Personas distintas, no aperturas: una sola persona que entra ocho veces
 				// no son ocho visitantes.
 				appVisitorsToday: new Set(eventosDelDia.filter((row: any) => row.event === 'app_abierta').map((row: any) => row.user_id).filter(Boolean)).size,

@@ -50,13 +50,17 @@ export function PulsoAdmin({ session, onAbrirCentro }: { session: AppSession; on
 				<b>{dato(pulso.newUsersToday)}</b>
 				<em>altas hoy</em>
 			</span>
-			<span className="pulso-dato">
-				<b>{dato(pulso.landingViewsToday)}</b>
-				<em>landing hoy</em>
+			{/* Siempre PERSONAS, nunca aperturas: alguien que entra ocho veces no son
+			    ocho visitantes, y un tablero que los mezcla miente para arriba. El
+			    total de visitas va en el tooltip, que es donde se lo busca cuando se
+			    lo necesita. */}
+			<span className="pulso-dato" title={`${dato(pulso.landingViewsToday)} visitas en total`}>
+				<b>{dato(pulso.landingVisitorsToday)}</b>
+				<em>en la landing</em>
 			</span>
-			<span className="pulso-dato">
+			<span className="pulso-dato" title={`${dato(pulso.appViewsToday)} aperturas en total`}>
 				<b>{dato(pulso.appVisitorsToday)}</b>
-				<em>app hoy</em>
+				<em>en la app</em>
 			</span>
 		</button>
 	);

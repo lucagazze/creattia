@@ -159,10 +159,10 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 						{/* El primer escalon del embudo: gente que llego a la home sin tener
 						    cuenta. Antes la medicion arrancaba en "abrio la app", asi que de
 						    cuanta gente llega y NO entra no quedaba ningun rastro. */}
-						<Metric label="Visitas a la landing hoy" value={shortNumber(metrics.landingViewsToday)} hint="Ultimas 24 horas" tone="violet" />
+						<Metric label="Visitantes de la landing hoy" value={shortNumber(metrics.landingVisitorsToday)} hint={`${metrics.landingViewsToday || 0} visitas en total`} tone="violet" />
 						{/* Personas distintas, no aperturas: una sola que entra ocho veces no
 						    son ocho visitantes. */}
-						<Metric label="Entraron a la app hoy" value={shortNumber(metrics.appVisitorsToday)} hint={`${metrics.appViewsToday || 0} aperturas`} tone="green" />
+						<Metric label="Entraron a la app hoy" value={shortNumber(metrics.appVisitorsToday)} hint={`personas distintas · ${metrics.appViewsToday || 0} aperturas`} tone="green" />
 					</div>
 
 					{section === 'overview' && <OverviewSection overview={overview} onOpenUser={openUser} />}

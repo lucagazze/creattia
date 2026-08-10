@@ -186,22 +186,9 @@ export default function CreativeApp() {
 		);
 	}
 
-	const [stuckCount, setStuckCount] = useState(0);
 
 	// Al entrar se consulta si quedaron generaciones colgadas de una sesión previa
 	// (pestaña cerrada a mitad del lote, worker cortado) para ofrecer limpiarlas.
-	useEffect(() => {
-		if (!session) return;
-		const token = getSessionToken(session);
-		if (!token) return;
-		let active = true;
-		void fetch('/api/creativos/cleanup-stuck', { headers: { authorization: `Bearer ${token}` } })
-			.then((response) => response.json())
-			.then((payload) => { if (active && typeof payload?.stuck === 'number') setStuckCount(payload.stuck); })
-			.catch(() => { /* no es crítico */ });
-		return () => { active = false; };
-	}, [session]);
-
 	/**
 	 * Borra una o varias generaciones de una sola vez (un carrusel entero, o una
 	 * selección múltiple). Un solo confirm y un solo delete en lote — antes se
@@ -273,7 +260,6 @@ export default function CreativeApp() {
 			const closed: string[] = payload.ids || [];
 			if (closed.length) {
 				setHistory((prev) => prev.filter((item) => !closed.includes(item.id)));
-				setStuckCount(0);
 				if (supabase) {
 					const { data: profileRow } = await supabase.from('creative_profiles').select('credits_remaining').maybeSingle();
 					if (profileRow) setProfile((prev) => ({ ...prev, credits: profileRow.credits_remaining ?? prev.credits }));
@@ -1555,7 +1541,6 @@ export default function CreativeApp() {
 							}}
 							onDeleteImage={deleteImage}
 							activeBatch={activeBatch}
-							stuckCount={stuckCount}
 							onCleanupStuck={cleanupStuck}
 						/>
 					)}

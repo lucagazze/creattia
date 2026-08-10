@@ -27,7 +27,6 @@ export function History({
 	onUseReference,
 	onDeleteImage,
 	activeBatch,
-	stuckCount,
 	onCleanupStuck,
 }: { 
 	history: Generation[]; 
@@ -43,7 +42,6 @@ export function History({
 	onUseReference?: (path: string) => void;
 	onDeleteImage?: (imgIds: string | string[]) => void;
 	activeBatch?: ActiveBatch | null;
-	stuckCount?: number;
 	onCleanupStuck?: (generationId?: string) => void;
 }) {
 	const [currentFolderId, setCurrentFolderId] = useState<string>('all');
@@ -149,19 +147,6 @@ export function History({
 					❤️ Favoritas ({history.filter(h => likedImageIds.includes(h.id)).length})
 				</button>
 
-				{/* Comparte la forma de las otras píldoras en vez de traer su propio
-				    tamaño: tenía un margen inferior de 20px que, en una fila centrada,
-				    lo empujaba hacia arriba y lo dejaba fuera de línea. */}
-				{Boolean(stuckCount) && onCleanupStuck && (
-					<button
-						type="button"
-						onClick={() => onCleanupStuck()}
-						title="Cierra las generaciones que quedaron a medias y te devuelve los créditos"
-						className="history-filter-pill is-warning"
-					>
-						🧹 Limpiar {stuckCount} {stuckCount === 1 ? 'pendiente' : 'pendientes'}
-					</button>
-				)}
 			</div>
 
 			{hasContent ? (
