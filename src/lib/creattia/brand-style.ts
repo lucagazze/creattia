@@ -129,6 +129,53 @@ function saturacion(hex: string) {
  * una persona: el fondo que ocupa casi todo, la letra de los títulos, la del
  * texto corrido y el color de los botones.
  */
+/**
+ * Las variables de color declaradas en la hoja, que es donde vive la identidad.
+ *
+ * Un tema moderno no escribe los colores en cada regla: los declara una vez como
+ * `--main-background: #FFFFFF` y después usa `var(--main-background)` en todas
+ * partes. Leyendo solo valores literales no se encontraba NINGUNO de los colores
+ * reales de la marca — el fondo del body decía `var(--main-background)` y de ahí
+ * no salía nada, así que la votación terminaba eligiendo el azul de un botón de
+ * compartir en Facebook.
+ *
+ * Las derivadas con transparencia (`--main-foreground-opacity-30: #33333380`) se
+ * saltean: son el mismo color a media tinta y ensucian la búsqueda por nombre.
+ */
+function variablesDeColor(css: string) {
+	const mapa = new Map<string, string>();
+	for (const match of css.matchAll(/--([\w-]+)\s*:\s*([^;}]+)/g)) {
+		const nombre = match[1].toLowerCase();
+		if (/opacity|alpha|transparent/.test(nombre)) continue;
+		const color = normalizeCssColor(match[2]);
+		if (color && !mapa.has(nombre)) mapa.set(nombre, color);
+	}
+	return mapa;
+}
+
+/** El primer color cuyo nombre de variable coincide, probando de más a menos específico. */
+function colorPorNombre(vars: Map<string, string>, patrones: RegExp[], excluir: string[] = []) {
+	for (const patron of patrones) {
+		for (const [nombre, color] of vars) {
+			if (patron.test(nombre) && !excluir.includes(color)) return color;
+		}
+	}
+	return '';
+}
+
+/**
+ * Colores que pertenecen a otra empresa, no a la marca del sitio.
+ *
+ * Los botones de compartir traen el azul de Facebook y el verde de WhatsApp
+ * escritos a mano en el CSS, y son de los pocos colores saturados de una tienda
+ * sobria: ganaban la votación del acento sin competencia. Se descartan por
+ * selector, que es más confiable que por valor —un tema puede usar cualquier
+ * tono—, y también los colores de estado (`alert-info`, `error`, `success`), que
+ * son del framework y no de la identidad.
+ */
+const SELECTOR_AJENO = /\b(facebook|whatsapp|instagram|twitter|youtube|tiktok|pinterest|linkedin|telegram|messenger|social|share|compartir)\b/;
+const SELECTOR_DE_ESTADO = /\b(alert|error|danger|success|warning|info|notice|toast|badge-)\b/;
+
 function extractSemanticPalette(css: string, themeColor: string): BrandPalette {
 	const votos = { fondo: new Map<string, number>(), titulo: new Map<string, number>(), texto: new Map<string, number>(), acento: new Map<string, number>() };
 	const sumar = (mapa: Map<string, number>, color: string, peso: number) => {
@@ -141,6 +188,10 @@ function extractSemanticPalette(css: string, themeColor: string): BrandPalette {
 	const esTitulo = /(^|[\s,>~+])h[1-3]\b|\b(title|titulo|heading|headline)\b/;
 
 	for (const { selector, cuerpo } of reglasDeCss(css)) {
+		// El azul de Facebook y el verde de WhatsApp están escritos a mano en el CSS
+		// de casi toda tienda, y en una paleta sobria son los únicos colores
+		// saturados: ganaban el acento sin competir con nada.
+		if (SELECTOR_AJENO.test(selector) || SELECTOR_DE_ESTADO.test(selector)) continue;
 		const fondo = valorDeclarado(cuerpo, 'background|background-color');
 		const texto = valorDeclarado(cuerpo, 'color');
 		if (fondo) {
@@ -169,16 +220,49 @@ function extractSemanticPalette(css: string, themeColor: string): BrandPalette {
 			.filter(([color]) => !filtro || filtro(color))
 			.sort((a, b) => b[1] - a[1])[0]?.[0] || '';
 
-	const background = masVotado(votos.fondo) || '#ffffff';
+	/**
+	 * Las variables declaradas mandan sobre la votación.
+	 *
+	 * Cuando un tema nombra su paleta —`--main-background`, `--accent-color`,
+	 * `--button-background`— eso ES la identidad, escrita por quien hizo el tema.
+	 * Deducirla contando declaraciones al lado de eso es adivinar teniendo la
+	 * respuesta al lado. La votación queda para los sitios que no las usan.
+	 */
+	const vars = variablesDeColor(css);
+	const background = colorPorNombre(vars, [
+		/^(main|body|page|site|global|theme)[-_]?background$/,
+		/^(color[-_])?background$/,
+		/^bg$/,
+		/background$/,
+	]) || masVotado(votos.fondo) || '#ffffff';
 	// Los títulos mandan sobre el texto corrido: es la letra que se lee primero y
 	// la que define el contraste del aviso.
-	const text = masVotado(votos.titulo, [background]) || masVotado(votos.texto, [background]) || '#19171d';
+	const text = colorPorNombre(vars, [
+		/^(main|body|page|site|global|theme)[-_]?foreground$/,
+		/^(color[-_])?(text|foreground)$/,
+		/^(heading|title)[-_]?color$/,
+		/foreground$/,
+	], [background]) || masVotado(votos.titulo, [background]) || masVotado(votos.texto, [background]) || '#19171d';
 	// Un acento nunca es un gris: si el más votado es neutro, se busca el
 	// siguiente con color de verdad antes de caer en el violeta por defecto.
-	const accent = masVotado(votos.acento, [background, text], (color) => saturacion(color) > 0.15)
+	const accent = colorPorNombre(vars, [
+		/^accent([-_]color)?$/,
+		/^(color[-_])?primary$/,
+		/^brand([-_]color)?$/,
+		/^button[-_]background$/,
+		/accent/,
+		/primary/,
+	], [background, text])
+		|| masVotado(votos.acento, [background, text], (color) => saturacion(color) > 0.15)
 		|| masVotado(votos.acento, [background, text])
 		|| '#744bde';
-	const secondary = masVotado(votos.acento, [background, text, accent], (color) => saturacion(color) > 0.15)
+	const secondary = colorPorNombre(vars, [
+		/^(color[-_])?secondary$/,
+		/^button[-_]background$/,
+		/^label[-_]background$/,
+		/secondary/,
+	], [background, text, accent])
+		|| masVotado(votos.acento, [background, text, accent], (color) => saturacion(color) > 0.15)
 		|| masVotado(votos.texto, [background, text, accent]);
 	return { background, text, accent, secondary, source: 'scraped' };
 }
