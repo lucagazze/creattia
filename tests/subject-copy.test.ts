@@ -518,6 +518,63 @@ describe('qué manda cuando dos reglas se cruzan', () => {
 });
 
 /**
+ * La letra del ganador es la mitad del anuncio.
+ *
+ * Clonando un aviso de miel —titular serif, en minúsculas, con una palabra en
+ * itálica y dos etiquetas de texto suelto abajo— volvió una grotesca condensada
+ * ULTRA BOLD EN MAYÚSCULAS y las etiquetas metidas en pastillas blancas que el
+ * ganador no tiene. La maqueta y la paleta estaban bien; la pieza no se parecía.
+ *
+ * Dos causas, las dos de dónde y cómo se dice, no de qué se dice: la regla de
+ * tipografía vivía enterrada dentro del punto 4, a quince mil caracteres de
+ * profundidad y compartiendo oración con la de color, mientras el medio y la
+ * geometría —las que mejor se obedecen— abren el prompt. Y no nombraba la CLASE
+ * de letra ni la caja, que son justo las dos cosas que se dieron vuelta.
+ */
+describe('la tipografía del ganador se respeta', () => {
+	const base2 = { ...base, subjectMode: 'product' as const };
+	const analisis = { referenceHasProduct: true, textZones: [] } as any;
+
+	test('la clase de letra se nombra: una serif no vuelve sans', () => {
+		const prompt = buildClonePrompt(base2, analisis, false);
+		assert.match(prompt, /same CLASS \(serif, sans, slab, script/);
+		assert.match(prompt, /a serif ad redrawn in a sans is a different ad/);
+	});
+
+	test('un titular en minúsculas no se promueve a mayúsculas', () => {
+		assert.match(buildClonePrompt(base2, analisis, false), /sentence case stays sentence case, never promoted to ALL CAPS/);
+	});
+
+	/** Va con el medio y la geometría, no al final entre las reglas de detalle. */
+	test('la tipografía se dice temprano, no enterrada en el punto 4', () => {
+		const prompt = buildClonePrompt(base2, analisis, false);
+		assert.ok(prompt.indexOf('TYPOGRAPHY') < prompt.indexOf('4. STRICT FIDELITY'), 'la tipografía quedó después del punto 4');
+	});
+
+	/** Las dos etiquetas sueltas del ganador volvieron dentro de pastillas. */
+	test('no se inventa una caja detrás de un texto que va suelto', () => {
+		assert.match(buildClonePrompt(base2, analisis, false), /a box, pill or card behind a line of text that sits loose on the background/);
+	});
+
+	/**
+	 * Elegir otra fuente cambia la fuente y nada más: la caja, el peso y la
+	 * itálica de énfasis son composición del ganador, no tipografía de la marca.
+	 */
+	test('con tipografía de marca se conserva todo lo demás que se midió', () => {
+		const prompt = buildClonePrompt(
+			{ ...base2, typoMode: 'brand', brandTypography: { headings: 'Poppins' } } as any,
+			{ ...analisis, typography: { headline: 'serif, regular, sentence case', body: 'sans, light' } },
+			false,
+		);
+		assert.match(prompt, /Poppins/);
+		assert.match(prompt, /ONLY the font family changes/);
+		// La medición del ganador viaja igual: antes se tiraba entera.
+		assert.match(prompt, /MEASURED IN THIS TEMPLATE/);
+		assert.match(prompt, /serif, regular, sentence case/);
+	});
+});
+
+/**
  * El color del texto lo decide el panel donde cae, no el nombre del rol.
  *
  * Clonando un ganador que tiene el titular en blanco sobre un cuadrante de

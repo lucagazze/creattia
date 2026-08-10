@@ -1181,9 +1181,20 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 		// "TYPOGRAPHY" colaba la escena del ganador en el render: de ahí salió un
 		// cuero flotando sobre agua, que era el fondo del anuncio original.
 		: '';
+	/**
+	 * Elegir otra FUENTE no borra lo demás que se midió de la letra.
+	 *
+	 * La rama de marca decía sólo "usá esta tipografía, con los mismos tamaños y
+	 * jerarquía", y con eso se tiraba todo el resto de la medición: la caja
+	 * (MAYÚSCULAS o minúsculas), el peso, el ancho, el espaciado, la alineación y
+	 * el énfasis en itálica de una palabra. Nada de eso es la fuente — es la
+	 * composición— y perderlo alcanza para que un titular serif en minúsculas con
+	 * una palabra en cursiva vuelva como una grotesca condensada en mayúsculas,
+	 * que es exactamente el defecto que se vio.
+	 */
 	const typoRule = input.typoMode !== 'winner' && (input.brandTypography?.headings || input.brandTypography?.body)
-		? `TYPOGRAPHY — Use the selected brand typography: headings in ${input.brandTypography?.headings || 'the brand font'}, body text in ${input.brandTypography?.body || 'the brand font'}, keeping the same sizes, weights and hierarchy as the template.`
-		: `TYPOGRAPHY (CRITICAL) — Reproduce the template's typeface characteristics exactly: the same width (condensed, normal or extended), the same weight, the same case, the same letter-spacing and the same relationship between the heading and the body text. Look at the letterforms in the reference image and match them; do not substitute a generic sans-serif. If the template pairs a heavy condensed heading with a light italic annotation, the new ad must pair a heavy condensed heading with a light italic annotation.${letraObservada}`;
+		? `TYPOGRAPHY (CRITICAL) — Set the type in the selected brand fonts: headings in ${input.brandTypography?.headings || 'the brand font'}, body in ${input.brandTypography?.body || 'the brand font'}. ONLY the font family changes: the case, the weight, the width, the letter-spacing, the alignment, the size relationship between heading and body, and any word set in italic or a heavier weight all stay exactly as the template has them.${letraObservada}`
+		: `TYPOGRAPHY (CRITICAL) — Match the template's letterforms: same CLASS (serif, sans, slab, script — a serif ad redrawn in a sans is a different ad), same width, same weight, same CASE (sentence case stays sentence case, never promoted to ALL CAPS), same letter-spacing, same italic or bold emphasis on the same words, and the same size relationship between heading and body. Do not substitute a generic sans-serif.${letraObservada}`;
 
 	/**
 	 * Que el texto entre donde va, sin reflujo.
@@ -1234,14 +1245,15 @@ MARGINS ARE PART OF THE DESIGN — Keep the same clear space between every text 
 
 Build the same piece again: same medium, same geometry, same proportions, same layout, same background treatment, same colour palette, same graphic devices (badges, stars, speech bubbles, banners, buttons, dividers, arrows, leader lines), same position and same size for every visual block, same type scale and same visual hierarchy. Only the SUBJECT changes: the product, the scenes and the people all become ${productLabel}.
 
-NOTHING THAT IS NOT IN THE TEMPLATE (READ THIS FIRST) — Only elements VISIBLE in the winning ad may be reproduced. Look for it in the template first; if it is not there, it does not go in. What gets added by reflex: a web address, domain, social handle or QR; a logo, wordmark or brand line; a badge, seal, ribbon, star rating or certification; a guarantee, discount or shipping promise. The advertiser's website and brand name are CONTEXT for writing honest copy, not instructions to print them. One element more than the template is wrong even if it looks good — and so is a large empty area the template does not have.
+NOTHING THAT IS NOT IN THE TEMPLATE (READ THIS FIRST) — Only elements VISIBLE in the winning ad may be reproduced. Look for it in the template first; if it is not there, it does not go in. What gets added by reflex: a web address, domain, social handle or QR; a logo, wordmark or brand line; a badge, seal, ribbon, star rating or certification; a guarantee, discount or shipping promise; a box, pill or card behind a line of text that sits loose on the background in the template. The advertiser's website and brand name are CONTEXT for writing honest copy, not instructions to print them. One element more than the template is wrong even if it looks good — and so is a large empty area the template does not have.
 
 THIRD-PARTY MARKS ARE NEVER COPIED (CRITICAL) — If the template shows press logos, a row of media outlets ("As featured in", "As seen on"), partner logos, award seals, certification badges, app-store badges, rating marks or any other company's name or symbol, NONE of them may appear in the output. They belong to other companies and they state something about the ORIGINAL advertiser that is not true of this one: reproducing them claims a coverage, an award or an endorsement that this business does not have, which is a false statement and not merely a design detail. Remove that whole area cleanly and let the surrounding spacing close over it. Do not replace it with invented logos, invented outlet names, made-up seals or grey placeholder shapes either. The only exception is a mark printed on the target's own product or contained in the advertiser's own supplied logo.
 
 THE TEMPLATE'S PHOTOGRAPH DOES NOT SURVIVE (CRITICAL) — Pasting the new product ON TOP of the template's original photo is the most common way this goes wrong: it leaves a scene that makes no sense — a hide floating in front of a couple on holiday — and reads instantly as a collage. Re-shoot each area with the subject named for it, same frame, crop, angle and lighting. If the template shows people who have no natural place in this business, the scene becomes one where the product genuinely lives: whoever makes it, whoever uses it, or the result it produces.
 
 THE TEST THIS OUTPUT MUST PASS — put the template and your result side by side. Every block must land in the same place, at the same size, in the same style, and the two must look like the same ad in two languages about two different things. If someone would call them "similar ads" rather than "the same ad remade", you have drifted too far and the result is a failure. When any instruction below leaves room for interpretation, choose the option that stays closer to the template.
-${mediumRule}${geometryRule}${recursosRule}${capasRule}${splitComparisonRule}
+${mediumRule}${geometryRule}${recursosRule}${capasRule}
+${typoRule}${splitComparisonRule}
 ${strategyBlock}${creativeBlock}${imageSlotBlock}
 	${productSwap}${orientationRule}${carouselRule}
 
@@ -1255,7 +1267,7 @@ ${strategyBlock}${creativeBlock}${imageSlotBlock}
 
 WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website, so "${input.displayWebsite}" MUST appear exactly once in this image — this is one of the few things that overrides "nothing that is not in the template". Put it in the template's own URL, wordmark or footer slot when there is one, and INHERIT THAT SLOT COMPLETELY: same typeface, same weight, same case, same letter-spacing, same size, same colour and the SAME ALIGNMENT AND CENTRE LINE as the text that was sitting there. A domain dropped in the winner's wordmark slot in a different face, or pushed off the centre it was aligned to, is read as a mistake even when everything else is right. WHEN THERE IS NO SUCH SLOT, CREATE ONE: a small discreet line centred in the bottom margin, in the ad's own typeface, at the size of the smallest text in the piece. Leaving it out is a failure${input.carousel ? `, and it matters more here than anywhere else: this is one page of a carousel and the others do carry it, so a single page without it reads as a mistake in the set` : ''}.` : 'Do not render any URL, domain, web address, social handle or QR code. Remove any website from the winning template and leave that space clean.'}
 
-4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
+4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
 ${layoutFidelityRule}${encajeRule}${catalogRule}${qualityRule}${TEXT_RENDERING_RULE}${semanticPaletteRule}${identityBlock}
 ${logoDecision}
 ${peopleBlock}${realismoRule}${comparisonBlock}${comparisonContext}${creativeDecisionBlock}
