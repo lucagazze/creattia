@@ -223,12 +223,28 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * de la marca. Con "colores del ganador" no se muestra nada: no hay identidad
 	 * propia que corregir, se respeta la del anuncio.
 	 */
+	/**
+	 * Los colores que se muestran en la revisión.
+	 *
+	 * Con "colores del ganador" no se mostraba ninguno: la sección entera se
+	 * escondía. Eso dejaba el caso más usado de los tres sin forma de ver ni de
+	 * corregir la paleta, y encima es el que más importa — es la paleta que hay
+	 * que CONSERVAR, y si el análisis la midió mal el aviso sale de otro color sin
+	 * que nadie lo haya podido ver antes de gastar el crédito.
+	 */
 	const revisionPalette: Record<string, string> | null = (() => {
-		if (colorMode === 'winner') return null;
+		if (colorMode === 'winner') {
+			const medida = (plan as any)?.winnerPalette;
+			if (!medida) return null;
+			// Se muestran con los nombres del ganador: acá "texto" es el titular, que
+			// es de lo que se leyó el color.
+			return { background: medida.background || '', accent: medida.accent || '', secondary: medida.secondary || '', text: medida.headline || '' };
+		}
 		return (plan as any)?.brandPalette
 			|| (importedProducts[0] as any)?.metadata?.brandFromUrl?.palette
 			|| null;
 	})();
+	const paletaEsDelGanador = colorMode === 'winner';
 	/**
 	 * Todas las páginas analizadas: una sola cuando es una imagen suelta, todas
 	 * las del carrusel cuando es completo. La pregunta del logo se responde
@@ -1210,11 +1226,18 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 						{revisionPalette && (
 							<section className="review-palette" aria-label="Colores detectados">
 								<div className="review-palette-head">
-									<strong>Colores detectados</strong>
-									<small>Los sacamos de la identidad elegida. Si alguno no es el de tu marca, tocalo y cambialo.</small>
+									<strong>{paletaEsDelGanador ? 'Colores del anuncio ganador' : 'Colores detectados'}</strong>
+									<small>
+										{paletaEsDelGanador
+											? 'Los medimos sobre el anuncio ganador y son los que va a conservar tu imagen. Si alguno no es el que ves en la referencia, tocalo y corregilo.'
+											: 'Los sacamos de la identidad elegida. Si alguno no es el de tu marca, tocalo y cambialo.'}
+									</small>
 								</div>
 								<div className="palette-swatches">
-									{([['background', 'Fondo'], ['accent', 'Principal'], ['secondary', 'Secundario'], ['text', 'Texto']] as const).map(([role, roleLabel]) => {
+									{(paletaEsDelGanador
+										? [['background', 'Fondo'], ['text', 'Titular'], ['accent', 'Acento / botón'], ['secondary', 'Secundario']] as const
+										: [['background', 'Fondo'], ['accent', 'Principal'], ['secondary', 'Secundario'], ['text', 'Texto']] as const
+									).map(([role, roleLabel]) => {
 										const value = paletteOverride[role] || revisionPalette[role] || '';
 										if (!value) return null;
 										const corregido = Boolean(paletteOverride[role]);

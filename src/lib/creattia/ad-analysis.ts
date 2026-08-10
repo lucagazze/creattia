@@ -169,6 +169,18 @@ export type LayoutAnalysis = {
 	/** Sensación tipográfica, paleta y recursos gráficos observados en el ganador. */
 	styleNotes?: string;
 	/**
+	 * Los colores del GANADOR, en hexadecimal.
+	 *
+	 * `styleNotes` los describía en prosa —"fondo verde intenso, titular crema"— y
+	 * con eso el clon devolvía cualquier verde y cualquier crema: es el motivo por
+	 * el que los fondos venían cambiando de color aun pidiendo "conservá la paleta
+	 * del template". Medidos como números dejan de ser interpretables.
+	 *
+	 * Es sólo medición: no autoriza a cambiar nada ni pisa ninguna regla. Se
+	 * muestran en la revisión para que se puedan corregir antes de generar.
+	 */
+	winnerPalette?: { background?: string; headline?: string; accent?: string; secondary?: string };
+	/**
 	 * El orden de capas, de adelante hacia atrás.
 	 *
 	 * El ganador de las tostadas apila tres: la tarjeta del testimonio adelante,
@@ -484,6 +496,7 @@ Return STRICT JSON:
   },
   "creativeOptions": ["3 to 5 SHORT optional visual directions specific to THIS template and THIS product"],
   "layerOrder": "the stacking order of the overlapping blocks, front to back, naming what crosses over what (e.g. 'testimonial card in front, product box in the middle crossing OVER the bottom band, bottom band at the back'). Say it even when nothing overlaps ('no overlapping layers'). This is what gives the ad its depth: without it every element ends up sitting flat next to the others",
+  "winnerPalette": { "background": "the dominant background colour of the ad as a #RRGGBB hex read off the pixels — if the canvas is split in bands or halves, the one that covers most of it", "headline": "the colour of the main headline text", "accent": "the colour that carries the action: the button, the badge or the highlighted words", "secondary": "one more colour that the piece actually uses, or null" },
   "styleNotes": "the TEMPLATE's background colour(s), palette and graphic devices (badges, pills, dividers, rules, frames) worth preserving, described as they are. NAME THE SHAPE of every divider and edge: a band whose top edge is wavy, scalloped, zigzag, torn or arched is not the same as a straight one, and 'a band at the bottom' loses exactly the detail that has to be rebuilt. Same for the corner radius of cards and pills. Describe the DESIGN, never the photographic content of the image areas — what the photos show belongs to imageSlots, and repeating it here makes the renderer keep the template's original scene"
 }
 
@@ -499,6 +512,7 @@ Rules:
 - "productOnBody": true if ANY instance is worn on / used on a human body (garment, underwear, shoes, jewellery, a patch on skin). This decides whether the layout can host a product that cannot be worn.
 - "renderingMedium" (CRITICAL): this is the single field that most often ruins a clone. Decide it by LOOKING at the pixels, never by assuming an ad must be a photograph. Stylised 3D characters, illustrated animals, vector shapes and comic art are extremely common in winning ads, and rendering them as photographs produces a completely different piece. If the template's subjects are illustrated, say so plainly and describe the illustration style precisely enough that it could be matched.
 - "compositionGeometry" (CRITICAL): give proportions, not adjectives. "Split in two" is useless; "a vertical divider at exactly 50%, headline band across the top 18%, subjects in the middle 62%, closing line in the bottom 20%" can be rebuilt. This is what keeps the clone from drifting into a similar-but-different layout.
+- "winnerPalette" (CRITICAL): read these colours OFF THE PIXELS and write hex codes, never names. This is the field that decides whether the clone keeps the winner's colour: "verde intenso" comes back as any green and "crema" as any off-white, which is exactly why backgrounds drift. Sample the actual pixel of the largest background area, of the headline glyphs, and of the button or highlighted words. If the ad is split into bands of different colours, "background" is the one covering the most canvas.
 - DESCRIBE THE TEMPLATE, NOT THE AD YOU WOULD MAKE (CRITICAL): "styleNotes", "typography" and every field inside "creative" describe THE TEMPLATE IMAGE EXACTLY AS IT IS. They are the only record of what the winner looks like, and they are handed to the renderer as the art direction to reproduce — so a wrong word there actively pushes the new ad away from the winner. If the template is a black ad and the target product is warm and homely, the palette is still BLACK. If the template is lit hard and dramatic, the lighting is still hard and dramatic. Never let the target product, its colours, its category or the ad you are imagining for it leak into these fields, and never write an instruction ("keeps the comparison layout") where a description belongs.
 - NUMBERS AND CLAIMS MUST BE VERIFIED (CRITICAL): a percentage, price, discount, rating, review count, timeframe, quantity, award, certification or guarantee may appear in a replacement ONLY if it is present in the verified facts supplied to you. Never invent one, never adapt the template's number into a similar-looking new one ("50%" → "45%"), and never write a guarantee or a promise of results. If the winner's persuasion rests on a number you do not have, keep the same emotional force with a qualitative claim that is true instead — a strong honest line beats a fabricated statistic that the advertiser cannot back up and could be held to.
 - "creative": read the ad the way a senior art director would. This is not decoration: "designPattern" and "styleFamily" have to be precise enough that another designer could rebuild the ad from them, and "score" has to be honest — a weak ad gets a low number even if it is in the library.
@@ -547,6 +561,21 @@ Rules:
 			parsed.renderingMedium = typeof parsed.renderingMedium === 'string' ? parsed.renderingMedium.trim().slice(0, 300) : '';
 			parsed.compositionGeometry = typeof parsed.compositionGeometry === 'string' ? parsed.compositionGeometry.trim().slice(0, 700) : '';
 			parsed.logoIsWordmark = parsed.logoIsWordmark === true;
+			// Los colores del ganador entran tal cual al render, así que sólo se aceptan
+			// hex de seis dígitos: un "verde intenso" colado acá es justamente el dato
+			// vago que este campo vino a reemplazar.
+			if (parsed.winnerPalette && typeof parsed.winnerPalette === 'object') {
+				const hex = (valor: unknown) => (typeof valor === 'string' && /^#[0-9a-f]{6}$/i.test(valor.trim()) ? valor.trim().toLowerCase() : undefined);
+				const medida = {
+					background: hex(parsed.winnerPalette.background),
+					headline: hex(parsed.winnerPalette.headline),
+					accent: hex(parsed.winnerPalette.accent),
+					secondary: hex(parsed.winnerPalette.secondary),
+				};
+				parsed.winnerPalette = Object.values(medida).some(Boolean) ? medida : undefined;
+			} else {
+				parsed.winnerPalette = undefined;
+			}
 			// Un valor raro acá no puede caer en la rama de inmueble por accidente:
 			// lo que no se reconoce se trata como objeto, que es lo que hacía antes.
 			parsed.targetClass = ['object', 'property', 'vehicle', 'service'].includes(parsed.targetClass) ? parsed.targetClass : undefined;
@@ -1052,7 +1081,29 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 
 	const colorRule = input.colorMode !== 'winner' && input.brandColors?.length
 		? `COLOR RESTYLE (REQUIRED) — This is a hard requirement: recolor the ad into the selected brand palette ${input.brandColors.join(', ')} (the FIRST color is the primary/dominant one, the next are secondary/accents). The dominant background, the main accents, the buttons/CTA and the badges MUST visibly use these exact brand colors instead of the template's original colors — the finished ad has to read as belonging to the selected brand at a glance. Keep the template's exact LAYOUT, contrast hierarchy and legibility (dark text on light areas and vice-versa); only the hues change. Do not keep the template's original brand colors.`
-		: `Do not change the background color or palette — keep the template's exact colors.`;
+		: (() => {
+			/**
+			 * "Conservá los colores exactos" es una orden sin contenido: el modelo la
+			 * cumple a ojo y el verde vuelve otro verde. Con los hex medidos deja de
+			 * haber margen. Los roles que la persona corrigió en la revisión se dicen
+			 * aparte, y sólo esos: el resto de la paleta del ganador no se toca.
+			 */
+			const medida = input.analysis?.winnerPalette;
+			const partes = medida
+				? [medida.background && `background ${medida.background}`, medida.headline && `headline ${medida.headline}`, medida.accent && `accent ${medida.accent}`, medida.secondary && `secondary ${medida.secondary}`].filter(Boolean)
+				: [];
+			// En modo ganador la paleta de marca sólo puede venir de una corrección
+			// hecha a mano en la revisión: se aplica a ESOS roles y a ninguno más.
+			const corregidos = input.brandPalette
+				? [input.brandPalette.background && `the background to ${input.brandPalette.background}`, input.brandPalette.text && `the headline to ${input.brandPalette.text}`, input.brandPalette.accent && `the accent to ${input.brandPalette.accent}`].filter(Boolean)
+				: [];
+			const correccion = corregidos.length
+				? ` The advertiser corrected ${corregidos.join(' and ')}: use those values for those roles and leave every other colour of the template exactly as it is.`
+				: '';
+			return partes.length
+				? `Keep the template's exact colours, measured off the reference: ${partes.join(', ')}. Rebuild those exact values — a palette described in words comes back as any similar colour, and a background that drifts is the fastest way to lose the piece.${correccion}`
+				: `Do not change the background color or palette — keep the template's exact colors.${correccion}`;
+		})();
 
 	// Personas: reconstruir según lo que pidió el usuario, o mantener si no indicó nada.
 	const semanticPaletteRule = input.colorMode !== 'winner' && input.brandPalette

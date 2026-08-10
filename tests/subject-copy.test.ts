@@ -518,6 +518,58 @@ describe('qué manda cuando dos reglas se cruzan', () => {
 });
 
 /**
+ * La paleta del ganador, en números y no en prosa.
+ *
+ * "Conservá los colores exactos del template" es una orden sin contenido: el
+ * modelo la cumple a ojo y el verde vuelve otro verde. Los colores se describían
+ * en `styleNotes` como "fondo verde intenso, titular crema", y de ahí salía que
+ * los fondos cambiaran de color aun pidiendo conservarlos.
+ *
+ * Y con "colores del ganador" la revisión no mostraba NINGÚN color, así que el
+ * caso más usado de los tres era el único sin forma de ver ni corregir la paleta
+ * antes de gastar el crédito.
+ */
+describe('los colores del ganador se miden y se pueden corregir', () => {
+	const base2 = { ...base, subjectMode: 'product' as const };
+	const medido = {
+		referenceHasProduct: true,
+		textZones: [],
+		winnerPalette: { background: '#00a651', headline: '#f5efe0', accent: '#1b7f4f', secondary: '#e8c547' },
+	} as any;
+
+	test('los hex medidos llegan al render', () => {
+		const prompt = buildClonePrompt(base2, medido, false);
+		assert.match(prompt, /measured off the reference: background #00a651, headline #f5efe0, accent #1b7f4f, secondary #e8c547/);
+	});
+
+	test('sin medición se conserva la instrucción de siempre', () => {
+		const prompt = buildClonePrompt(base2, { referenceHasProduct: true, textZones: [] } as any, false);
+		assert.match(prompt, /Do not change the background color or palette/);
+		assert.doesNotMatch(prompt, /measured off the reference/);
+	});
+
+	/**
+	 * En modo ganador la paleta de marca sólo puede venir de una corrección hecha
+	 * a mano en la revisión, y tiene que alcanzar SÓLO a lo corregido.
+	 */
+	test('un color corregido a mano se aplica sin tocar el resto', () => {
+		const prompt = buildClonePrompt(
+			{ ...base2, brandPalette: { background: '#101820', text: '', accent: '' } } as any,
+			medido,
+			false,
+		);
+		assert.match(prompt, /The advertiser corrected the background to #101820/);
+		assert.match(prompt, /leave every other colour of the template exactly as it is/);
+		// Y no se convierte en un restyle de marca, que es otra cosa.
+		assert.doesNotMatch(prompt, /COLOR RESTYLE/);
+	});
+
+	test('sin corrección no se inventa la frase', () => {
+		assert.doesNotMatch(buildClonePrompt(base2, medido, false), /The advertiser corrected/);
+	});
+});
+
+/**
  * La letra del ganador es la mitad del anuncio.
  *
  * Clonando un aviso de miel —titular serif, en minúsculas, con una palabra en
