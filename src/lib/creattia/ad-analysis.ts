@@ -181,6 +181,26 @@ export type LayoutAnalysis = {
 	 */
 	winnerPalette?: { background?: string; headline?: string; accent?: string; secondary?: string };
 	/**
+	 * La superficie sobre la que está montada la pieza, cuando es un telón gráfico
+	 * y no el lugar donde se usa el producto.
+	 *
+	 * Un aviso de moda montado sobre una caseta de playa a rayas azules y blancas
+	 * volvía con la modelo contra una pared de hormigón gris: la pose clonada, la
+	 * letra clonada, y el anuncio irreconocible porque las rayas eran la mitad de
+	 * su fuerza. Cae en un hueco entre dos reglas — `styleNotes` tiene prohibido
+	 * describir contenido fotográfico, y el bloque de áreas manda no heredar el
+	 * entorno del template— así que no lo conservaba nadie.
+	 *
+	 * ESTE CAMPO YA CAUSÓ UN DESASTRE UNA VEZ. En su primera versión la regla del
+	 * render decía que nada de lo dicho sobre reemplazar el escenario se le
+	 * aplicaba, y el analizador tenía instrucción de tratar el fondo como telón
+	 * ante la duda. En un aviso que es una grilla de cuadrantes con fotos adentro
+	 * eso significa medir la pieza entera como telón, y el clon volvió siendo el
+	 * anuncio del competidor tal cual: su producto, su marca y sus textos. Las dos
+	 * frases están deliberadamente afuera de esta versión.
+	 */
+	backdrop?: string;
+	/**
 	 * El orden de capas, de adelante hacia atrás.
 	 *
 	 * El ganador de las tostadas apila tres: la tarjeta del testimonio adelante,
@@ -496,6 +516,7 @@ Return STRICT JSON:
   },
   "creativeOptions": ["3 to 5 SHORT optional visual directions specific to THIS template and THIS product"],
   "layerOrder": "the stacking order of the overlapping blocks, front to back, naming what crosses over what (e.g. 'testimonial card in front, product box in the middle crossing OVER the bottom band, bottom band at the back'). Say it even when nothing overlaps ('no overlapping layers'). This is what gives the ad its depth: without it every element ends up sitting flat next to the others",
+  "backdrop": "THE SURFACE THE WHOLE PIECE IS MOUNTED ON, when the background works as a graphic backdrop and not as a place where the product is used: a painted wall, a striped beach hut, tiles, fabric, a paper sweep, a flat colour field. Give the pattern, its colours as #RRGGBB hex read off the pixels, the scale as a fraction of the canvas and the direction. Null whenever the background is a real place, a scene, or an area that HOLDS PHOTOS OR PANELS OF CONTENT — a grid of quadrants, a collage, a split with images inside is NOT a backdrop, it is the layout, and describing it here makes the renderer keep the template's own photos.",
   "winnerPalette": { "background": "the dominant background colour of the ad as a #RRGGBB hex read off the pixels — if the canvas is split in bands or halves, the one that covers most of it", "headline": "the colour of the main headline text", "accent": "the colour that carries the action: the button, the badge or the highlighted words", "secondary": "one more colour that the piece actually uses, or null" },
   "styleNotes": "the TEMPLATE's background colour(s), palette and graphic devices (badges, pills, dividers, rules, frames) worth preserving, described as they are. NAME THE SHAPE of every divider and edge: a band whose top edge is wavy, scalloped, zigzag, torn or arched is not the same as a straight one, and 'a band at the bottom' loses exactly the detail that has to be rebuilt. Same for the corner radius of cards and pills. Describe the DESIGN, never the photographic content of the image areas — what the photos show belongs to imageSlots, and repeating it here makes the renderer keep the template's original scene"
 }
@@ -512,6 +533,7 @@ Rules:
 - "productOnBody": true if ANY instance is worn on / used on a human body (garment, underwear, shoes, jewellery, a patch on skin). This decides whether the layout can host a product that cannot be worn.
 - "renderingMedium" (CRITICAL): this is the single field that most often ruins a clone. Decide it by LOOKING at the pixels, never by assuming an ad must be a photograph. Stylised 3D characters, illustrated animals, vector shapes and comic art are extremely common in winning ads, and rendering them as photographs produces a completely different piece. If the template's subjects are illustrated, say so plainly and describe the illustration style precisely enough that it could be matched.
 - "compositionGeometry" (CRITICAL): give proportions, not adjectives. "Split in two" is useless; "a vertical divider at exactly 50%, headline band across the top 18%, subjects in the middle 62%, closing line in the bottom 20%" can be rebuilt. This is what keeps the clone from drifting into a similar-but-different layout.
+- "backdrop" (CRITICAL): fashion, beauty and lifestyle ads are often carried by their backdrop — the striped hut, the paper sweep, the tiled wall — and that surface is the design, not the scenery. It must be a PLAIN surface the ad sits on. If the area contains photos, panels, cards or quadrants of content, it is the layout and "backdrop" is null: getting that wrong makes the clone keep the template's original product and text.
 - "winnerPalette" (CRITICAL): read these colours OFF THE PIXELS and write hex codes, never names. This is the field that decides whether the clone keeps the winner's colour: "verde intenso" comes back as any green and "crema" as any off-white, which is exactly why backgrounds drift. Sample the actual pixel of the largest background area, of the headline glyphs, and of the button or highlighted words. If the ad is split into bands of different colours, "background" is the one covering the most canvas.
 - DESCRIBE THE TEMPLATE, NOT THE AD YOU WOULD MAKE (CRITICAL): "styleNotes", "typography" and every field inside "creative" describe THE TEMPLATE IMAGE EXACTLY AS IT IS. They are the only record of what the winner looks like, and they are handed to the renderer as the art direction to reproduce — so a wrong word there actively pushes the new ad away from the winner. If the template is a black ad and the target product is warm and homely, the palette is still BLACK. If the template is lit hard and dramatic, the lighting is still hard and dramatic. Never let the target product, its colours, its category or the ad you are imagining for it leak into these fields, and never write an instruction ("keeps the comparison layout") where a description belongs.
 - NUMBERS AND CLAIMS MUST BE VERIFIED (CRITICAL): a percentage, price, discount, rating, review count, timeframe, quantity, award, certification or guarantee may appear in a replacement ONLY if it is present in the verified facts supplied to you. Never invent one, never adapt the template's number into a similar-looking new one ("50%" → "45%"), and never write a guarantee or a promise of results. If the winner's persuasion rests on a number you do not have, keep the same emotional force with a qualitative claim that is true instead — a strong honest line beats a fabricated statistic that the advertiser cannot back up and could be held to.
@@ -564,6 +586,11 @@ Rules:
 			// Los colores del ganador entran tal cual al render, así que sólo se aceptan
 			// hex de seis dígitos: un "verde intenso" colado acá es justamente el dato
 			// vago que este campo vino a reemplazar.
+			// "null" en texto es una respuesta frecuente del analizador y no puede
+			// terminar impresa como si fuera una descripcion de fondo.
+			parsed.backdrop = typeof parsed.backdrop === 'string' && parsed.backdrop.trim() && !/^(null|none|n.a)$/i.test(parsed.backdrop.trim())
+				? parsed.backdrop.trim().slice(0, 400)
+				: '';
 			if (parsed.winnerPalette && typeof parsed.winnerPalette === 'object') {
 				const hex = (valor: unknown) => (typeof valor === 'string' && /^#[0-9a-f]{6}$/i.test(valor.trim()) ? valor.trim().toLowerCase() : undefined);
 				const medida = {
@@ -812,11 +839,28 @@ RENDERING MEDIUM (CRITICAL — READ BEFORE ANYTHING ELSE) — The template is: $
 	 * pie salía liso porque al modelo jamás le llegó la palabra. Va acá, junto a la
 	 * paleta y la geometría, que es donde corresponde.
 	 */
+	/**
+	 * El telon sobre el que esta montada la pieza, cuando es diseno y no escena.
+	 *
+	 * Va junto a la paleta y los recursos graficos, no entre las areas que se
+	 * reemplazan: es la superficie que sostiene todo lo demas.
+	 *
+	 * La version anterior de esta regla terminaba diciendo que nada de lo dicho
+	 * sobre reemplazar el escenario se le aplicaba. Eso es permiso explicito para
+	 * ignorar la regla que hace todo el trabajo de clonar, y el modelo lo tomo
+	 * como lo que dice: devolvio el anuncio del competidor entero. Aca el telon se
+	 * reconstruye y nada mas; que va DENTRO de cada area lo siguen mandando las
+	 * reglas de abajo, sin excepcion.
+	 */
+	const telonRule = input.analysis?.backdrop
+		? `
+THE BACKDROP IS DESIGN, NOT SCENERY (CRITICAL) — The plain surface the piece is mounted on is part of the design and must be rebuilt exactly as measured: ${input.analysis.backdrop}. Same pattern, colours, scale and direction — most of the winner's colour usually lives here. This covers ONLY that surface: what goes inside every photo, panel or card on top of it is decided by the rules below, which this rule does not affect.`
+		: '';
 	const recursosRule = input.analysis?.styleNotes
 		? `
 GRAPHIC DEVICES AND SURFACES (CRITICAL) — Rebuild these exactly as measured: ${input.analysis.styleNotes}
-The SHAPE of a divider is not decoration: a band whose top edge is wavy, scalloped, zigzag or torn has to be rebuilt with that same edge. Flattening it into a straight line is the single easiest way to lose the piece while every block is still in place. Same for the corner radius of cards, pills and badges.`
-		: '';
+The SHAPE of a divider is not decoration: a band whose top edge is wavy, scalloped, zigzag or torn has to be rebuilt with that same edge. Flattening it into a straight line is the single easiest way to lose the piece while every block is still in place. Same for the corner radius of cards, pills and badges.${telonRule}`
+		: telonRule;
 
 	/**
 	 * Qué cruza por delante de qué. Sin esto el aviso sale plano.
@@ -1281,7 +1325,7 @@ MARGINS ARE PART OF THE DESIGN — Keep the same clear space between every text 
 		: `\nLOGO DECISION (CRITICAL) — The winning reference has no confirmed ad-level logo slot. ${input.hasLogo
 			? 'Only include the supplied selected-identity logo if the reference has a natural, clearly visible brand position; never create a new logo lockup, badge or footer.'
 			: `Do not add a logo, wordmark, domain, watermark or brand badge.${isPhysicalSubject ? ' Preserve any genuine branding printed on the TARGET PRODUCT itself because it is part of the product, not an ad overlay.' : ''}`}`;
-	const layoutFidelityRule = `\nLAYOUT FIDELITY OF TEXT BLOCKS (CRITICAL) — Every text block must stay in the SAME place as in the template: same corner, same side, same distance from the edges, same width, and the same relationship with the photo (if a block overlaps the image on the left, it must overlap on the left, not on the right). Mirroring a block to the other side, recentring it or resizing it changes the composition that made the original work. Reproduce as well any highlight, marker, underline, colour accent or boxed word that the template applies to part of a text: those marks tell the reader where to look, and dropping them flattens the ad.`;
+	const layoutFidelityRule = `\nLAYOUT FIDELITY OF TEXT BLOCKS (CRITICAL) — Every text block keeps the place it has in the template: same corner, same side, same distance from the edges, same width, same alignment inside the block (centred stays centred, flush-left stays flush-left), and the same relationship with the photo — a block overlapping the image on the left overlaps on the left, not on the right. Mirroring, recentring or resizing one breaks the composition that made the original work. Reproduce too any highlight, marker, underline, colour accent or boxed word applied to part of a text: those marks tell the reader where to look, and dropping them flattens the ad.`;
 
 	const catalogRule = isCatalogSubject
 		? `\nSUBJECT IS THE STORE, NOT ONE ITEM (CRITICAL) — This ad is about the business as a whole, not about a single product. The supplied photos are a SELECTION of what the store sells: show them together as a coherent group, collection or lineup, sharing the same lighting, scale logic and surface. Never present one of them as "the" hero product with the others as accessories, never invent a product that was not supplied, and never write a price or a claim that belongs to a single item. The message must work for the whole catalogue: what the store sells, for whom, and why choose it.

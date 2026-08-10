@@ -518,6 +518,58 @@ describe('qué manda cuando dos reglas se cruzan', () => {
 });
 
 /**
+ * El telón vuelve, sin las dos frases que hicieron el desastre.
+ *
+ * La primera versión de esta regla devolvió el anuncio del COMPETIDOR entero: su
+ * producto, su marca y sus textos en inglés. Dos cosas la causaron, y las dos
+ * están fijadas acá para que no puedan volver a entrar:
+ *
+ * · La regla del render terminaba diciendo que nada de lo dicho sobre reemplazar
+ *   el escenario se le aplicaba al telón. Eso es permiso explícito para ignorar
+ *   la regla que hace todo el trabajo de clonar.
+ * · El analizador tenía instrucción de tratar el fondo como telón ANTE LA DUDA.
+ *   En un aviso que es una grilla de cuadrantes con fotos adentro, eso significa
+ *   medir la pieza entera como telón.
+ */
+describe('el telón se reconstruye sin anular el reemplazo', () => {
+	const base2 = { ...base, subjectMode: 'product' as const };
+	const conTelon = {
+		referenceHasProduct: true,
+		textZones: [],
+		backdrop: 'vertical stripes, #1f3a5f navy and #f2efe6 off-white, one stripe ≈ 12% of the canvas width',
+		imageSlots: [{ where: 'full bleed', showsNow: 'modelo con vestido floral', replaceWith: 'la modelo con la remera' }],
+	} as any;
+
+	test('el telón medido llega al render con sus colores', () => {
+		const prompt = buildClonePrompt(base2, conTelon, false);
+		assert.match(prompt, /THE BACKDROP IS DESIGN, NOT SCENERY/);
+		assert.match(prompt, /#1f3a5f navy and #f2efe6 off-white/);
+	});
+
+	/** La frase exacta que devolvió el anuncio del competidor. */
+	test('NO dice que las reglas de reemplazo no se le aplican', () => {
+		const prompt = buildClonePrompt(base2, conTelon, false);
+		assert.doesNotMatch(prompt, /Nothing said below about replacing the template's setting applies to it/);
+		assert.match(prompt, /This covers ONLY that surface/);
+	});
+
+	/** La regla que obliga a repintar la superficie de cada área sigue entera. */
+	test('la superficie del template sigue sin conservarse', () => {
+		const prompt = buildClonePrompt(base2, conTelon, false);
+		assert.match(prompt, /what does not stay is the surface, the props and the environment/);
+	});
+
+	test('sin telón medido no se emite el bloque', () => {
+		assert.doesNotMatch(buildClonePrompt(base2, { referenceHasProduct: true, textZones: [] } as any, false), /THE BACKDROP IS DESIGN/);
+	});
+
+	/** La deuda del revert: se había prometido reponerla y no se hizo. */
+	test('la alineación del texto volvió a la regla de maqueta', () => {
+		assert.match(buildClonePrompt(base2, conTelon, false), /centred stays centred, flush-left stays flush-left/);
+	});
+});
+
+/**
  * La paleta del ganador, en números y no en prosa.
  *
  * "Conservá los colores exactos del template" es una orden sin contenido: el
