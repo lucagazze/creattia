@@ -55,7 +55,7 @@ export const GET: APIRoute = async ({ request }) => {
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 
 	try {
-		const [users, profilesResult, subscriptionsResult, purchasesResult, subscriptionPaymentsResult, generationsResult, videosResult, overridesResult, eventosResult, pantallasResult] = await Promise.all([
+		const [users, profilesResult, subscriptionsResult, purchasesResult, subscriptionPaymentsResult, generationsResult, videosResult, overridesResult, eventosResult, pantallasResult, origenesResult] = await Promise.all([
 			listAllUsers(admin),
 			listProfiles(admin),
 			admin.from('creative_subscriptions').select('user_id,provider_subscription_id,plan_code,status,monthly_credits,current_period_end,last_event_id,created_at,updated_at').order('created_at', { ascending: false }),
@@ -75,6 +75,20 @@ export const GET: APIRoute = async ({ request }) => {
 				.select('event,user_id,created_at,props')
 				.in('event', ['app_abierta', 'landing_vista'])
 				.gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+			/**
+			 * De dónde vino cada persona.
+			 *
+			 * Los eventos de arriba se piden solo del día, para el panel en vivo.
+			 * El origen necesita más ventana: una campaña se juzga por lo que trajo
+			 * en semanas, no en las últimas veinticuatro horas. Se piden treinta
+			 * días y solo los que traen algo de UTM.
+			 */
+			admin.from('creative_events')
+				.select('event,user_id,created_at,props')
+				.in('event', ['app_abierta', 'landing_vista'])
+				.gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+				.order('created_at', { ascending: true })
+				.limit(5000),
 			/**
 			 * Dónde está parada cada persona ahora mismo.
 			 *
@@ -290,6 +304,65 @@ export const GET: APIRoute = async ({ request }) => {
 
 		const eventosDelDia: any[] = eventosResult?.error ? [] : (eventosResult?.data || []);
 
+		/**
+		 * De dónde vino cada persona, y qué trajo cada campaña.
+		 *
+		 * Se arma con los eventos ordenados de más viejo a más nuevo, así que el
+		 * PRIMERO de cada usuario es su origen: quien llegó por un anuncio, se fue
+		 * y volvió directo vino igual por ese anuncio, y quedarse con el último
+		 * haría que la campaña que lo trajo figure sin una sola alta.
+		 */
+		const CAMPOS_UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid'];
+		const leerOrigen = (props: any) => {
+			const origen: Record<string, string> = {};
+			for (const campo of CAMPOS_UTM) if (props?.[campo]) origen[campo] = String(props[campo]).slice(0, 120);
+			return Object.keys(origen).length ? origen : null;
+		};
+		const origenPorUsuario = new Map<string, Record<string, string>>();
+		// Cada combinación de campaña, con lo que trajo. Las visitas anónimas
+		// cuentan para la primera columna; las altas necesitan un usuario.
+		const porCampania = new Map<string, { origen: Record<string, string>; visitas: number; usuarios: Set<string> }>();
+		for (const fila of (origenesResult?.error ? [] : origenesResult?.data || []) as any[]) {
+			const origen = leerOrigen(fila.props);
+			if (!origen) continue;
+			const clave = CAMPOS_UTM.map((c) => origen[c] || '').join('|');
+			const acumulado = porCampania.get(clave) || { origen, visitas: 0, usuarios: new Set<string>() };
+			acumulado.visitas += 1;
+			if (fila.user_id) {
+				acumulado.usuarios.add(fila.user_id);
+				if (!origenPorUsuario.has(fila.user_id)) origenPorUsuario.set(fila.user_id, origen);
+			}
+			porCampania.set(clave, acumulado);
+		}
+		const usuarioPorId = new Map((users as any[]).map((u: any) => [u.id, u]));
+		const origenes = [...porCampania.values()]
+			.map((fila) => {
+				const cuentas = [...fila.usuarios].map((id) => usuarioPorId.get(id)).filter(Boolean) as any[];
+				const perfilPorId = new Map((profiles as any[]).map((p: any) => [p.user_id, p]));
+				return {
+					...fila.origen,
+					visitas: fila.visitas,
+					usuarios: cuentas.length,
+					// Cuántos de esos pagan: es la única columna que dice si la campaña
+					// sirve. Traer altas que no compran no es traer nada.
+					pagos: cuentas.filter((u) => {
+						const plan = perfilPorId.get(u.id)?.plan_code;
+						return plan && plan !== 'free' && plan !== 'trial';
+					}).length,
+					cuentas: cuentas.slice(0, 30).map((u) => ({
+						id: u.id,
+						email: u.email || '',
+						nombre: u.user_metadata?.full_name || '',
+						creada: u.created_at,
+						plan: perfilPorId.get(u.id)?.plan_code || 'free',
+					})),
+				};
+			})
+			.sort((a, b) => (b.usuarios - a.usuarios) || (b.visitas - a.visitas));
+		for (const usuario of userRows as any[]) {
+			usuario.origen = origenPorUsuario.get(usuario.id) || null;
+		}
+
 		// Dónde está cada uno: vienen ordenadas de la más nueva a la más vieja, así
 		// que la PRIMERA de cada persona es la última pantalla que abrió.
 		const pantallaPorUsuario = new Map<string, { vista: string; detalle: string; cuando: string }>();
@@ -348,6 +421,7 @@ export const GET: APIRoute = async ({ request }) => {
 			users: userRows,
 			recentPayments: [...purchases.map((row: any) => ({ ...row, paymentType: 'credits', paidAt: row.created_at })), ...subscriptionPayments.map((row: any) => ({ ...row, paymentType: 'subscription', paidAt: row.paid_at || row.created_at }))].sort((left, right) => new Date(right.paidAt).getTime() - new Date(left.paidAt).getTime()).slice(0, 50).map((row: any) => ({ ...row, email: users.find((user: any) => user.id === row.user_id)?.email || 'Sin email' })),
 			activity,
+			origenes,
 			plans: Object.entries(ADMIN_PLAN_LABELS).map(([code, label]) => ({ code, label, price: PLAN_PRICES[code] || 0 })),
 		});
 	} catch (error) {

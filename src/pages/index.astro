@@ -806,7 +806,42 @@ const faqs = [
 	 * el error se traga entero: un contador no puede romper la home.
 	 */
 	try {
-		fetch('/api/creativos/track-landing', { method: 'POST', keepalive: true }).catch(() => {});
+		/**
+		 * De donde vino, guardado en el PRIMER toque.
+		 *
+		 * Las campanas ya llevan UTMs en los enlaces y nadie las leia: llegaban en
+		 * la URL y se perdian en la primera navegacion. Se guarda el primer toque
+		 * y no el ultimo, porque quien llega por un anuncio, se va, y vuelve
+		 * tipeando la direccion vino igual por ese anuncio.
+		 */
+		var CAMPOS_UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid'];
+		var origen = null;
+		try {
+			var guardado = localStorage.getItem('creattia:origen');
+			origen = guardado ? JSON.parse(guardado) : null;
+			var params = new URLSearchParams(location.search);
+			var nuevo = {};
+			for (var i = 0; i < CAMPOS_UTM.length; i += 1) {
+				var v = params.get(CAMPOS_UTM[i]);
+				if (v) nuevo[CAMPOS_UTM[i]] = String(v).trim().slice(0, 120);
+			}
+			var yaTenia = origen && Object.keys(origen).some(function (k) { return k !== 'guardadoEn' && k !== 'landing'; });
+			if (Object.keys(nuevo).length && !yaTenia) {
+				nuevo.guardadoEn = Date.now();
+				nuevo.landing = location.pathname.slice(0, 60);
+				localStorage.setItem('creattia:origen', JSON.stringify(nuevo));
+				origen = nuevo;
+			}
+		} catch (e) { origen = null; }
+		var cuerpo = {};
+		if (origen) for (var j = 0; j < CAMPOS_UTM.length; j += 1) {
+			if (origen[CAMPOS_UTM[j]]) cuerpo[CAMPOS_UTM[j]] = origen[CAMPOS_UTM[j]];
+		}
+		fetch('/api/creativos/track-landing', {
+			method: 'POST', keepalive: true,
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(cuerpo),
+		}).catch(() => {});
 	} catch {}
 
 	// Zoom desactivado en la landing.

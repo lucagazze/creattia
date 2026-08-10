@@ -363,3 +363,30 @@
 	margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 	color: #3f3560; font-size: 12px; font-weight: 600;
 }
+
+/* ─── De dónde vienen ─────────────────────────────────
+   Las campañas ya llevaban UTMs y no se leían en ningún lado: la pregunta "¿de
+   qué anuncio salió esta cuenta?" había que cruzarla a mano contra Meta. */
+.admin-origen-fila { cursor: pointer; }
+.admin-origen-fila:hover { background: #fbf9fd; }
+.admin-origen-fila.abierta { background: #f7f3ff; }
+.admin-origen-fila td strong { display: block; color: #37303f; font-weight: 750; }
+.admin-origen-fila td small { display: block; margin-top: 1px; color: #a49bad; font-size: 11px; }
+/* Las cuentas pagas resaltadas: es la única columna que dice si la campaña
+   sirve. Traer altas que no compran no es traer nada. */
+.admin-origen-pagas { color: #1c7a48; }
+.admin-origen-detalle > td { background: #fbf9fd; padding: 10px 12px; }
+.admin-origen-cuentas { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-origen-cuentas button {
+	display: inline-flex; align-items: center; gap: 7px; max-width: 100%;
+	padding: 5px 10px; border-radius: 999px; border: 1px solid #e6e0f0;
+	background: #fff; color: #4a4260; cursor: pointer;
+	font-family: inherit; font-size: 11.5px; font-weight: 650;
+}
+.admin-origen-cuentas button:hover { border-color: #c9b4f5; }
+.admin-origen-cuentas span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-origen-cuentas em {
+	flex: 0 0 auto; padding: 1px 6px; border-radius: 5px; background: #f2eefa;
+	color: #7c7386; font-size: 10px; font-style: normal; font-weight: 800; text-transform: uppercase;
+}
+.admin-origen-cuentas em.paga { background: #e7f7ee; color: #1c7a48; }

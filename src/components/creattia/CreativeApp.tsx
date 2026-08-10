@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, lazy, Suspense } from 'react';
+import { capturarOrigen, origenParaEvento } from '../../lib/creattia/utm';
 import { reportarPantalla } from '../../lib/creattia/presencia';
 import { creativeCatalog, mapTemplateRecord, ringMeta } from '../../lib/creattia/catalog';
 import { isSupabaseConfigured, supabase } from '../../lib/creattia/supabase-browser';
@@ -140,7 +141,9 @@ export default function CreativeApp() {
 		void fetch('/api/creativos/track', {
 			method: 'POST',
 			headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-			body: JSON.stringify({ event: evento }),
+			// El origen guardado al llegar viaja con el evento: es lo que ata la
+			// cuenta al anuncio que la trajo.
+			body: JSON.stringify({ event: evento, ...origenParaEvento(capturarOrigen()) }),
 		}).catch(() => undefined);
 	}, [session, view]);
 	const [viewHistory, setViewHistory] = useState<View[]>([]);

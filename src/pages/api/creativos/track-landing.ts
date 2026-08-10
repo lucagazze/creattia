@@ -73,9 +73,27 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 		if (yaContada(visitante)) return json({ ok: true, ignorado: 'repetida' });
 		const admin = getAdminClient();
 		if (!admin) return json({ ok: true, ignorado: 'sin base' });
+		/**
+		 * De donde vino, si la URL lo traia.
+		 *
+		 * Solo se aceptan los campos conocidos y acotados: este endpoint es
+		 * publico, asi que lo que llega en el cuerpo es texto de afuera y no puede
+		 * convertirse en un props de cualquier tamano ni con cualquier clave.
+		 */
+		const CAMPOS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid'];
+		const origen: Record<string, string> = {};
+		try {
+			const body = await request.json();
+			for (const campo of CAMPOS) {
+				const valor = body?.[campo];
+				if (typeof valor === 'string' && valor.trim()) origen[campo] = valor.trim().slice(0, 120);
+			}
+		} catch {
+			// Sin cuerpo: es una visita directa y se cuenta igual.
+		}
 		// La huella viaja en los props del evento: es lo unico que permite separar
 		// visitas de visitantes sin guardar nada que identifique a nadie.
-		await trackEvent(admin, 'landing_vista', null, { visitante });
+		await trackEvent(admin, 'landing_vista', null, { visitante, ...origen });
 		return json({ ok: true });
 	} catch {
 		return json({ ok: true, ignorado: 'error' });

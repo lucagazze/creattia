@@ -63,6 +63,21 @@ export const POST: APIRoute = async ({ request }) => {
 	 */
 	await anotarRegistroSiEsNuevo(admin, auth.user, navegador);
 
-	await trackEvent(admin, evento, auth.user.id, {}, {}, navegador);
+	/**
+	 * De dónde vino esta persona, si el navegador lo guardó al llegar.
+	 *
+	 * El evento de la landing es anónimo: sirve para saber que una campaña
+	 * trajo visitas, no que trajo altas. Este va firmado por el usuario, así
+	 * que es el que permite cerrar el círculo entre el anuncio y la cuenta.
+	 * Solo se aceptan los campos conocidos y acotados: lo que llega en el
+	 * cuerpo es texto de afuera.
+	 */
+	const CAMPOS_UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'fbclid'];
+	const origen: Record<string, string> = {};
+	for (const campo of CAMPOS_UTM) {
+		const valor = (body as any)?.[campo];
+		if (typeof valor === 'string' && valor.trim()) origen[campo] = valor.trim().slice(0, 120);
+	}
+	await trackEvent(admin, evento, auth.user.id, origen, {}, navegador);
 	return json({ ok: true });
 };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { Fragment, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { nombreDePantalla } from '../../lib/creattia/presencia';
 import { Activity, CalendarDays, CircleDollarSign, CreditCard, FileText, MailCheck, ReceiptText, ShieldCheck, UserRound, WalletCards, X } from 'lucide-react';
 import './admin-dashboard.css';
@@ -7,7 +7,7 @@ import { subscriptionPlans } from '../../lib/creattia/subscription-plans';
 import { ADMIN_PLAN_CREDITS } from '../../lib/creattia/admin';
 
 type AdminDashboardProps = { session: any };
-type Section = 'overview' | 'metrics' | 'users' | 'payments' | 'activity';
+type Section = 'overview' | 'metrics' | 'users' | 'payments' | 'activity' | 'origen';
 type UserFilter = 'all' | 'active' | 'trial' | 'override' | 'unconfirmed';
 type UserSort = 'recent' | 'created' | 'usage' | 'payments' | 'credits';
 type ContextMenuState = { userId: string; x: number; y: number };
@@ -140,7 +140,7 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 	return (
 		<section className="admin-center">
 			<nav className="admin-tabs" aria-label="Secciones del centro admin">
-				{([['overview', 'Resumen'], ['metrics', 'Métricas'], ['users', 'Usuarios'], ['payments', 'Pagos'], ['activity', 'Actividad']] as Array<[Section, string]>).map(([id, label]) => <button key={id} className={section === id ? 'active' : ''} onClick={() => setSection(id)}>{label}</button>)}
+				{([['overview', 'Resumen'], ['metrics', 'Métricas'], ['users', 'Usuarios'], ['payments', 'Pagos'], ['activity', 'Actividad'], ['origen', 'Origen']] as Array<[Section, string]>).map(([id, label]) => <button key={id} className={section === id ? 'active' : ''} onClick={() => setSection(id)}>{label}</button>)}
 				<button className="admin-refresh" onClick={() => void loadOverview()} disabled={loading}>↻ Actualizar</button>
 			</nav>
 
@@ -171,6 +171,7 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 					{section === 'users' && <UsersSection users={users} selectedUserId={selectedUserId} onOpenUser={openUser} onQuickAction={applyAction} onNotice={setNotice} />}
 					{section === 'payments' && <PaymentsSection payments={overview?.recentPayments || []} />}
 					{section === 'activity' && <ActivitySection activity={overview?.activity || []} onOpenUser={openUser} />}
+					{section === 'origen' && <OrigenSection origenes={overview?.origenes || []} onOpenUser={openUser} />}
 				</>
 			)}
 
@@ -264,6 +265,73 @@ function UserContextMenu({ user, x, y, onOpen, onCopy, onAction }: { user: any; 
 
 function PaymentsSection({ payments }: { payments: any[] }) {
 	return <section className="admin-panel admin-table-panel"><PanelHeading kicker="INGRESOS Y TOKENS" title="Historial de compras" /><div className="admin-table-wrap"><table className="admin-table admin-payments-table"><thead><tr><th>Fecha</th><th>Usuario</th><th>Tipo</th><th>Pago</th><th>Tokens</th><th>Proveedor</th><th>ID de pago</th></tr></thead><tbody>{payments.map((payment: any) => <tr key={`${payment.payment_id}-${payment.paidAt}`}><td>{dateLabel(payment.paidAt || payment.created_at)}</td><td><strong>{payment.email}</strong></td><td><span className={`admin-payment-type ${payment.paymentType}`}>{payment.paymentType === 'subscription' ? 'Suscripción' : 'Tokens'}</span></td><td><b>{payment.amount ? money(Number(payment.amount), payment.currency || 'USD') : '—'}</b></td><td>{payment.credits || '—'}</td><td>{payment.provider_subscription_id ? 'Mercado Pago' : 'Mercado Pago'}</td><td><code>{payment.payment_id}</code></td></tr>)}</tbody></table>{!payments.length && <EmptyState label="Todavía no hay compras registradas." />}</div></section>;
+}
+
+/**
+ * De dónde vino cada persona: una fila por campaña.
+ *
+ * Las campañas ya llevaban UTMs en los enlaces y no se leían en ningún lado, así
+ * que la pregunta "¿de qué anuncio salió esta cuenta?" no tenía respuesta dentro
+ * de la app: había que cruzarlo a mano contra Meta.
+ *
+ * Las columnas están en el orden en que se juzga una campaña: cuánta gente
+ * trajo, cuántas cuentas de eso, y cuántas pagan. Traer altas que no compran no
+ * es traer nada, así que esa última es la que decide.
+ */
+function OrigenSection({ origenes, onOpenUser }: { origenes: any[]; onOpenUser: (id: string) => void }) {
+	// Cuál está abierta. Una sola a la vez: con varias desplegadas la tabla deja
+	// de servir para comparar, que es para lo que se mira.
+	const [abierta, setAbierta] = useState<string | null>(null);
+	const clave = (fila: any) => [fila.utm_source, fila.utm_medium, fila.utm_campaign, fila.utm_content].join('|');
+	return (
+		<section className="admin-panel admin-table-panel">
+			<PanelHeading kicker="DE DÓNDE VIENEN" title="Origen del tráfico" action="Últimos 30 días · tocá una fila para ver las cuentas" />
+			<div className="admin-table-wrap">
+				<table className="admin-table admin-origen-table">
+					<thead><tr><th>Campaña</th><th>Fuente</th><th>Medio</th><th>Visitas</th><th>Cuentas</th><th>Pagas</th></tr></thead>
+					<tbody>
+						{origenes.map((fila) => {
+							const k = clave(fila);
+							const estaAbierta = abierta === k;
+							return (
+								<Fragment key={k}>
+									<tr className={`admin-origen-fila${estaAbierta ? ' abierta' : ''}`} onClick={() => setAbierta(estaAbierta ? null : k)}>
+										<td>
+											<strong>{fila.utm_campaign || (fila.fbclid ? 'Meta (sin UTM)' : 'Sin campaña')}</strong>
+											{fila.utm_content && <small>{fila.utm_content}</small>}
+										</td>
+										<td>{fila.utm_source || '—'}</td>
+										<td>{fila.utm_medium || '—'}</td>
+										<td>{fila.visitas}</td>
+										<td>{fila.usuarios}</td>
+										{/* Las pagas resaltadas: es la única columna que dice si sirve. */}
+										<td><strong className={fila.pagos ? 'admin-origen-pagas' : ''}>{fila.pagos}</strong></td>
+									</tr>
+									{estaAbierta && (
+										<tr className="admin-origen-detalle">
+											<td colSpan={6}>
+												{fila.cuentas?.length
+													? <div className="admin-origen-cuentas">
+														{fila.cuentas.map((cuenta: any) => (
+															<button type="button" key={cuenta.id} onClick={(e) => { e.stopPropagation(); onOpenUser(cuenta.id); }}>
+																<span>{cuenta.nombre || cuenta.email}</span>
+																<em className={cuenta.plan !== 'free' && cuenta.plan !== 'trial' ? 'paga' : ''}>{cuenta.plan}</em>
+															</button>
+														))}
+													</div>
+													: <EmptyState label="Trajo visitas pero todavía ninguna cuenta." />}
+											</td>
+										</tr>
+									)}
+								</Fragment>
+							);
+						})}
+					</tbody>
+				</table>
+				{!origenes.length && <EmptyState label="Todavía no llegó nadie con UTMs. Se empiezan a ver cuando alguien entra por un enlace etiquetado." />}
+			</div>
+		</section>
+	);
 }
 
 function ActivitySection({ activity, onOpenUser }: { activity: any[]; onOpenUser: (id: string) => void }) {
