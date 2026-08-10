@@ -404,17 +404,12 @@
 .studio-nav > p,
 .studio-nav button { flex-shrink: 0; }
 
-/* El menú se centra en el alto que le queda libre.
-   Estaba clavado arriba y el bloque de abajo —marca, configuración, plan, cuenta—
-   anclado al pie, así que en cualquier pantalla alta quedaba un pozo vacío en el
-   medio del lateral y los cinco ítems apretados contra el techo.
-   El nav toma todo el sobrante (`flex-grow: 1`) y centra sus ítems adentro. Con
-   `margin: auto` no alcanzaba: el bloque de abajo también empuja con margen
-   automático, así que el espacio libre se repartía en tercios y el menú quedaba
-   por encima del centro real. `flex-shrink: 0` se conserva a propósito —es lo que
-   evita que en una pantalla corta el menú se comprima en vez de scrollear— y por
-   eso el grow va escrito como `1 0 auto` y no como `1`. */
-.studio-nav { flex: 1 0 auto; justify-content: center; padding-top: 18px; display: flex; flex-direction: column; gap: 5px; }
+/* El menú arranca arriba, pegado al logo.
+   Se probó centrarlo en el alto libre del lateral y se volvió: el pozo vacío del
+   medio molesta menos que tener los ítems flotando lejos de la marca, que es
+   donde el ojo los busca. El `flex-shrink: 0` de más arriba es lo que evita que
+   en una pantalla corta se compriman en vez de scrollear. */
+.studio-nav { margin-top: 18px; display: flex; flex-direction: column; gap: 5px; }
 .studio-nav > p { margin: 0 10px 11px; color: #6f6974; font-size: 11.5px; font-weight: 800; letter-spacing: .16em; }
 .studio-nav button {
 	width: 100%;

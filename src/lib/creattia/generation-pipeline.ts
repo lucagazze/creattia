@@ -268,17 +268,15 @@ export async function analyzeReference(input: ReferenceCloneInput): Promise<Layo
  * principios bien dichos gobiernan mejor en 7.000: nada que no esté en el
  * ganador, y nada del ganador salvo su estructura.
  *
- * Se elige por entorno y arranca en el largo, que es el que hoy produce las
- * imágenes en producción. `RENDER_PROMPT=corto` cambia los tres caminos a la vez
- * —Studio, lote y carrusel— sin tocar código, que es lo que permite comparar la
- * MISMA referencia con los dos y decidir mirando, no discutiendo.
+ * ARRANCA EN EL LARGO, que es el que conoce todo lo que se fue agregando: que un
+ * inmueble o un vehículo no se redibujen, los colores del ganador en
+ * hexadecimal, el telón, quién aparece en el anuncio, la piel fotográfica, la web
+ * visible en todas las páginas y la consistencia entre ellas. El corto es
+ * anterior a todo eso y activarlo apaga esas siete cosas.
  *
- * OJO AL ADOPTARLO: el corto es anterior al trabajo de esta semana y todavía no
- * conoce `targetClass` (inmueble y vehículo no se redibujan), `winnerPalette`
- * (los colores del ganador en hexadecimal), `backdrop`, `personMode` (sin
- * persona / usar mis fotos), la piel fotográfica, la web visible ni la
- * consistencia entre páginas de un carrusel. Con el corto activo, esas siete
- * cosas dejan de aplicarse.
+ * `RENDER_PROMPT=corto` lo cambia para los tres caminos a la vez —Studio, lote y
+ * carrusel— sin tocar código, que es lo que permite comparar la MISMA referencia
+ * con los dos y decidir mirando en vez de discutiendo.
  */
 function usaPromptCorto() {
 	const elegido = String(process.env.RENDER_PROMPT || import.meta.env.RENDER_PROMPT || 'largo').toLowerCase();

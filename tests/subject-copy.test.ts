@@ -556,7 +556,12 @@ describe('el telón se reconstruye sin anular el reemplazo', () => {
 	/** La regla que obliga a repintar la superficie de cada área sigue entera. */
 	test('la superficie del template sigue sin conservarse', () => {
 		const prompt = buildClonePrompt(base2, conTelon, false);
-		assert.match(prompt, /what does not stay is the surface, the props and the environment/);
+		// La contradiccion que habia: el telon manda reconstruir la superficie sobre
+		// la que esta montada la pieza, y este bloque mandaba no conservar "la
+		// superficie" a secas. Ahora se distingue: lo que no se conserva es lo que
+		// esta DENTRO de cada foto; el telon del conjunto no es eso.
+		assert.match(prompt, /what does not stay is what is INSIDE each photo/);
+		assert.match(prompt, /The backdrop the whole piece sits on is not that and stays/);
 	});
 
 	test('sin telón medido no se emite el bloque', () => {
