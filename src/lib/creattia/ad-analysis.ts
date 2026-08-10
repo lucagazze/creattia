@@ -1056,7 +1056,7 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 
 	// Personas: reconstruir según lo que pidió el usuario, o mantener si no indicó nada.
 	const semanticPaletteRule = input.colorMode !== 'winner' && input.brandPalette
-		? `\nSEMANTIC BRAND PALETTE (REQUIRED) — Use BACKGROUND ${input.brandPalette.background || 'not provided'}, ACCENT ${input.brandPalette.accent || 'not provided'}, TEXT ${input.brandPalette.text || 'not provided'}${input.brandPalette.secondary ? `, SECONDARY ${input.brandPalette.secondary}` : ''}. Apply each color to its semantic role instead of using a generic approximation, and preserve readable contrast.`
+		? `\nSEMANTIC BRAND PALETTE (REQUIRED) — BACKGROUND ${input.brandPalette.background || 'not provided'}, ACCENT ${input.brandPalette.accent || 'not provided'}, TEXT ${input.brandPalette.text || 'not provided'}${input.brandPalette.secondary ? `, SECONDARY ${input.brandPalette.secondary}` : ''}. These are ROLES, not a fixed colour per element: what decides the colour of a piece of text is the panel it sits ON. Over the light background, text takes TEXT. Over a panel painted in ACCENT or SECONDARY, text takes BACKGROUND — or plain white if the background colour is dark too — and NEVER TEXT, which was measured against the light background and goes muddy or invisible on a colour block. Do the same the template does: wherever the winner puts light type on a colour panel, this ad puts light type on that panel. When the role and the legibility disagree, legibility wins.`
 		: '';
 	/**
 	 * Quién aparece en el anuncio.

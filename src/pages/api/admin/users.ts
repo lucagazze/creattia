@@ -128,7 +128,22 @@ export const PATCH: APIRoute = async ({ request }) => {
 			if (!ADMIN_PLAN_CODES.has(planCode)) return json({ error: 'Plan inválido.' }, 400);
 			const credits = Number.isInteger(Number(body.credits)) ? Number(body.credits) : ADMIN_PLAN_CREDITS[planCode];
 			if (credits < 0 || credits > 99999) return json({ error: 'Cantidad de créditos inválida.' }, 400);
-			const profileUpdate = await admin.from('creative_profiles').upsert({ user_id: userId, credits_remaining: credits, credits_monthly: credits, subscription_status: 'authorized', plan_code: planCode, updated_at: now }, { onConflict: 'user_id' });
+			/**
+			 * El plan gratuito no es una suscripción, así que no puede quedar como
+			 * 'authorized'.
+			 *
+			 * Ese estado significa "hay un cobro vivo detrás", y `resolverSuscripcion`
+			 * lo cruza con la lista de planes pagos: un perfil autorizado con un plan
+			 * que no se cobra es una combinación que no existe en ningún otro camino
+			 * del sistema, y deja la pantalla de planes mostrando un estado que no se
+			 * corresponde con nada. Bajar a Gratis además limpia la fecha del próximo
+			 * cobro, que si no queda apuntando al período del plan que se acaba de
+			 * sacar.
+			 */
+			const esGratis = planCode === 'free';
+			const perfil: Record<string, unknown> = { user_id: userId, credits_remaining: credits, credits_monthly: credits, subscription_status: esGratis ? 'trial' : 'authorized', plan_code: planCode, updated_at: now };
+			if (esGratis) perfil.subscription_period_end = null;
+			const profileUpdate = await admin.from('creative_profiles').upsert(perfil, { onConflict: 'user_id' });
 			if (profileUpdate.error) throw profileUpdate.error;
 			await upsertOverride(admin, { userId, accessMode: 'plan', planCode, creditsOverride: credits, previousProfile, grantedBy: adminUser.id, note: String(body.note || '').slice(0, 500), now });
 			await writeAudit(admin, adminUser.id, userId, action, { planCode, credits, note: body.note || null });

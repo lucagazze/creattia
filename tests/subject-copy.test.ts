@@ -518,6 +518,45 @@ describe('qué manda cuando dos reglas se cruzan', () => {
 });
 
 /**
+ * El color del texto lo decide el panel donde cae, no el nombre del rol.
+ *
+ * Clonando un ganador que tiene el titular en blanco sobre un cuadrante de
+ * color, el clon puso el titular con el color de TEXTO de la marca sobre el
+ * cuadrante verde. Se leía, pero apagado y peor que el original. La regla decía
+ * "aplicá cada color a su rol semántico", y el color de texto se midió contra el
+ * FONDO CLARO del sitio: sobre un bloque pintado es justamente donde no fue
+ * medido.
+ */
+describe('el texto se adapta al panel donde cae', () => {
+	const conPaleta = {
+		...base,
+		subjectMode: 'product' as const,
+		colorMode: 'url' as const,
+		brandColors: ['#80aa8d', '#2d3e46'],
+		brandPalette: { background: '#ffffff', text: '#333333', accent: '#80aa8d', secondary: '#2d3e46' },
+	};
+
+	test('sobre un panel de color el texto usa el fondo, no el color de texto', () => {
+		const prompt = buildClonePrompt(conPaleta as any, { referenceHasProduct: true, textZones: [] } as any, false);
+		assert.match(prompt, /Over a panel painted in ACCENT or SECONDARY, text takes BACKGROUND/);
+		assert.match(prompt, /NEVER TEXT, which was measured against the light background/);
+	});
+
+	test('los roles se declaran como roles y no como asignación fija', () => {
+		const prompt = buildClonePrompt(conPaleta as any, { referenceHasProduct: true, textZones: [] } as any, false);
+		assert.match(prompt, /These are ROLES, not a fixed colour per element/);
+		assert.match(prompt, /legibility wins/);
+	});
+
+	test('con los colores del ganador no se emite ninguna paleta de marca', () => {
+		// En modo ganador los colores del template se conservan tal cual: el
+		// contraste ya está resuelto y la regla no tiene nada que decidir.
+		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, { referenceHasProduct: true, textZones: [] } as any, false);
+		assert.doesNotMatch(prompt, /SEMANTIC BRAND PALETTE/);
+	});
+});
+
+/**
  * Un departamento no es un objeto que se lleva a otra escena: ES la escena.
  *
  * Se pasó la URL de un departamento y el anuncio salió mostrando OTRO

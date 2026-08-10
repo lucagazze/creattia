@@ -3,6 +3,7 @@ import { Activity, CalendarDays, CircleDollarSign, CreditCard, FileText, MailChe
 import './admin-dashboard.css';
 import { MetricsSection } from './MetricsSection';
 import { subscriptionPlans } from '../../lib/creattia/subscription-plans';
+import { ADMIN_PLAN_CREDITS } from '../../lib/creattia/admin';
 
 type AdminDashboardProps = { session: any };
 type Section = 'overview' | 'metrics' | 'users' | 'payments' | 'activity';
@@ -11,16 +12,23 @@ type UserSort = 'recent' | 'created' | 'usage' | 'payments' | 'credits';
 type ContextMenuState = { userId: string; x: number; y: number };
 
 /**
- * Los planes que el panel puede asignar a mano.
+ * Los planes que el panel puede asignar a mano, incluido el gratuito.
  *
  * Estaban copiados acá con los números de una escalera vieja: el menú ofrecía
  * "Agency · 300 tokens · $97.70/mes" cuando el plan que se cobra da 145 tokens
  * por USD 69.99. El servidor siempre acreditó lo correcto —lee la oferta real—,
  * así que lo único que pasaba es que el admin regalaba accesos a ciegas.
+ *
+ * Después quedó otro agujero por el filtro `plan.credits`: el plan Gratis no
+ * declara ese campo —su token mensual no se cobra, así que no está en la tabla
+ * que lee el webhook de Mercado Pago— y caía del menú sin que nadie lo hubiera
+ * decidido. El efecto era que desde el panel se podía subir a cualquiera de plan
+ * pero no bajarlo: para sacar un plan regalado había que quitar el override y
+ * esperar a que el estado se resolviera solo. Los tokens salen de
+ * `ADMIN_PLAN_CREDITS`, que es la misma tabla que aplica el servidor.
  */
 const planOptions = subscriptionPlans
-	.filter((plan) => plan.credits)
-	.map((plan) => ({ code: plan.code, label: plan.name, credits: plan.credits ?? 0, price: plan.price }));
+	.map((plan) => ({ code: plan.code, label: plan.name, credits: plan.credits ?? ADMIN_PLAN_CREDITS[plan.code] ?? 0, price: plan.price }));
 
 function authHeaders(session: any) {
 	const token = session?.access_token || '';
@@ -240,7 +248,7 @@ function UserTable({ users, selectedUserId, onOpenUser, onQuickAction, onNotice 
 
 function UserContextMenu({ user, x, y, onOpen, onCopy, onAction }: { user: any; x: number; y: number; onOpen: () => void; onCopy: () => void; onAction: (action: string, extra?: Record<string, unknown>) => void }) {
 	const protectedUser = user.planCode === 'admin';
-	return <div className="admin-context-menu" style={{ left: x, top: y }} onClick={(event) => event.stopPropagation()}><div className="admin-context-head"><span className="admin-avatar">{(user.fullName || user.email || '?').slice(0, 1).toUpperCase()}</span><div><strong>{user.fullName || 'Sin nombre'}</strong><small>{user.email}</small></div></div><button onClick={onOpen}>⌁ Abrir ficha completa</button><button onClick={onCopy}>▣ Copiar email</button>{protectedUser ? <div className="admin-context-protected">Cuenta administradora protegida</div> : <><div className="admin-context-divider">ASIGNAR ACCESO</div>{planOptions.map((plan) => <button key={plan.code} onClick={() => onAction('set_plan', { planCode: plan.code })}>↗ Dar plan {plan.label}<small>{plan.credits} tokens · {money(plan.price)}/mes</small></button>)}<button className="admin-context-dark" onClick={() => onAction('set_unlimited')}>∞ Dar acceso infinito</button>{user.override && <button className="admin-context-danger" onClick={() => onAction('revoke_override')}>↺ Quitar override admin</button>}</>}</div>;
+	return <div className="admin-context-menu" style={{ left: x, top: y }} onClick={(event) => event.stopPropagation()}><div className="admin-context-head"><span className="admin-avatar">{(user.fullName || user.email || '?').slice(0, 1).toUpperCase()}</span><div><strong>{user.fullName || 'Sin nombre'}</strong><small>{user.email}</small></div></div><button onClick={onOpen}>⌁ Abrir ficha completa</button><button onClick={onCopy}>▣ Copiar email</button>{protectedUser ? <div className="admin-context-protected">Cuenta administradora protegida</div> : <><div className="admin-context-divider">ASIGNAR ACCESO</div>{planOptions.map((plan) => <button key={plan.code} onClick={() => onAction('set_plan', { planCode: plan.code })}>{plan.price ? '↗ Dar plan ' : '↓ Bajar a '}{plan.label}<small>{plan.credits} {plan.credits === 1 ? 'token' : 'tokens'} · {plan.price ? `${money(plan.price)}/mes` : 'sin cargo'}</small></button>)}<button className="admin-context-dark" onClick={() => onAction('set_unlimited')}>∞ Dar acceso infinito</button>{user.override && <button className="admin-context-danger" onClick={() => onAction('revoke_override')}>↺ Quitar override admin</button>}</>}</div>;
 }
 
 function PaymentsSection({ payments }: { payments: any[] }) {
