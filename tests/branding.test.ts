@@ -343,3 +343,37 @@ describe('el texto chico se mide, no se estima', () => {
 		assert.match(prompt, /headline cap-height 14% of width, outer margin 6%/);
 	});
 });
+
+/**
+ * Una url titulada "hoddie" hizo que el modelo le dibujara capucha a un buzo
+ * que no tiene. Solo pasa con productos mal titulados —con cualquier otro el
+ * nombre y las fotos coinciden y no hay nada que resolver— y por eso costaba
+ * verlo: el mismo flujo funciona perfecto con el producto de al lado.
+ *
+ * La regla ya decía "nunca agregues un componente que falta". Lo que faltaba
+ * era decir QUIÉN GANA cuando el nombre y las fotos dicen cosas distintas, y
+ * entre un título que viaja ocho veces por el prompt y una foto, gana el
+ * título. Es el mismo patrón de siempre: dos fuentes, ninguna con prioridad.
+ */
+describe('las fotos del producto le ganan a su nombre', () => {
+	const prompt = buildClonePrompt(
+		{ productNames: ['Hoddie U.S. Polo Assn talle M'], productFacts: [], brief: '', brandName: 'California Garage', colorMode: 'winner' as const, typoMode: 'winner' as const, subjectMode: 'product' as const },
+		{ referenceHasProduct: true } as any,
+		false,
+	);
+
+	test('el nombre no describe la construcción', () => {
+		assert.match(prompt, /THE NAME IS A LABEL, NOT A SPECIFICATION/);
+		assert.match(prompt, /called a hoodie but no hood in the photos means no hood/);
+	});
+
+	test('no se le agrega una pieza porque el nombre la sugiera', () => {
+		assert.match(prompt, /Never add a hood, zip, collar, pocket or strap because the name, the category or the template's garment implies one/);
+		assert.match(prompt, /only the photos say what this thing physically is/);
+	});
+
+	/** El nombre sigue viajando: sirve para el copy, no para dibujar la prenda. */
+	test('el nombre del producto se sigue usando', () => {
+		assert.match(prompt, /Hoddie U\.S\. Polo Assn talle M/);
+	});
+});

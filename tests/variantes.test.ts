@@ -39,3 +39,26 @@ describe('cuántas versiones se pueden pedir', () => {
 		assert.match(endpoint, /const creditsNeeded = count \* creditsPerImage;/);
 	});
 });
+
+/**
+ * Cuántas fotos del producto llegan al modelo.
+ *
+ * El escaneo de una url guarda hasta 24 imágenes, pero la generación tomaba 5
+ * por producto mientras el total permitido es 8. Con UN solo producto —el caso
+ * normal— sobraban tres lugares y se descartaban fotos que ya estaban traídas
+ * y pagas. Cada vista que falta es una parte de la prenda que el modelo tiene
+ * que suponer, y de suponer salen las capuchas que el producto no tiene.
+ */
+const generar = readFileSync(new URL('../src/pages/api/creativos/generate.ts', import.meta.url), 'utf8');
+
+describe('fotos del producto que llegan al render', () => {
+	test('un solo producto puede usar todas sus fotos hasta el cupo', () => {
+		assert.match(generar, /Math\.min\(paths\.length, 8\)/);
+		assert.doesNotMatch(generar, /Math\.min\(paths\.length, 5\)/);
+	});
+
+	/** El techo total sigue siendo el que manda: no se dispara sin límite. */
+	test('el total sigue acotado', () => {
+		assert.match(generar, /productInputPlan\.length < 8/);
+	});
+});

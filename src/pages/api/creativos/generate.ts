@@ -600,7 +600,14 @@ export const POST: APIRoute = async ({ request }) => {
 				storedProduct.image_path,
 				...(productImagesById.get(storedProduct.id) || []).map((row) => row.storage_path),
 			].filter(Boolean) as string[])];
-			for (let index = 1; index < Math.min(paths.length, 5) && productInputPlan.length < 8; index += 1) {
+			// Todas las fotos que tenga el producto, hasta llenar el cupo. El tope por
+			// producto era 5 mientras el total es 8: con UN solo producto sobraban
+			// tres lugares y se tiraban fotos suyas que el escaneo ya había traído
+			// —la url guarda hasta 24—. Cada vista que falta es una parte de la
+			// prenda que el modelo tiene que suponer, y suponer es de donde salen
+			// las capuchas que el producto no tiene. Con varios productos no cambia
+			// nada: ahí el que corta es el total, no este tope.
+			for (let index = 1; index < Math.min(paths.length, 8) && productInputPlan.length < 8; index += 1) {
 				productInputPlan.push({ product: storedProduct, path: paths[index], photoIndex: index + 1 });
 			}
 		}
