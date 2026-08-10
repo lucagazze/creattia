@@ -1493,36 +1493,14 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 											)}
 										</div>
 									))}
-									{/* Cuando el análisis ve gente pero no deja ninguna decisión de
-									    persona donde colgar la opción de las fotos, la pregunta va
-									    suelta acá. Es el único caso en que aparece por separado. */}
-									{personasVisibles.length > 0 && indiceDecisionDePersona < 0 && (
-										<div style={{ padding: '12px 14px', border: '1px solid #eee6f2', borderRadius: '11px', background: '#fff' }}>
-											<strong style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#3f3560', marginBottom: '5px' }}>
-												<span>👤 Quién pone la cara</span>
-											</strong>
-											<p style={{ margin: '0 0 8px', fontSize: '12.5px', lineHeight: 1.45, color: '#3f3560', fontWeight: 600 }}>
-												{personasVisibles.length === 1 ? 'El ganador muestra una persona' : `El ganador muestra ${personasVisibles.length} personas`}. ¿La elige la IA o usás fotos tuyas?
-											</p>
-											<div className="decision-options">
-												<button
-													type="button"
-													className={personMode !== 'upload' ? 'active' : ''}
-													onClick={() => setPersonMode(personModeSugerido === 'upload' ? 'ai' : personModeSugerido)}
-												>
-													Que la IA elija
-												</button>
-												<button
-													type="button"
-													className={personMode === 'upload' ? 'active' : ''}
-													onClick={() => setPersonMode('upload')}
-												>
-													📷 Usar mis fotos
-												</button>
-											</div>
-											{personMode === 'upload' && cargaDeAvatar}
-										</div>
-									)}
+									{/* Acá vivía una tarjeta suelta, "Quién pone la cara", para cuando
+									    el análisis veía gente pero no dejaba ninguna decisión de
+									    persona. Aparecía de más: el analizador contaba como persona
+									    una mano sosteniendo el producto, así que un aviso sin un solo
+									    modelo abría igual preguntando quién pone la cara. Ahora la
+									    opción de usar fotos propias vive únicamente dentro de la
+									    decisión que pregunta por la persona, y esa decisión existe
+									    sólo cuando hay alguien a quien castear de verdad. */}
 								</div>
 							</section>
 						)}

@@ -79,31 +79,108 @@ function normalizeCssColor(value: string) {
 	return `#${[rgb[1], rgb[2], rgb[3]].map((channel) => Math.max(0, Math.min(255, Number(channel))).toString(16).padStart(2, '0')).join('')}`;
 }
 
-function firstCssRoleColor(css: string, property: string) {
-	const values: string[] = [];
-	const pattern = new RegExp(`(?:^|[;{])\\s*(?:${property})\\s*:\\s*(#[0-9a-f]{3,6}\\b|rgba?\\([^;}{]+\\))`, 'gi');
-	for (const match of css.matchAll(pattern)) {
-		const color = normalizeCssColor(match[1]);
-		if (color && !values.includes(color)) values.push(color);
+
+/**
+ * Las reglas del CSS, cada una con su selector y su cuerpo.
+ *
+ * Con un `@media` el regex deja el selector contaminado ("@media (x) { .boton"),
+ * pero el nombre de la clase queda igual al final y las heurísticas de abajo
+ * miran justamente eso, así que sirve. Los comentarios se sacan primero porque
+ * casi todas las hojas traen una paleta de ejemplo comentada arriba de todo.
+ */
+function reglasDeCss(css: string) {
+	const limpio = css.replace(/\/\*[\s\S]*?\*\//g, '');
+	const reglas: Array<{ selector: string; cuerpo: string }> = [];
+	for (const match of limpio.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+		reglas.push({ selector: match[1].trim().toLowerCase(), cuerpo: match[2] });
 	}
-	return values;
+	return reglas;
 }
 
+function valorDeclarado(cuerpo: string, propiedad: string) {
+	const patron = new RegExp(`(?:^|;)\\s*(?:${propiedad})\\s*:\\s*(#[0-9a-f]{3,6}\\b|rgba?\\([^;}]+\\))`, 'i');
+	const match = cuerpo.match(patron);
+	return match ? normalizeCssColor(match[1]) : '';
+}
+
+/** Qué tan lejos está de un gris: sirve para no elegir un neutro como acento. */
+function saturacion(hex: string) {
+	const n = hex.replace('#', '');
+	if (n.length !== 6) return 0;
+	const [r, g, b] = [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16));
+	const max = Math.max(r, g, b), min = Math.min(r, g, b);
+	return max === 0 ? 0 : (max - min) / max;
+}
+
+/**
+ * La paleta de la marca, por lo que MÁS se repite en cada rol.
+ *
+ * Antes se tomaba el PRIMER color que aparecía en el CSS para cada propiedad, y
+ * eso es casi siempre basura: la primera declaración de `background` de una hoja
+ * moderna pertenece a un reset, a un `::selection` o a un componente cualquiera
+ * que quedó arriba en el bundle. Pasando una tienda de ropa devolvió fondo
+ * #000000 y acento #007aff —el azul de iOS— cuando el sitio no es ni negro ni
+ * azul. Y no es cosmético: con "colores de la URL" esa paleta se aplica como
+ * COLOR RESTYLE sobre el anuncio, así que un ganador verde salía negro y azul.
+ *
+ * Ahora cada regla vota, y el peso lo da el selector: el fondo declarado en
+ * `body` vale más que el de una tarjeta, y el color de fondo de un botón es la
+ * mejor pista de cuál es el acento real de la marca. Es exactamente lo que mira
+ * una persona: el fondo que ocupa casi todo, la letra de los títulos, la del
+ * texto corrido y el color de los botones.
+ */
 function extractSemanticPalette(css: string, themeColor: string): BrandPalette {
-	const backgrounds = firstCssRoleColor(css, 'background(?:-color)?');
-	const textColors = firstCssRoleColor(css, 'color');
-	const accents = [
-		themeColor,
-		...firstCssRoleColor(css, 'border-color'),
-		...firstCssRoleColor(css, 'background(?:-color)?'),
-	].map(normalizeCssColor).filter(Boolean);
-	const dedupe = (values: string[]) => [...new Set(values)];
-	const cleanBackground = dedupe(backgrounds)[0] || '#ffffff';
-	const cleanText = dedupe(textColors).find((color) => color !== cleanBackground) || '#19171d';
-	const cleanAccent = dedupe(accents).find((color) => color !== cleanBackground && color !== cleanText) || '#744bde';
-	const secondary = dedupe([...firstCssRoleColor(css, 'border-color'), ...firstCssRoleColor(css, 'background(?:-color)?')])
-		.find((color) => color !== cleanBackground && color !== cleanText && color !== cleanAccent);
-	return { background: cleanBackground, text: cleanText, accent: cleanAccent, secondary, source: 'scraped' };
+	const votos = { fondo: new Map<string, number>(), titulo: new Map<string, number>(), texto: new Map<string, number>(), acento: new Map<string, number>() };
+	const sumar = (mapa: Map<string, number>, color: string, peso: number) => {
+		if (!color) return;
+		mapa.set(color, (mapa.get(color) || 0) + peso);
+	};
+
+	const esPagina = /(^|[\s,>~+])(html|body|:root|main)\b|\.(page|site|wrapper|layout|container)\b/;
+	const esBoton = /\b(button|btn|cta|submit|add-to-cart|addtocart|comprar|buy|checkout)\b/;
+	const esTitulo = /(^|[\s,>~+])h[1-3]\b|\b(title|titulo|heading|headline)\b/;
+
+	for (const { selector, cuerpo } of reglasDeCss(css)) {
+		const fondo = valorDeclarado(cuerpo, 'background|background-color');
+		const texto = valorDeclarado(cuerpo, 'color');
+		if (fondo) {
+			// Un botón pinta su fondo con el color de acción de la marca; contarlo
+			// como fondo de página es lo que hacía que el acento se comiera el fondo.
+			if (esBoton.test(selector)) sumar(votos.acento, fondo, 40);
+			else if (esPagina.test(selector)) sumar(votos.fondo, fondo, 60);
+			else sumar(votos.fondo, fondo, 1);
+		}
+		if (texto) {
+			if (esTitulo.test(selector)) sumar(votos.titulo, texto, 30);
+			else if (esBoton.test(selector)) sumar(votos.acento, texto, 2);
+			else sumar(votos.texto, texto, 1);
+		}
+		// El borde de un input o de una tarjeta suele llevar el acento suave.
+		const borde = valorDeclarado(cuerpo, 'border-color');
+		if (borde) sumar(votos.acento, borde, 1);
+	}
+	// El `theme-color` del `<meta>` vota, pero no manda: en muchos templates viene
+	// con el azul de iOS por defecto y no tiene nada que ver con la marca.
+	sumar(votos.acento, normalizeCssColor(themeColor), 12);
+
+	const masVotado = (mapa: Map<string, number>, excluir: string[] = [], filtro?: (color: string) => boolean) =>
+		[...mapa.entries()]
+			.filter(([color]) => !excluir.includes(color))
+			.filter(([color]) => !filtro || filtro(color))
+			.sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+
+	const background = masVotado(votos.fondo) || '#ffffff';
+	// Los títulos mandan sobre el texto corrido: es la letra que se lee primero y
+	// la que define el contraste del aviso.
+	const text = masVotado(votos.titulo, [background]) || masVotado(votos.texto, [background]) || '#19171d';
+	// Un acento nunca es un gris: si el más votado es neutro, se busca el
+	// siguiente con color de verdad antes de caer en el violeta por defecto.
+	const accent = masVotado(votos.acento, [background, text], (color) => saturacion(color) > 0.15)
+		|| masVotado(votos.acento, [background, text])
+		|| '#744bde';
+	const secondary = masVotado(votos.acento, [background, text, accent], (color) => saturacion(color) > 0.15)
+		|| masVotado(votos.texto, [background, text, accent]);
+	return { background, text, accent, secondary, source: 'scraped' };
 }
 
 function extractFontsFromCss(css: string) {
@@ -368,3 +445,13 @@ export async function persistBrandStyle(admin: any, userId: string, style: Brand
 
 	await admin.from('creative_profiles').upsert({ user_id: userId, ...update }, { onConflict: 'user_id' });
 }
+
+/**
+ * La extracción de la paleta, expuesta para poder medirla con CSS de verdad.
+ *
+ * Se probó a mano contra sitios reales y el resultado dependía de la red y del
+ * sitio del día. Con la función suelta, un CSS escrito a propósito —con el color
+ * basura PRIMERO, que era la trampa exacta en la que caía— fija la regresión sin
+ * salir a internet.
+ */
+export const __testing = { extractSemanticPalette };
