@@ -214,6 +214,26 @@ export function BuyCreditsSection({ session }: { session: AppSession }) {
 }
 
 export function Plans({ profile, session }: { profile: AppProfile; session: AppSession }) {
+	/**
+	 * Lo que Mercado Pago va a cobrar por cada plan, en la moneda de la cuenta.
+	 *
+	 * Los tokens sueltos ya lo mostraban y las suscripciones no: se anunciaba
+	 * USD 19.99 y el resumen de la tarjeta llegaba en pesos por un número que no
+	 * se parecía. Sale del mismo endpoint que ya calcula el de los tokens, así
+	 * que el redondeo por moneda lo hace una sola cuenta en el servidor.
+	 */
+	const [cobroPorPlan, setCobroPorPlan] = useState<Record<string, { monto: number; moneda: string }> | null>(null);
+	useEffect(() => {
+		let vigente = true;
+		fetch('/api/creativos/buy-credits', { headers: { authorization: `Bearer ${getSessionToken(session)}` } })
+			.then((r) => r.json())
+			.then((data) => { if (vigente) setCobroPorPlan(data?.cobroPorPlan || null); })
+			// Un dato de apoyo no puede dejar la pantalla de planes sin abrir.
+			.catch(() => undefined);
+		return () => { vigente = false; };
+	}, [session]);
+	const cobroDelPlan = (codigo: string) => cobroPorPlan?.[codigo] || null;
+
 	const [billing, setBilling] = useState('');
 	const [cancelling, setCancelling] = useState(false);
 	const [error, setError] = useState('');
@@ -499,6 +519,12 @@ export function Plans({ profile, session }: { profile: AppProfile; session: AppS
 					<p className="plan-yearly-note plan-unit-note">
 						<span><strong>{plan.tokensLabel}</strong> por mes</span>
 					</p>
+				)}
+				{/* Lo que va a aparecer en el resumen de la tarjeta. Los tokens sueltos
+				    ya lo decían y las suscripciones no: se anunciaba USD 19.99 y el
+				    cobro llegaba en pesos por un número que no se parecía. */}
+				{cobroDelPlan(plan.code) && (
+					<p className="plan-cobro-nota">Mercado Pago te va a cobrar {importeDeCobro(cobroDelPlan(plan.code)!.monto, cobroDelPlan(plan.code)!.moneda)}{esAnual ? ' por mes' : ''}</p>
 				)}
 				<button
 					className="plan-subscribe-btn"

@@ -6880,3 +6880,10 @@
 	.borrador-aviso-botones { width: 100%; }
 	.borrador-aviso-botones button { flex: 1 1 auto; }
 }
+
+/* Lo que va a aparecer en el resumen de la tarjeta, debajo del precio de lista.
+   Los tokens sueltos ya lo decían y las suscripciones no: se anunciaba en
+   dólares y el cobro llegaba en la moneda de la cuenta por otro número. */
+.plan-cobro-nota {
+	margin: 6px 0 0; color: #6b6280; font-size: 11.5px; line-height: 1.4;
+}

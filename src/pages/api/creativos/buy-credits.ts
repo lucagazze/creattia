@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, checkRateLimit, getAdminClient, json } from '../../../lib/creattia/server';
 import { trackEvent } from '../../../lib/creattia/events';
+import { subscriptionPlans } from '../../../lib/creattia/subscription-plans';
 import { datosDelNavegador, guardarDatosDelNavegador } from '../../../lib/creattia/meta-capi';
 import {
 	esAutoPago,
@@ -86,6 +87,31 @@ export const GET: APIRoute = async ({ request }) => {
 		currency: 'USD',
 		cobro: convertible && monedaDeCobro !== 'USD'
 			? { monto: montoACobrar, moneda: monedaDeCobro }
+			: null,
+		/**
+		 * Lo mismo, pero por plan.
+		 *
+		 * Los tokens sueltos ya decían cuánto va a aparecer en el resumen de la
+		 * tarjeta y las suscripciones no: se anunciaba USD 19.99 y el cobro llegaba
+		 * en pesos por un número que no se parecía. No hay nada que haga abandonar
+		 * un pago más rápido que un importe que cambia entre la pantalla donde
+		 * decidís y la pantalla donde pagás.
+		 *
+		 * Se convierte acá y no en el navegador porque el redondeo por moneda
+		 * —hay monedas sin centavos— lo decide `resolverMonto`, y repetir esa
+		 * cuenta del otro lado es como las dos mitades terminan dando distinto.
+		 */
+		cobroPorPlan: convertible && monedaDeCobro !== 'USD'
+			? Object.fromEntries(subscriptionPlans
+				.filter((plan) => plan.price > 0)
+				.map((plan) => {
+					try {
+						return [plan.code, { monto: resolverMonto(plan.price, monedaDeCobro, tipoDeCambioConfigurado()).amount, moneda: monedaDeCobro }];
+					} catch {
+						return [plan.code, null];
+					}
+				})
+				.filter(([, valor]) => valor))
 			: null,
 		maxCredits: MAX_CREDITS_PER_CHECKOUT,
 		// El mínimo y el paso los decide el servidor y la pantalla los obedece: si
