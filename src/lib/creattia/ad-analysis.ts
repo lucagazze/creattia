@@ -423,7 +423,7 @@ Return STRICT JSON:
   "pressRow": { "detected": true|false, "heading": "the exact wording that introduces the row (\"As seen on\", \"As featured in\"), or null", "outlets": ["each outlet or seal shown, by name, so the advertiser can see what the winner claimed"], "where": "where the row sits in the layout" },
   "referenceHasProduct": true|false,
   "renderingMedium": "WHAT THIS IMAGE IS MADE OF, judged by looking at it, not by what it advertises. Be specific and name the medium first: 'photograph' / '3D cartoon render (Pixar-like stylised characters)' / '3D product render' / 'flat vector illustration' / 'hand-drawn illustration' / 'comic-book art' / '3D render composited with photographic elements' / 'screenshot or UI mockup' / 'photo collage with cut-out edges' / 'typographic poster, no imagery'. If characters or animals appear, say explicitly whether they are REAL PHOTOGRAPHED ones or STYLISED/ILLUSTRATED ones and describe the style (proportions, outlines, shading, eyes). This field decides how the whole new ad is rendered, so an error here makes the clone look like a different ad even when every block is in place.",
-  "compositionGeometry": "THE LAYOUT IN PROPORTIONS, as fractions of the canvas, so it can be rebuilt exactly. State: where the canvas is divided and by how much (e.g. 'a vertical divider at exactly 50% splits the canvas into two equal halves'); for each horizontal band, what it holds and what fraction of the height it takes (e.g. 'headline block occupies the top 18%, the two subjects the middle 62%, the closing text the bottom 20%'); the cap-height of the headline as a fraction of the canvas width; and the outer margin as a fraction of the width. Measure with your eyes against the edges of the image — do not estimate from memory of similar ads.",
+  "compositionGeometry": "THE LAYOUT IN PROPORTIONS, as fractions of the canvas, so it can be rebuilt exactly. State: where the canvas is divided and by how much (e.g. 'a vertical divider at exactly 50% splits the canvas into two equal halves'); for each horizontal band, what it holds and what fraction of the height it takes (e.g. 'headline block occupies the top 18%, the two subjects the middle 62%, the closing text the bottom 20%'); and the outer margin as a fraction of the width. Measure with your eyes against the edges of the image — do not estimate from memory of similar ads. Do NOT give type sizes here: each text block carries its own, and two numbers for the same thing make the renderer choose.",
   "templateHasLogoSlot": true|false — does the template visibly display a brand logo or brand wordmark (a natural spot where the advertiser brand belongs)?,
   "logoIsWordmark": true|false — is that brand mark simply the BRAND NAME SET IN TYPE (letters only, no emblem, shield, crest, seal, badge or pictorial symbol)? A name written in a styled typeface is still a wordmark → true. Only an actual drawn symbol, or a symbol locked up with the name, is false. Null if there is no brand mark at all.,
   "logoDescription": "if templateHasLogoSlot is true, briefly describe the mark itself (e.g. 'small wordmark in white caps'); else null",
@@ -815,7 +815,7 @@ export function buildReferenceClonePrompt(input: {
 	const medium = (input.analysis?.renderingMedium || '').trim();
 	const looksIllustrated = /illustrat|cartoon|vector|render|3d|comic|drawn|anime|clay|claymation|stylis|stylized|flat art|collage|graphic|mockup|screenshot/i.test(medium);
 	const mediumWord = medium
-		? `rendered in EXACTLY the same medium as the template — ${medium}`
+		? 'rendered in EXACTLY the medium named at the top of these instructions'
 		: 'photorealistic';
 	const mediumRule = medium
 		? `
@@ -832,7 +832,7 @@ RENDERING MEDIUM (CRITICAL — READ BEFORE ANYTHING ELSE) — The template is: $
 	const geometryRule = input.analysis?.compositionGeometry
 		? `
 GEOMETRY LOCK (CRITICAL) — Rebuild the template's layout at these exact proportions, measured on the template itself: ${input.analysis.compositionGeometry}
-Treat these as fixed dimensions, not as suggestions. Any divider stays at its exact position; every band keeps its share of the height; the headline keeps its size relative to the canvas width; every smaller text block keeps ITS measured cap-height and ITS measured line spacing; the outer margins stay the same. Secondary text — captions, card and panel copy, disclaimers — is where this slips most: setting it a little larger and opening the leading toward a comfortable reading size is the most common way a layout that is otherwise faithful still reads as a different ad. Editorial ads set that copy small and tight on purpose. Do not enlarge the type "so it reads better", do not grow a subject until it fills more of the frame, and do not shift a divider to make something fit. If content does not fit in its band, shorten the content — never resize the band.`
+Treat these as fixed dimensions, not as suggestions. Any divider stays at its exact position; every band keeps its share of the height; every smaller text block keeps ITS measured cap-height and ITS measured line spacing; the outer margins stay the same. Secondary text — captions, card and panel copy, disclaimers — is where this slips most: setting it a little larger and opening the leading toward a comfortable reading size is the most common way a layout that is otherwise faithful still reads as a different ad. Editorial ads set that copy small and tight on purpose. Do not enlarge the type "so it reads better", do not grow a subject until it fills more of the frame, and do not shift a divider to make something fit. If content does not fit in its band, shorten the content — never resize the band.`
 		: '';
 
 	/**
@@ -973,7 +973,7 @@ ${slots.map((slot, index) => `   ${index + 1}. [${slot.where || 'image area'}] n
 These lines choose WHICH photo and HOW it is cropped, nothing else. They never authorise redrawing what a photo shows: if one of them reads like a scene to build, take from it only the choice of photo and the framing.`
 		: slots.length
 		? `
-0. RE-SHOOT EVERY IMAGE AREA — This ad works because of its structure and its idea: the layout, the visual rhythm and where it sends the eye. You are keeping that skeleton and replacing what fills it. The template's own photos, models, scenes and subjects have NOTHING to do with ${productLabel} and must not survive anywhere in the output. Re-photograph each area as follows, keeping the SAME frame, crop, angle, tilt, scale, lighting mood and position as the template so the composition still reads the same:
+0. RE-SHOOT EVERY IMAGE AREA — Re-photograph each area as follows, under the rule already given above about the template's photographs:
 ${slots.map((slot, index) => `   ${index + 1}. [${slot.where || 'image area'}] now shows: ${slot.showsNow || 'unspecified'}${slot.idea ? ` — THE IDEA THIS AREA CARRIES, which must survive: ${slot.idea}. Keep the idea, change only what it is about; do not replace it with a product photo` : ''} → must show instead: ${slot.replaceWith}`).join('\n')}
 Every scene you render must be ${mediumWord}, plausible and clearly about ${productLabel}, its maker, its user or its result. Do not leave a single frame showing the template's original subject, and do not blur or crop it away — replace it with real content.
 On the SETTING these replacements have the last word: what stays is the palette, the layout and the graphic devices; what does not stay is the surface, the props and the environment the template's photos happened to use. If the template shot its product floating on water, the new product does NOT go on water unless that scene is named above. That is the only thing they override — they never authorise changing WHICH products appear, how many, or the kind of shot each area holds. Where a later rule fixes the contents or the uniformity of a grid, a row or a lineup, that rule wins over anything written here.`
@@ -1270,23 +1270,26 @@ ${mediumRule}${geometryRule}${splitComparisonRule}
 ${strategyBlock}${creativeBlock}${imageSlotBlock}
 	${productSwap}${orientationRule}${carouselRule}
 
-	2. TEXT SWAP — LANGUAGE IS ABSOLUTE: every word visible in the final image must be in ${language} — headline, subcopy, badges, pills, buttons, small print and stamps. Replace the template's visible wording with the exact copy below, keeping each text in the same position, size, style, line count and visual hierarchy:
-	${textSwap || (input.analysis
+	2. TEXT SWAP — LANGUAGE IS ABSOLUTE: every word visible in the final image must be in ${language} — headline, subcopy, badges, pills, buttons, small print and stamps. Replace the template's visible wording with the exact copy listed at the very END of these instructions, under THE TEXTS ONE BY ONE, keeping each text in the same position, size, style, line count and visual hierarchy:
+	${textSwap ? '' : input.analysis
 		? `- THIS AD HAS NO TEXT OVERLAY. Do not add a headline, badge, feature list, price tag, comparison table, CTA or logo lockup that is not visibly present in the template.`
-		: `- Adapt every template text block honestly to ${productLabel}, in ${language}, keeping the same message structure.`)}
+		: `- Adapt every template text block honestly to ${productLabel}, in ${language}, keeping the same message structure.`}
 	If a visible text block has no replacement listed, adapt its message honestly to ${productLabel}. Do not invent prices, percentages, reviews, certifications, guarantees or claims, and never write a number that is not literally present in the replacements listed above — not even one adapted from the template's own figure. Never carry over the template's guarantees, discounts, shipping promises, review counts, ratings, certifications, awards or deadlines unless they are verified for the target product. Keep the SAME NUMBER of text blocks as the template, no more. Render every replacement sharp, correctly spelled and fully inside its original card, bubble or badge. Never duplicate a line or let text overflow.${isPhysicalSubject ? ' Text physically printed on the supplied product or inside its official logo must remain faithful to those supplied assets.' : ''}
 
 3. BRAND SWAP — ERASE every trace of the template's own brand. Its wordmark, logo, emblem, monogram and brand name must NOT appear anywhere in the output, in any size, not even faintly, partially, redrawn or stylised, and never merged with other text. Scan the whole canvas for it: corners, footer, badges, the product itself and any watermark. That brand belongs to a different company — leaving it in makes the ad unusable. ${'How the new ad signs itself is decided in LOGO DECISION below — follow it there and do not improvise a mark here.' + (isPhysicalSubject ? ' None of this removes the real label or branding physically printed on the supplied product packaging, which must remain faithful to the product photo.' : '')}
 
 WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website. Render exactly "${input.displayWebsite}" ONCE in an existing URL or footer slot.` : 'Do not render any URL, domain, web address, social handle or QR code. Remove any website from the winning template and leave that space clean.'}
 
-4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not add ANY element that is not in the template. Do not include watermarks or platform UI. The final image must look like the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
+4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not include watermarks or platform UI. The result is the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
 ${layoutFidelityRule}${encajeRule}${catalogRule}${qualityRule}${TEXT_RENDERING_RULE}${semanticPaletteRule}${identityBlock}
 ${logoDecision}
 ${peopleBlock}${realismoRule}${comparisonBlock}${comparisonContext}${creativeDecisionBlock}
 
 USER DIRECTION
-${input.brief || 'None.'}`;
+${input.brief || 'None.'}${textSwap ? `
+
+THE TEXTS ONE BY ONE (read this last and follow it literally) — everything above is HOW to rebuild the ad; this is WHAT it has to say and where each line goes. Each entry gives the block's position, the exact words, and how that block is set on the template. Where an entry and a general rule seem to disagree about a block, the entry wins: it was measured on this template.
+${textSwap}` : ''}`;
 }
 
 // Pre-producción del producto: si hay template, re-fotografía el producto COMO SI

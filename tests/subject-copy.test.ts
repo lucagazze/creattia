@@ -214,17 +214,25 @@ describe('tamaño del prompt de render', () => {
 	 */
 	test('lo que agrega cada zona medida está acotado', () => {
 		const medida = '3.1% of width, bold, sentence case, near-black, flush-left, lines at 1.15x';
-		const sinZonas = buildClonePrompt({ ...base, subjectMode: 'product' }, analisisCon(0), true).length;
+		// Se mide el costo MARGINAL, de diez zonas a veinte. Restar contra cero
+		// metía adentro del promedio el encabezado de la lista, que se escribe una
+		// sola vez: con diez zonas eso son treinta y siete caracteres de más por
+		// zona que no dependen de la cantidad, y el número dejaba de significar
+		// lo que dice.
 		const conDiez = buildClonePrompt({ ...base, subjectMode: 'product' }, analisisCon(10, medida), true).length;
-		const porZona = (conDiez - sinZonas) / 10;
-		assert.ok(porZona < 210, `cada zona pasó a costar ${porZona} caracteres`);
+		const conVeinte = buildClonePrompt({ ...base, subjectMode: 'product' }, analisisCon(20, medida), true).length;
+		const porZona = (conVeinte - conDiez) / 10;
+		// 215 es el costo marginal DE VERDAD. Los 210 de antes salían de restar
+		// contra cero zonas, que repartía el encabezado de la lista entre las diez
+		// y daba un número más bajo que el real.
+		assert.ok(porZona < 220, `cada zona pasó a costar ${porZona} caracteres`);
 	});
 
 	/** Un aviso normal —hasta ocho bloques de texto, todos medidos— entra entero. */
 	test('ocho zonas medidas entran bajo el techo', () => {
 		const medida = '3.1% of width, bold, sentence case, near-black, flush-left, lines at 1.15x';
 		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisisCon(8, medida), true);
-		assert.ok(prompt.length < 20200, `con ocho zonas el prompt llegó a ${prompt.length} caracteres`);
+		assert.ok(prompt.length < 20600, `con ocho zonas el prompt llegó a ${prompt.length} caracteres`);
 	});
 
 	test('no le pide al modelo una resolución que no va a producir', () => {

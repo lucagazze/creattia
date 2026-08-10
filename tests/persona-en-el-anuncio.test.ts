@@ -358,7 +358,10 @@ describe('los cuatro caminos no engordan el prompt', () => {
 				analisis,
 				true,
 			);
-			assert.ok(prompt.length < 20000, `${modo} llegó a ${prompt.length} caracteres`);
+			// El techo subió 400 porque la lista de textos se mudó al final del
+			// prompt y estrenó encabezado propio: cae al 94% en vez del 53%, que es
+			// donde efectivamente se lee. Se paga una vez, no por zona.
+			assert.ok(prompt.length < 20400, `${modo} llegó a ${prompt.length} caracteres`);
 		}
 	});
 
