@@ -377,3 +377,51 @@ describe('las fotos del producto le ganan a su nombre', () => {
 		assert.match(prompt, /Hoddie U\.S\. Polo Assn talle M/);
 	});
 });
+
+/**
+ * El titular del ganador estaba centrado sobre el eje y el clon lo puso pegado
+ * a la izquierda. Investigado contra el anuncio de sticky.io generando de
+ * verdad: el analizador MIDE bien —dice "centrado" en la posición y otra vez en
+ * la medida del bloque— pero ese dato caía al 53% de un prompt de 22.000
+ * caracteres, que es donde menos se atiende, y encima volvía en castellano
+ * dentro de un prompt en inglés.
+ *
+ * Faltaba la regla que lo ordena, que vive más tarde y entre las CRITICAL. La
+ * había sacado al empezar a medir cada bloque, creyendo que la medida la
+ * reemplazaba: la medida dice cómo se alinea el texto ADENTRO de su bloque, no
+ * dónde cae ese bloque en el lienzo. Con la regla puesta, seis de seis
+ * generaciones salieron centradas.
+ */
+describe('el ancla horizontal de cada bloque', () => {
+	const prompt = buildClonePrompt(
+		{ productNames: ['Creattia'], productFacts: [], brief: '', brandName: 'Creattia', colorMode: 'winner' as const, typoMode: 'winner' as const, subjectMode: 'saas' as const },
+		{ referenceHasProduct: false } as any,
+		false,
+	);
+
+	test('centrado sigue centrado aunque cambie el largo del texto', () => {
+		assert.match(prompt, /a block centred on the canvas axis stays centred there/);
+		assert.match(prompt, /even when the new text is shorter or longer than the original/);
+	});
+
+	test('pegado a un borde sigue pegado a ese borde', () => {
+		assert.match(prompt, /one flush to an edge stays flush to that edge/);
+	});
+});
+
+/**
+ * Las mediciones que lee el renderizador van en inglés.
+ *
+ * La regla de idioma decía "cada replacement en el idioma elegido" y el modelo
+ * la estiró a todo: "where" y "setIn" volvían en castellano y se incrustaban
+ * dentro de un prompt en inglés, donde "centrado" pesa menos que "centred"
+ * rodeado de reglas en inglés. Lo que lee una persona va en su idioma; lo que
+ * lee el renderizador, no.
+ */
+describe('en qué idioma vuelve cada cosa del análisis', () => {
+	test('el idioma elegido manda solo sobre lo que se ve en el aviso', () => {
+		const fuente = readFileSync(new URL('../src/lib/creattia/ad-analysis.ts', import.meta.url), 'utf8');
+		assert.match(fuente, /This applies ONLY to what a reader will see in the finished ad/);
+		assert.match(fuente, /"where", "setIn", "compositionGeometry"[^]{0,120}stay in ENGLISH always/);
+	});
+});
