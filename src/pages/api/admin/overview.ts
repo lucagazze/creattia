@@ -243,17 +243,31 @@ export const GET: APIRoute = async ({ request }) => {
 			}
 		}
 
-		const thumbPaths = [...new Set(
-			activity.flatMap((item: any) => [item.outputPath, item.referencePath, ...(item.productPaths || [])]).filter(Boolean)
-		)] as string[];
-		if (thumbPaths.length) {
-			const { data: signed } = await admin.storage.from('creative-assets').createSignedUrls(thumbPaths, 60 * 60);
-			const urlByPath = new Map((signed || []).map((row: any, index: number) => [row.path || thumbPaths[index], row.signedUrl]));
-			for (const item of activity as any[]) {
-				if (item.outputPath) item.thumbUrl = urlByPath.get(item.outputPath) || null;
-				if (item.referencePath) item.referenceUrl = urlByPath.get(item.referencePath) || null;
-				if (item.productPaths?.length) item.productUrls = item.productPaths.map((path: string) => urlByPath.get(path)).filter(Boolean);
+		// El resultado y las fotos del producto viven en un bucket, y los anuncios
+		// ganadores en OTRO. Firmar todo contra el primero devolvía null para la
+		// referencia sin fallar: el bloque del ganador simplemente no aparecía, que
+		// es justo lo que más se quiere ver.
+		const firmar = async (bucket: string, rutas: string[]) => {
+			const mapa = new Map<string, string>();
+			if (!rutas.length) return mapa;
+			const { data: firmadas } = await admin.storage.from(bucket).createSignedUrls(rutas, 60 * 60);
+			for (const [indice, fila] of (firmadas || []).entries()) {
+				if (fila?.signedUrl) mapa.set(fila.path || rutas[indice], fila.signedUrl);
 			}
+			return mapa;
+		};
+		const rutasDeAssets = [...new Set(
+			activity.flatMap((item: any) => [item.outputPath, ...(item.productPaths || [])]).filter(Boolean)
+		)] as string[];
+		const rutasDeReferencias = [...new Set(activity.map((item: any) => item.referencePath).filter(Boolean))] as string[];
+		const [urlDeAsset, urlDeReferencia] = await Promise.all([
+			firmar('creative-assets', rutasDeAssets),
+			firmar('creative-references', rutasDeReferencias),
+		]);
+		for (const item of activity as any[]) {
+			if (item.outputPath) item.thumbUrl = urlDeAsset.get(item.outputPath) || null;
+			if (item.referencePath) item.referenceUrl = urlDeReferencia.get(item.referencePath) || null;
+			if (item.productPaths?.length) item.productUrls = item.productPaths.map((path: string) => urlDeAsset.get(path)).filter(Boolean);
 		}
 
 		const eventosDelDia: any[] = eventosResult?.error ? [] : (eventosResult?.data || []);

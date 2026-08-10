@@ -271,6 +271,50 @@ function ActivitySection({ activity, onOpenUser }: { activity: any[]; onOpenUser
 }
 
 /**
+ * Un bloque del visor: una imagen grande y, si hay más, las miniaturas debajo.
+ *
+ * Antes se apilaban las diez del mismo tamaño en una grilla con scroll: se veía
+ * todo chico y ninguna se podía mirar de verdad. Y cada una abría una pestaña
+ * nueva, que saca del panel para volver con el botón de atrás.
+ *
+ * Ahora se toca una miniatura y pasa a ser la grande, sin salir de acá.
+ */
+function BloqueDeImagenes({ bloque, conFlecha }: { bloque: { urls: string[]; etiqueta: string; pie: string }; conFlecha: boolean }) {
+	const [elegida, setElegida] = useState(0);
+	// Si cambia el creativo que se está mirando, se vuelve a la primera: dejar la
+	// cuarta seleccionada sobre otro producto muestra algo que no se pidió.
+	useEffect(() => { setElegida(0); }, [bloque.urls[0]]);
+	const principal = bloque.urls[elegida] || bloque.urls[0];
+	return (
+		<figure className={bloque.urls.length > 1 ? 'es-galeria' : ''}>
+			<div className="visor-creativo-principal">
+				<img src={principal} alt={bloque.etiqueta} />
+			</div>
+			{bloque.urls.length > 1 && (
+				<div className="visor-creativo-tiras" role="tablist" aria-label={bloque.etiqueta}>
+					{bloque.urls.map((url, indice) => (
+						<button
+							key={url}
+							type="button" role="tab" aria-selected={indice === elegida}
+							className={indice === elegida ? 'activa' : ''}
+							onClick={() => setElegida(indice)}
+							title={`Foto ${indice + 1} de ${bloque.urls.length}`}
+						>
+							<img src={url} alt="" loading="lazy" decoding="async" />
+						</button>
+					))}
+				</div>
+			)}
+			<figcaption>
+				<span>{bloque.etiqueta}</span>
+				{bloque.pie && <small>{bloque.pie}</small>}
+			</figcaption>
+			{conFlecha && <i className="visor-creativo-flecha" aria-hidden="true">→</i>}
+		</figure>
+	);
+}
+
+/**
  * Qué entró y qué salió, en grande y sin salir del panel.
  *
  * Las miniaturas abrían la imagen firmada en una pestaña nueva: se perdía el
@@ -314,21 +358,12 @@ function VisorDeCreativo({ item, onClose }: { item: any; onClose: () => void }) 
 				</header>
 				<div className="visor-creativo-piezas">
 					{bloques.map((bloque, indice) => (
-						<figure key={bloque.urls[0]} className={bloque.urls.length > 1 ? 'es-galeria' : ''}>
-							<div className="visor-creativo-imagenes">
-								{bloque.urls.map((url) => (
-									// Cada foto se abre en grande por su cuenta: en una galería de
-									// cinco, la miniatura no alcanza para mirar una costura.
-									<a key={url} href={url} target="_blank" rel="noreferrer"><img src={url} alt={bloque.etiqueta} /></a>
-								))}
-							</div>
-							<figcaption>
-								<span>{bloque.etiqueta}</span>
-								{bloque.pie && <small>{bloque.pie}</small>}
-							</figcaption>
-							{/* La flecha va ENTRE bloques, no después del último. */}
-							{indice < bloques.length - 1 && <i className="visor-creativo-flecha" aria-hidden="true">→</i>}
-						</figure>
+						<BloqueDeImagenes
+							key={bloque.urls[0]}
+							bloque={bloque}
+							// La flecha va ENTRE bloques, no después del último.
+							conFlecha={indice < bloques.length - 1}
+						/>
 					))}
 					{!bloques.length && <EmptyState label="Esta generación no guardó imágenes." />}
 				</div>

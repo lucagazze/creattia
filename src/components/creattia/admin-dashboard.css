@@ -292,8 +292,6 @@
 	.visor-creativo { padding: 12px; }
 	.visor-creativo-piezas { flex-direction: column; }
 	.visor-creativo-piezas figure { width: 100%; min-width: 0; }
-	.visor-creativo-imagenes,
-	.visor-creativo-piezas figure.es-galeria .visor-creativo-imagenes { height: auto; max-height: 46vh; }
 	.visor-creativo-flecha { top: auto; right: auto; bottom: -14px; left: 50%; transform: rotate(90deg); }
 }
 
@@ -307,23 +305,30 @@
 }
 
 /* La galería del producto: de una url se bajan varias vistas y son las que el
-   modelo mira para reconstruirlo. Mostrar una sola no dice con qué se trabajó. */
-/* Los tres bloques miden lo mismo de alto para que los tres pies queden a la
-   misma altura: con la galería más alta que las otras dos, su rótulo caía solo
-   noventa píxeles más abajo y se perdía la lectura de un vistazo. */
-.visor-creativo-imagenes { display: flex; flex-direction: column; gap: 6px; height: 56vh; }
-.visor-creativo-imagenes > a { flex: 1 1 auto; min-height: 0; }
-.visor-creativo-imagenes > a img { height: 100%; }
-.visor-creativo-imagenes a { display: block; line-height: 0; border-radius: 11px; }
-.visor-creativo-imagenes a:hover { outline: 2px solid #c9b4f5; outline-offset: 2px; }
-/* Con varias van en grilla de dos y más chicas: la comparación importa más que
-   el tamaño de cada una, y apiladas empujarían el resultado fuera de la
-   pantalla. Grilla y no flex porque con un número impar la última se estiraba a
-   lo ancho y empujaba el pie de foto, dejando los tres bloques desalineados.
-   El alto queda acotado: la galería scrollea sola y los tres pies quedan a la
-   misma altura, que es lo que permite leer los bloques de un vistazo. */
-.visor-creativo-piezas figure.es-galeria .visor-creativo-imagenes {
-	display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
-	height: 56vh; overflow-y: auto; align-content: start;
+   modelo mira para reconstruirlo. Se apilaban las diez del mismo tamaño en una
+   grilla con scroll —se veía todo chico y ninguna se podía mirar de verdad— y
+   además cada una abría una pestaña nueva, que saca del panel. Ahora hay una
+   grande y las miniaturas debajo: se toca una y pasa a ser la grande. */
+.visor-creativo-principal {
+	display: flex; align-items: center; justify-content: center;
+	height: 50vh; border-radius: 11px; background: #f6f4f9; border: 1px solid #ece6f4; overflow: hidden;
 }
-.visor-creativo-piezas figure.es-galeria img { max-height: 26vh; height: auto; width: 100%; }
+.visor-creativo-principal img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.visor-creativo-tiras {
+	display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;
+	scrollbar-width: thin;
+}
+.visor-creativo-tiras button {
+	flex: 0 0 auto; width: 46px; height: 46px; padding: 0; overflow: hidden; cursor: pointer;
+	border-radius: 8px; border: 1.5px solid #ece6f4; background: #f6f4f9; line-height: 0;
+	transition: border-color .12s ease, opacity .12s ease;
+	opacity: .62;
+}
+.visor-creativo-tiras button:hover { opacity: 1; border-color: #c9b4f5; }
+/* La elegida se marca con el borde y sin transparencia: en una tira de diez hay
+   que poder ver cuál se está mirando sin contar posiciones. */
+.visor-creativo-tiras button.activa { opacity: 1; border-color: #7048ba; }
+.visor-creativo-tiras img { width: 100%; height: 100%; object-fit: cover; }
+@media (max-width: 760px) {
+	.visor-creativo-principal { height: 38vh; }
+}
