@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
 import ProductAssetReview, { type ProductReviewItem } from './ProductAssetReview';
 import { leerRespuestaDeEscaneo } from '../../lib/creattia/errores-de-escaneo';
-import { guardarBorrador, leerBorrador, borrarBorrador, hace, type Borrador } from '../../lib/creattia/borrador-de-creacion';
+import { guardarBorrador, leerBorrador, borrarBorrador, resumenDelBorrador, type Borrador } from '../../lib/creattia/borrador-de-creacion';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Página completa de creación fiel al ganador (reemplaza el modal). Mismo
@@ -438,7 +438,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	function estadoDeLaRevision() {
 		return {
-			formStep, copyMode, carouselMode, carouselSameProduct, selectedSlideIndex,
+			phase, formStep, copyMode, carouselMode, carouselSameProduct, selectedSlideIndex,
 			productMode, scannedOffering, alcanceOverride, urls, selectedProductIds, importedProducts,
 			manualProductName, manualProductFacts,
 			format, language, colorMode, typoMode, brandSource, paletteOverride,
@@ -453,9 +453,27 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	// nada que valga la pena guardar todavía, y en 'starting' la generación ya
 	// salió: dejar el borrador ahí haría que al volver se ofreciera repetir algo
 	// que ya se hizo y ya se cobró.
+	/**
+	 * Si hay algo cargado que valga la pena no perder.
+	 *
+	 * Abrir un ganador y salir no es trabajo: guardar eso llenaría el Inicio de
+	 * un aviso que ofrece retomar una pantalla vacía. Cargar la url, elegir los
+	 * productos o escribir el producto a mano, sí.
+	 */
+	const hayTrabajoCargado = selectedProductIds.length > 0
+		|| importedProducts.length > 0
+		|| Boolean(manualProductName.trim())
+		|| urls.some((url) => url.trim());
+
+	// Se guarda en el armado y en la revisión. En 'planning' no: el análisis está
+	// corriendo y a mitad de camino no hay nada coherente que guardar. En
+	// 'starting' tampoco: la generación ya salió y el borrador pasaría de ser una
+	// ayuda a ofrecer repetir algo que ya se hizo y ya se cobró.
 	useEffect(() => {
-		if (!usuarioId || phase !== 'review') return;
-		guardarBorrador(usuarioId, ad, estadoDeLaRevision());
+		if (!usuarioId) return;
+		if (phase === 'review' || (phase === 'setup' && hayTrabajoCargado)) {
+			guardarBorrador(usuarioId, ad, estadoDeLaRevision());
+		}
 	});
 
 	/** Vuelve a poner lo guardado y salta directo a la revisión. */
@@ -483,7 +501,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		poner(e.comparisons, setComparisons); poner(e.creativeDecisions, setCreativeDecisions);
 		poner(e.comparisonGuidance, setComparisonGuidance);
 		setBorradorGuardado(null);
-		setPhase('review');
+		// Vuelve a la pantalla donde lo dejó. Mandarlo siempre a la revisión hacía
+		// que un borrador sin analizar cayera en una pantalla que no tiene nada
+		// que mostrar, porque el análisis del ganador todavía no existe.
+		setPhase(e.phase === 'review' ? 'review' : 'setup');
 	}
 
 	const chip = (active: boolean) => ({
@@ -1087,8 +1108,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					{borradorGuardado && phase === 'setup' && (
 						<div className="borrador-aviso">
 							<div>
-								<strong>Tenías este anuncio listo para generar</strong>
-								<small>Lo dejaste {hace(borradorGuardado.guardadoEn)}, con el análisis del ganador y tus decisiones ya hechas. Podés retomarlo donde estaba.</small>
+								<strong>{resumenDelBorrador(borradorGuardado).titulo}</strong>
+								<small>{resumenDelBorrador(borradorGuardado).detalle}</small>
 							</div>
 							<div className="borrador-aviso-botones">
 								<button type="button" className="borrador-retomar" onClick={() => retomarDelBorrador(borradorGuardado)}>Seguir donde estaba</button>

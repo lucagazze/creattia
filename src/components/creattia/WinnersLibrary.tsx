@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { leerBorrador, borrarBorrador, hace, type Borrador } from '../../lib/creattia/borrador-de-creacion';
+import { leerBorrador, borrarBorrador, resumenDelBorrador, type Borrador } from '../../lib/creattia/borrador-de-creacion';
 import type { LucideIcon } from 'lucide-react';
 import { ArrowLeftRight, BadgePercent, BarChart3, Image as ImageIcon, Layers3, Lightbulb, ListChecks, Newspaper, Play, Sparkles, Star, SunMedium, Swords } from 'lucide-react';
 import { supabase } from '../../lib/creattia/supabase-browser';
@@ -1204,8 +1204,8 @@ export default function WinnersLibrary({
 			{borrador && (
 				<div className="borrador-aviso">
 					<div>
-						<strong>Tenías «{borrador.ad?.name || 'un anuncio'}» listo para generar</strong>
-						<small>Lo dejaste {hace(borrador.guardadoEn)}, con el análisis del ganador y tus decisiones ya hechas. Retomalo y solo queda apretar generar.</small>
+						<strong>{resumenDelBorrador(borrador).titulo}</strong>
+						<small>{resumenDelBorrador(borrador).detalle}</small>
 					</div>
 					<div className="borrador-aviso-botones">
 						<button type="button" className="borrador-retomar" onClick={() => { setRetomar(true); setActiveAd(borrador.ad); }}>Seguir donde estaba</button>

@@ -8,7 +8,7 @@ import { groupCarouselHistory } from '../history-utils';
 import { DiscoverGrid } from './Discover';
 import { GenerationCard } from './History';
 import { useEffect, useState } from 'react';
-import { leerBorrador, borrarBorrador, hace, type Borrador } from '../../../lib/creattia/borrador-de-creacion';
+import { leerBorrador, borrarBorrador, resumenDelBorrador, type Borrador } from '../../../lib/creattia/borrador-de-creacion';
 /** Pantalla de inicio: atajos, lote en curso y ganadores guardados. */
 
 export function Dashboard({
@@ -91,8 +91,8 @@ export function Dashboard({
 			{borrador && (
 				<div className="borrador-aviso">
 					<div>
-						<strong>Tenías «{borrador.ad?.name || 'un anuncio'}» listo para generar</strong>
-						<small>Lo dejaste {hace(borrador.guardadoEn)}, con el análisis del ganador y tus decisiones ya hechas. Solo queda apretar generar.</small>
+						<strong>{resumenDelBorrador(borrador).titulo}</strong>
+						<small>{resumenDelBorrador(borrador).detalle}</small>
 					</div>
 					<div className="borrador-aviso-botones">
 						<button type="button" className="borrador-retomar" onClick={() => onRetomarBorrador?.(borrador.ad?.imagePath)}>Seguir donde estaba</button>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test, beforeEach } from 'vitest';
-import { guardarBorrador, leerBorrador, borrarBorrador, hace } from '../src/lib/creattia/borrador-de-creacion';
+import { guardarBorrador, leerBorrador, borrarBorrador, hace, resumenDelBorrador } from '../src/lib/creattia/borrador-de-creacion';
 
 /**
  * El anuncio que quedó a punto de generarse.
@@ -100,5 +100,41 @@ describe('hace cuánto se dejó', () => {
 		assert.equal(hace(Date.now() - 5 * 60000), 'hace 5 minutos');
 		assert.equal(hace(Date.now() - 60 * 60000), 'hace 1 hora');
 		assert.equal(hace(Date.now() - 30 * 60 * 60000), 'hace 1 día');
+	});
+});
+
+/**
+ * El aviso aparece en tres pantallas —Inicio, la biblioteca y el propio flujo—
+ * y el texto lo arma este único lugar. Tres copias es como empiezan a decir
+ * cosas distintas, y esta puede mentir: decir "listo para generar" cuando
+ * todavía falta analizar la referencia manda a alguien a apretar un botón que
+ * no está.
+ */
+describe('qué dice el aviso según hasta dónde se llegó', () => {
+	const base = { version: 1, guardadoEn: Date.now(), usuarioId: 'u1', ad: { name: 'Spring Sale' } };
+
+	test('con el análisis hecho, dice que solo falta generar', () => {
+		const { titulo, detalle } = resumenDelBorrador({ ...base, estado: { plan: { textZones: [] } } } as any);
+		assert.match(titulo, /listo para generar/);
+		assert.match(detalle, /Solo queda apretar generar/);
+	});
+
+	test('sin analizar, NO dice que esté listo para generar', () => {
+		const { titulo, detalle } = resumenDelBorrador({ ...base, estado: { selectedProductIds: ['p1'] } } as any);
+		assert.match(titulo, /Estabas armando/);
+		assert.doesNotMatch(titulo, /listo para generar/);
+		assert.doesNotMatch(detalle, /apretar generar/);
+	});
+
+	test('siempre nombra el anuncio y hace cuánto se dejó', () => {
+		const { titulo, detalle } = resumenDelBorrador({ ...base, guardadoEn: Date.now() - 3 * 60 * 60 * 1000, estado: {} } as any);
+		assert.match(titulo, /Spring Sale/);
+		assert.match(detalle, /hace 3 horas/);
+	});
+
+	/** Un borrador sin nombre de anuncio no puede quedar con un hueco. */
+	test('sin nombre no deja un blanco', () => {
+		const { titulo } = resumenDelBorrador({ ...base, ad: {}, estado: {} } as any);
+		assert.match(titulo, /un anuncio/);
 	});
 });

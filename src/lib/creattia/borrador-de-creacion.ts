@@ -96,6 +96,31 @@ export function borrarBorrador() {
 	try { store.removeItem(CLAVE); } catch { /* nada que hacer */ }
 }
 
+/**
+ * Qué decirle a la persona, según hasta dónde había llegado.
+ *
+ * Vive acá y no en cada pantalla porque el aviso aparece en tres —Inicio, la
+ * biblioteca y el propio flujo— y tres copias del mismo texto es como empiezan
+ * a decir cosas distintas. Sobre todo esta, que puede mentir: decir "listo para
+ * generar" cuando todavía falta analizar la referencia manda a alguien a apretar
+ * un botón que no está.
+ */
+export function resumenDelBorrador(borrador: Borrador): { titulo: string; detalle: string } {
+	const nombre = borrador.ad?.name || 'un anuncio';
+	const cuando = hace(borrador.guardadoEn);
+	// El análisis del ganador es lo caro: si ya está, es lo que hay que nombrar.
+	const analizado = Boolean((borrador.estado as any)?.plan);
+	return analizado
+		? {
+			titulo: `Tenías «${nombre}» listo para generar`,
+			detalle: `Lo dejaste ${cuando}, con el análisis del ganador y tus decisiones ya hechas. Solo queda apretar generar.`,
+		}
+		: {
+			titulo: `Estabas armando un anuncio con «${nombre}»`,
+			detalle: `Lo dejaste ${cuando}, con tu producto ya cargado. Seguí desde donde estabas en vez de empezar de nuevo.`,
+		};
+}
+
 /** Hace cuánto se dejó, en palabras, para poder decírselo a la persona. */
 export function hace(guardadoEn: number): string {
 	const minutos = Math.floor((Date.now() - guardadoEn) / 60000);
