@@ -16,6 +16,15 @@ import { checkRateLimit } from './server';
  */
 
 export type ProductEvent =
+	/**
+	 * Una visita a la home publica, sin sesion.
+	 *
+	 * Es el unico evento de gente que todavia no es usuario, y por eso el unico
+	 * que no lleva `user_id`. Sin el, el embudo arrancaba en "abrio la app": de
+	 * todo lo que pasa antes —cuanta gente llega a la landing y no entra— no
+	 * quedaba ningun rastro, que es justo el tramo que mide una campana.
+	 */
+	| 'landing_vista'
 	| 'app_abierta'
 	| 'url_escaneada'
 	| 'referencia_analizada'

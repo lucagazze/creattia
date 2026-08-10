@@ -794,6 +794,21 @@ const faqs = [
     página ilegible y sin forma de volver a leer cómo arreglarlo. */}
 
 <script is:inline>
+	/**
+	 * Avisa que alguien miro la home.
+	 *
+	 * Es el primer escalon del embudo y el unico que ocurre antes de que exista
+	 * una cuenta: sin esto, la medicion arranca en "abrio la app" y no se sabe
+	 * cuanta gente llego y no entro, que es justo lo que hay que mirar mientras
+	 * corre una campana.
+	 *
+	 * `keepalive` para que el aviso salga aunque la persona navegue enseguida, y
+	 * el error se traga entero: un contador no puede romper la home.
+	 */
+	try {
+		fetch('/api/creativos/track-landing', { method: 'POST', keepalive: true }).catch(() => {});
+	} catch {}
+
 	// Zoom desactivado en la landing.
 	//
 	// El meta viewport ya lleva user-scalable=no, pero iOS Safari lo ignora desde

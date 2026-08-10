@@ -6814,3 +6814,34 @@
 	background: rgba(25,23,29,.78); color: #fff;
 	font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
 }
+
+/* El pulso del negocio en la barra superior, solo para el admin.
+   Los números del día vivían dentro del centro admin y había que entrar a
+   buscarlos; mientras corre una campaña son justo los que se miran de reojo. */
+.pulso-admin {
+	display: flex; align-items: center; gap: 14px;
+	margin-left: auto; margin-right: 10px;
+	padding: 6px 13px; border-radius: 999px;
+	border: 1px solid #e6e1ee; background: #fbfafd;
+	font-family: inherit; cursor: pointer;
+	transition: border-color .15s ease, background .15s ease;
+}
+.pulso-admin:hover { border-color: #cbb8f0; background: #f7f4fd; }
+.pulso-dato { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+.pulso-dato b { font-size: 13.5px; font-weight: 800; color: #19171d; font-variant-numeric: tabular-nums; }
+.pulso-dato em { font-size: 10.5px; font-style: normal; font-weight: 700; color: #8b8490; letter-spacing: .01em; }
+/* El punto solo late cuando hay alguien: en vivo sobre un cero se lee como que
+   el tablero está roto. */
+.pulso-vivo i { width: 7px; height: 7px; border-radius: 50%; background: #cfc9d6; flex: none; }
+.pulso-vivo.late i { background: #22c55e; box-shadow: 0 0 0 0 rgba(34,197,94,.55); animation: pulso-late 2s infinite; }
+@keyframes pulso-late {
+	70% { box-shadow: 0 0 0 7px rgba(34,197,94,0); }
+	100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+}
+/* En pantallas angostas la barra ya tiene el logo y los créditos: se muestran
+   los dos números que se miran de verdad y el resto queda en el centro admin. */
+@media (max-width: 900px) {
+	.pulso-admin { gap: 10px; padding: 5px 10px; }
+	.pulso-dato:nth-child(n+3) { display: none; }
+}
+@media (max-width: 620px) { .pulso-admin { display: none; } }

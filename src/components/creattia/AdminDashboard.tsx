@@ -148,11 +148,21 @@ export default function AdminDashboard({ session }: AdminDashboardProps) {
 			{loading && !overview ? <div className="admin-loading"><span /> Cargando datos seguros…</div> : (
 				<>
 					<div className="admin-metric-grid">
-						<Metric label="Usuarios registrados" value={shortNumber(metrics.users)} hint={`+${metrics.newUsers7d || 0} esta semana`} tone="blue" />
+						{/* Lo de HOY primero: es lo que se mira mientras corre una campana.
+						    "+N esta semana" no sirve para eso — el dia que empezas a pautar,
+						    siete dias de historia tapan justamente lo que queres ver. */}
+						<Metric label="Usuarios registrados" value={shortNumber(metrics.users)} hint={`+${metrics.newUsersToday || 0} hoy · +${metrics.newUsers7d || 0} esta semana`} tone="blue" />
 						<Metric label="Personas activas ahora" value={shortNumber(metrics.activeUsers)} hint="Últimos 10 minutos" tone="green" live />
 						<Metric label="Suscripciones activas" value={shortNumber(metrics.activeSubscriptions)} hint={`${metrics.activeToday || 0} activos hoy`} tone="violet" />
 						<Metric label="MRR estimado" value={money(metrics.mrr)} hint="Planes autorizados" tone="orange" />
 						<Metric label="Creativos generados" value={shortNumber(metrics.completedGenerations)} hint={`${metrics.generations || 0} trabajos totales`} tone="blue" />
+						{/* El primer escalon del embudo: gente que llego a la home sin tener
+						    cuenta. Antes la medicion arrancaba en "abrio la app", asi que de
+						    cuanta gente llega y NO entra no quedaba ningun rastro. */}
+						<Metric label="Visitas a la landing hoy" value={shortNumber(metrics.landingViewsToday)} hint="Ultimas 24 horas" tone="violet" />
+						{/* Personas distintas, no aperturas: una sola que entra ocho veces no
+						    son ocho visitantes. */}
+						<Metric label="Entraron a la app hoy" value={shortNumber(metrics.appVisitorsToday)} hint={`${metrics.appViewsToday || 0} aperturas`} tone="green" />
 					</div>
 
 					{section === 'overview' && <OverviewSection overview={overview} onOpenUser={openUser} />}

@@ -8,6 +8,7 @@ import './creative-app.css';
 
 
 import { driveBatchWorkers } from './UrlBatchSection';
+import { PulsoAdmin } from './PulsoAdmin';
 import { generacionDesdeFila } from './history-utils';
 import { signGenerationPaths } from '../../lib/creattia/generation-image';
 
@@ -1399,6 +1400,9 @@ export default function CreativeApp() {
 					<button className="studio-menu-button" onClick={() => setMobileMenu(true)} aria-label="Abrir menú"><Icon name="menu"/></button>
 					<div className="studio-top-brand"><img src="/images/creattia/avatar-nobg.webp" alt=""/><strong>Creattia</strong></div>
 					{!isSupabaseConfigured && <div className="studio-mode-badge"><span />Demo local</div>}
+					{/* El pulso del dia, solo para el admin: los numeros vivian dentro del
+					    centro admin y habia que entrar a buscarlos. */}
+					{isAdminEmail(getSessionEmail(session)) && session && <PulsoAdmin session={session} onAbrirCentro={() => navigateTo('admin')} />}
 					<button className="studio-credit-pill" onClick={() => setView('plans')}><Icon name="spark" size={16}/><b>{profile.credits}</b><span>{profile.credits === 1 ? 'crédito' : 'créditos'}</span></button>
 				</header>
 

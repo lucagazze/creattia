@@ -55,7 +55,7 @@ export const GET: APIRoute = async ({ request }) => {
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 
 	try {
-		const [users, profilesResult, subscriptionsResult, purchasesResult, subscriptionPaymentsResult, generationsResult, videosResult, overridesResult] = await Promise.all([
+		const [users, profilesResult, subscriptionsResult, purchasesResult, subscriptionPaymentsResult, generationsResult, videosResult, overridesResult, eventosResult] = await Promise.all([
 			listAllUsers(admin),
 			listProfiles(admin),
 			admin.from('creative_subscriptions').select('user_id,provider_subscription_id,plan_code,status,monthly_credits,current_period_end,last_event_id,created_at,updated_at').order('created_at', { ascending: false }),
@@ -64,6 +64,17 @@ export const GET: APIRoute = async ({ request }) => {
 			admin.from('creative_generations').select('id,user_id,status,created_at,completed_at,title,output_path,format,settings_snapshot').order('created_at', { ascending: false }).limit(10000),
 			admin.from('creative_video_generations').select('id,user_id,status,created_at,completed_at,title,duration_seconds').order('created_at', { ascending: false }).limit(5000),
 			admin.from('creative_admin_access_overrides').select('user_id,access_mode,plan_code,credits_override,note,updated_at'),
+			/**
+			 * Las visitas del dia, para el panel en vivo.
+			 *
+			 * Salen de la tabla de eventos y no de una tabla nueva: `app_abierta` ya se
+			 * escribe desde que alguien abre la app, y `landing_vista` desde la home.
+			 * Se pide solo el dia para que la consulta no crezca con el historial.
+			 */
+			admin.from('creative_events')
+				.select('event,user_id,created_at')
+				.in('event', ['app_abierta', 'landing_vista'])
+				.gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
 		]);
 		for (const result of [profilesResult, subscriptionsResult, purchasesResult, subscriptionPaymentsResult, generationsResult, videosResult, overridesResult]) {
 			if (result.error && result.error.code !== '42P01') throw result.error;
@@ -180,6 +191,8 @@ export const GET: APIRoute = async ({ request }) => {
 			}
 		}
 
+		const eventosDelDia: any[] = eventosResult?.error ? [] : (eventosResult?.data || []);
+
 		return json({
 			generatedAt: new Date().toISOString(),
 			metrics: {
@@ -188,6 +201,15 @@ export const GET: APIRoute = async ({ request }) => {
 				newUsers30d: users.filter((user: any) => withinDays(user.created_at, 30)).length,
 				activeToday: users.filter((user: any) => withinDays(user.last_sign_in_at, 1)).length,
 				activeUsers: userRows.filter((user: any) => user.activeNow).length,
+				// Lo de HOY, que es lo que se mira mientras corre una campana. `newUsers7d`
+				// no sirve para eso: el dia que empezas a pautar, siete dias de historia
+				// tapan justamente lo que queres ver.
+				newUsersToday: users.filter((user: any) => withinDays(user.created_at, 1)).length,
+				appViewsToday: eventosDelDia.filter((row: any) => row.event === 'app_abierta').length,
+				landingViewsToday: eventosDelDia.filter((row: any) => row.event === 'landing_vista').length,
+				// Personas distintas, no aperturas: una sola persona que entra ocho veces
+				// no son ocho visitantes.
+				appVisitorsToday: new Set(eventosDelDia.filter((row: any) => row.event === 'app_abierta').map((row: any) => row.user_id).filter(Boolean)).size,
 				activeSubscriptions: activeSubscriptions.length,
 				mrr,
 				totalPaid,
