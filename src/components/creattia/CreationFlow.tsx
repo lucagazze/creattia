@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
 import ProductAssetReview, { type ProductReviewItem } from './ProductAssetReview';
 import { leerRespuestaDeEscaneo } from '../../lib/creattia/errores-de-escaneo';
+import { guardarBorrador, leerBorrador, borrarBorrador, hace, type Borrador } from '../../lib/creattia/borrador-de-creacion';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Página completa de creación fiel al ganador (reemplaza el modal). Mismo
@@ -391,6 +392,87 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [escribiendo, setEscribiendo] = useState<Set<number>>(new Set());
 	const [comparisonGuidance, setComparisonGuidance] = useState('');
 	const [error, setError] = useState('');
+
+	/**
+	 * El borrador de la revisión.
+	 *
+	 * Llegar hasta acá costó un análisis de visión del ganador, que ya se pagó y
+	 * ya se esperó. Cerrar la pestaña o tocar atrás antes de generar lo tiraba
+	 * todo y había que rehacerlo desde la url. Se guarda solo el último, y solo
+	 * mientras está en revisión: en 'setup' no hay nada que valga la pena, y en
+	 * 'starting' la generación ya salió.
+	 */
+	const usuarioId: string = session?.user?.id || '';
+	const [borradorGuardado, setBorradorGuardado] = useState<Borrador | null>(null);
+
+	// Se lee UNA vez, al abrir. Si se leyera en cada render, apenas la persona
+	// tocara algo el aviso de "seguí donde estabas" reaparecería sobre su propio
+	// trabajo.
+	useEffect(() => {
+		if (!usuarioId) return;
+		const guardado = leerBorrador(usuarioId);
+		// Solo se ofrece si es del MISMO anuncio ganador que está abierto: retomar
+		// las decisiones de otro anuncio sobre este sería peor que no ofrecer nada.
+		if (guardado && guardado.ad?.imagePath && guardado.ad.imagePath === ad?.imagePath) setBorradorGuardado(guardado);
+		else if (guardado) borrarBorrador();
+	}, [usuarioId, ad?.imagePath]);
+
+	/**
+	 * Lo que hay que volver a poner para que la revisión quede igual.
+	 *
+	 * `logoCarouselPages` es un Set y JSON lo serializa como {}: viajaba vacío y
+	 * al restaurar un carrusel el logo desaparecía de todas las páginas.
+	 */
+	function estadoDeLaRevision() {
+		return {
+			formStep, copyMode, carouselMode, carouselSameProduct, selectedSlideIndex,
+			productMode, scannedOffering, alcanceOverride, urls, selectedProductIds, importedProducts,
+			manualProductName, manualProductFacts,
+			format, language, colorMode, typoMode, brandSource, paletteOverride,
+			logoMode, logoCarouselPages: [...logoCarouselPages],
+			personMode, personModeSugerido, avatarConsent,
+			pressRowMode, pressRowItems, variantes,
+			plan, slidePlans, zones, people, comparisons, creativeDecisions, comparisonGuidance,
+		};
+	}
+
+	// Se guarda mientras está en revisión y ante cada cambio. En 'setup' no hay
+	// nada que valga la pena guardar todavía, y en 'starting' la generación ya
+	// salió: dejar el borrador ahí haría que al volver se ofreciera repetir algo
+	// que ya se hizo y ya se cobró.
+	useEffect(() => {
+		if (!usuarioId || phase !== 'review') return;
+		guardarBorrador(usuarioId, ad, estadoDeLaRevision());
+	});
+
+	/** Vuelve a poner lo guardado y salta directo a la revisión. */
+	function retomarBorrador(guardado: Borrador) {
+		const e = guardado.estado as any;
+		const poner = <T,>(valor: T | undefined, set: (v: T) => void) => { if (valor !== undefined) set(valor); };
+		poner(e.formStep, setFormStep); poner(e.copyMode, setCopyMode);
+		poner(e.carouselMode, setCarouselMode); poner(e.carouselSameProduct, setCarouselSameProduct);
+		poner(e.selectedSlideIndex, setSelectedSlideIndex);
+		poner(e.productMode, setProductMode); poner(e.scannedOffering, setScannedOffering);
+		poner(e.alcanceOverride, setAlcanceOverride); poner(e.urls, setUrls);
+		poner(e.selectedProductIds, setSelectedProductIds); poner(e.importedProducts, setImportedProducts);
+		poner(e.manualProductName, setManualProductName); poner(e.manualProductFacts, setManualProductFacts);
+		poner(e.format, setFormat); poner(e.language, setLanguage);
+		poner(e.colorMode, setColorMode); poner(e.typoMode, setTypoMode);
+		poner(e.brandSource, setBrandSource); poner(e.paletteOverride, setPaletteOverride);
+		poner(e.logoMode, setLogoMode);
+		if (Array.isArray(e.logoCarouselPages)) setLogoCarouselPages(new Set(e.logoCarouselPages));
+		poner(e.personMode, setPersonMode); poner(e.personModeSugerido, setPersonModeSugerido);
+		poner(e.avatarConsent, setAvatarConsent);
+		poner(e.pressRowMode, setPressRowMode); poner(e.pressRowItems, setPressRowItems);
+		poner(e.variantes, setVariantes);
+		poner(e.plan, setPlan); poner(e.slidePlans, setSlidePlans);
+		poner(e.zones, setZones); poner(e.people, setPeople);
+		poner(e.comparisons, setComparisons); poner(e.creativeDecisions, setCreativeDecisions);
+		poner(e.comparisonGuidance, setComparisonGuidance);
+		setBorradorGuardado(null);
+		setPhase('review');
+	}
+
 	const chip = (active: boolean) => ({
 		padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
 		border: active ? '2px solid #744bde' : '1px solid #e2dde9', background: active ? '#f4f2f6' : '#fff', color: active ? '#744bde' : '#3f3a48',
@@ -691,6 +773,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		if (enviando.current) return;
 		enviando.current = true;
 		setPhase('starting'); setError('');
+		borrarBorrador();
 		onGenerationRequested?.();
 		try {
 			if (productMode === 'url' && selectedProductIds.length === 0) {
@@ -831,6 +914,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		if (enviando.current) return;
 		enviando.current = true;
 		setPhase('starting'); setError('');
+		borrarBorrador();
 		onGenerationRequested?.();
 		let arrancado = false;
 		try {
@@ -984,6 +1068,21 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							</li>
 						))}
 					</ol>
+
+					{/* Solo en 'setup': si ya está revisando, ofrecerle volver a un
+					    borrador sería ofrecerle pisar lo que está haciendo ahora. */}
+					{borradorGuardado && phase === 'setup' && (
+						<div className="borrador-aviso">
+							<div>
+								<strong>Tenías este anuncio listo para generar</strong>
+								<small>Lo dejaste {hace(borradorGuardado.guardadoEn)}, con el análisis del ganador y tus decisiones ya hechas. Podés retomarlo donde estaba.</small>
+							</div>
+							<div className="borrador-aviso-botones">
+								<button type="button" className="borrador-retomar" onClick={() => retomarBorrador(borradorGuardado)}>Seguir donde estaba</button>
+								<button type="button" className="borrador-descartar" onClick={() => { borrarBorrador(); setBorradorGuardado(null); }}>Empezar de cero</button>
+							</div>
+						</div>
+					)}
 
 					{(phase === 'setup' || phase === 'planning') && <>
 						{/* 1 · Tu producto / Servicio */}

@@ -6856,3 +6856,27 @@
 		width: auto; flex: 1 1 calc(50% - 4px); justify-content: center;
 	}
 }
+
+/* El anuncio que quedó a punto de generarse. Va arriba de todo en el paso 1
+   porque es una salida, no un dato: quien vuelve a esta pantalla ya perdió una
+   vez el análisis y lo que necesita es no volver a empezar. */
+.borrador-aviso {
+	display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+	margin: 0 0 18px; padding: 14px 16px; border-radius: 12px;
+	border: 1px solid #d8c9f5; background: #f7f3ff;
+}
+.borrador-aviso strong { display: block; font-size: 14px; color: #3f3560; margin-bottom: 3px; }
+.borrador-aviso small { display: block; font-size: 12.5px; line-height: 1.45; color: #6b6280; max-width: 62ch; }
+.borrador-aviso-botones { display: flex; gap: 8px; flex-wrap: wrap; }
+.borrador-aviso button {
+	min-height: 38px; padding: 0 14px; border-radius: 9px; cursor: pointer;
+	font-family: inherit; font-size: 13px; font-weight: 700;
+}
+.borrador-retomar { border: none; background: #6d35e8; color: #fff; }
+.borrador-retomar:hover { background: #5b28cc; }
+.borrador-descartar { border: 1px solid #ddd3ee; background: #fff; color: #6b6280; }
+.borrador-descartar:hover { border-color: #c2b0e4; color: #4a4260; }
+@media (max-width: 640px) {
+	.borrador-aviso-botones { width: 100%; }
+	.borrador-aviso-botones button { flex: 1 1 auto; }
+}
