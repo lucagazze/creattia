@@ -178,6 +178,10 @@ export const GET: APIRoute = async ({ request }) => {
 				referencePath: row.settings_snapshot?.referencePath || null,
 				referenceName: row.settings_snapshot?.referenceName || row.settings_snapshot?.templateName || null,
 				sourceUrl: row.settings_snapshot?.sourceUrl || null,
+				// Qué producto puso. Lo que se guarda son los ids; la foto se busca
+				// abajo, para todo el feed de una vez y no una consulta por fila.
+				productIds: Array.isArray(row.settings_snapshot?.productIds) ? row.settings_snapshot.productIds : [],
+				productNames: Array.isArray(row.settings_snapshot?.productNames) ? row.settings_snapshot.productNames : [],
 				...authorOf(row.user_id),
 			})),
 			...videos.slice(0, 50).map((row: any) => ({
@@ -188,8 +192,22 @@ export const GET: APIRoute = async ({ request }) => {
 		].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()).slice(0, 60);
 
 		// Miniaturas de los creativos del feed, firmadas en una sola llamada.
+		// La foto del producto que eligió: es la tercera pata de "con qué se hizo"
+		// —el ganador da la forma, el producto da lo que se vende— y era la única
+		// que no se podía ver sin entrar a la base.
+		const idsDeProductos = [...new Set(activity.flatMap((item: any) => item.productIds || []))] as string[];
+		const fotoPorProducto = new Map<string, string>();
+		if (idsDeProductos.length) {
+			const { data: filas } = await admin.from('creative_products')
+				.select('id,image_path').in('id', idsDeProductos.slice(0, 200));
+			for (const fila of filas || []) if (fila.image_path) fotoPorProducto.set(fila.id, fila.image_path);
+			for (const item of activity as any[]) {
+				item.productPaths = (item.productIds || []).map((id: string) => fotoPorProducto.get(id)).filter(Boolean);
+			}
+		}
+
 		const thumbPaths = [...new Set(
-			activity.flatMap((item: any) => [item.outputPath, item.referencePath]).filter(Boolean)
+			activity.flatMap((item: any) => [item.outputPath, item.referencePath, ...(item.productPaths || [])]).filter(Boolean)
 		)] as string[];
 		if (thumbPaths.length) {
 			const { data: signed } = await admin.storage.from('creative-assets').createSignedUrls(thumbPaths, 60 * 60);
@@ -197,6 +215,7 @@ export const GET: APIRoute = async ({ request }) => {
 			for (const item of activity as any[]) {
 				if (item.outputPath) item.thumbUrl = urlByPath.get(item.outputPath) || null;
 				if (item.referencePath) item.referenceUrl = urlByPath.get(item.referencePath) || null;
+				if (item.productPaths?.length) item.productUrls = item.productPaths.map((path: string) => urlByPath.get(path)).filter(Boolean);
 			}
 		}
 

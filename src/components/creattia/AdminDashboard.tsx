@@ -270,6 +270,62 @@ function ActivitySection({ activity, onOpenUser }: { activity: any[]; onOpenUser
 }
 
 /**
+ * Qué entró y qué salió, en grande y sin salir del panel.
+ *
+ * Las miniaturas abrían la imagen firmada en una pestaña nueva: se perdía el
+ * lugar del feed, y sobre todo se veía UNA sola cosa suelta, cuando lo que hay
+ * que mirar para entender un creativo es la comparación —el ganador que se
+ * quiso copiar, el producto que se puso, y en qué terminó—.
+ */
+function VisorDeCreativo({ item, onClose }: { item: any; onClose: () => void }) {
+	// Las tres cosas en el orden en que se leen, salteando las que no estén.
+	const piezas = [
+		item.referenceUrl && { url: item.referenceUrl, etiqueta: 'Anuncio ganador elegido', pie: item.referenceName || '' },
+		...(item.productUrls || []).map((url: string, indice: number) => ({
+			url, etiqueta: (item.productUrls.length > 1 ? `Producto ${indice + 1}` : 'Producto elegido'), pie: item.productNames?.[indice] || '',
+		})),
+		item.thumbUrl && { url: item.thumbUrl, etiqueta: 'Resultado', pie: item.title || '' },
+	].filter(Boolean) as Array<{ url: string; etiqueta: string; pie: string }>;
+
+	// Escape cierra: es lo primero que se prueba cuando algo tapa la pantalla.
+	useEffect(() => {
+		const alTeclear = (evento: KeyboardEvent) => { if (evento.key === 'Escape') onClose(); };
+		window.addEventListener('keydown', alTeclear);
+		return () => window.removeEventListener('keydown', alTeclear);
+	}, [onClose]);
+
+	return (
+		<div className="visor-creativo" role="dialog" aria-modal="true" aria-label="Qué se usó para este creativo" onClick={onClose}>
+			<div className="visor-creativo-caja" onClick={(evento) => evento.stopPropagation()}>
+				<header>
+					<div>
+						<strong>{item.title || 'Creativo'}</strong>
+						<small>{item.name || item.email}{item.sourceUrl ? ' · ' : ''}
+							{item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.sourceUrl}</a>}
+						</small>
+					</div>
+					<button type="button" onClick={onClose} aria-label="Cerrar">✕</button>
+				</header>
+				<div className="visor-creativo-piezas">
+					{piezas.map((pieza, indice) => (
+						<figure key={pieza.url}>
+							<img src={pieza.url} alt={pieza.etiqueta} />
+							<figcaption>
+								<span>{pieza.etiqueta}</span>
+								{pieza.pie && <small>{pieza.pie}</small>}
+							</figcaption>
+							{/* La flecha va ENTRE piezas, no después de la última. */}
+							{indice < piezas.length - 1 && <i className="visor-creativo-flecha" aria-hidden="true">→</i>}
+						</figure>
+					))}
+					{!piezas.length && <EmptyState label="Esta generación no guardó imágenes." />}
+				</div>
+			</div>
+		</div>
+	);
+}
+
+/**
  * Con qué se hizo cada creativo, sin salir del feed.
  *
  * Mostraba solo el resultado, así que para saber de qué anuncio ganador salió o
@@ -283,24 +339,31 @@ function ActivitySection({ activity, onOpenUser }: { activity: any[]; onOpenUser
  */
 function ActivityList({ activity, onOpenUser, large = false }: { activity: any[]; onOpenUser: (id: string) => void; large?: boolean }) {
 	const dominio = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
+	// Cuál se está mirando en grande. Abrir en pestaña nueva perdía el lugar del
+	// feed y además mostraba una sola imagen suelta, cuando lo que sirve es la
+	// comparación entre las tres.
+	const [mirando, setMirando] = useState<any>(null);
 	return (
 		<div className={`admin-activity-list ${large ? 'large' : ''}`}>
+			{mirando && <VisorDeCreativo item={mirando} onClose={() => setMirando(null)} />}
 			{activity.map((item: any, index: number) => (
 				<div className="admin-activity-row" key={`${item.type}-${item.createdAt}-${index}`}>
 					{/* Referencia → resultado, en ese orden y con una flecha en el medio:
 					    es la lectura que uno hace, de qué salió y en qué terminó. */}
 					<span className="admin-activity-par">
 						{item.referenceUrl
-							? <a className="admin-activity-thumb-link" href={item.referenceUrl} target="_blank" rel="noreferrer" title={item.referenceName || 'Referencia usada'}>
+							? <button type="button" className="admin-activity-thumb-link" onClick={() => setMirando(item)} title={item.referenceName || 'Anuncio ganador elegido'}>
 								<img className="admin-activity-thumb is-ref" src={item.referenceUrl} alt="" loading="lazy" decoding="async" />
 								<em>ref</em>
-							</a>
+							</button>
 							: null}
 						{item.referenceUrl && item.thumbUrl ? <i className="admin-activity-flecha" aria-hidden="true">→</i> : null}
 						{item.thumbUrl
-							? <a className="admin-activity-thumb-link" href={item.thumbUrl} target="_blank" rel="noreferrer" title="Abrir el resultado">
+							? <button type="button" className="admin-activity-thumb-link" onClick={() => setMirando(item)} title="Ver qué se usó y cómo salió">
 								<img className="admin-activity-thumb" src={item.thumbUrl} alt="" loading="lazy" decoding="async" />
-							</a>
+								{/* Cuántas fotos de producto había: se ven todas al abrir. */}
+								{item.productUrls?.length ? <em className="es-producto">+{item.productUrls.length}</em> : null}
+							</button>
 							: !item.referenceUrl
 								? <span className={`admin-activity-icon ${item.type}`}>{item.type === 'signup' ? '+' : item.type === 'payment' ? '$' : item.type === 'subscription' ? '◆' : item.type === 'video' ? '▶' : '✦'}</span>
 								: null}

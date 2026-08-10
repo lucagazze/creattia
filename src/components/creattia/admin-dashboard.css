@@ -234,3 +234,63 @@
 @media (max-width: 720px) {
 	.admin-activity-url { max-width: 120px; }
 }
+
+/* ─── Visor: qué entró y qué salió ────────────────────
+   Las miniaturas abrían la imagen en una pestaña nueva: se perdía el lugar del
+   feed y se veía UNA sola cosa suelta, cuando lo que hace falta para entender
+   un creativo es la comparación entre el ganador, el producto y el resultado. */
+.visor-creativo {
+	position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
+	padding: 24px; background: rgba(20, 17, 26, .72); backdrop-filter: blur(3px);
+	animation: visor-entra .14s ease-out;
+}
+@keyframes visor-entra { from { opacity: 0; } to { opacity: 1; } }
+.visor-creativo-caja {
+	display: flex; flex-direction: column; gap: 0; width: min(1120px, 100%); max-height: 90vh;
+	overflow: hidden; border-radius: 16px; background: #fff; box-shadow: 0 24px 60px rgba(20, 17, 26, .32);
+}
+.visor-creativo-caja header {
+	display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+	padding: 15px 18px; border-bottom: 1px solid #f0ecf4;
+}
+.visor-creativo-caja header strong { display: block; color: #2a2433; font-size: 14px; font-weight: 750; }
+.visor-creativo-caja header small { display: block; margin-top: 2px; color: #8b8194; font-size: 11.5px; }
+.visor-creativo-caja header a { color: #7048ba; text-decoration: none; }
+.visor-creativo-caja header a:hover { text-decoration: underline; }
+.visor-creativo-caja header button {
+	flex: 0 0 auto; width: 30px; height: 30px; border-radius: 9px; border: 1px solid #e6e0f0;
+	background: #fff; color: #6b6280; font-size: 13px; cursor: pointer;
+}
+.visor-creativo-caja header button:hover { border-color: #c9b4f5; color: #4a4260; }
+/* Las piezas en fila, con la flecha entre una y otra: se lee de qué salió y en
+   qué terminó. En pantalla angosta se apilan y la flecha gira. */
+.visor-creativo-piezas {
+	display: flex; align-items: flex-start; gap: 8px; overflow: auto; padding: 18px;
+}
+.visor-creativo-piezas figure {
+	position: relative; flex: 1 1 0; min-width: 190px; margin: 0;
+	display: flex; flex-direction: column; gap: 8px;
+}
+.visor-creativo-piezas img {
+	width: 100%; max-height: 58vh; object-fit: contain; border-radius: 11px;
+	background: #f6f4f9; border: 1px solid #ece6f4;
+}
+.visor-creativo-piezas figcaption { text-align: center; }
+.visor-creativo-piezas figcaption span {
+	display: block; color: #5c5568; font-size: 11px; font-weight: 800;
+	letter-spacing: .03em; text-transform: uppercase;
+}
+.visor-creativo-piezas figcaption small { display: block; margin-top: 2px; color: #a49bad; font-size: 11px; }
+.visor-creativo-flecha {
+	position: absolute; top: 46%; right: -13px; z-index: 1;
+	color: #b9b0c4; font-size: 15px; font-style: normal;
+}
+/* El chip con cuántas fotos de producto hay, sobre la miniatura del resultado. */
+.admin-activity-thumb-link em.es-producto { left: auto; right: 2px; background: rgba(112, 72, 186, .88); }
+.admin-activity-thumb-link { border: 0; padding: 0; background: transparent; cursor: pointer; }
+@media (max-width: 760px) {
+	.visor-creativo { padding: 12px; }
+	.visor-creativo-piezas { flex-direction: column; }
+	.visor-creativo-piezas figure { width: 100%; min-width: 0; }
+	.visor-creativo-flecha { top: auto; right: auto; bottom: -14px; left: 50%; transform: rotate(90deg); }
+}
