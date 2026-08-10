@@ -176,7 +176,17 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	// Carrusel completo: en cuáles páginas va el logo. Solo se mira cuando
 	// `includeLogo` está prendido; al prenderlo arrancan todas.
 	const [logoCarouselPages, setLogoCarouselPages] = useState<Set<number>>(new Set());
-	const count = wantsFullCarousel ? carouselSlides.length : 1;
+	/**
+	 * Cuántas versiones distintas del mismo aviso se piden de una.
+	 *
+	 * El motor no devuelve dos veces lo mismo con el mismo prompt, así que
+	 * pedir cuatro es la forma barata de elegir: se generan juntas, con el
+	 * análisis y las decisiones ya tomadas, en vez de rehacer todo el flujo
+	 * cuatro veces. En un carrusel no aplica: ahí la cantidad la fija cuántas
+	 * páginas tiene el ganador.
+	 */
+	const [variantes, setVariantes] = useState(1);
+	const count = wantsFullCarousel ? carouselSlides.length : variantes;
 	const [manualProductName, setManualProductName] = useState('');
 	const [manualProductFacts, setManualProductFacts] = useState('');
 	/**
@@ -1693,6 +1703,30 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 						)}
 
 						{error && <p style={{ margin: '0 0 14px', padding: '12px 14px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '10px', color: '#a43f3f', fontSize: '14px' }}>{error}</p>}
+
+						{/* Va pegado al botón a propósito: el botón dice cuántos créditos
+						    sale, así que el número y su precio se leen de un vistazo. */}
+						{!wantsFullCarousel && (
+							<section className="logo-decision" aria-label="Cuántas versiones generar" style={{ marginBottom: '14px' }}>
+								<div className="logo-decision-head">
+									<strong>¿Cuántas versiones querés?</strong>
+									<small>Se generan juntas con estas mismas decisiones, y elegís la que más te guste. Cada una sale distinta y cuesta un crédito.</small>
+								</div>
+								<div className="logo-decision-options opciones-cortas" role="radiogroup" aria-label="Cantidad de versiones">
+									{[1, 2, 3, 4].map((cantidad) => (
+										<button
+											key={cantidad}
+											type="button" role="radio" aria-checked={variantes === cantidad}
+											className={variantes === cantidad ? 'active' : ''}
+											onClick={() => setVariantes(cantidad)}
+											disabled={phase === 'starting'}
+										>
+											{cantidad === 1 ? '1 imagen' : `${cantidad} imágenes`}
+										</button>
+									))}
+								</div>
+							</section>
+						)}
 
 						<div className="wiz-actions">
 							<button type="button" className="wiz-back" onClick={() => { setPhase('setup'); setFormStep(3); }} disabled={phase === 'starting'}>← Ajustes</button>

@@ -262,7 +262,13 @@ export const POST: APIRoute = async ({ request }) => {
 			...form.getAll('productIds').filter((value): value is string => typeof value === 'string'),
 			clean(form.get('productId'), 60),
 		]);
-		const requestedCount = Number(clean(form.get('count'), 1) || 1);
+		// Cuántas versiones del mismo aviso. El techo es real: cada una es una
+		// imagen que se cobra y que se paga, así que un número absurdo llegado del
+		// cliente no puede convertirse en veinte renders. Un valor roto cae en 1,
+		// que es lo único seguro cuando no se entiende lo que pidieron.
+		const pedido = Math.floor(Number(clean(form.get('count'), 2) || 1));
+		const requestedCount = Number.isFinite(pedido) ? Math.min(4, Math.max(1, pedido)) : 1;
+		// Rehacer una generación existente devuelve UNA, no un abanico nuevo.
 		const count = sourceGenerationId ? 1 : requestedCount;
 		// Todas las imágenes salen en el mismo nivel de calidad: lo decide
 		// quality-router (medium por defecto, IMAGE_QUALITY_TIER para cambiarlo en

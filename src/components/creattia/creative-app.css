@@ -6845,3 +6845,14 @@
 	.pulso-dato:nth-child(n+3) { display: none; }
 }
 @media (max-width: 620px) { .pulso-admin { display: none; } }
+
+/* Opciones cortas: las de logo y persona traen etiquetas largas y su chip de
+   "recomendado", así que en el celular necesitan una fila cada una. Cuatro
+   opciones de dos palabras no: apiladas ocupaban media pantalla y empujaban el
+   botón de generar —el que dice cuántos créditos sale— fuera de la vista. */
+@media (max-width: 640px) {
+	.logo-decision-options.opciones-cortas { flex-direction: row; }
+	.logo-decision-options.opciones-cortas button {
+		width: auto; flex: 1 1 calc(50% - 4px); justify-content: center;
+	}
+}
