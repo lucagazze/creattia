@@ -40,7 +40,7 @@ Verified product facts: "${productFacts}"
 Extra direction: "${extra}"
 Current suggestion: "${current}"
 
-Write a fresh, persuasive alternative that performs the same persuasive role, in the requested language (code: ${language}). Keep it similar in length or shorter so it fits the original layout. Do not invent prices, discounts, guarantees, reviews, certifications or URLs. Output only the raw replacement text, with no markdown, quotes or explanation.`;
+Write a fresh, persuasive alternative that performs the same persuasive role, in the requested language (code: ${language}). LENGTH IS A HARD CONSTRAINT: the original is ${original.length} characters, so yours must be between ${Math.max(1, original.length - 3)} and ${original.length + 3}. Count the characters one by one before answering. That block was designed for a string of that size: a longer one reflows the line and breaks the layout, a much shorter one leaves a hole. If the idea does not fit, change the idea, not the length. Do not invent prices, discounts, guarantees, reviews, certifications or URLs. Output only the raw replacement text, with no markdown, quotes or explanation.`;
 
 		let text = '';
 		if (googleKey) {
@@ -63,7 +63,27 @@ Write a fresh, persuasive alternative that performs the same persuasive role, in
 		}
 
 		if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith('“') && text.endsWith('”'))) text = text.slice(1, -1).trim();
-		return json({ replacement: stripWebReferences(text || current) });
+		const propuesto = stripWebReferences(text || current);
+		/**
+		 * El largo se verifica acá, no se confía en que el modelo lo haya contado.
+		 *
+		 * Pedirle "entre 21 y 27 caracteres" mejora mucho el resultado pero no lo
+		 * garantiza: los modelos cuentan mal. Y el bloque de texto del ganador fue
+		 * diseñado para una cadena de ese tamaño — uno más largo reflowea la línea y
+		 * desarma la columna entera, que es exactamente lo que se quería evitar.
+		 *
+		 * Un texto que se pasa se devuelve igual, porque una sugerencia imperfecta
+		 * sirve más que un error, pero viaja con el dato para que la pantalla pueda
+		 * mostrarlo y la persona decida.
+		 */
+		const objetivo = original.length;
+		const desvio = objetivo ? propuesto.length - objetivo : 0;
+		return json({
+			replacement: propuesto,
+			largo: propuesto.length,
+			largoOriginal: objetivo,
+			seExcede: Math.abs(desvio) > 3,
+		});
 	} catch (error) {
 		return json({ error: error instanceof Error ? error.message : 'Error al reescribir.' }, 500);
 	}

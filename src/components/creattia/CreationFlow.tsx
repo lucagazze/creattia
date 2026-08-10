@@ -757,7 +757,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.error || 'No se pudo reescribir el texto.');
 			setZones((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, replacement: payload.replacement } : item));
-			onToast?.('Texto regenerado con éxito.');
+			// El largo del bloque es parte del diseño del ganador: si el texto nuevo se
+			// pasa, la línea se reflowea y se corre todo lo de abajo. Se avisa en vez
+			// de rechazarlo — una sugerencia imperfecta sirve más que un error.
+			onToast?.(payload.seExcede
+				? `Texto regenerado, pero mide ${payload.largo} caracteres y el original ${payload.largoOriginal}: puede no entrar igual.`
+				: 'Texto regenerado con éxito.');
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo reescribir el texto.');
 		} finally {
