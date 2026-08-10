@@ -263,3 +263,43 @@ describe('la miniatura del logo muestra el archivo que se va a usar', () => {
 	});
 });
 
+
+/**
+ * El titular salía clavado y el texto de la tarjeta salía más grande y más
+ * separado. No era azar: el analizador medía la altura de mayúscula DEL TITULAR
+ * y de ningún otro bloque, así que el titular tenía un número que respetar y el
+ * resto quedaba librado a cómo compone el modelo por defecto — que es cómodo de
+ * leer, o sea más grande y con más interlineado que un aviso editorial.
+ *
+ * La corrección no es otra regla pidiendo "mismo tamaño": eso ya lo decía TEXT
+ * FIT y perdía, porque una instrucción sin número no tiene con qué ganar.
+ */
+describe('el texto chico se mide, no se estima', () => {
+	const conGeometria = (geometria: string) => buildClonePrompt(
+		{ productNames: ['Silla'], productFacts: [], brief: '', brandName: 'BKF', colorMode: 'winner' as const, typoMode: 'winner' as const, subjectMode: 'product' as const },
+		{ referenceHasProduct: true, compositionGeometry: geometria } as any,
+		false,
+	);
+
+	test('la medida del texto chico viaja al render', () => {
+		const prompt = conGeometria('headline cap-height 14% of width; body text cap-height 3.2% of width, lines set tight at 1.15x cap-height');
+		assert.match(prompt, /body text cap-height 3\.2% of width, lines set tight at 1\.15x cap-height/);
+	});
+
+	test('el bloqueo de geometría alcanza a los bloques chicos y al interlineado', () => {
+		const prompt = conGeometria('headline cap-height 14% of width');
+		assert.match(prompt, /every smaller text block keeps ITS measured cap-height and ITS measured line spacing/);
+		// Lo que efectivamente pasó: la tarjeta salió más grande y más separada.
+		assert.match(prompt, /opening the leading toward a comfortable reading size/i);
+	});
+
+	/**
+	 * El campo se corta antes de entrar al prompt. Con dos medidas entraba en 700
+	 * caracteres; ahora son cuatro y la última —justo la del texto chico, que va
+	 * al final— se perdía por el recorte.
+	 */
+	test('el recorte del campo deja lugar para las cuatro medidas', () => {
+		const largo = 'x'.repeat(880);
+		assert.match(conGeometria(largo), new RegExp('x{880}'));
+	});
+});
