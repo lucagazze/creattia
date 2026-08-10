@@ -18,13 +18,13 @@ const base = {
 	typoMode: 'winner' as const,
 };
 
-describe('marca cuando se elige sin logo', () => {
+describe('con qué se firma el anuncio', () => {
 	test('si el ganador firma en algún lado, ahí va el nombre de la marca', () => {
-		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, { templateHasLogoSlot: true } as any, false);
-		assert.match(prompt, /WRITE the brand name "Tostado"/);
-		assert.match(prompt, /where the template placed its brand mark/i);
-		// Sigue prohibido dibujar un emblema.
-		assert.match(prompt, /Do NOT draw a logo, emblem, monogram/i);
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado', logoMode: 'texto' }, { templateHasLogoSlot: true } as any, false);
+		assert.match(prompt, /WRITE "Tostado"/);
+		assert.match(prompt, /the same relative size, weight, case, letter-spacing, colour and alignment/i);
+		// Sigue prohibido dibujar un emblema donde va una línea de tipografía.
+		assert.match(prompt, /do NOT add a shield, seal, badge/i);
 	});
 
 	test('si el ganador NO firma, el clon tampoco', () => {
@@ -34,9 +34,63 @@ describe('marca cuando se elige sin logo', () => {
 		 * nombre del negocio arriba de todo en anuncios cuya referencia tenía ese
 		 * espacio vacío. Un elemento de más también rompe el parecido.
 		 */
-		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, { templateHasLogoSlot: false } as any, false);
-		assert.match(prompt, /THE TEMPLATE DOES NOT SIGN ITSELF ANYWHERE/);
-		assert.doesNotMatch(prompt, /WRITE the brand name "Tostado"/);
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado', logoMode: 'nada' }, { templateHasLogoSlot: false } as any, false);
+		assert.match(prompt, /Do not add a logo, wordmark, domain, watermark or brand badge/i);
+		assert.doesNotMatch(prompt, /WRITE "Tostado"/);
+	});
+
+	/**
+	 * El default es escribir el nombre, no pegar el archivo.
+	 *
+	 * Antes la decisión era un sí/no cuyo único "sí" era pegar el archivo del
+	 * logo, así que el caso más común —el ganador firma con su nombre escrito y
+	 * el clon hace lo mismo con el del negocio— solo salía por casualidad,
+	 * cuando el analizador había marcado la marca del ganador como wordmark.
+	 */
+	test('escribir el nombre no adjunta ni dibuja ningún archivo', () => {
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado', logoMode: 'texto' }, { templateHasLogoSlot: true, logoIsWordmark: false } as any, true);
+		assert.match(prompt, /WRITE "Tostado"/);
+		assert.doesNotMatch(prompt, /place the provided brand logo/i);
+		// Con un emblema de por medio hay que decir de qué tamaño va el nombre.
+		assert.match(prompt, /occupy the footprint its symbol occupied/i);
+	});
+
+	test('sacar la firma no deja un nombre inventado tapando el hueco', () => {
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado', logoMode: 'nada' }, { templateHasLogoSlot: true } as any, true);
+		assert.match(prompt, /Remove it cleanly/i);
+		assert.match(prompt, /Do not invent a replacement name, icon or badge/i);
+		assert.doesNotMatch(prompt, /WRITE "Tostado"/);
+	});
+
+	/**
+	 * Las generaciones anteriores a este campo guardaron un sí/no. Rehacerlas
+	 * desde el historial tiene que dar lo mismo que daban entonces, y entonces
+	 * ese "sí" era pegar el archivo.
+	 */
+	test('sin modo elegido se deduce lo que hacían las generaciones viejas', () => {
+		const conArchivo = buildClonePrompt({ ...base, brandName: 'Tostado' }, { templateHasLogoSlot: true } as any, true);
+		assert.match(conArchivo, /Replace it with the supplied selected-identity logo/i);
+		const sinArchivo = buildClonePrompt({ ...base, brandName: 'Tostado' }, { templateHasLogoSlot: true, logoIsWordmark: true } as any, false);
+		assert.match(sinArchivo, /WRITE "Tostado"/);
+	});
+
+	/**
+	 * El sí/no viejo en `false` NO quería decir "sin firma".
+	 *
+	 * Con un ganador que firma escribiendo su nombre, esas generaciones escribían
+	 * el nombre del negocio. Al traducir el sí/no a un modo en el endpoint —donde
+	 * todavía no se leyó el ganador— salía 'nada', y rehacer desde el historial
+	 * un aviso que tenía su firma lo devolvía sin ella. La deducción tiene que
+	 * quedar acá, que es donde el análisis está delante.
+	 */
+	test('rehacer sin modo no le saca la firma a un ganador que firma escribiendo', () => {
+		const prompt = buildClonePrompt(
+			{ ...base, brandName: 'Tostado', logoMode: undefined },
+			{ templateHasLogoSlot: true, logoIsWordmark: true } as any,
+			false,
+		);
+		assert.match(prompt, /WRITE "Tostado"/);
+		assert.doesNotMatch(prompt, /Remove it cleanly/i);
 	});
 
 	test('nunca se inventa una dirección web ni un sello', () => {
@@ -48,15 +102,27 @@ describe('marca cuando se elige sin logo', () => {
 	});
 
 	test('sin nombre de marca, no se inventa ninguno', () => {
-		const prompt = buildClonePrompt({ ...base, brandName: '' }, null, false);
-		assert.match(prompt, /do not invent a brand name/i);
-		assert.doesNotMatch(prompt, /WRITE the brand name/);
+		const prompt = buildClonePrompt({ ...base, brandName: '', logoMode: 'texto' }, { templateHasLogoSlot: true } as any, false);
+		assert.match(prompt, /no brand name was supplied: leave the space clean/i);
+		assert.doesNotMatch(prompt, /WRITE "/);
 	});
 
 	test('con logo elegido, se usa la imagen y no el texto', () => {
-		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, null, true);
-		assert.match(prompt, /INCLUDE LOGO/);
-		assert.doesNotMatch(prompt, /WRITE the brand name "Tostado"/);
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado', logoMode: 'imagen' }, { templateHasLogoSlot: true } as any, true);
+		assert.match(prompt, /Replace it with the supplied selected-identity logo/i);
+		assert.doesNotMatch(prompt, /WRITE "Tostado"/);
+	});
+
+	/**
+	 * La decisión estaba escrita DOS veces —acá y dentro del paso "BRAND SWAP"—
+	 * y las dos versiones ya no decían lo mismo: la de BRAND SWAP se guiaba por
+	 * si había archivo adjunto en vez de por lo que el usuario había elegido, de
+	 * modo que pidiendo "escribir el nombre" igual mandaba pegar el logo.
+	 */
+	test('la decisión está escrita una sola vez en todo el prompt', () => {
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado', logoMode: 'texto' }, { templateHasLogoSlot: true } as any, true);
+		assert.equal(prompt.match(/LOGO DECISION \(CRITICAL\)/g)?.length, 1);
+		assert.doesNotMatch(prompt, /The user explicitly selected INCLUDE LOGO/);
 	});
 
 	test('elegir sin logo nunca borra la marca impresa en el packaging real', () => {
@@ -70,6 +136,43 @@ describe('marca cuando se elige sin logo', () => {
 });
 
 describe('marcas de terceros y la foto del ganador', () => {
+	/**
+	 * Quién afirma la cobertura es lo que separa mostrarla de inventarla.
+	 *
+	 * La fila del ganador nunca se copia: sus medios son de otra empresa y
+	 * dejarlos afirma una cobertura que este negocio no tiene. Pero el negocio
+	 * que SÍ salió en un medio tiene derecho a mostrarlo, con el logo incluido,
+	 * y eso antes no se podía pedir: 'logos' existía en el tipo y se comportaba
+	 * como "sacar el bloque", así que la opción no hacía nada.
+	 */
+	test('con logos declarados se dibujan esos y solo esos', () => {
+		const prompt = buildClonePrompt(
+			{ ...base, brandName: 'Tostado', pressRowMode: 'logos', pressRowItems: ['La Nación', 'Infobae'] },
+			{ pressRow: { detected: true, heading: 'As seen on', outlets: ['Forbes', 'NBC News'] } } as any,
+			false,
+		);
+		assert.match(prompt, /draw the actual mark of each of these — La Nación, Infobae/);
+		// Los del ganador siguen sin poder aparecer, en cualquier modo.
+		assert.match(prompt, /nothing carried over from the winner's row/i);
+		assert.doesNotMatch(prompt, /Forbes/);
+	});
+
+	/**
+	 * Sin nombres declarados no hay fila. Es la regla que impide que la app
+	 * rellene sola: era exactamente el bug original —el analizador listaba
+	 * "Forbes" y "NBC News" como textos reemplazables y la fila volvía llena de
+	 * lo primero que el modelo encontraba, en un caso con marcas del producto.
+	 */
+	test('elegir logos sin declarar ninguno no dibuja una fila', () => {
+		const prompt = buildClonePrompt(
+			{ ...base, brandName: 'Tostado', pressRowMode: 'logos', pressRowItems: [] },
+			{ pressRow: { detected: true, heading: 'As seen on', outlets: ['Forbes'] } } as any,
+			false,
+		);
+		assert.match(prompt, /Remove the whole area, including the heading/i);
+		assert.match(prompt, /Do not replace it with invented logos, invented outlet names/i);
+	});
+
 	test('los logos de prensa del ganador nunca se copian', () => {
 		/**
 		 * Un anuncio de asesoría financiera con la fila "As featured in" —FOX

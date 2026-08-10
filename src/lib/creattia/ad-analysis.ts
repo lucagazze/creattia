@@ -17,6 +17,16 @@ Text must read as if it were typed in a design tool and exported at full resolut
 
 // ── Compartido entre /api/creativos/plan y /api/creativos/generate ──────────
 
+/**
+ * Con qué se firma el aviso.
+ *
+ * 'texto' escribe el nombre del negocio con la tipografía del ganador, 'imagen'
+ * pega el archivo del logo, 'nada' deja el lugar limpio. Es el default 'texto'
+ * el que importa: la mayoría de los ganadores firman con el nombre escrito, y
+ * pegar un escudo donde había una línea de tipografía se ve mal hecho de lejos.
+ */
+export type LogoMode = 'texto' | 'imagen' | 'nada';
+
 export type LayoutAnalysis = {
 	/** What the target represents: a physical item, a service, or a SaaS/brand. */
 	subjectType?: 'physical-product' | 'service' | 'saas' | 'brand-led' | 'unknown';
@@ -103,6 +113,15 @@ export type LayoutAnalysis = {
 	 * una línea de texto, y es de lo primero que se ve como "mal hecho".
 	 */
 	logoIsWordmark?: boolean;
+	/**
+	 * Dónde está la firma del ganador, en castellano y en dos palabras.
+	 *
+	 * Vivía adentro de `logoDescription`, en inglés y pegado a la descripción
+	 * de la marca ("small wordmark bottom-right"). Servía para el prompt pero
+	 * no para mostrárselo a alguien: al recomendar poner el logo había que
+	 * elegir sin saber en qué parte de la imagen iba a aparecer.
+	 */
+	logoWhere?: string;
 	productPlacement?: string;
 	/**
 	 * TODAS las apariciones del producto del ganador, no solo la principal.
@@ -396,7 +415,8 @@ Return STRICT JSON:
   "compositionGeometry": "THE LAYOUT IN PROPORTIONS, as fractions of the canvas, so it can be rebuilt exactly. State: where the canvas is divided and by how much (e.g. 'a vertical divider at exactly 50% splits the canvas into two equal halves'); for each horizontal band, what it holds and what fraction of the height it takes (e.g. 'headline block occupies the top 18%, the two subjects the middle 62%, the closing text the bottom 20%'); the cap-height of the headline as a fraction of the canvas width; and the outer margin as a fraction of the width. Measure with your eyes against the edges of the image — do not estimate from memory of similar ads.",
   "templateHasLogoSlot": true|false — does the template visibly display a brand logo or brand wordmark (a natural spot where the advertiser brand belongs)?,
   "logoIsWordmark": true|false — is that brand mark simply the BRAND NAME SET IN TYPE (letters only, no emblem, shield, crest, seal, badge or pictorial symbol)? A name written in a styled typeface is still a wordmark → true. Only an actual drawn symbol, or a symbol locked up with the name, is false. Null if there is no brand mark at all.,
-  "logoDescription": "if templateHasLogoSlot is true, briefly describe the logo/wordmark and WHERE it sits (e.g. 'small wordmark bottom-right'); else null",
+  "logoDescription": "if templateHasLogoSlot is true, briefly describe the mark itself (e.g. 'small wordmark in white caps'); else null",
+  "logoWhere": "if templateHasLogoSlot is true, WHERE that mark sits, in Spanish and in a few plain words someone who knows nothing about design would understand (e.g. 'abajo a la derecha', 'arriba centrado, sobre el titular'); else null",
   "productHasPackaging": true|false,
   "productPlacement": "precise description of where/how the template's MAIN product sits: position, scale relative to canvas, angle, cropping, lighting, shadow — or null if the template shows no product",
   "productInstances": [
@@ -531,6 +551,7 @@ Rules:
 			parsed.renderingMedium = typeof parsed.renderingMedium === 'string' ? parsed.renderingMedium.trim().slice(0, 300) : '';
 			parsed.compositionGeometry = typeof parsed.compositionGeometry === 'string' ? parsed.compositionGeometry.trim().slice(0, 700) : '';
 			parsed.logoIsWordmark = parsed.logoIsWordmark === true;
+			parsed.logoWhere = typeof parsed.logoWhere === 'string' ? parsed.logoWhere.trim().slice(0, 80) : '';
 			parsed.pressRow = parsed.pressRow && typeof parsed.pressRow === 'object' && parsed.pressRow.detected === true
 				? {
 					detected: true,
@@ -697,6 +718,17 @@ export function buildReferenceClonePrompt(input: {
 	productFacts?: string[];
 	brandName: string;
 	hasLogo: boolean;
+	/**
+	 * Cómo se firma el aviso: con el nombre escrito, con el archivo del logo,
+	 * o sin firma.
+	 *
+	 * Antes era el sí/no de `hasLogo`, y el "sí" significaba siempre PEGAR EL
+	 * ARCHIVO. El caso más común no tenía forma de pedirse: el ganador firma
+	 * con el nombre en tipografía y ahí va escrito el nombre del negocio, no un
+	 * escudo. Se colaba igual, pero solo si el analizador había marcado la
+	 * marca del ganador como wordmark, o sea por casualidad y no por decisión.
+	 */
+	logoMode?: LogoMode;
 	brief: string;
 	analysis?: LayoutAnalysis | null;
 	languageCode?: string;
@@ -1175,18 +1207,25 @@ MARGINS ARE PART OF THE DESIGN — Keep the same clear space between every text 
 	 * entera. Si el ganador firma con tipografía, el clon también.
 	 */
 	const marcaComoTexto = input.analysis?.logoIsWordmark === true;
-	const wordmarkInstruction = input.brandName
-		? `THE TEMPLATE'S BRAND MARK IS A WORDMARK — the name set in type, with no emblem — so the new ad signs the same way: WRITE "${input.brandName}" as clean typography in that same position, at the same relative size, with the same weight, case, letter-spacing, colour and alignment the template gives its own name. Do NOT paste the supplied logo image here, and do NOT add a shield, seal, badge, medallion, ribbon, laurel, crest or any container shape around it: the template has none, and adding one is instantly visible as wrong. The supplied logo image is context for the brand's colours only — it must not be drawn into the ad.`
-		: 'The template signs with a WORDMARK set in type, not with a graphic mark. Do not paste a logo image, emblem, shield or seal into that slot; leave the space clean rather than introducing a mark the template does not have.';
+	// La deducción es para las generaciones viejas, que guardaron un sí/no y no
+	// un modo. Da exactamente lo que esas generaciones hacían: con archivo
+	// adjunto se pegaba el archivo, y sin archivo se escribía el nombre solo si
+	// el analizador había marcado la marca del ganador como wordmark.
+	const modoDeFirma: LogoMode = input.logoMode || (input.hasLogo ? 'imagen' : marcaComoTexto ? 'texto' : 'nada');
+	const firmaEscrita = input.brandName
+		? `SIGN IT WITH THE NAME SET IN TYPE — WRITE "${input.brandName}" in that same position, at the same relative size, weight, case, letter-spacing, colour and alignment the template gives its own mark${marcaComoTexto ? '' : ', sized so the words occupy the footprint its symbol occupied'}. Do NOT paste any logo image here, and do NOT add a shield, seal, badge, medallion, ribbon, laurel, crest or any container shape around it: the template has none, and adding one is instantly visible as wrong. Any supplied logo image is context for the brand's colours only — it must not be drawn into the ad.`
+		: 'That slot is signed with the brand name set in type, but no brand name was supplied: leave the space clean rather than inventing one or pasting a mark the template does not have.';
 	const logoDecision = input.analysis?.templateHasLogoSlot
-		? `\nLOGO DECISION (CRITICAL) — The winning reference contains an ad-level brand mark${input.analysis.logoDescription ? ` (${input.analysis.logoDescription})` : ''}. Do not copy that original logo, wordmark, domain or watermark literally. ${input.hasLogo
-			? (marcaComoTexto
-				? wordmarkInstruction
-				: 'Replace it with the supplied selected-identity logo, in the same structural role, scale and visual balance, exactly once. Match the size the template gives its own mark: it is a small signature, not a hero element — do not enlarge it, do not centre it, do not let it compete with the headline, and keep the same clear space around it. The selected logo is the only advertiser logo allowed.')
-			: 'Remove it cleanly and preserve the surrounding spacing and hierarchy. Do not invent a replacement name, icon or badge just to fill the gap.'} If the mark is printed on the TARGET PRODUCT itself (its packaging, label, garment, hardware or other physical surface), that is product identity and must remain faithful; this rule applies only to the winning ad\'s brand marks.`
-		: `\nLOGO DECISION (CRITICAL) — The winning reference has no confirmed ad-level logo slot. ${input.hasLogo
+		? `\nLOGO DECISION (CRITICAL) — The winning reference contains an ad-level brand mark${input.analysis.logoDescription ? ` (${input.analysis.logoDescription})` : ''}. Do not copy that original logo, wordmark, domain or watermark literally. ${modoDeFirma === 'imagen'
+			? 'Replace it with the supplied selected-identity logo, in the same structural role, scale and visual balance, exactly once. Match the size the template gives its own mark: it is a small signature, not a hero element — do not enlarge it, do not centre it, do not let it compete with the headline, and keep the same clear space around it. The selected logo is the only advertiser logo allowed.'
+			: modoDeFirma === 'texto'
+				? firmaEscrita
+				: 'Remove it cleanly and preserve the surrounding spacing and hierarchy. Do not invent a replacement name, icon or badge just to fill the gap.'} If the mark is printed on the TARGET PRODUCT itself (its packaging, label, garment, hardware or other physical surface), that is product identity and must remain faithful; this rule applies only to the winning ad\'s brand marks.`
+		: `\nLOGO DECISION (CRITICAL) — The winning reference has no confirmed ad-level logo slot. ${modoDeFirma === 'imagen'
 			? 'Only include the supplied selected-identity logo if the reference has a natural, clearly visible brand position; never create a new logo lockup, badge or footer.'
-			: `Do not add a logo, wordmark, domain, watermark or brand badge.${isPhysicalSubject ? ' Preserve any genuine branding printed on the TARGET PRODUCT itself because it is part of the product, not an ad overlay.' : ''}`}`;
+			: modoDeFirma === 'texto' && input.brandName
+				? `Write "${input.brandName}" exactly once, small and quiet, in a margin the layout already leaves empty, in the ad's own typeface and in a colour already present in it. Do not build a lockup, badge, footer bar, container or symbol for it, and never let it compete with the headline.`
+				: `Do not add a logo, wordmark, domain, watermark or brand badge.${isPhysicalSubject ? ' Preserve any genuine branding printed on the TARGET PRODUCT itself because it is part of the product, not an ad overlay.' : ''}`}`;
 	const layoutFidelityRule = `\nLAYOUT FIDELITY OF TEXT BLOCKS (CRITICAL) — Every text block keeps the place it has in the template: same corner, same side, same distance from the edges, same width, same alignment inside the block (centred stays centred, flush-left stays flush-left), and the same relationship with the photo — a block overlapping the image on the left overlaps on the left. Mirroring, recentring or resizing one breaks the composition that made the original work. Reproduce too any highlight, marker, underline or boxed word applied to part of a text: those marks tell the reader where to look.`;
 
 	const catalogRule = isCatalogSubject
@@ -1204,7 +1243,7 @@ Build the same piece again: same medium, same geometry, same proportions, same l
 
 NOTHING THAT IS NOT IN THE TEMPLATE (READ THIS FIRST) — You may only reproduce elements that are VISIBLE in the winning ad. Before adding anything, look for it in the template; if it is not there, it does not go in. This applies especially to what tends to get added by reflex: a web address, a domain, a social handle or a QR code; a logo, a wordmark or a brand line; a badge, seal, medallion, ribbon, laurel, star rating or certification; a guarantee, a discount or a shipping promise; an extra caption or an extra icon. The advertiser's website and brand name are given to you as CONTEXT so you can write honest copy — they are not instructions to print them. An ad that shows one element more than the template is wrong even if that element looks good. Equally, do not leave large empty areas the template does not have: every band of the canvas carries what the template's equivalent band carries.
 
-THIRD-PARTY MARKS ARE NEVER COPIED (CRITICAL) — If the template shows press logos, a row of media outlets ("As featured in", "As seen on"), partner logos, award seals, certification badges, app-store badges, rating marks or any other company's name or symbol, NONE of them may appear in the output. They belong to other companies and they state something about the ORIGINAL advertiser that is not true of this one: reproducing them claims a coverage, an award or an endorsement that this business does not have, which is a false statement and not merely a design detail. ${input.pressRowMode === 'texto' && input.pressRowItems?.length ? `The advertiser confirmed they have this coverage, so that row keeps its place and its heading, with THEIR names set as clean type in the ad's own typeface, same size and spacing as the winner's row: ${input.pressRowItems.join(', ')}. No logos, no seals, no invented extras — only these names.` : input.pressRowMode === 'logos' ? `The advertiser supplied their own seals for that row: place them where the winner's logos were, at the same size and spacing, and nothing else.` : `Remove the whole area, including the heading that introduces it and its divider: dropping only the logos leaves a label announcing a row that is no longer there. Do not replace it with invented logos, invented outlet names, made-up seals or grey placeholder shapes either.`} The only exception is a mark printed on the target's own product or contained in the advertiser's own supplied logo.
+THIRD-PARTY MARKS ARE NEVER COPIED (CRITICAL) — If the template shows press logos, a row of media outlets ("As featured in", "As seen on"), partner logos, award seals, certification badges, app-store badges, rating marks or any other company's name or symbol, NONE of them may appear in the output. They belong to other companies and they state something about the ORIGINAL advertiser that is not true of this one: reproducing them claims a coverage, an award or an endorsement that this business does not have, which is a false statement and not merely a design detail. ${input.pressRowMode === 'texto' && input.pressRowItems?.length ? `The advertiser confirmed they have this coverage, so that row keeps its place and its heading, with THEIR names set as clean type in the ad's own typeface, same size and spacing as the winner's row: ${input.pressRowItems.join(', ')}. No logos, no seals, no invented extras — only these names.` : input.pressRowMode === 'logos' && input.pressRowItems?.length ? `The advertiser has declared this coverage as their own and asked for it shown the way the winner shows its: draw the actual mark of each of these — ${input.pressRowItems.join(', ')} — in that row, in the order given, at the same size, spacing, alignment and colour treatment the winner's row uses. ONLY these, exactly as many as are listed: no extra outlet, no invented seal, no filler shape, nothing carried over from the winner's row.` : `Remove the whole area, including the heading that introduces it and its divider: dropping only the logos leaves a label announcing a row that is no longer there. Do not replace it with invented logos, invented outlet names, made-up seals or grey placeholder shapes either.`} The only exception is a mark printed on the target's own product or contained in the advertiser's own supplied logo.
 
 THE TEMPLATE'S PHOTOGRAPH DOES NOT SURVIVE (CRITICAL) — The people, the place and the scene in the template's photos belong to the ad that was already made; they have nothing to do with this business. Pasting the new product ON TOP of the template's original photo is the most common way this goes wrong and it is a hard failure: it leaves a scene that makes no sense — a hide floating in front of a couple on holiday — and it reads instantly as a collage. Re-photograph that area from scratch with the subject named for it, keeping the same frame, crop, angle, lighting mood and position so the composition still works. If the template's photo shows people and the target has no natural place for those people, the scene changes to one where the product genuinely lives: whoever makes it, whoever uses it, or the result it produces.
 
@@ -1219,7 +1258,7 @@ ${strategyBlock}${creativeBlock}${imageSlotBlock}
 		: `- Adapt every template text block honestly to ${productLabel}, in ${language}, keeping the same message structure.`)}
 	If a visible text block has no replacement listed, adapt its message honestly to ${productLabel}. Do not invent prices, percentages, reviews, certifications, guarantees or claims, and never write a number that is not literally present in the replacements listed above — not even one adapted from the template's own figure. Never carry over the template's guarantees, discounts, shipping promises, review counts, ratings, certifications, awards or deadlines unless they are verified for the target product. Keep the SAME NUMBER of text blocks as the template, no more. Render every replacement sharp, correctly spelled and fully inside its original card, bubble or badge. Never duplicate a line or let text overflow.${isPhysicalSubject ? ' Text physically printed on the supplied product or inside its official logo must remain faithful to those supplied assets.' : ''}
 
-3. BRAND SWAP — ERASE every trace of the template's own brand. Its wordmark, logo, emblem, monogram and brand name must NOT appear anywhere in the output, in any size, not even faintly, partially, redrawn or stylised, and never merged with other text. Scan the whole canvas for it: corners, footer, badges, the product itself and any watermark. That brand belongs to a different company — leaving it in makes the ad unusable. ${input.hasLogo ? (marcaComoTexto ? wordmarkInstruction : 'The user explicitly selected INCLUDE LOGO. If the layout needs a brand mark, place the provided brand logo (last input image) in that same spot, ONCE, small and discreet — the same size the template gives its own mark, never bigger. Reproduce that logo image EXACTLY as supplied and complete: it may itself contain more than one element (a shield plus a seal, a symbol plus a wordmark, several marks side by side) — keep every element it contains, in the same arrangement and proportions, and render any text inside it letter for letter. Never redraw, recolour, restyle, split or simplify it. Do NOT add any badge, seal, medallion, ribbon, star rating, laurel or certification stamp that is not part of that logo image.') : (input.brandName && input.analysis?.templateHasLogoSlot ? `The user selected NO LOGO IMAGE and the template DOES sign itself somewhere, so the new ad signs in that same place — and only there. Do NOT draw a logo, emblem, monogram, shield, crest, badge, seal, medallion, ribbon, laurel or coat of arms. Instead, WRITE the brand name "${input.brandName}" as plain, clean typography in the exact spot where the template placed its brand mark — same position, same relative size, same alignment — using a simple weight of the ad's own typeface, with no icon, no container shape and no decoration around it.` : input.brandName ? `THE TEMPLATE DOES NOT SIGN ITSELF ANYWHERE, so the new ad does not either. Do NOT write the brand name, do not add a logo, a wordmark, a badge or a footer, and do not "finish" the ad with a brand line: the winning ad works without one, and adding it puts an element where the original had empty space. Leave that area exactly as the template leaves it.` : 'The user explicitly selected NO ADDED LOGO and no brand name is available. Do not add a separate logo, wordmark, emblem, monogram, initials, shield, crest, badge, seal, medallion, ribbon, laurel, star mark, coat of arms or certification stamp, and do not invent a brand name. Leave that area clean.') + (isPhysicalSubject ? ' This does not remove the real label or branding physically printed on the supplied product packaging, which must remain faithful to the product photo.' : '')}
+3. BRAND SWAP — ERASE every trace of the template's own brand. Its wordmark, logo, emblem, monogram and brand name must NOT appear anywhere in the output, in any size, not even faintly, partially, redrawn or stylised, and never merged with other text. Scan the whole canvas for it: corners, footer, badges, the product itself and any watermark. That brand belongs to a different company — leaving it in makes the ad unusable. ${'How the new ad signs itself is decided in LOGO DECISION below — follow it there and do not improvise a mark here.' + (isPhysicalSubject ? ' None of this removes the real label or branding physically printed on the supplied product packaging, which must remain faithful to the product photo.' : '')}
 
 WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The user explicitly requested a visible website. Render exactly "${input.displayWebsite}" ONCE in an existing URL or footer slot.` : 'Do not render any URL, domain, web address, social handle or QR code. Remove any website from the winning template and leave that space clean.'}
 

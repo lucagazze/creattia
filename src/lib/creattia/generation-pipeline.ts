@@ -1,4 +1,4 @@
-import { analyzeReferenceLayout, buildReferenceClonePrompt, LANGUAGE_NAMES, type LayoutAnalysis } from './ad-analysis';
+import { analyzeReferenceLayout, buildReferenceClonePrompt, LANGUAGE_NAMES, type LayoutAnalysis, type LogoMode } from './ad-analysis';
 import { buildPromptCorto } from './prompt-corto';
 import { generateAdImage, type EngineImage, type EngineUsage } from './image-engines';
 import { closestFormat } from './formats';
@@ -113,6 +113,43 @@ export function personModeRecomendado(people: LayoutAnalysis['people'] | null | 
 	return visibles.length ? 'ai' : 'none';
 }
 
+export type { LogoMode };
+
+export const LOGO_MODES: LogoMode[] = ['texto', 'imagen', 'nada'];
+
+/**
+ * Lee el modo de firma sin confiar en el cliente.
+ *
+ * Devuelve `undefined` —y no un default— cuando no vino ninguno, que es el caso
+ * de todo lo anterior a este campo: el historial y los lotes viejos guardaron un
+ * sí/no. Resolverlo acá como 'nada' rompía esas generaciones, porque el sí/no en
+ * `false` NO quería decir "sin firma": con un ganador que firmaba escribiendo su
+ * nombre, el clon escribía el del negocio. Quién sabe eso es el prompt, que tiene
+ * el análisis del ganador delante; acá todavía no se leyó nada.
+ */
+export function parseLogoMode(raw: unknown): LogoMode | undefined {
+	const value = typeof raw === 'string' ? raw.trim() : '';
+	return LOGO_MODES.includes(value as LogoMode) ? value as LogoMode : undefined;
+}
+
+/**
+ * Qué opción viene marcada al abrir la revisión.
+ *
+ * Si el ganador firma en algún lado, el clon firma en ese mismo lado y con el
+ * nombre ESCRITO. Es lo que sale bien casi siempre: el lugar de la firma en
+ * estos avisos es una línea de tipografía chica, y meterle ahí el archivo de un
+ * logo —que suele ser un escudo, o un lockup con símbolo— cambia el peso visual
+ * de esa esquina y se lee como pegoteado. El archivo queda a un toque de
+ * distancia para el que lo quiera.
+ *
+ * Si el ganador no firma en ningún lado, el clon tampoco: abrirle un hueco a una
+ * marca es agregarle al diseño algo que el original no tenía.
+ */
+export function logoModeRecomendado(analisis: LayoutAnalysis | null | undefined | Array<LayoutAnalysis | null | undefined>): LogoMode {
+	const paginas = Array.isArray(analisis) ? analisis : [analisis];
+	return paginas.some((pagina) => pagina?.templateHasLogoSlot) ? 'texto' : 'nada';
+}
+
 export type StyleMode = 'winner' | 'url' | 'brand';
 /** Paleta detectada de la web de la marca, tal como la entiende ad-analysis. */
 export type BrandPalette = { background?: string; text?: string; accent?: string; secondary?: string; source?: string };
@@ -182,6 +219,8 @@ export type ClonePromptInput = {
 	brandPalette?: BrandPalette;
 	/** Quién aparece: lo elige el usuario en la revisión, antes de generar. */
 	personMode?: PersonMode;
+	/** Con qué se firma: el nombre escrito, el archivo del logo, o nada. */
+	logoMode?: LogoMode;
 	pressRowMode?: 'quitar' | 'texto' | 'logos';
 	pressRowItems?: string[];
 	/**
@@ -314,6 +353,7 @@ export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalys
 		subjectMode: input.subjectMode,
 		hasAvatarReference: (input.avatarImageCount || 0) > 0,
 		personMode: input.personMode,
+		logoMode: input.logoMode,
 		// Que hacer con la fila de medios del ganador. Sin esto el render no se
 		// entera de lo que se decidio en la revision y siempre la saca.
 		pressRowMode: input.pressRowMode,

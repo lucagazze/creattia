@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
-import { parsePaletteOverride, parsePersonMode, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { loadWinners } from '../../../lib/creattia/winner-picker';
 import { FREE_PREVIEW_REFERENCE_PATHS, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
@@ -108,6 +108,9 @@ export const POST: APIRoute = async ({ request }) => {
 		const logoSlideIndexes = new Set(
 			Array.isArray(body?.logoSlideIndexes) ? body.logoSlideIndexes.map((v: unknown) => Number(v)).filter((n: number) => Number.isInteger(n) && n >= 0) : []
 		);
+		// Los carruseles anteriores al modo solo mandaban las páginas marcadas: sin
+		// modo se deja sin resolver y decide el prompt de cada página.
+		const logoMode = parseLogoMode(body?.logoMode);
 		/**
 		 * Un análisis por página, en el orden de las páginas.
 		 *
@@ -221,6 +224,10 @@ export const POST: APIRoute = async ({ request }) => {
 					language,
 					brandSource,
 					includeLogo: logoSlideIndexes.has(index),
+					// El modo lo elige una vez para todo el carrusel; las miniaturas
+					// deciden en qué páginas se firma. Una página sin tilde no firma
+					// de ninguna manera, ni con el archivo ni con el nombre escrito.
+					logoMode: logoSlideIndexes.has(index) ? (logoMode || null) : 'nada',
 					imageType: productRequired ? 'product' : 'promotion',
 					referencePath: slidePath,
 					referenceName: `${referenceName} · página ${index + 1}/${count}`,

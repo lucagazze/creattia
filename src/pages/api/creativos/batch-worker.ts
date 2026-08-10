@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { normalizeImageInput, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import type { EngineImage } from '../../../lib/creattia/image-engines';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
-import { alcanceDesde, detectImageType, mergePaletteOverride, parsePersonMode, renderReferenceClone, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, detectImageType, mergePaletteOverride, parseLogoMode, parsePersonMode, renderReferenceClone, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { authenticateRequest, closeGenerationsAndCountRefunds, getAdminClient, json } from '../../../lib/creattia/server';
 import { readLimited, safeExternalFetch } from '../../../lib/creattia/safe-fetch';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
@@ -190,10 +190,14 @@ export const POST: APIRoute = async ({ request }) => {
 		// filas viejas (sin este campo) se tratan como "sin logo": es la opción
 		// segura, nunca agrega algo que el usuario no pidió.
 		const includeLogo = snapshot.includeLogo === true;
+		// Filas guardadas antes de que existiera el modo traen solo el sí/no, y sin
+		// modo lo resuelve el prompt: es el único que sabe cómo firma el ganador.
+		const logoMode = parseLogoMode(snapshot.logoMode);
+		const dibujarArchivo = logoMode ? logoMode === 'imagen' : includeLogo;
 
 		if (brandSource === 'mine') {
 			brandName = profile?.brand_name || '';
-			if (includeLogo && profile?.logo_path) {
+			if (dibujarArchivo && profile?.logo_path) {
 				const { data: logoBlob } = await admin.storage.from(ASSETS).download(profile.logo_path);
 				const normalized = logoBlob ? await normalizeImageInput(Buffer.from(await logoBlob.arrayBuffer())) : null;
 				if (normalized) logoImage = { buffer: normalized.buffer, type: normalized.type };
@@ -202,7 +206,7 @@ export const POST: APIRoute = async ({ request }) => {
 			brandName = urlBrand?.name || '';
 			// El logo del sitio viene como URL: se baja y se normaliza. Si sale
 			// sucio o no se puede leer, se sigue sin logo antes que arruinar el aviso.
-			if (includeLogo && urlBrand?.logoUrl) {
+			if (dibujarArchivo && urlBrand?.logoUrl) {
 				try {
 					// URL sacada del HTML de un sitio de terceros: va por el fetch
 					// con guarda de red privada, nunca por fetch directo.
@@ -269,9 +273,10 @@ export const POST: APIRoute = async ({ request }) => {
 			brandTypography,
 			brandPalette,
 			personMode,
+			logoMode,
 			// Se decidio en la revision y viaja en el snapshot: sin esto el lote y el
 			// carrusel siempre sacarian la fila, aunque el negocio tenga prensa propia.
-			pressRowMode: snapshot.pressRowMode === 'texto' ? 'texto' : 'quitar',
+			pressRowMode: snapshot.pressRowMode === 'texto' || snapshot.pressRowMode === 'logos' ? snapshot.pressRowMode : 'quitar',
 			pressRowItems: Array.isArray(snapshot.pressRowItems) ? snapshot.pressRowItems : [],
 			avatarDescription,
 			approvedPlan,

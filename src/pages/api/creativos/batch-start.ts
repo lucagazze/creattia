@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { loadWinners } from '../../../lib/creattia/winner-picker';
 import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
-import { parsePaletteOverride, parsePersonMode } from '../../../lib/creattia/generation-pipeline';
+import { parseLogoMode, parsePaletteOverride, parsePersonMode } from '../../../lib/creattia/generation-pipeline';
 import { FREE_PREVIEW_REFERENCE_PATHS, freePreviewAngleFor, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
 import { countProductImages } from '../../../lib/creattia/product-media';
 import { SUBJECT_MODES, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
@@ -62,6 +62,7 @@ export const POST: APIRoute = async ({ request }) => {
 		// El usuario elige explícitamente si quiere el logo en el anuncio o no —
 		// antes se agregaba solo si había uno disponible, sin preguntar.
 		const includeLogo = brandSource !== 'none' && Boolean(body?.includeLogo);
+		const logoMode = brandSource === 'none' ? 'nada' : (parseLogoMode(body?.logoMode) || null);
 		/**
 		 * Quién aparece en los anuncios del lote.
 		 *
@@ -192,6 +193,7 @@ export const POST: APIRoute = async ({ request }) => {
 				language,
 				brandSource,
 				includeLogo,
+				logoMode,
 				imageType: 'product',
 				textMode,
 				allowNoProductImage,

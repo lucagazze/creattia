@@ -11,7 +11,7 @@ import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
-import { alcanceDesde, buildClonePrompt, mergePaletteOverride, parseBrandOverride, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, buildClonePrompt, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
 import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
@@ -204,6 +204,10 @@ export const POST: APIRoute = async ({ request }) => {
 		// mandaban estos campos, así que terminaban agregando el logo guardado
 		// del usuario sin que nadie lo pidiera.
 		const includeLogo = clean(form.get('includeLogo'), 2) === '1';
+		// Con qué se firma. Puede no venir —el rehacer del historial manda solo el
+		// sí/no— y en ese caso se deja sin resolver a propósito, para que decida el
+		// prompt con el ganador ya analizado.
+		const logoMode = parseLogoMode(form.get('logoMode'));
 		const subjectModeParam = clean(form.get('subjectMode'), 12);
 		// 'catalog' faltaba en esta lista: el flujo lo mandaba al detectar una
 		// tienda, no matcheaba, y caía al valor por defecto 'product'. Por eso un
@@ -230,10 +234,17 @@ export const POST: APIRoute = async ({ request }) => {
 		 * 'texto' es para el negocio que SI tiene prensa o certificaciones propias y
 		 * las escribe: eso es legitimo y hasta ahora no habia forma de mostrarlo.
 		 */
-		const pressRowMode = clean(form.get('pressRowMode'), 10) === 'texto' ? 'texto' as const : 'quitar' as const;
-		const pressRowItems = pressRowMode === 'texto'
+		// La fila de medios solo se dibuja con lo que el anunciante declara: la app
+		// nunca la rellena sola ni arrastra los medios que traía el ganador, que
+		// son de otra empresa. Sin nombres declarados no hay fila, sea cual sea el
+		// modo — 'texto' y 'logos' cambian cómo se dibuja, no de dónde sale.
+		const pressRowPedido = clean(form.get('pressRowMode'), 10);
+		const pressRowItems = pressRowPedido === 'texto' || pressRowPedido === 'logos'
 			? clean(form.get('pressRowItems'), 300).split(',').map((valor) => valor.trim()).filter(Boolean).slice(0, 8)
 			: [];
+		const pressRowMode = pressRowItems.length && (pressRowPedido === 'texto' || pressRowPedido === 'logos')
+			? pressRowPedido as 'texto' | 'logos'
+			: 'quitar' as const;
 		const effectiveBrief = stripWebReferences(brief);
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		// 'url'  → la marca del sitio de donde salió el producto
@@ -447,6 +458,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const generationSettingsSnapshot = {
 			format, language, imageType, preset, productIds, productNames: storedProducts.map((item) => item.name),
 			includeLogo,
+			logoMode: logoMode || null,
 			subjectMode,
 			// De dónde salió el contenido: al regenerar se vuelve a la misma
 			// fuente en vez de pedirla otra vez.
@@ -631,8 +643,11 @@ export const POST: APIRoute = async ({ request }) => {
 		const hasUploadedProduct = productsUploaded.length > 0;
 
 		let hasLogo = false;
-		if (!includeLogo || isExactRevision || brandSource === 'none') {
-			// El usuario pidió sin logo o sin marca: no se adjunta ninguno.
+		// El archivo se adjunta SOLO si se va a dibujar. Con la firma escrita el
+		// logo llegaba igual "como referencia de color", y el modelo lo terminaba
+		// pegando: si no está entre las imágenes de entrada, no hay nada que pegar.
+		if (!(logoMode ? logoMode === 'imagen' : includeLogo) || isExactRevision || brandSource === 'none') {
+			// El usuario pidió firma escrita o sin firma: no se adjunta ningún archivo.
 		} else if (logo instanceof File && logo.size > 0) {
 			const normalized = await normalizeImageInput(Buffer.from(await logo.arrayBuffer()));
 			if (normalized) {
@@ -760,6 +775,7 @@ The result must look like the same image with only that one adjustment applied.`
 			brandTypography: effectiveBrandTypography,
 			brandPalette: effectiveBrandPalette,
 			personMode,
+			logoMode,
 			pressRowMode,
 			pressRowItems,
 			avatarDescription,

@@ -1,5 +1,5 @@
 import { useReferenceUrls } from '../../lib/creattia/reference-urls';
-import { subjectModeDesde, alcanceDesde, personModeRecomendado, type Alcance, type PersonMode } from '../../lib/creattia/generation-pipeline';
+import { subjectModeDesde, alcanceDesde, personModeRecomendado, logoModeRecomendado, type Alcance, type PersonMode, type LogoMode } from '../../lib/creattia/generation-pipeline';
 import UrlInput from './UrlInput';
 import React, { useState, useEffect, useRef } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
@@ -169,7 +169,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * cualquiera del aviso, sin que nadie lo hubiera pedido. Encenderlo es una
 	 * decisión de la persona; acá solo se recomienda.
 	 */
-	const [includeLogo, setIncludeLogo] = useState(false);
+	const [logoMode, setLogoMode] = useState<LogoMode>('nada');
+	// El archivo del logo solo se adjunta —y solo se pide— cuando se eligió
+	// dibujarlo. Con la firma escrita alcanza el nombre del negocio.
+	const includeLogo = logoMode === 'imagen';
 	// Carrusel completo: en cuáles páginas va el logo. Solo se mira cuando
 	// `includeLogo` está prendido; al prenderlo arrancan todas.
 	const [logoCarouselPages, setLogoCarouselPages] = useState<Set<number>>(new Set());
@@ -307,6 +310,20 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const logoQueSePondria = brandSource === 'mine' ? logoDeMiMarca : brandSource === 'url' ? logoDeLaUrl : '';
 	const origenDelLogo = brandSource === 'mine' ? 'Mi marca' : 'la URL';
 	/**
+	 * El nombre que se va a escribir, para poder mostrarlo en la opción.
+	 *
+	 * Es solo para la pantalla: el que termina en la imagen lo resuelve el
+	 * servidor, que ve el perfil además de lo escaneado. Si acá no se sabe se
+	 * dice en genérico antes que arriesgar un nombre que después no sea ese.
+	 */
+	const nombreParaFirmar: string = (importedProducts.find((item: any) => selectedProductIds.includes(item.id) && item?.metadata?.brandFromUrl?.name) as any)?.metadata?.brandFromUrl?.name
+		|| (importedProducts[0] as any)?.metadata?.brandFromUrl?.name || '';
+	// En el botón entra recortado: los botones van en una fila que envuelve, y
+	// un nombre largo lo estiraba hasta pasarse del ancho de la pantalla.
+	const nombreEnElBoton = nombreParaFirmar.length > 22 ? `${nombreParaFirmar.slice(0, 21)}…` : nombreParaFirmar;
+	/** Dónde firma el ganador, en castellano, para poder decírselo al usuario. */
+	const dondeFirmaElGanador: string = planesDelGanador.find((pagina) => pagina?.templateHasLogoSlot)?.logoWhere || '';
+	/**
 	 * El link del logo existe pero la imagen no carga. Pasa con logos detectados
 	 * en webs ajenas: el archivo se movió o el sitio no lo sirve afuera. Sin esto
 	 * quedaba el ícono de imagen rota justo donde había que confiar en lo que se
@@ -345,7 +362,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * que SI tienen prensa o certificaciones propias, y hasta ahora no habia forma
 	 * de mostrarlas: la unica salida era borrar el bloque.
 	 */
-	const [pressRowMode, setPressRowMode] = useState<'quitar' | 'texto'>('quitar');
+	const [pressRowMode, setPressRowMode] = useState<'quitar' | 'texto' | 'logos'>('quitar');
 	const [pressRowItems, setPressRowItems] = useState('');
 	const [creativeDecisions, setCreativeDecisions] = useState<Array<{ slide?: number; type?: string; title?: string; where?: string; description?: string; question?: string; defaultStrategy?: string; options?: string[]; confidence?: string; directive?: string }>>([]);
 	/**
@@ -594,6 +611,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			const sugerido = personModeRecomendado(analysis.people);
 			setPersonModeSugerido(sugerido);
 			setPersonMode(sugerido);
+			// Con qué se firma se pre-elige igual: si el ganador firma en algún
+			// lado, el clon firma ahí y con el nombre escrito. En un carrusel la
+			// firma puede estar en una sola página, así que se miran todas.
+			setLogoMode(logoModeRecomendado(Array.isArray(payload.slideAnalyses) && payload.slideAnalyses.length ? payload.slideAnalyses : analysis));
 			setComparisons(Array.isArray(analysis.comparisonItems) ? analysis.comparisonItems.map((c: any) => ({ ...c, directive: '' })) : []);
 			setCreativeDecisions(Array.isArray(analysis.creativeDecisions) ? analysis.creativeDecisions.map((decision: any) => ({ ...decision, directive: '' })) : []);
 			setComparisonGuidance('');
@@ -682,6 +703,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('brandSource', brandSource);
 			form.set('subjectMode', detectedOffering);
 			form.set('includeLogo', includeLogo ? '1' : '0');
+			form.set('logoMode', logoMode);
 			if ((productMode === 'url' || isService) && selectedProductIds.length) {
 				selectedProductIds.forEach((id) => form.append('productIds', id));
 			} else if (productMode === 'manual') {
@@ -691,7 +713,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			}
 			form.set('personMode', personMode);
 			form.set('pressRowMode', pressRowMode);
-			if (pressRowMode === 'texto') form.set('pressRowItems', pressRowItems.trim());
+			if (pressRowMode !== 'quitar') form.set('pressRowItems', pressRowItems.trim());
 			if (personMode === 'upload') form.set('avatarId', await guardarAvatarCargado());
 			form.set('plan', JSON.stringify(planRevisado()));
 
@@ -861,7 +883,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					// editar en la revisión y el carrusel se generaba igual con los
 					// detectados. La imagen suelta sí la mandaba desde siempre.
 					paletteOverride: Object.keys(paletteOverride).length ? paletteOverride : null,
-					logoSlideIndexes: includeLogo ? [...logoCarouselPages] : [],
+					logoMode,
+					logoSlideIndexes: logoMode === 'nada' ? [] : [...logoCarouselPages],
 					// Un análisis por página, en el orden de las páginas.
 					approvedPlans: carouselSlides.map((_, indice) => planRevisado(indice + 1)),
 				}),
@@ -1139,7 +1162,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									<p className="batch-detail-help">Elegí de dónde tomar el nombre y el logo. Los colores y la tipografía se eligen por separado.</p>
 									<div className="batch-brand-options">
 										{BRAND_OPTIONS.map((option) => (
-											<button key={option.value} type="button" className={`batch-brand-option ${brandSource === option.value ? 'active' : ''}`} onClick={() => { setBrandSource(option.value); if (option.value === 'none') { setIncludeLogo(false); setLogoCarouselPages(new Set()); } }} aria-pressed={brandSource === option.value}>
+											<button key={option.value} type="button" className={`batch-brand-option ${brandSource === option.value ? 'active' : ''}`} onClick={() => { setBrandSource(option.value); if (option.value === 'none') { setLogoMode('nada'); setLogoCarouselPages(new Set()); } }} aria-pressed={brandSource === option.value}>
 												<span className="batch-brand-icon" aria-hidden="true"><BrandOptionIcon icon={option.icon} /></span>
 												<span><strong>{option.label}</strong><small>{option.hint}</small></span>
 												{brandSource === option.value && <b aria-hidden="true">✓</b>}
@@ -1287,50 +1310,64 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 						{brandSource !== 'none' && (
 							<section className="logo-decision" aria-label="Logo en el anuncio">
 								<div className="logo-decision-head">
-									<strong>¿Incluir tu logo?</strong>
+									<strong>¿Con qué firmamos el anuncio?</strong>
 									<small>
-										{ganadorTieneLogoDibujado
-											? `${wantsFullCarousel ? 'El carrusel ganador firma' : 'El anuncio ganador firma'} con un logo dibujado${descripcionDelLogo ? ` (${descripcionDelLogo})` : ''}: tu logo entra en ese mismo lugar, sin agregarle nada nuevo al diseño.`
-											: ganadorFirmaConElNombre
-												? `${wantsFullCarousel ? 'El carrusel ganador firma' : 'El anuncio ganador firma'} con el nombre de su marca escrito${descripcionDelLogo ? ` (${descripcionDelLogo})` : ''}, no con un logo dibujado. En ese mismo lugar va a ir escrito el nombre de tu negocio, pongas o no el logo.`
-												: `${wantsFullCarousel ? 'Ninguna página del carrusel ganador muestra' : 'El anuncio ganador no muestra'} ninguna marca en ningún lado.`}
+										{ganadorTieneLogoDibujado || ganadorFirmaConElNombre
+											? `${wantsFullCarousel ? 'El carrusel ganador firma' : 'El anuncio ganador firma'} ${ganadorTieneLogoDibujado ? 'con un logo dibujado' : 'con el nombre de su marca escrito'}${dondeFirmaElGanador ? ` ${dondeFirmaElGanador}` : ''}${descripcionDelLogo ? ` (${descripcionDelLogo})` : ''}. Ahí va lo que elijas acá, del mismo tamaño y en el mismo lugar.`
+											: `${wantsFullCarousel ? 'Ninguna página del carrusel ganador muestra' : 'El anuncio ganador no muestra'} ninguna marca en ningún lado, así que no hay un lugar hecho para la tuya.`}
 									</small>
 								</div>
-								<div className="logo-decision-options" role="radiogroup" aria-label="Incluir logo">
+								{/* Tres opciones y no dos. El sí/no de antes tenía un solo "sí" y
+								    era pegar el archivo, así que el caso más común —el ganador
+								    firma escribiendo su nombre y el clon hace lo mismo con el
+								    nombre del negocio— no se podía pedir: salía de casualidad,
+								    solo cuando el analizador marcaba la marca como wordmark. */}
+								<div className="logo-decision-options" role="radiogroup" aria-label="Con qué se firma el anuncio">
 									<button
-										type="button" role="radio" aria-checked={includeLogo}
-										// En un carrusel el logo arranca en TODAS las páginas y desde
-										// las miniaturas de abajo se le saca a las que no lo quieran.
-										onClick={() => { setIncludeLogo(true); if (wantsFullCarousel) setLogoCarouselPages(new Set(carouselSlides.map((_, indice) => indice))); }}
-										className={includeLogo ? 'active' : ''}
+										type="button" role="radio" aria-checked={logoMode === 'texto'}
+										className={logoMode === 'texto' ? 'active' : ''}
+										onClick={() => { setLogoMode('texto'); if (wantsFullCarousel) setLogoCarouselPages(new Set(carouselSlides.map((_, indice) => indice))); }}
 									>
-										Con logo de {origenDelLogo}
-										{ganadorTieneLogoDibujado && hayLogoUsable && <em>recomendado</em>}
+										{nombreEnElBoton ? `Escribir «${nombreEnElBoton}»` : 'Escribir el nombre'}
+										{(ganadorTieneLogoDibujado || ganadorFirmaConElNombre) && <em>recomendado</em>}
 									</button>
 									<button
-										type="button" role="radio" aria-checked={!includeLogo}
-										className={!includeLogo ? 'active' : ''}
-										onClick={() => setIncludeLogo(false)}
+										type="button" role="radio" aria-checked={logoMode === 'imagen'}
+										// En un carrusel la firma arranca en TODAS las páginas y desde
+										// las miniaturas de abajo se le saca a las que no la quieran.
+										onClick={() => { setLogoMode('imagen'); if (wantsFullCarousel) setLogoCarouselPages(new Set(carouselSlides.map((_, indice) => indice))); }}
+										className={logoMode === 'imagen' ? 'active' : ''}
 									>
-										Sin logo
-										{(!ganadorTieneLogoDibujado || !hayLogoUsable) && <em>recomendado</em>}
+										Poner mi logo
+									</button>
+									<button
+										type="button" role="radio" aria-checked={logoMode === 'nada'}
+										className={logoMode === 'nada' ? 'active' : ''}
+										onClick={() => setLogoMode('nada')}
+									>
+										Sin firma
+										{!ganadorTieneLogoDibujado && !ganadorFirmaConElNombre && <em>recomendado</em>}
 									</button>
 								</div>
 								{/* Qué pasa con cada opción, dicho para alguien que no sabe de
-								    diseño: lo que hay que entender es dónde va a terminar el
-								    archivo del logo, que es lo que sorprendía al ver la imagen. */}
+								    diseño y sobre todo DÓNDE va a terminar: era lo que sorprendía
+								    al ver la imagen, porque no se sabía hasta que salía. */}
 								<p className="logo-decision-consecuencia">
-									{includeLogo
-										? (ganadorTieneLogoDibujado
-											? `Vamos a colocar el archivo del logo de tu marca en ${wantsFullCarousel ? 'las páginas elegidas' : 'la imagen'}, en el mismo lugar y del mismo tamaño que el logo del anuncio ganador.`
-											: `Vamos a colocar el archivo del logo de tu marca en un lugar nuevo de ${wantsFullCarousel ? 'cada página elegida' : 'la imagen'}: el anuncio ganador no tiene ningún logo dibujado, así que hay que abrirle un espacio que el diseño original no tenía.`)
-										: (ganadorFirmaConElNombre || ganadorTieneLogoDibujado
-											? 'No se coloca ningún archivo de logo. Donde el anuncio ganador tiene su marca va a ir escrito el nombre de tu negocio, con la tipografía del aviso.'
-											: `No se coloca ningún archivo de logo, y como el anuncio ganador tampoco muestra una marca, ${wantsFullCarousel ? 'las imágenes salen' : 'la imagen sale'} igual de limpia${wantsFullCarousel ? 's' : ''} que el original.`)}
+									{logoMode === 'texto'
+										? (ganadorTieneLogoDibujado || ganadorFirmaConElNombre
+											? `Vamos a escribir el nombre de tu negocio ${dondeFirmaElGanador || 'donde el ganador tiene su marca'}, con la tipografía y el tamaño del aviso. No se pega ningún archivo.`
+											: `Vamos a escribir el nombre de tu negocio chico y discreto en un margen de ${wantsFullCarousel ? 'cada página elegida' : 'la imagen'}. El anuncio ganador no firma en ningún lado, así que es algo que le estamos agregando.`)
+										: logoMode === 'imagen'
+											? (ganadorTieneLogoDibujado || ganadorFirmaConElNombre
+												? `Vamos a colocar el archivo del logo de tu marca ${dondeFirmaElGanador || 'donde el ganador tiene su marca'}, del mismo tamaño que el del anuncio ganador.`
+												: `Vamos a colocar el archivo del logo de tu marca en un lugar nuevo de ${wantsFullCarousel ? 'cada página elegida' : 'la imagen'}: el anuncio ganador no firma en ningún lado, así que hay que abrirle un espacio que el diseño original no tenía.`)
+											: (ganadorTieneLogoDibujado || ganadorFirmaConElNombre
+												? `Donde el ganador firma no va a quedar nada: se saca el espacio y el diseño se cierra como si nunca hubiera tenido marca.`
+												: `No se firma en ningún lado, igual que el anuncio ganador: ${wantsFullCarousel ? 'las imágenes salen' : 'la imagen sale'} tan limpia${wantsFullCarousel ? 's' : ''} como el original.`)}
 								</p>
-								{includeLogo && wantsFullCarousel && (
+								{logoMode !== 'nada' && wantsFullCarousel && (
 									<>
-										<small className="batch-brand-note">Tocá una página para sacarle el logo — por defecto va en todas.</small>
+										<small className="batch-brand-note">Tocá una página para sacarle la firma — por defecto va en todas.</small>
 										<div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
 											{carouselSlides.map((slide, index) => {
 												const on = logoCarouselPages.has(index);
@@ -1375,10 +1412,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												{logoRoto
 													? `Encontramos un logo en ${origenDelLogo} pero el archivo no se puede abrir, así que el anuncio va a salir sin él.`
 													: `No encontramos ningún archivo de logo en ${origenDelLogo}, así que no hay nada para colocar.`}
-												{' '}Sin logo, donde el ganador firma va a ir escrito el nombre de tu negocio con la tipografía del aviso — que para la mayoría de los casos queda mejor que un logo pegado.
+												{' '}La salida natural es escribir el nombre: va en ese mismo lugar, con la tipografía del aviso, y para la mayoría de los casos queda mejor que un logo pegado.
 											</p>
 											<div className="logo-decision-salidas">
-												<button type="button" onClick={() => setIncludeLogo(false)}>Generar sin logo</button>
+												<button type="button" onClick={() => setLogoMode('texto')}>Escribir el nombre</button>
 												{brandSource !== 'mine' && <button type="button" onClick={() => setBrandSource('mine')}>Usar el logo de Mi marca</button>}
 											</div>
 										</div>
@@ -1547,9 +1584,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 											</p>
 											<div className="decision-options">
 												<button type="button" className={pressRowMode === 'quitar' ? 'active' : ''} onClick={() => setPressRowMode('quitar')}>No tengo · sacar el bloque</button>
-												<button type="button" className={pressRowMode === 'texto' ? 'active' : ''} onClick={() => setPressRowMode('texto')}>Sí, son estos</button>
+												<button type="button" className={pressRowMode === 'texto' ? 'active' : ''} onClick={() => setPressRowMode('texto')}>Sí, escritos</button>
+												<button type="button" className={pressRowMode === 'logos' ? 'active' : ''} onClick={() => setPressRowMode('logos')}>Sí, con sus logos</button>
 											</div>
-											{pressRowMode === 'texto' && (
+											{pressRowMode !== 'quitar' && (
 												<input
 													value={pressRowItems}
 													onChange={(event) => setPressRowItems(event.target.value)}
@@ -1557,10 +1595,16 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 													style={{ width: '100%', boxSizing: 'border-box', marginTop: '8px', padding: '10px 12px', borderRadius: '9px', border: '1px solid #e2dde9', fontSize: '13px' }}
 												/>
 											)}
+											{/* Lo que se dibuja acá lo afirma el anunciante, no la app: la
+											    fila nunca se rellena sola ni se sugiere ningún medio. Por eso
+											    el aviso de abajo dice quién se hace cargo — es la diferencia
+											    entre mostrar una cobertura que existe e inventar una. */}
 											<p style={{ margin: '8px 0 0', fontSize: '11.5px', lineHeight: 1.45, color: '#8b8490' }}>
 												{pressRowMode === 'texto'
 													? 'Van escritos con la tipografía del aviso, en el mismo lugar y tamaño que la fila del ganador.'
-													: 'Se saca la fila y su rótulo, y el diseño se cierra solo.'}
+													: pressRowMode === 'logos'
+														? 'Van con el logo de cada uno, en el mismo lugar y tamaño que la fila del ganador. Poné solo los que de verdad te cubrieron: lo que afirma el anuncio lo respondés vos, y Meta rechaza los avisos con respaldos falsos.'
+														: 'Se saca la fila y su rótulo, y el diseño se cierra solo.'}
 											</p>
 										</div>
 									)}
