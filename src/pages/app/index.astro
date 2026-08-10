@@ -9,7 +9,11 @@ import CreativeApp from '../../components/creattia/CreativeApp';
 	description="Generá creativos estáticos para Meta Ads a partir de estructuras validadas, con tu producto y tu marca."
 	ogTitle="Creattia | Imágenes con IA que venden"
 	ogDescription="Una biblioteca en expansión, tu producto y tu marca. Generá imágenes listas para vender."
-	ogImage="/images/creattia/avatar-nobg.webp"
+	{/* La misma tarjeta que la home, y por el mismo motivo. Acá apuntaba al avatar
+	    en WebP: Facebook y WhatsApp no leen WebP para la vista previa, y encima es
+	    cuadrado de 500px mientras las etiquetas declaran 1200x630. Con las dos
+	    cosas juntas, compartir el link de la app no mostraba ninguna imagen. */}
+	ogImage="/images/creattia/og-image.png"
 	favicon="/images/creattia/favicon.ico"
 	appleTouchIcon="/images/creattia/apple-touch-icon.png"
 	manifest="/creattia.webmanifest"
