@@ -119,6 +119,52 @@ describe('las personas de un anuncio fotográfico parecen fotos', () => {
 	});
 });
 
+/**
+ * Se cargo el avatar de una mujer y el aviso salio con un hombre.
+ *
+ * No fue que el parecido se degrado: cambio el genero. Dos reglas ordenaban lo
+ * contrario a las fotos, y las dos ganaban por ser mas concretas:
+ *
+ * · El casting por defecto de cada persona detectada decia "conservalos
+ *   esencialmente como en el template (mismo genero aparente, edad y rol)". El
+ *   ganador mostraba un hombre.
+ * · Las decisiones de tipo persona seguian emitiendose con su estrategia por
+ *   defecto —"mostrar un modelo masculino joven"— aunque quien aparece ya
+ *   estuviera decidido por las fotos.
+ */
+describe('con fotos cargadas, la persona sale de las fotos', () => {
+	const ganadorConHombre: any = {
+		referenceHasProduct: true,
+		textZones: [],
+		people: [{ where: 'centro', description: 'hombre joven con barba' }],
+		creativeDecisions: [{ type: 'person', title: 'Genero y apariencia del modelo', question: 'Que tipo de persona?', defaultStrategy: 'Mostrar un modelo masculino, joven y con estilo casual.' }],
+	};
+
+	test('el casting por defecto ya no manda conservar al del template', () => {
+		const prompt = buildClonePrompt({ ...base, personMode: 'upload', hasAvatarReference: true } as any, ganadorConHombre, false);
+		assert.doesNotMatch(prompt, /same apparent gender, age and role/);
+		assert.match(prompt, /render the person from the supplied reference photos/);
+	});
+
+	test('la decision de persona no puede pisar a las fotos', () => {
+		// Su estrategia por defecto describia a otra persona y le ganaba al avatar.
+		const prompt = buildClonePrompt({ ...base, personMode: 'upload', hasAvatarReference: true } as any, ganadorConHombre, false);
+		assert.doesNotMatch(prompt, /Mostrar un modelo masculino/);
+	});
+
+	test('se dice explicitamente que las fotos le ganan al ganador', () => {
+		const prompt = buildClonePrompt({ ...base, personMode: 'upload', hasAvatarReference: true } as any, ganadorConHombre, false);
+		assert.match(prompt, /THEIR IDENTITY OVERRIDES THE TEMPLATE AND THE ANALYSIS/);
+		assert.match(prompt, /if the winner shows a man and these photos are of a woman/);
+	});
+
+	test('sin fotos, el default sigue siendo conservar al del template', () => {
+		// La rama de siempre no se toca: sin avatar, el ganador manda.
+		const prompt = buildClonePrompt({ ...base, personMode: 'ai' } as any, ganadorConHombre, false);
+		assert.match(prompt, /same apparent gender, age and role/);
+	});
+});
+
 describe('el modo que llega del cliente no se cree', () => {
 	test('los cuatro modos válidos pasan', () => {
 		for (const modo of PERSON_MODES) assert.equal(parsePersonMode(modo), modo);
@@ -240,7 +286,7 @@ describe('cada modo llega distinto al render', () => {
 		);
 		assert.match(prompt, /VISUAL IDENTITY REFERENCE/);
 		assert.match(prompt, /Sofía, la fundadora/);
-		assert.match(prompt, /Never merge two people or invent a face/);
+		assert.match(prompt, /Never merge two people/);
 	});
 
 	/**
@@ -252,14 +298,17 @@ describe('cada modo llega distinto al render', () => {
 	 */
 	test('cargar avatar: fija la cara Y la contextura', () => {
 		const prompt = buildClonePrompt({ ...base, personMode: 'upload', avatarImageCount: 3 } as any, conGente, false);
-		assert.match(prompt, /face, bone structure, skin tone, eyes, hair, and BODY — build, height, proportions/);
+		assert.match(prompt, /BODY — build, frame, shoulders, height and proportions/);
 		assert.match(prompt, /a slim person may not come back athletic/);
+		// Lo que fallaba: el avatar era una mujer y el aviso salio con un hombre,
+		// porque el casting por defecto decia "mismo genero aparente que el template".
+		assert.match(prompt, /THEIR IDENTITY OVERRIDES THE TEMPLATE AND THE ANALYSIS/);
 	});
 
 	test('cargar avatar: la ropa la pone el anuncio, no las fotos', () => {
 		const prompt = buildClonePrompt({ ...base, personMode: 'upload', avatarImageCount: 3 } as any, conGente, false);
-		assert.match(prompt, /They do NOT fix the clothing, the setting or the pose/);
-		assert.match(prompt, /dress them in what is being advertised/);
+		assert.match(prompt, /What the photos do NOT decide is the clothing, the setting or the pose/);
+		assert.match(prompt, /those come from THIS ad/);
 	});
 
 	test('sin persona sigue diciendo que no va nadie aunque el ganador no muestre a nadie', () => {
