@@ -61,7 +61,7 @@ export const GET: APIRoute = async ({ request }) => {
 			admin.from('creative_subscriptions').select('user_id,provider_subscription_id,plan_code,status,monthly_credits,current_period_end,last_event_id,created_at,updated_at').order('created_at', { ascending: false }),
 			admin.from('creative_credit_purchases').select('payment_id,user_id,credits,amount,currency,created_at').order('created_at', { ascending: false }).limit(5000),
 			admin.from('creative_subscription_payments').select('payment_id,user_id,provider_subscription_id,plan_code,status,amount,currency,paid_at,created_at').order('paid_at', { ascending: false }).limit(5000),
-			admin.from('creative_generations').select('id,user_id,status,created_at,completed_at,title,output_path,format,settings_snapshot').order('created_at', { ascending: false }).limit(10000),
+			admin.from('creative_generations').select('id,user_id,status,created_at,completed_at,title,output_path,format,user_brief,settings_snapshot').order('created_at', { ascending: false }).limit(10000),
 			admin.from('creative_video_generations').select('id,user_id,status,created_at,completed_at,title,duration_seconds').order('created_at', { ascending: false }).limit(5000),
 			admin.from('creative_admin_access_overrides').select('user_id,access_mode,plan_code,credits_override,note,updated_at'),
 			/**
@@ -196,6 +196,24 @@ export const GET: APIRoute = async ({ request }) => {
 				// abajo, para todo el feed de una vez y no una consulta por fila.
 				productIds: Array.isArray(row.settings_snapshot?.productIds) ? row.settings_snapshot.productIds : [],
 				productNames: Array.isArray(row.settings_snapshot?.productNames) ? row.settings_snapshot.productNames : [],
+				// Con qué se pidió. Sin esto, mirar una generación vieja no explicaba
+				// nada: se veía qué salió y no qué se había pedido, que es la mitad
+				// de la respuesta cuando alguien pregunta por qué salió así.
+				brief: row.user_brief || null,
+				decisiones: {
+					idioma: row.settings_snapshot?.language || null,
+					alcance: row.settings_snapshot?.subjectMode || null,
+					colores: row.settings_snapshot?.colorMode || null,
+					tipografia: row.settings_snapshot?.typoMode || null,
+					marca: row.settings_snapshot?.brandSource || null,
+					firma: row.settings_snapshot?.logoMode ?? (row.settings_snapshot?.includeLogo ? 'imagen' : null),
+					persona: row.settings_snapshot?.personMode || null,
+					personaDescripta: row.settings_snapshot?.avatarDescription || null,
+					prensa: row.settings_snapshot?.pressRowMode || null,
+					prensaItems: Array.isArray(row.settings_snapshot?.pressRowItems) ? row.settings_snapshot.pressRowItems : [],
+					preset: row.settings_snapshot?.preset || null,
+					rehechaDe: row.settings_snapshot?.sourceGenerationId || null,
+				},
 				...authorOf(row.user_id),
 			})),
 			...videos.slice(0, 50).map((row: any) => ({

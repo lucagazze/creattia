@@ -271,6 +271,67 @@ function ActivitySection({ activity, onOpenUser }: { activity: any[]; onOpenUser
 }
 
 /**
+ * Las decisiones de una generación, dichas como las leería una persona.
+ *
+ * En la base son códigos —'winner', 'upload', 'quitar'— que no dicen nada a
+ * quien mira el panel. Y traducirlas en el JSX las dejaba mezcladas con el
+ * dibujo, que es como se terminan escribiendo dos veces distinto.
+ */
+const COMO_SE_LEE: Record<string, Record<string, string>> = {
+	alcance: { product: 'Un producto', service: 'Un servicio', saas: 'Un software', brand: 'La marca', catalog: 'La tienda entera' },
+	colores: { winner: 'Los del ganador', url: 'Los de la web', brand: 'Los de Mi marca' },
+	tipografia: { winner: 'La del ganador', url: 'La de la web', brand: 'La de Mi marca' },
+	marca: { none: 'Sin marca', url: 'La de la web', mine: 'Mi marca' },
+	firma: { texto: 'El nombre escrito', imagen: 'El archivo del logo', nada: 'Sin firma' },
+	persona: { none: 'No aparece nadie', ai: 'La elige el modelo', described: 'Descripta por el usuario', upload: 'Fotos de un avatar' },
+	prensa: { quitar: 'Se sacó el bloque', texto: 'Medios propios, escritos', logos: 'Medios propios, con logo' },
+	idioma: { es: 'Español', en: 'Inglés', pt: 'Portugués', it: 'Italiano', fr: 'Francés', de: 'Alemán' },
+};
+
+function ComoSePidio({ item }: { item: any }) {
+	const d = item.decisiones || {};
+	const filas: Array<[string, string]> = [];
+	const poner = (etiqueta: string, clave: string, valor: any) => {
+		if (!valor) return;
+		filas.push([etiqueta, COMO_SE_LEE[clave]?.[String(valor)] || String(valor)]);
+	};
+	poner('Alcance', 'alcance', d.alcance);
+	poner('Idioma', 'idioma', d.idioma);
+	poner('Colores', 'colores', d.colores);
+	poner('Tipografía', 'tipografia', d.tipografia);
+	poner('Identidad', 'marca', d.marca);
+	poner('Firma', 'firma', d.firma);
+	poner('Persona', 'persona', d.persona);
+	if (d.personaDescripta) filas.push(['Cómo es', d.personaDescripta]);
+	poner('Fila de medios', 'prensa', d.prensa);
+	if (d.prensaItems?.length) filas.push(['Medios declarados', d.prensaItems.join(', ')]);
+	if (item.format) filas.push(['Formato', item.format]);
+	if (d.preset) filas.push(['Preset', d.preset]);
+	// Que sea una rehecha explica por qué se parece tanto a otra del feed.
+	if (d.rehechaDe) filas.push(['Rehecha de', 'otra generación']);
+	if (!filas.length && !item.brief) return null;
+	return (
+		<div className="visor-creativo-pedido">
+			{/* Lo que escribió la persona va primero y separado: es lo único de acá
+			    que no eligió de una lista, y es lo que más explica el resultado. */}
+			{item.brief && (
+				<div className="visor-creativo-brief">
+					<span>Indicaciones que escribió</span>
+					<p>{item.brief}</p>
+				</div>
+			)}
+			{filas.length > 0 && (
+				<dl>
+					{filas.map(([etiqueta, valor]) => (
+						<div key={etiqueta}><dt>{etiqueta}</dt><dd>{valor}</dd></div>
+					))}
+				</dl>
+			)}
+		</div>
+	);
+}
+
+/**
  * Un bloque del visor: una imagen grande y, si hay más, las miniaturas debajo.
  *
  * Antes se apilaban las diez del mismo tamaño en una grilla con scroll: se veía
@@ -367,6 +428,7 @@ function VisorDeCreativo({ item, onClose }: { item: any; onClose: () => void }) 
 					))}
 					{!bloques.length && <EmptyState label="Esta generación no guardó imágenes." />}
 				</div>
+				<ComoSePidio item={item} />
 			</div>
 		</div>
 	);

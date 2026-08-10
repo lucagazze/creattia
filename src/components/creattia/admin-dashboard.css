@@ -332,3 +332,34 @@
 @media (max-width: 760px) {
 	.visor-creativo-principal { height: 38vh; }
 }
+
+/* ─── Con qué se pidió cada creativo ──────────────────
+   El visor mostraba qué entró y qué salió, pero no lo que había pedido la
+   persona: se veía el resultado sin la mitad de la explicación. */
+.visor-creativo-pedido {
+	border-top: 1px solid #f0ecf4; padding: 14px 18px 16px; background: #fcfbfe;
+	max-height: 26vh; overflow-y: auto;
+}
+/* Lo escrito va primero y aparte: es lo único que no se eligió de una lista. */
+.visor-creativo-brief {
+	margin-bottom: 12px; padding: 10px 12px; border-radius: 10px;
+	border: 1px solid #e6e0f0; background: #fff;
+}
+.visor-creativo-brief span {
+	display: block; margin-bottom: 3px; color: #7048ba;
+	font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+}
+.visor-creativo-brief p { margin: 0; color: #3f3560; font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; }
+.visor-creativo-pedido dl {
+	display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+	gap: 6px 14px; margin: 0;
+}
+.visor-creativo-pedido dl > div { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.visor-creativo-pedido dt {
+	flex: 0 0 auto; color: #a49bad; font-size: 10.5px; font-weight: 700;
+	letter-spacing: .03em; text-transform: uppercase;
+}
+.visor-creativo-pedido dd {
+	margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	color: #3f3560; font-size: 12px; font-weight: 600;
+}

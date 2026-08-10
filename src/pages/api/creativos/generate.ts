@@ -463,6 +463,7 @@ export const POST: APIRoute = async ({ request }) => {
 			: (requestedTemplateName || templateName);
 		const generationSettingsSnapshot = {
 			format, language, imageType, preset, productIds, productNames: storedProducts.map((item) => item.name),
+			colorMode, typoMode, brandSource,
 			includeLogo,
 			logoMode: logoMode || null,
 			subjectMode,
