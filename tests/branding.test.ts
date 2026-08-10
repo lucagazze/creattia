@@ -80,10 +80,46 @@ describe('marcas de terceros y la foto del ganador', () => {
 		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, null, false);
 		assert.match(prompt, /THIRD-PARTY MARKS ARE NEVER COPIED/);
 		assert.match(prompt, /press logos/i);
-		assert.match(prompt, /not a design detail/i);
+		assert.match(prompt, /not merely a design detail/i);
 		// El rótulo se va con los logos: sacando sólo los logos quedaba "APARECE EN"
 		// anunciando una fila que ya no existe, sobre una banda vacía.
 		assert.match(prompt, /including the heading that introduces it/);
+	});
+
+	/**
+	 * La fila de medios se decide, no se borra a ciegas.
+	 *
+	 * Copiar "As seen on Forbes" cuando el negocio no salio en Forbes es una
+	 * afirmacion falsa sobre otra empresa, y eso no cambia porque sea comun. Pero
+	 * borrarla siempre dejaba afuera al negocio que SI tiene prensa propia, que es
+	 * perfectamente legitimo. Ahora se pregunta, y el default es sacarla.
+	 */
+	test('por defecto la fila se saca entera, con su rotulo', () => {
+		const prompt = buildClonePrompt({ ...base, brandName: 'Tostado' }, null, false);
+		assert.match(prompt, /Remove the whole area, including the heading that introduces it/);
+		assert.doesNotMatch(prompt, /The advertiser confirmed they have this coverage/);
+	});
+
+	test('con prensa propia confirmada, van los nombres del anunciante', () => {
+		const prompt = buildClonePrompt(
+			{ ...base, brandName: 'Tostado', pressRowMode: 'texto', pressRowItems: ['La Nación', 'Infobae'] } as any,
+			null,
+			false,
+		);
+		assert.match(prompt, /The advertiser confirmed they have this coverage/);
+		assert.match(prompt, /La Nación, Infobae/);
+		// Nombres escritos, nunca los logos del ganador ni sellos inventados.
+		assert.match(prompt, /No logos, no seals, no invented extras/);
+	});
+
+	test('la prohibicion de copiar marcas ajenas nunca se levanta', () => {
+		// Ni siquiera eligiendo poner prensa propia: lo que se agrega son los
+		// nombres del anunciante, no los medios que mostraba el ganador.
+		for (const modo of [undefined, 'quitar', 'texto']) {
+			const prompt = buildClonePrompt({ ...base, brandName: 'Tostado', pressRowMode: modo, pressRowItems: ['Clarín'] } as any, null, false);
+			assert.match(prompt, /THIRD-PARTY MARKS ARE NEVER COPIED/, String(modo));
+			assert.match(prompt, /NONE of them may appear in the output/, String(modo));
+		}
 	});
 
 	test('la foto del ganador no puede sobrevivir con el producto encima', () => {

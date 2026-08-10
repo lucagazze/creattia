@@ -337,6 +337,16 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const personasVisibles = people.filter((persona) => persona && (persona.description || persona.directive || persona.where));
 	const [comparisons, setComparisons] = useState<Array<{ slide?: number; where?: string; role?: string; description?: string; directive?: string }>>([]);
+	/**
+	 * Que hacer con la fila de medios del ganador ("As seen on: Forbes, NBC").
+	 *
+	 * Son marcas de terceros y afirman una cobertura que el anunciante no tiene,
+	 * asi que el default es quitarla y el aviso se cierra solo. Pero hay negocios
+	 * que SI tienen prensa o certificaciones propias, y hasta ahora no habia forma
+	 * de mostrarlas: la unica salida era borrar el bloque.
+	 */
+	const [pressRowMode, setPressRowMode] = useState<'quitar' | 'texto'>('quitar');
+	const [pressRowItems, setPressRowItems] = useState('');
 	const [creativeDecisions, setCreativeDecisions] = useState<Array<{ slide?: number; type?: string; title?: string; where?: string; description?: string; question?: string; defaultStrategy?: string; options?: string[]; confidence?: string; directive?: string }>>([]);
 	/**
 	 * Dónde va la opción de usar fotos propias: dentro de la primera decisión que
@@ -680,6 +690,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				form.set('productFacts', manualProductFacts.trim());
 			}
 			form.set('personMode', personMode);
+			form.set('pressRowMode', pressRowMode);
+			if (pressRowMode === 'texto') form.set('pressRowItems', pressRowItems.trim());
 			if (personMode === 'upload') form.set('avatarId', await guardarAvatarCargado());
 			form.set('plan', JSON.stringify(planRevisado()));
 
@@ -1521,6 +1533,37 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 											)}
 										</div>
 									))}
+									{/* La fila de medios del ganador. Se pregunta en vez de decidirla a
+									    ciegas: sacarla siempre deja afuera al negocio que SI tiene prensa
+									    propia, y copiarla afirma una cobertura que no existe. Los logos del
+									    ganador no se reproducen en ningun caso: son de otra empresa. */}
+									{(plan as any)?.pressRow?.detected && (
+										<div style={{ padding: '12px 14px', border: '1px solid #eee6f2', borderRadius: '11px', background: '#fff' }}>
+											<strong style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px', fontSize: '13px', color: '#3f3560', marginBottom: '5px' }}>
+												<span>📰 {(plan as any).pressRow.heading || 'Fila de medios'}</span>
+											</strong>
+											<p style={{ margin: '0 0 8px', fontSize: '12.5px', lineHeight: 1.45, color: '#3f3560', fontWeight: 600 }}>
+												El ganador muestra {((plan as any).pressRow.outlets || []).join(', ') || 'logos de medios'}. Esos son de otra empresa y no se copian. ¿Tenés prensa o certificaciones propias?
+											</p>
+											<div className="decision-options">
+												<button type="button" className={pressRowMode === 'quitar' ? 'active' : ''} onClick={() => setPressRowMode('quitar')}>No tengo · sacar el bloque</button>
+												<button type="button" className={pressRowMode === 'texto' ? 'active' : ''} onClick={() => setPressRowMode('texto')}>Sí, son estos</button>
+											</div>
+											{pressRowMode === 'texto' && (
+												<input
+													value={pressRowItems}
+													onChange={(event) => setPressRowItems(event.target.value)}
+													placeholder="Ej: La Nación, Infobae, Cámara de Comercio"
+													style={{ width: '100%', boxSizing: 'border-box', marginTop: '8px', padding: '10px 12px', borderRadius: '9px', border: '1px solid #e2dde9', fontSize: '13px' }}
+												/>
+											)}
+											<p style={{ margin: '8px 0 0', fontSize: '11.5px', lineHeight: 1.45, color: '#8b8490' }}>
+												{pressRowMode === 'texto'
+													? 'Van escritos con la tipografía del aviso, en el mismo lugar y tamaño que la fila del ganador.'
+													: 'Se saca la fila y su rótulo, y el diseño se cierra solo.'}
+											</p>
+										</div>
+									)}
 									{/* Acá vivía una tarjeta suelta, "Quién pone la cara", para cuando
 									    el análisis veía gente pero no dejaba ninguna decisión de
 									    persona. Aparecía de más: el analizador contaba como persona

@@ -182,6 +182,8 @@ export type ClonePromptInput = {
 	brandPalette?: BrandPalette;
 	/** Quién aparece: lo elige el usuario en la revisión, antes de generar. */
 	personMode?: PersonMode;
+	pressRowMode?: 'quitar' | 'texto' | 'logos';
+	pressRowItems?: string[];
 	/**
 	 * La persona en palabras. La llena "yo la describo" con lo que escribió el
 	 * usuario, y "cargar avatar" con la descripción guardada del avatar elegido.
@@ -312,6 +314,10 @@ export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalys
 		subjectMode: input.subjectMode,
 		hasAvatarReference: (input.avatarImageCount || 0) > 0,
 		personMode: input.personMode,
+		// Que hacer con la fila de medios del ganador. Sin esto el render no se
+		// entera de lo que se decidio en la revision y siempre la saca.
+		pressRowMode: input.pressRowMode,
+		pressRowItems: input.pressRowItems,
 		avatarDescription: input.avatarDescription,
 		carousel: input.carousel,
 	});

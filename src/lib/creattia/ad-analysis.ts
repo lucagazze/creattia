@@ -83,6 +83,15 @@ export type LayoutAnalysis = {
 	compositionGeometry?: string;
 	productHasPackaging?: boolean;
 	referenceHasProduct?: boolean;
+	/**
+	 * La fila de medios del ganador ("As seen on: Forbes, NBC").
+	 *
+	 * Son marcas de terceros y afirman una cobertura que el anunciante no tiene,
+	 * asi que nunca se copian. Pero el analisis tiene que REPORTARLA igual: sin
+	 * eso, la pantalla no puede preguntar si el negocio tiene prensa propia, y la
+	 * unica salida es borrar el bloque a ciegas.
+	 */
+	pressRow?: { detected?: boolean; heading?: string; outlets?: string[]; where?: string };
 	templateHasLogoSlot?: boolean;
 	logoDescription?: string;
 	/**
@@ -381,6 +390,7 @@ Return STRICT JSON:
   "textZones": [
     { "slide": 1, "where": "PRECISE position: which corner or edge, and whether the block sits over the photo or outside it (e.g. 'white box overlapping the bottom-LEFT of the photo', 'red breadcrumb line above the headline')", "onProduct": true|false, "original": "exact text visibly present in the winning image", "lines": how many lines this block actually occupies in the template image, counted with your eyes (a headline broken across three lines is 3, not 1), "onCurve": "if this text sits on a CURVED baseline, say which corner or element the arc hugs, how much of a turn it covers and in which direction. Null when the baseline is straight", "labels": "if this text is a callout that names a part of the product (usually joined to it by a leader line or an arrow), name the part it points at; otherwise null", "messageRole": "the persuasive job this text performs", "replacement": "honest equivalent for the target product. NO INVENTED FIGURES: this string may contain a number, percentage, price, discount, timeframe, rating, review count or guarantee ONLY if that exact figure appears in the verified facts above. The template's own figures are NOT verified and must not be reused or adapted — if the original says 50%, the replacement says neither 50% nor 45%. Carry the same persuasive force with a qualitative claim instead. COPY THE CASE OF THE ORIGINAL EXACTLY: if the original is ALL CAPS the replacement is ALL CAPS, if it is Title Case it is Title Case, if it is sentence case it is sentence case. La caja es parte del diseño, no del contenido: cambiarla desarma la jerarquía aunque el texto sea correcto. LENGTH IS A HARD CONSTRAINT AND IT IS COUNTED IN CHARACTERS, NOT ESTIMATED: the replacement must be within 3 characters of the original — count them one by one before returning it — and never use more lines than the original. A 24-character original admits 21 to 27, nothing else. If the honest message does not fit, cut it down until it does — a shorter phrase that keeps the design intact beats a complete one that breaks it", "emphasis": "the visual emphasis applied to PART of this text and WHICH words carry it. The most common by far is a few words set in a HEAVIER WEIGHT than the rest of the same line, and it is the easiest one to miss: compare the stroke thickness of each word against its neighbours before deciding there is none. Also look for highlighter/marker background (say the colour), underline, a different colour, italics, a larger size or a boxed word. Write null ONLY when every word in this block is genuinely identical in weight, colour and size. Examples: 'the words \"10g\" and \"7 days\" are bold, the rest of the line is regular'; 'marker highlight in soft yellow over \"62 and have $1.3 million saved up\"'" }
   ],
+  "pressRow": { "detected": true|false, "heading": "the exact wording that introduces the row (\"As seen on\", \"As featured in\"), or null", "outlets": ["each outlet or seal shown, by name, so the advertiser can see what the winner claimed"], "where": "where the row sits in the layout" },
   "referenceHasProduct": true|false,
   "renderingMedium": "WHAT THIS IMAGE IS MADE OF, judged by looking at it, not by what it advertises. Be specific and name the medium first: 'photograph' / '3D cartoon render (Pixar-like stylised characters)' / '3D product render' / 'flat vector illustration' / 'hand-drawn illustration' / 'comic-book art' / '3D render composited with photographic elements' / 'screenshot or UI mockup' / 'photo collage with cut-out edges' / 'typographic poster, no imagery'. If characters or animals appear, say explicitly whether they are REAL PHOTOGRAPHED ones or STYLISED/ILLUSTRATED ones and describe the style (proportions, outlines, shading, eyes). This field decides how the whole new ad is rendered, so an error here makes the clone look like a different ad even when every block is in place.",
   "compositionGeometry": "THE LAYOUT IN PROPORTIONS, as fractions of the canvas, so it can be rebuilt exactly. State: where the canvas is divided and by how much (e.g. 'a vertical divider at exactly 50% splits the canvas into two equal halves'); for each horizontal band, what it holds and what fraction of the height it takes (e.g. 'headline block occupies the top 18%, the two subjects the middle 62%, the closing text the bottom 20%'); the cap-height of the headline as a fraction of the canvas width; and the outer margin as a fraction of the width. Measure with your eyes against the edges of the image — do not estimate from memory of similar ads.",
@@ -457,7 +467,7 @@ Return STRICT JSON:
 }
 
 Rules:
-- Analyze the winner's wording before analyzing the visual layout. Enumerate EVERY text zone that is actually visible, including headline, subcopy, review, badges, pills, CTA, small print and text printed on packaging. Do not invent zones that are not visible. If the image has no publication text, return an empty textZones array.
+- Analyze the winner's wording before analyzing the visual layout. Enumerate EVERY text zone that is actually visible, including headline, subcopy, review, badges, pills, CTA, small print and text printed on packaging. ONE EXCEPTION: the row of press logos or outlet names under an "As seen on" / "As featured in" heading does NOT go in textZones, and neither does that heading. Those are third-party marks that never survive into the clone, so listing them as replaceable text asks the renderer to fill a row that has to disappear — and it fills it, with whatever it finds. Report the row in "pressRow" instead. Do not invent zones that are not visible. If the image has no publication text, return an empty textZones array.
 - "messageStrategy" must explain why the original copy works, not merely describe what it says. Keep the same emotional mechanism and rhetorical device in the internal replacements.
 - "adCopy" is the adapted publication copy and "textZones" are the exact visible text areas used by the generator. The text-zone replacements MUST be rendered inside the final image in the same positions and hierarchy; do not remove the winner's visible message. Text physically printed on the supplied product or inside its official logo must remain faithful to those supplied assets.
 - ${languageRule}
@@ -521,6 +531,14 @@ Rules:
 			parsed.renderingMedium = typeof parsed.renderingMedium === 'string' ? parsed.renderingMedium.trim().slice(0, 300) : '';
 			parsed.compositionGeometry = typeof parsed.compositionGeometry === 'string' ? parsed.compositionGeometry.trim().slice(0, 700) : '';
 			parsed.logoIsWordmark = parsed.logoIsWordmark === true;
+			parsed.pressRow = parsed.pressRow && typeof parsed.pressRow === 'object' && parsed.pressRow.detected === true
+				? {
+					detected: true,
+					heading: typeof parsed.pressRow.heading === 'string' ? parsed.pressRow.heading.trim().slice(0, 80) : '',
+					outlets: Array.isArray(parsed.pressRow.outlets) ? parsed.pressRow.outlets.map((v: any) => String(v || '').trim().slice(0, 60)).filter(Boolean).slice(0, 8) : [],
+					where: typeof parsed.pressRow.where === 'string' ? parsed.pressRow.where.trim().slice(0, 120) : '',
+				}
+				: undefined;
 			// Un valor raro aca no puede caer en la rama de inmueble por accidente: lo
 			// que no se reconoce se trata como objeto, que es lo que hacia antes.
 			parsed.targetClass = ['object', 'property', 'vehicle', 'service'].includes(parsed.targetClass) ? parsed.targetClass : undefined;
@@ -692,6 +710,16 @@ export function buildReferenceClonePrompt(input: {
 	/** Quien aparece en el anuncio: lo elige el usuario antes de generar. */
 	personMode?: 'none' | 'ai' | 'described' | 'upload';
 	avatarDescription?: string;
+	/**
+	 * Que hacer con la fila de medios del ganador, decidido en la revision.
+	 *
+	 * 'quitar' es el default y lo correcto: reproducir "As seen on Forbes" cuando
+	 * el negocio no salio en Forbes es una afirmacion falsa. 'texto' y 'logos' son
+	 * para cuando el anunciante SI tiene prensa o sellos propios, que es
+	 * perfectamente legitimo y hoy no habia forma de mostrar.
+	 */
+	pressRowMode?: 'quitar' | 'texto' | 'logos';
+	pressRowItems?: string[];
 	includeWebsite?: boolean;
 	displayWebsite?: string;
 	adCopy?: { headline?: string; subheadline?: string; reviewText?: string; cta?: string; language?: string };
@@ -1176,7 +1204,7 @@ Build the same piece again: same medium, same geometry, same proportions, same l
 
 NOTHING THAT IS NOT IN THE TEMPLATE (READ THIS FIRST) — You may only reproduce elements that are VISIBLE in the winning ad. Before adding anything, look for it in the template; if it is not there, it does not go in. This applies especially to what tends to get added by reflex: a web address, a domain, a social handle or a QR code; a logo, a wordmark or a brand line; a badge, seal, medallion, ribbon, laurel, star rating or certification; a guarantee, a discount or a shipping promise; an extra caption or an extra icon. The advertiser's website and brand name are given to you as CONTEXT so you can write honest copy — they are not instructions to print them. An ad that shows one element more than the template is wrong even if that element looks good. Equally, do not leave large empty areas the template does not have: every band of the canvas carries what the template's equivalent band carries.
 
-THIRD-PARTY MARKS ARE NEVER COPIED (CRITICAL) — If the template shows press logos, a row of media outlets ("As featured in", "As seen on"), partner logos, award seals, certification badges, app-store badges, rating marks or any other company's name or symbol, NONE of them may appear in the output. They belong to other companies and they state something about the ORIGINAL advertiser that is not true of this one: reproducing them claims a coverage, an award or an endorsement that this business does not have, which is a false statement and not merely a design detail. Remove the whole area, including the heading that introduces it and its divider: dropping only the logos leaves a label announcing a row that is no longer there. That is a false statement, not a design detail. Do not replace it with invented logos, invented outlet names, made-up seals or grey placeholder shapes either. The only exception is a mark printed on the target's own product or contained in the advertiser's own supplied logo.
+THIRD-PARTY MARKS ARE NEVER COPIED (CRITICAL) — If the template shows press logos, a row of media outlets ("As featured in", "As seen on"), partner logos, award seals, certification badges, app-store badges, rating marks or any other company's name or symbol, NONE of them may appear in the output. They belong to other companies and they state something about the ORIGINAL advertiser that is not true of this one: reproducing them claims a coverage, an award or an endorsement that this business does not have, which is a false statement and not merely a design detail. ${input.pressRowMode === 'texto' && input.pressRowItems?.length ? `The advertiser confirmed they have this coverage, so that row keeps its place and its heading, with THEIR names set as clean type in the ad's own typeface, same size and spacing as the winner's row: ${input.pressRowItems.join(', ')}. No logos, no seals, no invented extras — only these names.` : input.pressRowMode === 'logos' ? `The advertiser supplied their own seals for that row: place them where the winner's logos were, at the same size and spacing, and nothing else.` : `Remove the whole area, including the heading that introduces it and its divider: dropping only the logos leaves a label announcing a row that is no longer there. Do not replace it with invented logos, invented outlet names, made-up seals or grey placeholder shapes either.`} The only exception is a mark printed on the target's own product or contained in the advertiser's own supplied logo.
 
 THE TEMPLATE'S PHOTOGRAPH DOES NOT SURVIVE (CRITICAL) — The people, the place and the scene in the template's photos belong to the ad that was already made; they have nothing to do with this business. Pasting the new product ON TOP of the template's original photo is the most common way this goes wrong and it is a hard failure: it leaves a scene that makes no sense — a hide floating in front of a couple on holiday — and it reads instantly as a collage. Re-photograph that area from scratch with the subject named for it, keeping the same frame, crop, angle, lighting mood and position so the composition still works. If the template's photo shows people and the target has no natural place for those people, the scene changes to one where the product genuinely lives: whoever makes it, whoever uses it, or the result it produces.
 

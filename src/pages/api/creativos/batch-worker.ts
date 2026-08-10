@@ -269,6 +269,10 @@ export const POST: APIRoute = async ({ request }) => {
 			brandTypography,
 			brandPalette,
 			personMode,
+			// Se decidio en la revision y viaja en el snapshot: sin esto el lote y el
+			// carrusel siempre sacarian la fila, aunque el negocio tenga prensa propia.
+			pressRowMode: snapshot.pressRowMode === 'texto' ? 'texto' : 'quitar',
+			pressRowItems: Array.isArray(snapshot.pressRowItems) ? snapshot.pressRowItems : [],
 			avatarDescription,
 			approvedPlan,
 			requestedFormat,

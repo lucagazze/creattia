@@ -222,6 +222,18 @@ export const POST: APIRoute = async ({ request }) => {
 		 */
 		const personMode = parsePersonMode(form.get('personMode'), avatarId ? 'upload' : 'ai');
 		const personaEscrita = personMode === 'described' ? clean(form.get('avatarDescription'), 600) : '';
+		/**
+		 * Que hacer con la fila de medios del ganador ("As seen on: Forbes, NBC").
+		 *
+		 * Por defecto se saca, y es lo correcto: reproducir esos logos afirma una
+		 * cobertura de prensa que el anunciante no tiene, sobre empresas reales.
+		 * 'texto' es para el negocio que SI tiene prensa o certificaciones propias y
+		 * las escribe: eso es legitimo y hasta ahora no habia forma de mostrarlo.
+		 */
+		const pressRowMode = clean(form.get('pressRowMode'), 10) === 'texto' ? 'texto' as const : 'quitar' as const;
+		const pressRowItems = pressRowMode === 'texto'
+			? clean(form.get('pressRowItems'), 300).split(',').map((valor) => valor.trim()).filter(Boolean).slice(0, 8)
+			: [];
 		const effectiveBrief = stripWebReferences(brief);
 		const brandSourceParam = clean(form.get('brandSource'), 10);
 		// 'url'  → la marca del sitio de donde salió el producto
@@ -447,6 +459,8 @@ export const POST: APIRoute = async ({ request }) => {
 			// desde el historial se vuelve a armar el mismo aviso, y sin esto un
 			// creativo pedido sin gente volvía con gente.
 			personMode,
+			pressRowMode,
+			pressRowItems,
 			avatarDescription: personaEscrita,
 			// Las revisiones heredan el anuncio ganador de la imagen original.
 			referencePath: storedReference?.image_path || (sourceGeneration as any)?.settings_snapshot?.referencePath || null,
@@ -746,6 +760,8 @@ The result must look like the same image with only that one adjustment applied.`
 			brandTypography: effectiveBrandTypography,
 			brandPalette: effectiveBrandPalette,
 			personMode,
+			pressRowMode,
+			pressRowItems,
 			avatarDescription,
 			avatarImageCount: avatarReferenceImages.length,
 		};
