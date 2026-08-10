@@ -294,3 +294,12 @@
 	.visor-creativo-piezas figure { width: 100%; min-width: 0; }
 	.visor-creativo-flecha { top: auto; right: auto; bottom: -14px; left: 50%; transform: rotate(90deg); }
 }
+
+/* Dónde está parada la persona, debajo de su nombre en el panel de presencia.
+   El panel decía quiénes están adentro y nada de qué están haciendo, que es
+   justo lo que uno mira mientras corre una campaña. */
+.admin-donde-esta {
+	display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	padding: 1px 7px; border-radius: 6px; background: #f0eaff; color: #6a41b8;
+	font-size: 10.5px; font-style: normal; font-weight: 700;
+}

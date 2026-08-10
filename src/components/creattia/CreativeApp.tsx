@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, lazy, Suspense } from 'react';
+import { reportarPantalla } from '../../lib/creattia/presencia';
 import { creativeCatalog, mapTemplateRecord, ringMeta } from '../../lib/creattia/catalog';
 import { isSupabaseConfigured, supabase } from '../../lib/creattia/supabase-browser';
 import { isAdminEmail } from '../../lib/creattia/admin';
@@ -100,11 +101,25 @@ export default function CreativeApp() {
 			document.removeEventListener('visibilitychange', ping);
 		};
 	}, [session]);
+
 	const [view, setView] = useState<View>(() => {
 		if (typeof window === 'undefined') return 'home';
 		const params = new URLSearchParams(window.location.search);
 		return params.has('plan') || params.get('subscription') === 'return' ? 'plans' : 'home';
 	});
+	/**
+	 * Dónde está parada la persona, avisado cuando la pantalla cambia.
+	 *
+	 * El latido de arriba solo refresca la hora: el panel sabía cuánta gente
+	 * había adentro pero no qué estaba haciendo ninguno. Va aparte y no dentro
+	 * del latido porque ese tiene su propio reloj de un minuto, y reiniciarlo en
+	 * cada cambio de pantalla lo dejaría sin latir en una sesión con mucho
+	 * movimiento.
+	 */
+	useEffect(() => {
+		const token = getSessionToken(session);
+		if (token && isSupabaseConfigured) reportarPantalla(token, view);
+	}, [session, view]);
 
 	/**
 	 * Los dos pasos del embudo que solo se ven desde el navegador.

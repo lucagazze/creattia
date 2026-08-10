@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { nombreDePantalla } from '../../lib/creattia/presencia';
 import { Activity, CalendarDays, CircleDollarSign, CreditCard, FileText, MailCheck, ReceiptText, ShieldCheck, UserRound, WalletCards, X } from 'lucide-react';
 import './admin-dashboard.css';
 import { MetricsSection } from './MetricsSection';
@@ -184,7 +185,7 @@ function Metric({ label, value, hint, tone, live = false }: { label: string; val
 
 function ActiveUsersPanel({ users, onOpenUser }: { users: any[]; onOpenUser: (id: string) => void }) {
 	const activeUsers = users.filter((user) => user.activeNow || isRecentlyActive(user.lastActivityAt)).slice(0, 8);
-	return <section className="admin-panel admin-active-panel"><PanelHeading kicker="PRESENCIA EN TIEMPO REAL" title="Personas activas ahora" action="Se actualiza cada minuto" /><div className="admin-active-users">{activeUsers.length ? activeUsers.map((user) => <button type="button" key={user.id} onClick={() => onOpenUser(user.id)}><span className="admin-avatar">{(user.fullName || user.email || '?').slice(0, 1).toUpperCase()}</span><span><strong>{user.fullName || user.email}</strong><small>{user.email}</small></span><i className="admin-presence-dot online" title="Online ahora" /></button>) : <EmptyState label="No hay personas activas en los últimos 10 minutos." />}</div></section>;
+	return <section className="admin-panel admin-active-panel"><PanelHeading kicker="PRESENCIA EN TIEMPO REAL" title="Personas activas ahora" action="Se actualiza cada minuto" /><div className="admin-active-users">{activeUsers.length ? activeUsers.map((user) => <button type="button" key={user.id} onClick={() => onOpenUser(user.id)}><span className="admin-avatar">{(user.fullName || user.email || '?').slice(0, 1).toUpperCase()}</span><span><strong>{user.fullName || user.email}</strong><small>{user.pantalla ? <em className="admin-donde-esta">{nombreDePantalla(user.pantalla.vista, user.pantalla.detalle)}</em> : user.email}</small></span><i className="admin-presence-dot online" title="Online ahora" /></button>) : <EmptyState label="No hay personas activas en los últimos 10 minutos." />}</div></section>;
 }
 
 function OverviewSection({ overview, onOpenUser }: { overview: any; onOpenUser: (id: string) => void }) {

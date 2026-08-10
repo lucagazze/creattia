@@ -6,6 +6,7 @@ import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptio
 import ProductAssetReview, { type ProductReviewItem } from './ProductAssetReview';
 import { leerRespuestaDeEscaneo } from '../../lib/creattia/errores-de-escaneo';
 import { guardarBorrador, leerBorrador, borrarBorrador, resumenDelBorrador, type Borrador } from '../../lib/creattia/borrador-de-creacion';
+import { reportarPantalla } from '../../lib/creattia/presencia';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Página completa de creación fiel al ganador (reemplaza el modal). Mismo
@@ -407,6 +408,19 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const usuarioId: string = session?.user?.id || '';
 	const [borradorGuardado, setBorradorGuardado] = useState<Borrador | null>(null);
+
+	/**
+	 * Con qué anuncio está trabajando y en qué paso va.
+	 *
+	 * La vista sola dice "biblioteca de ganadores", que no distingue a alguien
+	 * mirando la grilla de alguien a punto de gastar un crédito. Acá se sabe las
+	 * dos cosas: qué ganador abrió y si ya pasó a revisar.
+	 */
+	useEffect(() => {
+		if (!token) return;
+		const paso = phase === 'review' ? 'revisando' : phase === 'planning' ? 'winners' : 'creando';
+		reportarPantalla(token, paso, ad?.name || '');
+	}, [token, phase, ad?.name]);
 
 	// Se lee UNA vez, al abrir. Si se leyera en cada render, apenas la persona
 	// tocara algo el aviso de "seguí donde estabas" reaparecería sobre su propio

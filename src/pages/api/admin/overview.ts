@@ -55,7 +55,7 @@ export const GET: APIRoute = async ({ request }) => {
 	if (!admin) return json({ error: 'Supabase no está configurado.' }, 503);
 
 	try {
-		const [users, profilesResult, subscriptionsResult, purchasesResult, subscriptionPaymentsResult, generationsResult, videosResult, overridesResult, eventosResult] = await Promise.all([
+		const [users, profilesResult, subscriptionsResult, purchasesResult, subscriptionPaymentsResult, generationsResult, videosResult, overridesResult, eventosResult, pantallasResult] = await Promise.all([
 			listAllUsers(admin),
 			listProfiles(admin),
 			admin.from('creative_subscriptions').select('user_id,provider_subscription_id,plan_code,status,monthly_credits,current_period_end,last_event_id,created_at,updated_at').order('created_at', { ascending: false }),
@@ -75,6 +75,20 @@ export const GET: APIRoute = async ({ request }) => {
 				.select('event,user_id,created_at,props')
 				.in('event', ['app_abierta', 'landing_vista'])
 				.gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+			/**
+			 * Dónde está parada cada persona ahora mismo.
+			 *
+			 * Se anota una fila cada vez que alguien CAMBIA de pantalla, así que la
+			 * más reciente de cada uno es dónde está. Se pide solo la última media
+			 * hora —más viejo que eso ya no es "ahora"— y ordenado al revés para
+			 * que la primera que aparece por usuario sea la buena.
+			 */
+			admin.from('creative_events')
+				.select('user_id,created_at,props')
+				.eq('event', 'pantalla')
+				.gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString())
+				.order('created_at', { ascending: false })
+				.limit(2000),
 		]);
 		for (const result of [profilesResult, subscriptionsResult, purchasesResult, subscriptionPaymentsResult, generationsResult, videosResult, overridesResult]) {
 			if (result.error && result.error.code !== '42P01') throw result.error;
@@ -220,6 +234,24 @@ export const GET: APIRoute = async ({ request }) => {
 		}
 
 		const eventosDelDia: any[] = eventosResult?.error ? [] : (eventosResult?.data || []);
+
+		// Dónde está cada uno: vienen ordenadas de la más nueva a la más vieja, así
+		// que la PRIMERA de cada persona es la última pantalla que abrió.
+		const pantallaPorUsuario = new Map<string, { vista: string; detalle: string; cuando: string }>();
+		for (const fila of (pantallasResult?.error ? [] : pantallasResult?.data || []) as any[]) {
+			if (!fila.user_id || pantallaPorUsuario.has(fila.user_id)) continue;
+			pantallaPorUsuario.set(fila.user_id, {
+				vista: String(fila.props?.vista || ''),
+				detalle: String(fila.props?.detalle || ''),
+				cuando: fila.created_at,
+			});
+		}
+		for (const usuario of userRows as any[]) {
+			const donde = pantallaPorUsuario.get(usuario.id);
+			// Solo para quien está adentro AHORA: mostrar la última pantalla de
+			// alguien que se fue hace veinte minutos se lee como que sigue ahí.
+			usuario.pantalla = usuario.activeNow && donde ? donde : null;
+		}
 
 		return json({
 			generatedAt: new Date().toISOString(),
