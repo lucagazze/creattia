@@ -425,3 +425,40 @@ describe('en qué idioma vuelve cada cosa del análisis', () => {
 		assert.match(fuente, /"where", "setIn", "compositionGeometry"[^]{0,120}stay in ENGLISH always/);
 	});
 });
+
+/**
+ * Un antes/después de una uña con hongos, clonado para un calzoncillo, salió
+ * con una pierna cualquiera en las dos mitades. El layout estaba perfecto y el
+ * aviso no era sobre nada.
+ *
+ * Había una regla que separa los dos lados y otra que prohíbe darlos vuelta,
+ * pero ninguna decía QUÉ se ve en cada uno. Eso quedaba solo en manos del
+ * analizador, que mantuvo "piel fea → piel linda" sin preguntarse dónde actúa
+ * el producto nuevo. La pregunta que decide un antes/después es DÓNDE.
+ */
+describe('qué muestran las dos mitades de un antes y después', () => {
+	const conComparacion = (tipo: string) => buildClonePrompt(
+		{ productNames: ['Bóxer de bambú'], productFacts: [], brief: '', brandName: 'Raw Men', colorMode: 'winner' as const, typoMode: 'winner' as const, subjectMode: 'product' as const },
+		{ referenceHasProduct: true, comparison: { detected: true, type: tipo } } as any,
+		false,
+	);
+
+	test('las dos mitades muestran donde el producto hace su trabajo', () => {
+		const prompt = conComparacion('before-after');
+		assert.match(prompt, /Both halves show THE SAME PLACE/);
+		assert.match(prompt, /where Bóxer de bambú is actually used/);
+		// Y no la parte del cuerpo que usaba el ganador.
+		assert.match(prompt, /The template's own body part is not that place unless this product is used there/);
+	});
+
+	test('si el producto se usa puesto, se ve en el DESPUÉS', () => {
+		assert.match(conComparacion('before-after'), /it is VISIBLE on the AFTER side/);
+	});
+
+	/** Solo se escribe para los antes/después: en otras comparaciones no aplica. */
+	test('no se le habla de mitades a una comparación que no lo es', () => {
+		assert.doesNotMatch(conComparacion('us-vs-them'), /Both halves show THE SAME PLACE/);
+		// Pero las reglas generales de comparación siguen ahí.
+		assert.match(conComparacion('us-vs-them'), /SPLIT INTEGRITY/);
+	});
+});
