@@ -6887,3 +6887,18 @@
 .plan-cobro-nota {
 	margin: 6px 0 0; color: #6b6280; font-size: 11.5px; line-height: 1.4;
 }
+
+/* El color medido de cada texto del ganador, como muestra.
+   Estaba medido y no se veía: para saber con qué color se iba a escribir un
+   bloque había que abrir la imagen y sacarlo con un cuentagotas. */
+.copy-colores { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 1px; }
+.copy-colores em {
+	display: inline-flex; align-items: center; gap: 4px;
+	padding: 1px 6px 1px 4px; border-radius: 5px; border: 1px solid #e6e0f0; background: #fbf9fd;
+	color: #7c7386; font-size: 10px; font-style: normal; font-weight: 700; letter-spacing: .02em;
+}
+/* Borde propio en la muestra: un color claro sobre fondo claro, sin borde, no
+   se distingue de la tarjeta y la muestra deja de mostrar nada. */
+.copy-colores i {
+	width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgba(25, 23, 29, .18);
+}

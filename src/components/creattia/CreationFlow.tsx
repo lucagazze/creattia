@@ -1608,6 +1608,15 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												<div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
 													<span style={{ fontSize: '12px', fontWeight: 600, color: '#8b8490', lineHeight: 1.35, fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>“{zone.original || 'Texto detectado'}”</span>
 													{zone.messageRole && <span style={{ fontSize: '11px', color: '#744bde', fontWeight: 700 }}>{zone.messageRole}</span>}
+													{/* El color medido del ganador, en hexadecimal y como muestra. Antes
+													    había que abrir la imagen y sacarlo con un cuentagotas para saber
+													    con qué se iba a escribir cada bloque. */}
+													{(zone.textColor || zone.boxColor) && (
+														<span className="copy-colores">
+															{zone.textColor && <em title={`Color de la letra: ${zone.textColor}`}><i style={{ background: zone.textColor }} />{zone.textColor}</em>}
+															{zone.boxColor && <em title={`Fondo de su cápsula: ${zone.boxColor}`}><i style={{ background: zone.boxColor }} />fondo</em>}
+														</span>
+													)}
 												</div>
 												<div style={{ display: 'flex', gap: '8px', alignItems: 'center', minWidth: 0 }}>
 													{copyMode === 'edit' ? (
