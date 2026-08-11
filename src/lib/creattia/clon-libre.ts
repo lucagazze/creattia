@@ -317,5 +317,5 @@ ${publico}
 
 ${idioma}
 
-Do not invent prices, percentages, ratings, guarantees or claims that are not written above. Do not keep the original advertiser's brand, logo, wordmark or product anywhere in the image. No watermarks, no platform UI.`;
+Do not invent prices, percentages, ratings, guarantees or claims that are not written above. Do not keep anything that came with the original ad: its brand, its logo, its wordmark, its product, and also the marks it borrowed from others — award seals, press logos, star ratings, certifications, legal small print. Any of those stays only if THIS product genuinely has its own, and then it says what this product actually earned. No watermarks, no platform UI.`;
 }

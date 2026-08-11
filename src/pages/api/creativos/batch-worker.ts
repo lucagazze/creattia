@@ -279,6 +279,15 @@ export const POST: APIRoute = async ({ request }) => {
 			pressRowMode: snapshot.pressRowMode === 'texto' || snapshot.pressRowMode === 'logos' ? snapshot.pressRowMode : 'quitar',
 			pressRowItems: Array.isArray(snapshot.pressRowItems) ? snapshot.pressRowItems : [],
 			avatarDescription,
+			// La ficha del producto llegaba más pobre que en el Studio: sin la URL,
+			// sin el logo del sitio, sin qué vende la tienda y sin la categoría. El
+			// mismo producto armaba un prompt peor por lote que suelto, y la
+			// diferencia se veía en la imagen.
+			productUrl: (productRecord as any)?.product_url || (productRecord?.metadata as any)?.sourceUrl || snapshot.sourceUrl || undefined,
+			logoUrl: urlBrand?.logoUrl || undefined,
+			storeDescription: urlBrand?.styleSummary || undefined,
+			productCategory: productRecord?.analysis?.category || undefined,
+			rolesDeColor: snapshot.rolesDeColor || undefined,
 			approvedPlan,
 			requestedFormat,
 			tier: decision.tier,

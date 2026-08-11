@@ -12,7 +12,7 @@ import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
 import { leerElProducto } from '../../../lib/creattia/clon-libre';
-import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, parseRolesDeColor, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, parseRolesDeColor, parseTipografiaElegida, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
 import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
@@ -422,7 +422,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const effectiveBrandPalette = mergePaletteOverride(brandOverride?.palette || detectedPalette, parsePaletteOverride(clean(form.get('paletteOverride'), 400)));
 		const myBrandTypography = brandStyle?.typography;
 		const urlBrandTypography = urlBrand?.typography || undefined;
-		const effectiveBrandTypography = brandOverride?.typography || (typoMode === 'brand' ? myBrandTypography : typoMode === 'url' ? urlBrandTypography : undefined);
+		const tipografiaElegida = parseTipografiaElegida(form.get('tipografiaOverride'));
+		const effectiveBrandTypography = tipografiaElegida || brandOverride?.typography || (typoMode === 'brand' ? myBrandTypography : typoMode === 'url' ? urlBrandTypography : undefined);
 		const effectiveBrandSummary = brandSource === 'mine' ? (profile?.brand_summary || '') : brandSource === 'url' ? (urlBrand?.styleSummary || '') : '';
 		const effectiveBrandVoice = brandSource === 'mine' ? (profile?.brand_voice || '') : '';
 		const effectiveStyleSummary = brandSource === 'mine' ? (brandStyle?.styleSummary || '') : brandSource === 'url' ? (urlBrand?.styleSummary || '') : '';

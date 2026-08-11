@@ -177,6 +177,28 @@ export function parseRolesDeColor(raw: unknown): RolesDeColor | null {
 	}
 }
 
+/**
+ * La tipografía corregida a mano en la pantalla de confirmar.
+ *
+ * El escaneo lee el CSS del sitio y a veces devuelve el nombre interno de la
+ * fuente —"judgemestar"— que no le dice nada al modelo. Corregirlo a "Playfair
+ * Display" cambia el aviso; dejarlo sin poder tocar era ver el error y no poder
+ * hacer nada. Los nombres se recortan y se limpian: van derecho al prompt.
+ */
+export function parseTipografiaElegida(raw: unknown): { headings?: string; body?: string } | null {
+	if (!raw) return null;
+	try {
+		const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+		if (!parsed || typeof parsed !== 'object') return null;
+		const limpio = (valor: unknown) => String(valor || '').replace(/[^\p{L}\p{N} .,'&+-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+		const headings = limpio((parsed as any).headings);
+		const body = limpio((parsed as any).body);
+		return (headings || body) ? { ...(headings ? { headings } : {}), ...(body ? { body } : {}) } : null;
+	} catch {
+		return null;
+	}
+}
+
 export type StyleMode = 'winner' | 'url' | 'brand';
 /** Paleta detectada de la web de la marca, tal como la entiende ad-analysis. */
 export type BrandPalette = { background?: string; text?: string; accent?: string; secondary?: string; source?: string };

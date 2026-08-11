@@ -228,3 +228,20 @@ describe('quién aparece en el aviso', () => {
 		assert.doesNotMatch(prompt, /The same face in the same place/);
 	});
 });
+
+describe('lo que el ganador trajo prestado', () => {
+	/**
+	 * El defecto, visto en producción tres veces: un sello de "beauty shortlist
+	 * WELLBEING AWARDS 2023" sobre un aviso de sillas de cuero, el disclaimer de la
+	 * FDA de un suplemento sobre un bóxer, un "$20 OFF" que no era de nadie.
+	 *
+	 * La regla vieja decía "no conserves la marca del anunciante original", y un
+	 * sello ajeno no es del anunciante: es de un tercero que el ganador citaba. Por
+	 * ese hueco pasaba todo lo que más delata el aviso como de otro.
+	 */
+	test('los sellos, ratings y letra chica de terceros tampoco se quedan', () => {
+		const prompt = buildPromptLibre(ficha);
+		assert.match(prompt, /award seals, press logos, star ratings, certifications, legal small print/);
+		assert.match(prompt, /stays only if THIS product genuinely has its own/);
+	});
+});

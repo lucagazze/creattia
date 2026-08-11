@@ -246,6 +246,14 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * pendiente de resolver antes de generar.
 	 */
 	const [rolActivo, setRolActivo] = useState<string | null>(null);
+	/**
+	 * La tipografía que va a usar el aviso, corregible.
+	 *
+	 * El escaneo lee el CSS del sitio y a veces devuelve el nombre interno de la
+	 * fuente —"judgemestar"— que no le dice nada al modelo. Verlo sin poder
+	 * tocarlo era ver el error y no poder hacer nada.
+	 */
+	const [tipografiaElegida, setTipografiaElegida] = useState<{ headings: string; body: string }>({ headings: '', body: '' });
 	const [brandSource, setBrandSource] = useState('url');
 	/**
 	 * El logo arranca apagado y no se enciende solo nunca.
@@ -967,6 +975,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			});
 			return siguiente;
 		});
+		setTipografiaElegida((previo) => ({
+			headings: previo.headings || String(marcaDeLaUrl?.typography?.headings || ''),
+			body: previo.body || String(marcaDeLaUrl?.typography?.body || ''),
+		}));
 	}, [phase, marcaDeLaUrl]);
 
 	/**
@@ -1043,6 +1055,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('colorMode', colorMode);
 			if (indicaciones.trim()) form.set('brief', indicaciones.trim());
 			if (Object.values(rolesDeColor).some(Boolean)) form.set('rolesDeColor', JSON.stringify(rolesDeColor));
+			if (typoMode !== 'winner' && (tipografiaElegida.headings.trim() || tipografiaElegida.body.trim())) {
+				form.set('tipografiaOverride', JSON.stringify(tipografiaElegida));
+			}
 			if (logoPropio) {
 				// El backend solo adjunta el archivo cuando se pidió firmar con imagen:
 				// haberlo subido ES ese pedido.
@@ -1739,10 +1754,33 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								</div>
 								)}
 								{typoMode !== 'winner' && (
-								<div>
-									<span className="picker-label">Tipografía detectada</span>
-									<p style={{ margin: 0, fontSize: '13.5px', color: '#3d3945' }}>{tipografiaDeLaUrl || 'No se detectó.'}</p>
-									<p className="batch-detail-help" style={{ margin: '6px 0 0' }}>Este aviso la usa en vez de la del ganador.</p>
+								<div style={{ gridColumn: '1 / -1' }}>
+									<span className="picker-label">Tipografía detectada en tu web</span>
+									<p className="batch-detail-help">
+										{tipografiaDeLaUrl
+											? 'Corregila si el escaneo devolvió el nombre interno de la fuente en vez del real.'
+											: 'No se detectó ninguna. Escribí las que use tu marca.'}
+									</p>
+									<div className="creation-typo-fields">
+										<label>
+											<span>Títulos</span>
+											<input
+												type="text" maxLength={60} placeholder="Ej: Playfair Display"
+												value={tipografiaElegida.headings}
+												disabled={phase === 'starting'}
+												onChange={(event) => setTipografiaElegida((previo) => ({ ...previo, headings: event.target.value }))}
+											/>
+										</label>
+										<label>
+											<span>Textos</span>
+											<input
+												type="text" maxLength={60} placeholder="Ej: Inter"
+												value={tipografiaElegida.body}
+												disabled={phase === 'starting'}
+												onChange={(event) => setTipografiaElegida((previo) => ({ ...previo, body: event.target.value }))}
+											/>
+										</label>
+									</div>
 								</div>
 								)}
 								{(logoDeLaUrl || logoPropioVista) && (
