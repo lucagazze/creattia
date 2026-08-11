@@ -12,7 +12,7 @@ import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
 import { leerElProducto } from '../../../lib/creattia/clon-libre';
-import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, parseRolesDeColor, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
 import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
@@ -831,6 +831,7 @@ The result must look like the same image with only that one adjustment applied.`
 			avatarDescription,
 			avatarImageCount: avatarReferenceImages.length,
 			productUrl: urlDelProducto || undefined,
+			rolesDeColor: parseRolesDeColor(form.get('rolesDeColor')) || undefined,
 			logoUrl: urlLogoUrl || undefined,
 			storeDescription: effectiveBrandSummary || undefined,
 			lectura,

@@ -17,6 +17,19 @@ import { reportarPantalla } from '../../lib/creattia/presencia';
 
 // Formatos visuales del paso 2, mismos valores que ya entiende el backend de
 // generación individual (distintos de los alias del lote, pero mismo diseño).
+/**
+ * Para qué usa la marca cada color. El escaneo devuelve una paleta suelta; esto
+ * le pone función a cada uno, que es lo que la vuelve útil: el mismo violeta
+ * como fondo o como acento son dos avisos distintos.
+ */
+const ROLES_DE_COLOR = [
+	{ id: 'fondo', label: 'Fondo', desde: 'background' },
+	{ id: 'titulo', label: 'Títulos', desde: 'text' },
+	{ id: 'texto', label: 'Textos', desde: 'secondary' },
+	{ id: 'acento', label: 'Acento', desde: 'accent' },
+	{ id: 'boton', label: 'Botones', desde: 'accent' },
+] as const;
+
 const FORMAT_ITEMS = [
 	{ id: 'original', text: 'Original', desc: 'Igual al ganador', shape: 'original' },
 	{ id: '1:1', text: '1:1', desc: 'Feed', shape: 'square' },
@@ -184,6 +197,21 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * intención sola; dónde ponerlo y de qué tamaño lo decide la IA.
 	 */
 	const [indicaciones, setIndicaciones] = useState('');
+	/**
+	 * Lo que propone la IA mirando ESTE ganador y ESTE producto.
+	 *
+	 * Frente a un campo vacío casi nadie escribe: no porque no tenga qué decir,
+	 * sino porque no sabe qué se puede pedir. Con opciones concretas la pregunta se
+	 * contesta con un toque, y el que quiere escribir escribe igual.
+	 */
+	const [sugerencias, setSugerencias] = useState<string[]>([]);
+	const [buscandoSugerencias, setBuscandoSugerencias] = useState(false);
+	/**
+	 * Los colores de la web repartidos por función, corregidos a mano si hizo
+	 * falta. Van al prompt como DATO —así usa la marca sus colores— y no como
+	 * orden de pintado: el aviso lo sigue resolviendo el modelo.
+	 */
+	const [rolesDeColor, setRolesDeColor] = useState<Record<string, string>>({});
 	const [brandSource, setBrandSource] = useState('url');
 	/**
 	 * El logo arranca apagado y no se enciende solo nunca.
@@ -790,6 +818,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (!wantsFullCarousel) {
 				setConfirmacion({ productIds, offering: offeringForSubmit });
 				setPhase('confirmar');
+				precargarRolesDeColor();
+				void pedirSugerencias(productIds);
 				return;
 			}
 
@@ -889,6 +919,44 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * pedido, lo hace un worker minutos después, y para entonces los archivos que
 	 * el usuario eligió en el navegador ya no existen en ningún lado.
 	 */
+	/**
+	 * Qué destacar, propuesto mirando el ganador y el producto.
+	 *
+	 * Falla en silencio a propósito: sin sugerencias el campo se escribe a mano
+	 * igual, y un cartel rojo por esto sería ruido sobre algo opcional.
+	 */
+	function precargarRolesDeColor() {
+		const detectada = marcaDeLaUrl?.palette || {};
+		setRolesDeColor((previo) => {
+			// Solo se completan los vacíos: si alguien ya corrigió un color, volver a
+			// entrar a esta pantalla no puede deshacérselo.
+			const siguiente = { ...previo };
+			for (const rol of ROLES_DE_COLOR) {
+				const valor = detectada[rol.desde];
+				if (!siguiente[rol.id] && typeof valor === 'string' && /^#[0-9a-f]{6}$/i.test(valor)) siguiente[rol.id] = valor;
+			}
+			return siguiente;
+		});
+	}
+
+	async function pedirSugerencias(productIds: string[]) {
+		if (!token) return;
+		setBuscandoSugerencias(true);
+		try {
+			const form = new FormData();
+			form.set('referencePath', effectiveReferencePath);
+			productIds.forEach((id) => form.append('productIds', id));
+			if (productMode === 'manual' || isService) {
+				form.set('productName', manualProductName.trim());
+				form.set('productFacts', manualProductFacts.trim());
+			}
+			const response = await fetch('/api/creativos/sugerencias', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
+			const payload = await response.json().catch(() => ({}));
+			setSugerencias(Array.isArray(payload.sugerencias) ? payload.sugerencias : []);
+		} catch { /* sin sugerencias: el campo se escribe a mano */ }
+		finally { setBuscandoSugerencias(false); }
+	}
+
 	async function guardarAvatarCargado(): Promise<string> {
 		// Con una foto alcanza para fijar la cara. El piso de cuatro dejaba afuera
 		// al que tiene una sola buena foto suya, que es el caso más común.
@@ -939,6 +1007,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('language', language);
 			form.set('colorMode', colorMode);
 			if (indicaciones.trim()) form.set('brief', indicaciones.trim());
+			if (Object.values(rolesDeColor).some(Boolean)) form.set('rolesDeColor', JSON.stringify(rolesDeColor));
 			if (Object.keys(paletteOverride).length) form.set('paletteOverride', JSON.stringify(paletteOverride));
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
@@ -1530,43 +1599,49 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							<h2 style={{ margin: '0 0 4px', fontSize: '17px', color: '#19171d' }}>Esto leímos de tu web</h2>
 							<p className="batch-detail-help" style={{ marginTop: 0 }}>Si algo no cuadra, volvé y cambiá la URL. Todavía no gastaste créditos.</p>
 
-							<div className="creation-confirm-grid">
-								<div>
-									<span className="picker-label">Tu producto</span>
-									{importedProducts.filter((item) => confirmacion?.productIds.includes(item.id)).map((item) => (
-										<div key={item.id} className="creation-confirm-product">
-											{(item.imageUrls?.[0] || item.media?.[0]?.url) && (
-												<img src={item.imageUrls?.[0] || item.media?.[0]?.url} alt="" width={54} height={54} />
-											)}
-											<div>
-												<strong>{item.name}</strong>
-												{item.price_text && <small>{item.price_text}</small>}
-											</div>
+							{/* El ganador NO se repite acá: está en la columna de la izquierda,
+							    a la vista, desde que se entró a esta pantalla. */}
+							<div>
+								<span className="picker-label">Tu producto</span>
+								{importedProducts.filter((item) => confirmacion?.productIds.includes(item.id)).map((item) => (
+									<div key={item.id} className="creation-confirm-product">
+										{(item.imageUrls?.[0] || item.media?.[0]?.url) && (
+											<img src={item.imageUrls?.[0] || item.media?.[0]?.url} alt="" width={54} height={54} />
+										)}
+										<div>
+											<strong>{item.name}</strong>
+											{item.price_text && <small>{item.price_text}</small>}
 										</div>
-									))}
-								</div>
-								<div>
-									<span className="picker-label">El ganador que vas a clonar</span>
-									{referenceUrl && <img className="creation-confirm-winner" src={referenceUrl} alt="Anuncio ganador elegido" />}
-								</div>
+									</div>
+								))}
 							</div>
 
-							{/* Los colores y la letra que se detectaron. Se muestran SIEMPRE,
-							    incluso con "los del ganador" elegido: es la única forma de
-							    darse cuenta a tiempo de que el escaneo leyó mal la web. */}
+							{/* Los colores de la web repartidos por función. Un hexadecimal
+							    suelto no dice nada; saber que ese violeta es el acento y no el
+							    fondo cambia el aviso entero. Se pueden corregir porque el
+							    escaneo se equivoca, y van al prompt como dato, no como orden. */}
 							<div className="creation-confirm-identity">
-								<div>
+								<div style={{ gridColumn: '1 / -1' }}>
 									<span className="picker-label">Colores detectados en tu web</span>
-									{paletaDeLaUrl.length ? (
-										<div className="creation-confirm-swatches">
-											{paletaDeLaUrl.map((color) => (
-												<span key={color} title={color}><i style={{ background: color }} aria-hidden="true" />{color}</span>
-											))}
-										</div>
-									) : <p className="batch-detail-help" style={{ margin: 0 }}>No se detectaron colores.</p>}
-									<p className="batch-detail-help" style={{ margin: '6px 0 0' }}>
-										{colorMode === 'winner' ? 'Este aviso usa los colores del ganador.' : 'Este aviso usa estos colores.'}
+									<p className="batch-detail-help">
+										{colorMode === 'winner'
+											? 'Este aviso usa los colores del ganador. Esto le sirve igual a la IA para saber cómo usa la marca sus colores.'
+											: 'Corregí el que no cuadre. La IA los usa como referencia, no los copia tal cual.'}
 									</p>
+									<div className="creation-color-roles">
+										{ROLES_DE_COLOR.map((rol) => (
+											<label key={rol.id} className="creation-color-role">
+												<span>{rol.label}</span>
+												<input
+													type="color"
+													value={/^#[0-9a-f]{6}$/i.test(rolesDeColor[rol.id] || '') ? rolesDeColor[rol.id] : '#ffffff'}
+													disabled={phase === 'starting'}
+													onChange={(event) => setRolesDeColor((previo) => ({ ...previo, [rol.id]: event.target.value }))}
+												/>
+												<b>{rolesDeColor[rol.id] || '—'}</b>
+											</label>
+										))}
+									</div>
 								</div>
 								<div>
 									<span className="picker-label">Tipografía detectada</span>
@@ -1585,7 +1660,30 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 
 							<div style={{ marginTop: '18px' }}>
 								<span className="picker-label">¿Algo que quieras destacar? <small style={{ fontWeight: 400, color: '#8a8593' }}>(opcional)</small></span>
-								<p className="batch-detail-help">Contale qué querés que se vea. Dónde ponerlo y de qué tamaño lo decide la IA.</p>
+								<p className="batch-detail-help">Tocá una de estas o escribí lo tuyo. Dónde ponerlo y de qué tamaño lo decide la IA.</p>
+								{buscandoSugerencias && <p className="batch-detail-help" style={{ margin: '0 0 8px' }}><span className="studio-spinner small" aria-hidden="true" /> Leyendo el ganador…</p>}
+								{sugerencias.length > 0 && (
+									<div className="creation-suggestion-chips">
+										{sugerencias.map((sugerencia) => {
+											const puesta = indicaciones.includes(sugerencia);
+											return (
+												<button
+													key={sugerencia}
+													type="button"
+													className={puesta ? 'active' : ''}
+													disabled={phase === 'starting'}
+													aria-pressed={puesta}
+													onClick={() => setIndicaciones((previo) => {
+														if (previo.includes(sugerencia)) return previo.replace(sugerencia, '').replace(/\s*·\s*·\s*/g, ' · ').replace(/^\s*·\s*|\s*·\s*$/g, '').trim();
+														return (previo.trim() ? `${previo.trim()} · ${sugerencia}` : sugerencia).slice(0, 600);
+													})}
+												>
+													{puesta ? '✓ ' : '+ '}{sugerencia}
+												</button>
+											);
+										})}
+									</div>
+								)}
 								<textarea
 									value={indicaciones}
 									onChange={(event) => setIndicaciones(event.target.value.slice(0, 600))}
@@ -1596,6 +1694,26 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									style={{ width: '100%', padding: '10px 12px', border: '1px solid #e3e0e8', borderRadius: '10px', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical' }}
 								/>
 							</div>
+
+							<section className="logo-decision" aria-label="Cuántas versiones generar" style={{ margin: '18px 0 0' }}>
+								<div className="logo-decision-head">
+									<strong>¿Cuántas versiones querés?</strong>
+									<small>Se generan juntas con estas mismas decisiones, y elegís la que más te guste. Cada una sale distinta y cuesta un crédito.</small>
+								</div>
+								<div className="logo-decision-options opciones-cortas" role="radiogroup" aria-label="Cantidad de versiones">
+									{[1, 2, 3, 4].map((cantidad) => (
+										<button
+											key={cantidad}
+											type="button" role="radio" aria-checked={variantes === cantidad}
+											className={variantes === cantidad ? 'active' : ''}
+											onClick={() => setVariantes(cantidad)}
+											disabled={phase === 'starting'}
+										>
+											{cantidad === 1 ? '1 imagen' : `${cantidad} imágenes`}
+										</button>
+									))}
+								</div>
+							</section>
 
 							{error && <p style={{ margin: '14px 0 0', padding: '12px 14px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '10px', color: '#a43f3f', fontSize: '14px' }}>{error}</p>}
 

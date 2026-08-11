@@ -183,3 +183,28 @@ describe('el prompt de respaldo, para cuando OpenAI rechaza', () => {
 		assert.match(magro, /does it show a logo or a brand name anywhere\?/);
 	});
 });
+
+describe('los colores de la web por función', () => {
+	/**
+	 * Un hexadecimal suelto no le dice nada al modelo: el mismo violeta como fondo
+	 * o como acento son dos avisos distintos. Lo que sirve es la función.
+	 */
+	test('entran diciendo para qué usa la marca cada uno', () => {
+		const prompt = buildPromptLibre({ ...ficha, rolesDeColor: { fondo: '#0B1120', acento: '#DD1D1D' } });
+		assert.match(prompt, /#0B1120 is its background, #DD1D1D its accent/);
+	});
+
+	/**
+	 * Es DATO, no orden de pintado: con los colores del ganador elegidos el aviso
+	 * no cambia de paleta, pero el modelo ya sabe con qué juzgar lo que agregue.
+	 */
+	test('no reemplazan a la paleta del ganador', () => {
+		const prompt = buildPromptLibre({ ...ficha, rolesDeColor: { fondo: '#0B1120' } });
+		assert.match(prompt, /the same colour palette, the same accent colour on the same word/);
+		assert.match(prompt, /Use it to judge, not to repaint/);
+	});
+
+	test('sin roles no se dice nada', () => {
+		assert.doesNotMatch(buildPromptLibre(ficha), /is its background/);
+	});
+});

@@ -151,6 +151,32 @@ export function logoModeRecomendado(analisis: LayoutAnalysis | null | undefined 
 	return paginas.some((pagina) => pagina?.templateHasLogoSlot) ? 'texto' : 'nada';
 }
 
+const ROLES_DE_COLOR = ['fondo', 'titulo', 'texto', 'acento', 'boton'] as const;
+export type RolesDeColor = Partial<Record<typeof ROLES_DE_COLOR[number], string>>;
+
+/**
+ * Los colores por función que llegan del cliente.
+ *
+ * Todo esto entra al prompt, así que se valida igual que la paleta: solo
+ * hexadecimales de seis dígitos y solo los cinco roles conocidos. Un valor raro
+ * acá no rompe nada visible, pero sería texto del usuario metido en el prompt.
+ */
+export function parseRolesDeColor(raw: unknown): RolesDeColor | null {
+	if (!raw) return null;
+	try {
+		const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+		if (!parsed || typeof parsed !== 'object') return null;
+		const roles: RolesDeColor = {};
+		for (const rol of ROLES_DE_COLOR) {
+			const valor = String((parsed as any)[rol] || '').trim();
+			if (HEX_COLOR.test(valor)) roles[rol] = valor.toUpperCase();
+		}
+		return Object.keys(roles).length ? roles : null;
+	} catch {
+		return null;
+	}
+}
+
 export type StyleMode = 'winner' | 'url' | 'brand';
 /** Paleta detectada de la web de la marca, tal como la entiende ad-analysis. */
 export type BrandPalette = { background?: string; text?: string; accent?: string; secondary?: string; source?: string };
@@ -236,6 +262,8 @@ export type ClonePromptInput = {
 	/** La URL de la que salió el producto, y el logo del sitio. Van a la ficha. */
 	productUrl?: string;
 	logoUrl?: string;
+	/** Los colores de la web por función, corregidos a mano si hizo falta. */
+	rolesDeColor?: { fondo?: string; titulo?: string; texto?: string; acento?: string; boton?: string };
 	storeDescription?: string;
 	/** Lo que devolvió `leerElProducto`: cómo se ve y a quién le habla. */
 	lectura?: LecturaDelProducto | null;
@@ -362,6 +390,7 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
 			// origen trae los de la marca o los de la web del usuario.
 			coloresDeLaMarca: input.colorMode !== 'winner' ? input.brandColors : undefined,
 			tipografiaDeLaMarca: input.typoMode !== 'winner' ? input.brandTypography : undefined,
+		rolesDeColor: input.rolesDeColor,
 			indicaciones: input.brief,
 			aspecto: input.lectura?.aspecto,
 			icp: input.lectura?.icp,

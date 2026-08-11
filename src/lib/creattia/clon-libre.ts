@@ -45,6 +45,13 @@ export type FichaDelProducto = {
 	coloresDeLaMarca?: string[];
 	tipografiaDeLaMarca?: { headings?: string; body?: string };
 	/**
+	 * Los colores de la web repartidos por función: cuál es el fondo, cuál el
+	 * titular, cuál el acento. Es DATO, no orden — el modelo sigue decidiendo cómo
+	 * usarlos. Un mismo hexadecimal suelto no dice nada; saber que es el fondo de
+	 * la marca y no su acento cambia el aviso entero.
+	 */
+	rolesDeColor?: { fondo?: string; titulo?: string; texto?: string; acento?: string; boton?: string };
+	/**
 	 * Lo que el usuario quiere destacar, en sus palabras.
 	 *
 	 * Entra como INTENCIÓN, nunca como ejecución. "Mostrá el precio" cambia el
@@ -156,6 +163,57 @@ export function fotosParaElMotor(fotos: EngineImage[], lectura: LecturaDelProduc
 	return limpias.length ? limpias : fotos;
 }
 
+/**
+ * Tres o cuatro cosas concretas que valdría la pena destacar en ESTE aviso.
+ *
+ * Mira el ganador y la ficha del producto a la vez, porque la sugerencia útil
+ * sale del cruce: un ganador que compara dos lados pide un contra qué compararse,
+ * uno con una chapa de precio pide el precio. Devuelve intenciones, nunca
+ * maquetas: dónde va cada cosa lo decide el modelo al generar.
+ */
+export async function sugerirQueDestacar(
+	claves: ClavesDeApi,
+	entrada: { ganador: EngineImage; nombre?: string; datos?: string },
+): Promise<string[]> {
+	if (!claves.openAIKey) return [];
+	try {
+		const respuesta = await fetch('https://api.openai.com/v1/chat/completions', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${claves.openAIKey}` },
+			body: JSON.stringify({
+				model: 'gpt-4o',
+				response_format: { type: 'json_object' },
+				max_tokens: 400,
+				messages: [{
+					role: 'user',
+					content: [
+						{
+							type: 'text',
+							text: `The image is an ad that is about to be remade for this product:
+${entrada.nombre || ''}
+${entrada.datos || ''}
+
+Looking at what this particular ad does — what it compares, what it puts in a badge, what it promises — propose 4 things worth highlighting when it is remade for this product. Each one is what the advertiser WANTS SAID, in their own everyday words, never where to put it and never a size. Under 9 words each. Only things the product information above supports.
+
+Write them in the same language as the product information. Answer JSON: {"sugerencias":["...","..."]}`,
+						},
+						{ type: 'image_url', image_url: { url: `data:${entrada.ganador.type};base64,${entrada.ganador.buffer.toString('base64')}` } },
+					],
+				}],
+			}),
+		});
+		if (!respuesta.ok) return [];
+		const json = await respuesta.json();
+		const leido = JSON.parse(json?.choices?.[0]?.message?.content || '{}');
+		return Array.isArray(leido.sugerencias)
+			? leido.sugerencias.filter((s: unknown) => typeof s === 'string' && s.trim()).map((s: string) => s.trim().slice(0, 120)).slice(0, 4)
+			: [];
+	} catch (error) {
+		console.error('[clon-libre] no se pudieron armar las sugerencias:', error);
+		return [];
+	}
+}
+
 const linea = (etiqueta: string, valor?: string | string[] | null) => {
 	if (!valor) return '';
 	const texto = Array.isArray(valor) ? valor.filter(Boolean).join(' · ') : String(valor).trim();
@@ -212,9 +270,27 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 		].filter(Boolean).join(', ')})`
 		: 'the same typography — the very letterforms you can see in the image — the same type sizes, weights and alignments';
 
+	const roles = ficha.rolesDeColor || {};
+	const rolesEscritos = [
+		roles.fondo && `${roles.fondo} is its background`,
+		roles.titulo && `${roles.titulo} its headlines`,
+		roles.texto && `${roles.texto} its body text`,
+		roles.acento && `${roles.acento} its accent`,
+		roles.boton && `${roles.boton} its buttons`,
+	].filter(Boolean).join(', ');
+
 	const color = ficha.coloresDeLaMarca?.length
 		? `this brand's own palette (${ficha.coloresDeLaMarca.join(', ')}) mapped onto the very same roles the reference uses — what was the background stays the background, what was the ink stays the ink, and the accent still lands on the equivalent word`
 		: 'the same colour palette, the same accent colour on the same word';
+
+	// Se dice como referencia de la marca, no como instrucción de pintado: con los
+	// colores del ganador elegidos esto NO cambia el aviso, sirve para que lo que
+	// se agregue —una chapa, un botón— no salga de un color ajeno a la marca.
+	const referenciaDeMarca = rolesEscritos
+		? `
+For reference, this is how the brand uses colour on its own site: ${rolesEscritos}. Use it to judge, not to repaint.
+`
+		: '';
 
 	// Se dice UNA vez y corta. Repetirlo o desarrollarlo le come atención a las
 	// reglas que sí se midieron, y el prompt es un presupuesto, no una lista.
@@ -240,6 +316,7 @@ Each new line keeps the shape of the one it replaces: the same number of lines, 
 THE PRODUCT THIS AD IS NOW FOR
 ${datosDelProducto}${pagina}
 ${pedido}
+${referenciaDeMarca}
 THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its seams, labels, prints and proportions where the photos show them. Getting the product wrong ruins the ad even if everything else is perfect.
 
 NOTHING EXPLICIT IS EVER SHOWN — people may wear the product and their body may be seen, hips, waist and the area the garment covers included. What must never appear is bare genitals, the shape of genitals read through the fabric, or bare nipples. The fabric is opaque and sits flat, and the framing is the one a retailer uses for its catalogue, not an erotic one.
