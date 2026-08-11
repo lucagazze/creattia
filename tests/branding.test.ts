@@ -462,3 +462,53 @@ describe('qué muestran las dos mitades de un antes y después', () => {
 		assert.match(conComparacion('us-vs-them'), /SPLIT INTEGRITY/);
 	});
 });
+
+/**
+ * Lo que el anunciante decide es LA decisión, no una opinión más.
+ *
+ * El bloque emitía las dos cosas juntas y con el mismo rango: "User direction:
+ * poné una modelo. Default: mostrar el producto solo." Dos respuestas a la
+ * misma pregunta, y el modelo elige — a veces la otra. El valor por defecto
+ * existe para cuando nadie contestó; cuando alguien contestó, sobra y estorba.
+ */
+describe('las decisiones que responde el usuario', () => {
+	const conDecision = (directive: string) => buildClonePrompt(
+		{ productNames: ['X'], productFacts: [], brief: '', brandName: 'X', colorMode: 'winner' as const, typoMode: 'winner' as const, subjectMode: 'product' as const },
+		{ referenceHasProduct: true, creativeDecisions: [{ type: 'scene', title: 'Dónde pasa', description: 'la escena del ganador', defaultStrategy: 'mostrar el producto solo', directive }] } as any,
+		false,
+	);
+
+	test('respondida, el valor por defecto ya no se escribe', () => {
+		const prompt = conDecision('que aparezca una modelo sosteniéndolo');
+		assert.match(prompt, /THE ADVERTISER DECIDED: que aparezca una modelo sosteniéndolo\. Do exactly that\./);
+		assert.doesNotMatch(prompt, /mostrar el producto solo/);
+	});
+
+	test('sin responder, manda el valor por defecto', () => {
+		const prompt = conDecision('');
+		assert.match(prompt, /Nobody answered, so: mostrar el producto solo/);
+		assert.doesNotMatch(prompt, /THE ADVERTISER DECIDED/);
+	});
+
+	/** Y el bloque pesa lo mismo que los demás: antes no era ni CRITICAL. */
+	test('la decisión del anunciante tiene el mismo rango que el resto', () => {
+		assert.match(conDecision('lo que sea'), /CONTEXTUAL CREATIVE DECISIONS \(CRITICAL\)/);
+	});
+});
+
+/**
+ * El fondo del aviso, medido en hexadecimal.
+ *
+ * Se decidía por descripción —"verde salvia suave"— y un nombre se
+ * re-interpreta al volver a dibujar: el clon salía con otro verde.
+ */
+describe('el fondo del anuncio', () => {
+	test('viaja como valor exacto, no como parecido', () => {
+		const prompt = buildClonePrompt(
+			{ productNames: ['X'], productFacts: [], brief: '', brandName: 'X', colorMode: 'winner' as const, typoMode: 'winner' as const, subjectMode: 'product' as const },
+			{ referenceHasProduct: true, backgroundColor: '#8A9A55' } as any,
+			false,
+		);
+		assert.match(prompt, /The ad's background is exactly #8A9A55: use that value, not a colour that resembles it/);
+	});
+});

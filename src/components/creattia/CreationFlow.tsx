@@ -26,6 +26,19 @@ const FORMAT_ITEMS = [
 	{ id: '16:9', text: '16:9', desc: 'Panorámico', shape: 'wide' },
 ];
 
+/**
+ * Lo que alguien está escribiendo en un campo de color.
+ *
+ * Mientras se tipea "#1D1D1F" pasa por "#1", "#1D", "#1D1"… que no son colores.
+ * Rechazar lo intermedio hace que no se pueda escribir nada: la única forma de
+ * llegar a un valor completo es pasando por los incompletos. Se guarda tal cual
+ * y el render descarta lo que no sea un hexadecimal entero.
+ */
+function hexEscrito(valor: string): string {
+	const limpio = valor.replace(/[^0-9a-fA-F]/g, '').slice(0, 6);
+	return `#${limpio.toUpperCase()}`;
+}
+
 export default function CreationFlow({ ad, session, onToast, onGenerationStarted, onGenerationRequested, onBack, retomarBorrador: retomarAlAbrir }: {
 	ad: any;
 	session: any;
@@ -1623,7 +1636,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								</label>
 								<div>
 									<strong>Fondo del anuncio</strong>
-									<small>{fondoDelAviso} · el color que va a llevar la imagen. Tocá la muestra si no es el correcto.</small>
+									<small>El color que va a llevar la imagen. Tocá la muestra o escribí el código.</small>
+						<input className="copy-hex" value={fondoDelAviso} spellCheck={false} aria-label="Fondo del anuncio en hexadecimal"
+							onChange={(event) => setFondoDelAviso(hexEscrito(event.target.value))} />
 								</div>
 							</div>
 						)}
@@ -1660,18 +1675,26 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 													    con qué se iba a escribir cada bloque. */}
 													{(zone.textColor || zone.boxColor) && (
 														<span className="copy-colores">
-															{zone.textColor && (
-																<label title="Color de la letra — tocá para cambiarlo">
+														{zone.textColor && (
+															<span className="copy-color">
+																<label title="Color de la letra">
 																	<input type="color" value={zone.textColor} onChange={(event) => setZones((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, textColor: event.target.value.toUpperCase() } : item))} />
-																	<i style={{ background: zone.textColor }} />{zone.textColor}
+																	<i style={{ background: zone.textColor }} />
 																</label>
-															)}
-															{zone.boxColor && (
-																<label title="Fondo de su cápsula — tocá para cambiarlo">
+																<input className="copy-hex" value={zone.textColor} spellCheck={false} aria-label="Color de la letra en hexadecimal"
+																	onChange={(event) => setZones((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, textColor: hexEscrito(event.target.value) } : item))} />
+															</span>
+														)}
+														{zone.boxColor && (
+															<span className="copy-color">
+																<label title="Fondo de su cápsula">
 																	<input type="color" value={zone.boxColor} onChange={(event) => setZones((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, boxColor: event.target.value.toUpperCase() } : item))} />
-																	<i style={{ background: zone.boxColor }} />fondo
+																	<i style={{ background: zone.boxColor }} />
 																</label>
-															)}
+																<input className="copy-hex" value={zone.boxColor} spellCheck={false} aria-label="Color del fondo en hexadecimal"
+																	onChange={(event) => setZones((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, boxColor: hexEscrito(event.target.value) } : item))} />
+															</span>
+														)}
 														</span>
 													)}
 												</div>

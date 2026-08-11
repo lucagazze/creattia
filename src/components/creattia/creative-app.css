@@ -6928,3 +6928,15 @@
 }
 .fondo-del-aviso strong { display: block; color: #37303f; font-size: 13px; font-weight: 700; }
 .fondo-del-aviso small { display: block; margin-top: 1px; color: #8b8490; font-size: 11.5px; line-height: 1.4; }
+
+/* El código escrito, al lado de la muestra. La paleta del sistema sirve para
+   buscar un tono a ojo; quien tiene el color de su marca lo tiene escrito y no
+   lo va a encontrar arrastrando un puntero. */
+.copy-color { display: inline-flex; align-items: center; gap: 3px; }
+.copy-hex {
+	width: 74px; padding: 1px 5px; border-radius: 5px; border: 1px solid #e6e0f0;
+	background: #fff; color: #5c5568; font-family: inherit; font-size: 10px;
+	font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+}
+.copy-hex:focus { outline: none; border-color: #c9b4f5; }
+.fondo-del-aviso .copy-hex { width: 86px; margin-top: 4px; font-size: 11px; padding: 3px 7px; }
