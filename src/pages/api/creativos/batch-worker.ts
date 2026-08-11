@@ -176,7 +176,11 @@ export const POST: APIRoute = async ({ request }) => {
 		const myBrandColors: string[] = Array.isArray(profile?.brand_colors) ? profile.brand_colors : [];
 		const urlBrandColors: string[] = Array.isArray(urlBrand?.colors) ? urlBrand.colors : [];
 		const myBrandTypography: any = (profile?.brand_style as any)?.typography;
-		const urlBrandTypography: any = urlBrand?.typography || undefined;
+		// La corregida a mano en la pantalla de confirmar manda sobre la detectada:
+		// el escaneo devuelve a veces el nombre interno de la fuente del CSS.
+		const urlBrandTypography: any = (snapshot.tipografiaOverride && typeof snapshot.tipografiaOverride === 'object')
+			? snapshot.tipografiaOverride
+			: (urlBrand?.typography || undefined);
 		const myBrandPalette: any = (profile?.brand_style as any)?.palette || null;
 		const urlBrandPalette: any = urlBrand?.palette || null;
 		const detectedPalette: any = snapshot.colorMode === 'brand' ? myBrandPalette : snapshot.colorMode === 'url' ? urlBrandPalette : null;

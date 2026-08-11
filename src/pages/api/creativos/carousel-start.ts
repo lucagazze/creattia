@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { authenticateRequest, fail, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
-import { parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { parseLogoMode, parsePaletteOverride, parsePersonMode, parseRolesDeColor, parseTipografiaElegida, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { loadWinners } from '../../../lib/creattia/winner-picker';
 import { FREE_PREVIEW_REFERENCE_PATHS, hasFullLibraryAccess } from '../../../lib/creattia/library-access';
@@ -121,6 +121,9 @@ export const POST: APIRoute = async ({ request }) => {
 		 * Si la cantidad no coincide con las páginas, se descarta entero antes que
 		 * asignarle a una página la lectura de otra.
 		 */
+		const brief = String(body?.brief || '').replace(/\s+/g, ' ').trim().slice(0, 600);
+		const rolesDeColor = parseRolesDeColor(body?.rolesDeColor);
+		const tipografiaOverride = parseTipografiaElegida(body?.tipografiaOverride);
 		const approvedPlans: Array<Record<string, unknown> | null> = Array.isArray(body?.approvedPlans) && body.approvedPlans.length === slides.length
 			? body.approvedPlans.map((plan: unknown) => (plan && typeof plan === 'object' ? plan as Record<string, unknown> : null))
 			: slides.map(() => null);
@@ -249,6 +252,9 @@ export const POST: APIRoute = async ({ request }) => {
 					carousel: true,
 					carouselIndex: index + 1,
 					carouselTotal: count,
+					brief,
+					rolesDeColor,
+					tipografiaOverride,
 					approvedPlan: approvedPlans[index],
 				},
 				status: 'processing',

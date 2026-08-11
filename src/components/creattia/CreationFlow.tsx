@@ -855,14 +855,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			// haciendo: lo corre el servidor dentro de la misma generación, antes de
 			// pedirle la imagen al motor.
 			//
-			// El carrusel es la excepción y no por comodidad: necesita el análisis POR
-			// PÁGINA para saber qué va en cada una, y eso solo lo devuelve /plan.
-			if (!wantsFullCarousel) {
-				setConfirmacion({ productIds, offering: offeringForSubmit });
-				setPhase('confirmar');
-				void pedirSugerencias(productIds);
-				return;
-			}
+			setConfirmacion({ productIds, offering: offeringForSubmit });
+			setPhase('confirmar');
+			void pedirSugerencias(productIds);
+			return;
 
 			const form = new FormData();
 			form.set('referencePath', effectiveReferencePath);
@@ -1260,8 +1256,14 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					paletteOverride: Object.keys(paletteOverride).length ? paletteOverride : null,
 					logoMode,
 					logoSlideIndexes: logoMode === 'nada' ? [] : [...logoCarouselPages],
-					// Un análisis por página, en el orden de las páginas.
-					approvedPlans: carouselSlides.map((_, indice) => planRevisado(indice + 1)),
+					// Sin revisión no hay plan que mandar: cada página la lee el worker
+					// cuando la genera. Mandar objetos vacíos sería peor que no mandar
+					// nada, porque el worker los tomaría por un análisis aprobado.
+					approvedPlans: plan ? carouselSlides.map((_, indice) => planRevisado(indice + 1)) : null,
+					brief: indicaciones.trim() || undefined,
+					rolesDeColor: Object.values(rolesDeColor).some(Boolean) ? rolesDeColor : undefined,
+					tipografiaOverride: (typoMode !== 'winner' && (tipografiaElegida.headings.trim() || tipografiaElegida.body.trim()))
+						? tipografiaElegida : undefined,
 				}),
 			});
 			const payload = await response.json();
@@ -1931,11 +1933,17 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									type="button"
 									className="url-batch-submit-btn"
 									disabled={phase === 'starting' || Boolean(faltaParaElAvatar)}
-									onClick={() => { if (confirmacion) void approveAndGenerate(confirmacion); }}
+									onClick={() => {
+										if (!confirmacion) return;
+										if (wantsFullCarousel) void approveAndGenerateCarousel();
+										else void approveAndGenerate(confirmacion);
+									}}
 								>
 									{phase === 'starting'
 										? <><span className="studio-spinner small" aria-hidden="true" /> Generando…</>
-										: `Generar ${count > 1 ? `${count} imágenes` : 'la imagen'}`}
+										: wantsFullCarousel
+											? `Generar el carrusel (${carouselSlides.length} páginas)`
+											: `Generar ${count > 1 ? `${count} imágenes` : 'la imagen'}`}
 								</button>
 								{phase !== 'starting' && (
 									<span className="batch-credit-note">Se descuenta{count > 1 ? 'n' : ''} {count} crédito{count > 1 ? 's' : ''}</span>
