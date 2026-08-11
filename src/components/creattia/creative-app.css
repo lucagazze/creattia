@@ -6971,19 +6971,54 @@
 .fondo-del-aviso .copy-hex { width: 86px; margin-top: 4px; font-size: 11px; padding: 3px 7px; }
 
 /* Los colores de la web por función, corregibles antes de generar. */
-.creation-color-roles { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.creation-color-roles { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .creation-color-role {
-	display: flex; flex-direction: column; gap: 4px; align-items: center;
-	padding: 8px 10px; border: 1px solid #e3e0e8; border-radius: 10px; background: #fff; min-width: 78px;
+	display: flex; flex-direction: column; gap: 5px; align-items: center;
+	padding: 9px 12px; border: 1px solid #e3e0e8; border-radius: 10px; background: #fff;
+	min-width: 92px; cursor: pointer; font-family: inherit;
+	transition: border-color .15s, box-shadow .15s, background .15s;
 }
-.creation-color-role > span { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #716d79; }
-.creation-color-role input[type="color"] {
-	width: 44px; height: 28px; padding: 0; border: 1px solid #ddd8e4; border-radius: 6px;
+.creation-color-role:hover:not(:disabled) { border-color: #c4bcd4; }
+.creation-color-role.active { border-color: #744bde; background: #faf7ff; box-shadow: 0 0 0 1px #744bde; }
+.creation-color-role:disabled { opacity: .55; cursor: default; }
+.creation-color-role > span { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #716d79; }
+/* El damero se ve cuando todavía no hay color: un cuadrado blanco sobre fondo
+   blanco se lee como "detectó blanco", que es distinto de "no detectó nada". */
+.creation-color-role > i {
+	width: 100%; height: 22px; border-radius: 5px; border: 1px solid rgba(0,0,0,.14);
+	background-image: linear-gradient(45deg, #e9e6ef 25%, transparent 25%, transparent 75%, #e9e6ef 75%),
+		linear-gradient(45deg, #e9e6ef 25%, transparent 25%, transparent 75%, #e9e6ef 75%);
+	background-size: 8px 8px; background-position: 0 0, 4px 4px;
+}
+.creation-color-role > b {
+	font: 400 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #8a8593;
+}
+
+.creation-color-editor { margin-top: 12px; padding: 12px; border: 1px solid #ece9f1; border-radius: 12px; background: #fbfafd; }
+.creation-color-editor-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.creation-color-editor-head > span { font-size: 12.5px; color: #716d79; }
+.creation-color-editor-head > span b { color: #3d3945; }
+.creation-hex-input {
+	width: 104px; padding: 7px 10px; border: 1px solid #ddd8e4; border-radius: 8px; background: #fff;
+	font: 400 12.5px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	text-transform: uppercase; color: #3d3945;
+}
+.creation-hex-input:focus { outline: none; border-color: #744bde; box-shadow: 0 0 0 2px #ece3ff; }
+.creation-color-editor-head input[type="color"] {
+	width: 38px; height: 32px; padding: 0; border: 1px solid #ddd8e4; border-radius: 8px;
 	background: none; cursor: pointer;
 }
-.creation-color-role input[type="color"]:disabled { cursor: default; opacity: .6; }
-.creation-color-role > b {
-	font: 400 10.5px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #8a8593;
+.creation-color-grid { display: grid; grid-template-columns: repeat(15, 1fr); gap: 6px; margin-top: 10px; }
+.creation-color-grid button {
+	aspect-ratio: 1; border: 1px solid rgba(0,0,0,.12); border-radius: 6px; cursor: pointer; padding: 0;
+	transition: transform .12s, box-shadow .12s;
+}
+.creation-color-grid button:hover:not(:disabled) { transform: scale(1.14); }
+.creation-color-grid button.active { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #744bde; }
+.creation-color-grid button:disabled { cursor: default; opacity: .6; }
+@media (max-width: 560px) {
+	.creation-color-grid { grid-template-columns: repeat(10, 1fr); }
+	.creation-color-role { min-width: 0; flex: 1 1 30%; }
 }
 
 /* Lo que la IA propone destacar, mirando el ganador y el producto. */
@@ -7005,3 +7040,16 @@
 }
 .wiz-back-btn:hover:not(:disabled) { border-color: #c4bcd4; background: #faf9fc; color: #2f2b38; }
 .wiz-back-btn:disabled { opacity: .5; cursor: default; }
+
+/* Reemplazar el logo cuando el escaneo trajo el equivocado. */
+.creation-logo-acciones { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.creation-logo-acciones > label,
+.creation-logo-acciones > button {
+	padding: 5px 11px; border: 1px solid #ddd8e4; border-radius: 999px; background: #fff;
+	font: 600 11.5px/1.4 inherit; color: #55505f; cursor: pointer;
+	transition: border-color .15s, background .15s, color .15s;
+}
+.creation-logo-acciones > label:hover,
+.creation-logo-acciones > button:hover:not(:disabled) { border-color: #b9a6ee; background: #faf7ff; color: #4a2a9e; }
+.creation-logo-acciones > label input { display: none; }
+.creation-logo-acciones > button:disabled { opacity: .5; cursor: default; }

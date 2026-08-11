@@ -30,6 +30,21 @@ const ROLES_DE_COLOR = [
 	{ id: 'boton', label: 'Botones', desde: 'accent' },
 ] as const;
 
+/**
+ * Treinta colores para elegir a mano.
+ *
+ * El escaneo acierta casi siempre, pero cuando falla —o cuando el sitio no tiene
+ * paleta declarada— quedaba un selector nativo del sistema operativo, que es
+ * distinto en cada máquina y no le sirve a nadie. Una fila de neutros y una
+ * rueda de tonos cubre lo que una marca usa de verdad.
+ */
+const COLORES_A_MANO = [
+	'#FFFFFF', '#F5F5F7', '#E5E5EA', '#C7C7CC', '#8E8E93', '#48484A', '#1D1D1F', '#000000',
+	'#FF3B30', '#DD1D1D', '#FF6B35', '#FF9500', '#FFCC00', '#FFE066', '#34C759', '#0B6E4F',
+	'#00C7BE', '#32ADE6', '#007AFF', '#17254B', '#0B1120', '#5856D6', '#744BDE', '#AF52DE',
+	'#FF2D55', '#FF7A9C', '#8B5E3C', '#C9A96E', '#F5E6D3', '#1B4332',
+];
+
 const FORMAT_ITEMS = [
 	{ id: 'original', text: 'Original', desc: 'Igual al ganador', shape: 'original' },
 	{ id: '1:1', text: '1:1', desc: 'Feed', shape: 'square' },
@@ -203,6 +218,18 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * orden de pintado: el aviso lo sigue resolviendo el modelo.
 	 */
 	const [rolesDeColor, setRolesDeColor] = useState<Record<string, string>>({});
+	/**
+	 * El logo puesto a mano, cuando el que scrapeó el sitio no es el que la marca
+	 * usa de verdad.
+	 *
+	 * Subir uno implica quererlo EN el aviso: sin archivo el aviso escribe el
+	 * nombre de la marca donde el ganador firma, que es lo que sale bien casi
+	 * siempre. Ofrecer un cambio que no cambia nada sería un control decorativo.
+	 */
+	const [logoPropio, setLogoPropio] = useState<File | null>(null);
+	const [logoPropioVista, setLogoPropioVista] = useState('');
+	/** Qué rol se está editando: la tabla de colores de abajo pinta ese. */
+	const [rolActivo, setRolActivo] = useState<string>('fondo');
 	const [brandSource, setBrandSource] = useState('url');
 	/**
 	 * El logo arranca apagado y no se enciende solo nunca.
@@ -908,6 +935,23 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * pedido, lo hace un worker minutos después, y para entonces los archivos que
 	 * el usuario eligió en el navegador ya no existen en ningún lado.
 	 */
+	useEffect(() => {
+		if (phase !== 'confirmar') return;
+		const paleta = marcaDeLaUrl?.palette || {};
+		const sueltos: string[] = Array.isArray(marcaDeLaUrl?.colors) ? marcaDeLaUrl.colors : [];
+		setRolesDeColor((previo) => {
+			// Solo se completan los vacíos: si alguien ya corrigió un color, volver a
+			// entrar a esta pantalla no puede deshacérselo.
+			const siguiente = { ...previo };
+			ROLES_DE_COLOR.forEach((rol, i) => {
+				if (siguiente[rol.id]) return;
+				const detectado = paleta[rol.desde] || sueltos[i];
+				if (typeof detectado === 'string' && /^#[0-9a-f]{6}$/i.test(detectado)) siguiente[rol.id] = detectado.toUpperCase();
+			});
+			return siguiente;
+		});
+	}, [phase, marcaDeLaUrl]);
+
 	async function guardarAvatarCargado(): Promise<string> {
 		// Con una foto alcanza para fijar la cara. El piso de cuatro dejaba afuera
 		// al que tiene una sola buena foto suya, que es el caso más común.
@@ -959,6 +1003,13 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('colorMode', colorMode);
 			if (indicaciones.trim()) form.set('brief', indicaciones.trim());
 			if (Object.values(rolesDeColor).some(Boolean)) form.set('rolesDeColor', JSON.stringify(rolesDeColor));
+			if (logoPropio) {
+				// El backend solo adjunta el archivo cuando se pidió firmar con imagen:
+				// haberlo subido ES ese pedido.
+				form.set('logo', logoPropio);
+				form.set('includeLogo', '1');
+				form.set('logoMode', 'imagen');
+			}
 			if (Object.keys(paletteOverride).length) form.set('paletteOverride', JSON.stringify(paletteOverride));
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
@@ -1571,41 +1622,124 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							    suelto no dice nada; saber que ese violeta es el acento y no el
 							    fondo cambia el aviso entero. Se pueden corregir porque el
 							    escaneo se equivoca, y van al prompt como dato, no como orden. */}
+							{/* Con la identidad del ganador elegida estos bloques no cambian nada
+							    del aviso: mostrarlos para "corregir" sería ofrecer un control que
+							    no hace nada. */}
 							<div className="creation-confirm-identity">
+								{colorMode !== 'winner' && (
 								<div style={{ gridColumn: '1 / -1' }}>
 									<span className="picker-label">Colores detectados en tu web</span>
-									<p className="batch-detail-help">
-										{colorMode === 'winner'
-											? 'Este aviso usa los colores del ganador. Esto le sirve igual a la IA para saber cómo usa la marca sus colores.'
-											: 'Corregí el que no cuadre. La IA los usa como referencia, no los copia tal cual.'}
-									</p>
+									<p className="batch-detail-help">Corregí el que no cuadre. La IA los usa como referencia, no los copia tal cual.</p>
 									<div className="creation-color-roles">
 										{ROLES_DE_COLOR.map((rol) => (
-											<label key={rol.id} className="creation-color-role">
+											<button
+												key={rol.id}
+												type="button"
+												className={`creation-color-role ${rolActivo === rol.id ? 'active' : ''}`}
+												disabled={phase === 'starting'}
+												aria-pressed={rolActivo === rol.id}
+												onClick={() => setRolActivo(rol.id)}
+											>
 												<span>{rol.label}</span>
-												<input
-													type="color"
-													value={/^#[0-9a-f]{6}$/i.test(rolesDeColor[rol.id] || '') ? rolesDeColor[rol.id] : '#ffffff'}
-													disabled={phase === 'starting'}
-													onChange={(event) => setRolesDeColor((previo) => ({ ...previo, [rol.id]: event.target.value }))}
-												/>
-												<b>{rolesDeColor[rol.id] || '—'}</b>
-											</label>
+												<i style={{ background: rolesDeColor[rol.id] || 'transparent' }} aria-hidden="true" />
+												<b>{rolesDeColor[rol.id] || 'sin detectar'}</b>
+											</button>
 										))}
 									</div>
+
+									{/* Se edita el rol elegido arriba: escribiendo el hexadecimal, o
+									    tocando uno de los treinta. El selector nativo queda como
+									    tercera opción para el que quiera un tono que no está. */}
+									<div className="creation-color-editor">
+										<div className="creation-color-editor-head">
+											<span>Editando <b>{ROLES_DE_COLOR.find((rol) => rol.id === rolActivo)?.label}</b></span>
+											<input
+												type="text"
+												className="creation-hex-input"
+												value={rolesDeColor[rolActivo] || ''}
+												disabled={phase === 'starting'}
+												maxLength={7}
+												placeholder="#000000"
+												aria-label="Código hexadecimal"
+												onChange={(event) => {
+													// Se acepta con o sin numeral y se completa mientras se escribe:
+													// exigir el formato exacto para poder tipear hace que el campo se
+													// sienta roto en la mitad de cada corrección.
+													const escrito = event.target.value.trim().replace(/[^0-9a-f#]/gi, '');
+													const valor = escrito.startsWith('#') ? escrito : `#${escrito}`;
+													setRolesDeColor((previo) => ({ ...previo, [rolActivo]: valor.slice(0, 7).toUpperCase() }));
+												}}
+											/>
+											<input
+												type="color"
+												value={/^#[0-9a-f]{6}$/i.test(rolesDeColor[rolActivo] || '') ? rolesDeColor[rolActivo] : '#ffffff'}
+												disabled={phase === 'starting'}
+												aria-label="Elegir otro color"
+												onChange={(event) => setRolesDeColor((previo) => ({ ...previo, [rolActivo]: event.target.value.toUpperCase() }))}
+											/>
+										</div>
+										<div className="creation-color-grid" role="group" aria-label="Colores para elegir">
+											{COLORES_A_MANO.map((color) => (
+												<button
+													key={color}
+													type="button"
+													title={color}
+													aria-label={color}
+													className={rolesDeColor[rolActivo] === color ? 'active' : ''}
+													disabled={phase === 'starting'}
+													style={{ background: color }}
+													onClick={() => setRolesDeColor((previo) => ({ ...previo, [rolActivo]: color }))}
+												/>
+											))}
+										</div>
+									</div>
 								</div>
+								)}
+								{typoMode !== 'winner' && (
 								<div>
 									<span className="picker-label">Tipografía detectada</span>
 									<p style={{ margin: 0, fontSize: '13.5px', color: '#3d3945' }}>{tipografiaDeLaUrl || 'No se detectó.'}</p>
-									<p className="batch-detail-help" style={{ margin: '6px 0 0' }}>
-										{typoMode === 'winner' ? 'Este aviso usa la tipografía del ganador.' : 'Este aviso usa esta tipografía.'}
-									</p>
+									<p className="batch-detail-help" style={{ margin: '6px 0 0' }}>Este aviso la usa en vez de la del ganador.</p>
 								</div>
-								{logoDeLaUrl && (
+								)}
+								{(logoDeLaUrl || logoPropioVista) && (
 									<div>
 										<span className="picker-label">Logo detectado</span>
-										<img src={logoDeLaUrl} alt="Logo detectado en la web" className="creation-confirm-logo" />
+										<img src={logoPropioVista || logoDeLaUrl} alt="Logo de la marca" className="creation-confirm-logo" />
+										<div className="creation-logo-acciones">
+											<label className="creation-logo-cambiar">
+												{logoPropio ? 'Usar otro' : 'Cambiar'}
+												<input
+													type="file"
+													accept="image/png,image/jpeg,image/webp,image/avif"
+													disabled={phase === 'starting'}
+													onChange={(event) => {
+														const archivo = event.target.files?.[0] || null;
+														if (!archivo) return;
+														setLogoPropio(archivo);
+														setLogoPropioVista((previo) => { if (previo) URL.revokeObjectURL(previo); return URL.createObjectURL(archivo); });
+														event.target.value = '';
+													}}
+												/>
+											</label>
+											{logoPropio && (
+												<button type="button" disabled={phase === 'starting'} onClick={() => {
+													if (logoPropioVista) URL.revokeObjectURL(logoPropioVista);
+													setLogoPropio(null); setLogoPropioVista('');
+												}}>Volver al detectado</button>
+											)}
+										</div>
+										<p className="batch-detail-help" style={{ margin: '6px 0 0' }}>
+											{logoPropio
+												? 'El aviso va a dibujar este logo donde el ganador firma.'
+												: 'Si subís uno, el aviso lo dibuja en vez de escribir el nombre de la marca.'}
+										</p>
 									</div>
+								)}
+								{colorMode === 'winner' && typoMode === 'winner' && (
+									<p className="batch-detail-help" style={{ gridColumn: '1 / -1', margin: 0 }}>
+										Este aviso usa los colores y la tipografía del ganador, así que acá no hay nada que corregir. Si querés los de tu web, volvé al paso de estilo.
+									</p>
 								)}
 							</div>
 

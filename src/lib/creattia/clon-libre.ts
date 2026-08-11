@@ -238,7 +238,7 @@ Each new line keeps the shape of the one it replaces: the same number of lines, 
 
 THE PRODUCT THIS AD IS NOW FOR
 ${datosDelProducto}${pedido}${pagina}
-THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its waistband, seams, labels, prints and proportions where the photos show them. Getting the product wrong ruins the ad even if everything else is perfect.
+THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its waistband, seams, labels, prints and proportions where the photos show them. Its surface is copied as closely as its shape: the same weave or grain, the same perforations, speckles, flecks or bubbles, the same sheen and the same texture up close. Anything printed, stitched, embossed or moulded on it — a wordmark, a size tag, a seal, a logo — is reproduced letter for letter and sits exactly where the photos put it, at the same size and the same angle. Getting the product wrong ruins the ad even if everything else is perfect.
 
 NOTHING EXPLICIT IS EVER SHOWN — people may wear the product and their body may be seen, hips, waist and the groin area the garment covers included. What must never appear is bare genitals, the shape of genitals read through the fabric, or bare nipples. The fabric is opaque and sits flat, and the framing is the one a retailer uses for its catalogue, not an erotic one.
 
