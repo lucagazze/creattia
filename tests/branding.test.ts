@@ -3,6 +3,13 @@ import { readFileSync } from 'node:fs';
 import { describe, test } from 'vitest';
 import { buildClonePrompt } from '../src/lib/creattia/generation-pipeline';
 
+// Estas pruebas verifican el prompt DETALLADO (`ad-analysis.ts`), que dejó de ser
+// el default cuando entró el clon libre pero sigue entero y elegible. Sin esto
+// mirarían el prompt equivocado y fallarían por buscar reglas que el libre no
+// tiene, no por una regresión real.
+process.env.RENDER_PROMPT = 'detallado';
+
+
 /**
  * Un anuncio sin ninguna marca a la vista se ve inconcluso. Elegir "sin logo"
  * significa no dibujar un emblema, no que el aviso quede anónimo: si hay nombre

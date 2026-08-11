@@ -11,6 +11,7 @@ import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
+import { leerElProducto } from '../../../lib/creattia/clon-libre';
 import { alcanceDesde, buildClonePrompt, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
@@ -564,6 +565,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const productInputPlan: Array<{ product: any; path: string; photoIndex: number }> = [];
 		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
 		const productVisionInputs: Array<{ buffer: Buffer; type: string }> = [];
+		const indicesDeFotosDeProducto: number[] = [];
 		if (usesRealProducts) for (const storedProduct of storedProducts) {
 			if (storedProduct.id === 'manual') continue;
 			const paths = [...new Set([
@@ -637,6 +639,7 @@ export const POST: APIRoute = async ({ request }) => {
 					primaryProductBuffer = normalized.buffer;
 					primaryProductMime = normalized.type;
 				}
+				indicesDeFotosDeProducto.push(inputBuffers.length);
 				await pushInput(normalized.buffer, normalized.type, `product-${item.product.id}-${item.photoIndex}.png`, `verified photo ${item.photoIndex} of the SAME real product SKU “${item.product.name}”; preserve exact geometry, proportions, construction, packaging, label, material, texture, color and physical side orientation`);
 			}
 		}
@@ -650,6 +653,7 @@ export const POST: APIRoute = async ({ request }) => {
 					primaryProductBuffer = normalized.buffer;
 					primaryProductMime = normalized.type;
 				}
+				indicesDeFotosDeProducto.push(inputBuffers.length);
 				await pushInput(normalized.buffer, normalized.type, `product-${idx}.png`, `verified photo ${idx + 1} of the SAME real product supplied by the user; preserve exact geometry, proportions, construction, packaging, label, material, texture, color and physical side orientation`);
 			}
 		}
@@ -731,7 +735,21 @@ export const POST: APIRoute = async ({ request }) => {
 		// Análisis de layout + copy con visión: lee el ganador completo antes de
 		// generar. Incluye estrategia, zonas de texto, idioma, personas, producto y
 		// composición. Si el usuario ya aprobó/editó el plan, se usa ese resultado.
+		const urlDelProducto: string | null = (storedProducts[0] as any)?.metadata?.sourceUrl
+			|| (storedProducts[0] as any)?.product_url
+			|| (sourceGeneration as any)?.settings_snapshot?.sourceUrl
+			|| null;
 		let layoutAnalysis: LayoutAnalysis | null = approvedPlan;
+		// Cómo se ve el producto y a quién le habla: los dos análisis no dependen
+		// entre sí, así que este arranca antes y se espera junto con el otro.
+		const lecturaPendiente = (!isExactRevision && productVisionInputs.length)
+			? leerElProducto({ openAIKey, googleKey }, {
+				fotos: productVisionInputs.map((foto) => ({ buffer: foto.buffer, type: foto.type })),
+				nombre: storedProducts.map((item) => item.name).filter(Boolean).join(' + '),
+				datos: storedProducts.map((item) => item.description).filter(Boolean).join('\n') || brief,
+				url: urlDelProducto || undefined,
+			})
+			: Promise.resolve(null);
 		const verifiedProductFacts = storedProducts.map((item) => [
 			item.description,
 			item.price_text && `${item.price_text} ${item.currency || ''}`,
@@ -760,6 +778,24 @@ export const POST: APIRoute = async ({ request }) => {
 			}
 		}
 		stamp(`análisis visual ${approvedPlan ? 'aprobado por el usuario' : layoutAnalysis ? 'ok' : 'sin resultado'}`);
+
+		const lectura = await lecturaPendiente;
+		// Las fotos donde aparece una persona sirvieron para entender el producto,
+		// pero NO se le mandan al motor: OpenAI rechaza el pedido entero si sospecha
+		// un cuerpo en ropa interior, aunque el aviso a generar no muestre nada. Si
+		// todas tienen persona se mandan igual: sin ninguna foto el motor dibuja el
+		// producto de memoria, que es peor.
+		const aCortar = new Set((lectura?.conPersona || [])
+			.map((i) => indicesDeFotosDeProducto[i])
+			.filter((i) => typeof i === 'number'));
+		if (aCortar.size && aCortar.size < indicesDeFotosDeProducto.length) {
+			for (const i of [...aCortar].sort((a, b) => b - a)) {
+				inputBuffers.splice(i, 1);
+				inputs.splice(i, 1);
+				inputImageMap.splice(i, 1);
+			}
+			stamp(`${aCortar.size} foto(s) con persona quedaron fuera del render`);
+		}
 
 		const hasTargetProductInput = storedProducts.length > 0 || hasUploadedProduct || productVisionInputs.length > 0;
 		const useClonePrompt = hasReference && (!hasSourceGeneration || hasNewProductInput) && fidelity === 1
@@ -794,6 +830,10 @@ The result must look like the same image with only that one adjustment applied.`
 			pressRowItems,
 			avatarDescription,
 			avatarImageCount: avatarReferenceImages.length,
+			productUrl: urlDelProducto || undefined,
+			logoUrl: urlLogoUrl || undefined,
+			storeDescription: effectiveBrandSummary || undefined,
+			lectura,
 		};
 		const prompt = isExactRevision ? revisionPrompt : useClonePrompt
 			? buildClonePrompt(cloneInput, layoutAnalysis, hasLogo)

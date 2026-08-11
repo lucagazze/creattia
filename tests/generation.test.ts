@@ -2,6 +2,13 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { createFakeSupabase, PNG_BYTES, type FakeSupabaseOptions } from './helpers/fake-supabase';
 
+// Estas pruebas verifican el prompt DETALLADO (`ad-analysis.ts`), que dejó de ser
+// el default cuando entró el clon libre pero sigue entero y elegible. Sin esto
+// mirarían el prompt equivocado y fallarían por buscar reglas que el libre no
+// tiene, no por una regresión real.
+process.env.RENDER_PROMPT = 'detallado';
+
+
 /**
  * Tests de la generación de imágenes de punta a punta: se ejecutan los handlers
  * reales de las rutas contra un Supabase en memoria y un motor de imágenes

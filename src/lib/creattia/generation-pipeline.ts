@@ -1,5 +1,6 @@
 import { analyzeReferenceLayout, buildReferenceClonePrompt, LANGUAGE_NAMES, type LayoutAnalysis, type LogoMode } from './ad-analysis';
 import { buildPromptCorto } from './prompt-corto';
+import { buildPromptLibre, fotosParaElMotor, leerElProducto, type LecturaDelProducto } from './clon-libre';
 import { generateAdImage, type EngineImage, type EngineUsage } from './image-engines';
 import { closestFormat } from './formats';
 import type { QualityTier } from './quality-router';
@@ -232,6 +233,12 @@ export type ClonePromptInput = {
 	avatarImageCount?: number;
 	/** Para una página de carrusel: en cuál va y de cuántas. */
 	carousel?: { index: number; total: number };
+	/** La URL de la que salió el producto, y el logo del sitio. Van a la ficha. */
+	productUrl?: string;
+	logoUrl?: string;
+	storeDescription?: string;
+	/** Lo que devolvió `leerElProducto`: cómo se ve y a quién le habla. */
+	lectura?: LecturaDelProducto | null;
 };
 
 export type ReferenceCloneInput = ClonePromptInput & {
@@ -301,32 +308,67 @@ export async function analyzeReference(input: ReferenceCloneInput): Promise<Layo
 }
 
 /**
- * Cuál de los dos prompts de render se usa.
+ * Cuál de los tres prompts de render se usa.
  *
- * El largo ronda los 20.000 caracteres y treinta secciones marcadas CRITICAL:
- * cada defecto observado agregó un bloque. La hipótesis del corto —que vive en
- * `prompt-corto.ts` y ya estaba escrito— es que ese volumen DILUYE, y que dos
- * principios bien dichos gobiernan mejor en 7.000: nada que no esté en el
- * ganador, y nada del ganador salvo su estructura.
+ * ARRANCA EN EL LIBRE (`clon-libre.ts`), que es el que se probó contra siete
+ * referencias reales y salió mejor en las siete. Le da el ganador y la ficha del
+ * producto y lo deja rediseñar; no le dicta dónde va cada texto.
  *
- * ARRANCA EN EL LARGO, que es el que conoce todo lo que se fue agregando: que un
- * inmueble o un vehículo no se redibujen, los colores del ganador en
- * hexadecimal, el telón, quién aparece en el anuncio, la piel fotográfica, la web
- * visible en todas las páginas y la consistencia entre ellas. El corto es
- * anterior a todo eso y activarlo apaga esas siete cosas.
+ * El DETALLADO es el anterior: mide el ganador zona por zona y le dicta al motor
+ * cada cuerpo, peso, alineación y hexadecimal. Sabe cosas que el libre no —que un
+ * inmueble o un vehículo no se redibujen, el telón, la fila de medios, la web
+ * visible en todas las páginas del carrusel— así que se queda entero y andando
+ * por si alguna de esas hace falta. Su problema es que el prompt CRECE con la
+ * referencia: con un ganador cargado de texto pasa los 32.000 caracteres de
+ * OpenAI y la generación falla. El libre es fijo y ese techo no lo toca nunca.
  *
- * `RENDER_PROMPT=corto` lo cambia para los tres caminos a la vez —Studio, lote y
- * carrusel— sin tocar código, que es lo que permite comparar la MISMA referencia
- * con los dos y decidir mirando en vez de discutiendo.
+ * El CORTO es un intento anterior al libre, se deja por historia.
+ *
+ * `RENDER_PROMPT=detallado` (o `corto`) lo cambia para los tres caminos a la vez
+ * —Studio, lote y carrusel— sin tocar código, que es lo que permite comparar la
+ * MISMA referencia con los dos y decidir mirando en vez de discutiendo.
  */
-function usaPromptCorto() {
-	const elegido = String(process.env.RENDER_PROMPT || import.meta.env.RENDER_PROMPT || 'largo').toLowerCase();
-	return elegido === 'corto';
+function caminoDeRender(): 'libre' | 'detallado' | 'corto' {
+	const elegido = String(process.env.RENDER_PROMPT || import.meta.env.RENDER_PROMPT || 'libre').toLowerCase();
+	if (elegido === 'detallado' || elegido === 'largo') return 'detallado';
+	if (elegido === 'corto') return 'corto';
+	return 'libre';
+}
+
+/** La decisión de firma del usuario, dicha en una línea que reemplaza la regla. */
+function firmaElegida(logoMode: LogoMode | undefined, hasLogo: boolean) {
+	if (logoMode === 'nada') return 'This ad carries no logo, no wordmark and no brand line anywhere, at any size.';
+	if (logoMode === 'texto') return 'Sign it by writing the brand name, in the same place, size and style the reference signs its own.';
+	// Sin archivo de logo no se puede firmar con imagen: se escribe el nombre.
+	if (logoMode === 'imagen') {
+		return hasLogo
+			? 'Sign it with the supplied logo file, in the same place and at the same size the reference signs its own.'
+			: 'Sign it by writing the brand name, in the same place, size and style the reference signs its own.';
+	}
+	return undefined;
 }
 
 /** El prompt clon a partir del análisis. Separado para poder testearlo solo. */
 export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalysis | null, hasLogo: boolean) {
-	const armar = usaPromptCorto() ? buildPromptCorto : buildReferenceClonePrompt;
+	const camino = caminoDeRender();
+	if (camino === 'libre') {
+		return buildPromptLibre({
+			nombres: input.productNames,
+			datos: input.productFacts.filter(Boolean),
+			marca: input.brandName,
+			queVendeLaTienda: input.storeDescription,
+			url: input.productUrl,
+			logoUrl: input.logoUrl,
+			paleta: input.brandColors,
+			aspecto: input.lectura?.aspecto,
+			icp: input.lectura?.icp,
+			// El idioma que eligió el usuario manda; sin elección se usa el de la ficha.
+			idioma: input.language ? LANGUAGE_NAMES[input.language] : undefined,
+			decisionDeLogo: firmaElegida(input.logoMode, hasLogo),
+			carrusel: input.carousel ? { indice: input.carousel.index, total: input.carousel.total } : undefined,
+		});
+	}
+	const armar = camino === 'corto' ? buildPromptCorto : buildReferenceClonePrompt;
 	return armar({
 		productNames: input.productNames,
 		productFacts: input.productFacts,
@@ -370,11 +412,12 @@ export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalys
  * fotos NO se adjuntan: tenerlas a la vista hace que el modelo las pegue igual y
  * arruine el diseño original.
  */
-export function buildEngineImages(input: ReferenceCloneInput, analysis: LayoutAnalysis | null): EngineImage[] {
+export function buildEngineImages(input: ReferenceCloneInput, analysis: LayoutAnalysis | null, lectura?: LecturaDelProducto | null): EngineImage[] {
 	const referenceShowsProduct = analysis?.referenceHasProduct !== false;
+	const fotos = lectura ? fotosParaElMotor(input.productImages, lectura) : input.productImages;
 	return [
 		input.reference,
-		...(referenceShowsProduct ? input.productImages : []),
+		...(referenceShowsProduct ? fotos : []),
 		...(input.avatarImages || []),
 		...(input.logo ? [input.logo] : []),
 	];
@@ -383,10 +426,19 @@ export function buildEngineImages(input: ReferenceCloneInput, analysis: LayoutAn
 /** Analiza, arma el prompt y renderiza. */
 export async function renderReferenceClone(input: ReferenceCloneInput): Promise<ReferenceCloneResult> {
 	const label = input.logLabel || '[pipeline]';
-	const analysis = await analyzeReference(input);
-	const prompt = buildClonePrompt({ ...input, avatarImageCount: (input.avatarImages || []).length }, analysis, Boolean(input.logo));
+	// Los dos análisis no dependen entre sí: van juntos para no sumar dos esperas.
+	const [analysis, lectura] = await Promise.all([
+		analyzeReference(input),
+		leerElProducto(input.keys, {
+			fotos: input.productImages,
+			nombre: input.productNames.filter(Boolean).join(' + '),
+			datos: input.productFacts.filter(Boolean).join('\n') || input.brief,
+			url: input.productUrl,
+		}),
+	]);
+	const prompt = buildClonePrompt({ ...input, avatarImageCount: (input.avatarImages || []).length, lectura }, analysis, Boolean(input.logo));
 	const format = await resolveFormat(input.requestedFormat, input.reference);
-	const images = buildEngineImages(input, analysis);
+	const images = buildEngineImages(input, analysis, lectura);
 
 	console.log(`${label} generando en ${format} (${images.length} imágenes de entrada, calidad ${input.tier})`);
 	const { buffer, engine, usage } = await generateAdImage({

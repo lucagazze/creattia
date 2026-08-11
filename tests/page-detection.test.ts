@@ -2,6 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'vitest';
 import { buildClonePrompt } from '../src/lib/creattia/generation-pipeline';
 
+// Estas pruebas verifican el prompt DETALLADO (`ad-analysis.ts`), que dejó de ser
+// el default cuando entró el clon libre pero sigue entero y elegible. Sin esto
+// mirarían el prompt equivocado y fallarían por buscar reglas que el libre no
+// tiene, no por una regresión real.
+process.env.RENDER_PROMPT = 'detallado';
+
+
 /**
  * Una URL puede ser la ficha de un producto, una landing de servicio o el
  * catálogo de la tienda. Antes todo caía en "producto" y la home de una tienda
