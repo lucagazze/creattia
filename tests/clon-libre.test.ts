@@ -85,6 +85,42 @@ describe('el prompt del clon libre', () => {
 		assert.match(prompt, /WHO THIS AD IS FOR: Un hombre de 30 activo\. Whoever/);
 	});
 
+	/**
+	 * Los dos únicos controles que quedaron. Sin elegir nada se usan los del
+	 * ganador, que es lo que hace que el clon se parezca al original: si esto se
+	 * invierte, todos los avisos salen con la identidad del usuario encima y el
+	 * ganador deja de reconocerse.
+	 */
+	test('sin elegir nada, los colores y la letra son los del ganador', () => {
+		const prompt = buildPromptLibre(ficha);
+		assert.match(prompt, /the same typography — the very letterforms you can see in the image/);
+		assert.match(prompt, /the same colour palette, the same accent colour on the same word/);
+	});
+
+	/**
+	 * Elegir la identidad propia REEMPLAZA la cláusula del ganador, no se suma.
+	 * Con las dos presentes se le piden dos cosas distintas y gana la que ve en la
+	 * imagen, así que la elección se ignoraba.
+	 */
+	test('la identidad elegida reemplaza a la del ganador', () => {
+		const prompt = buildPromptLibre({
+			...ficha,
+			coloresDeLaMarca: ['#0b1120', '#dd1d1d'],
+			tipografiaDeLaMarca: { headings: 'Outfit', body: 'Inter' },
+		});
+		assert.match(prompt, /Outfit for headings, Inter for body/);
+		assert.match(prompt, /#0b1120, #dd1d1d/);
+		assert.doesNotMatch(prompt, /the very letterforms you can see in the image/);
+		assert.doesNotMatch(prompt, /the same colour palette/);
+	});
+
+	/** Se puede cambiar una sola: la otra sigue siendo la del ganador. */
+	test('los dos controles son independientes', () => {
+		const soloLetra = buildPromptLibre({ ...ficha, tipografiaDeLaMarca: { headings: 'Outfit' } });
+		assert.match(soloLetra, /Outfit for headings/);
+		assert.match(soloLetra, /the same colour palette/);
+	});
+
 	test('lo que se scrapeó del producto viaja entero', () => {
 		const prompt = buildPromptLibre({ ...ficha, url: 'https://rawmenoficial.com/p', aspecto: 'Negro, tejido perforado.' });
 		assert.match(prompt, /Bóxer premium de bambú/);

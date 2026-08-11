@@ -742,6 +742,26 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				// referencia para que el anuncio muestre una selección de la tienda.
 				if (scannedType === 'catalog' && productIds.length > 1) isCatalogSubmit = true;
 			}
+			// Se generaba después de una pantalla de revisión donde había que decidir
+			// una cosa por vez: qué decía cada texto, quién aparecía, con qué se
+			// firmaba, qué pasaba con la fila de medios. Eso existía porque el prompt
+			// detallado necesitaba que alguien resolviera todo eso antes de dictárselo
+			// al motor. El clon libre no le dicta nada: le da el ganador y la ficha del
+			// producto y resuelve solo, así que la revisión pasó a ser una fila de
+			// preguntas cuyas respuestas ya no se leen.
+			//
+			// Quedan los tres controles que sí cambian el aviso —colores, tipografía y
+			// formato— y ya se eligieron en el paso anterior. El análisis se sigue
+			// haciendo: lo corre el servidor dentro de la misma generación, antes de
+			// pedirle la imagen al motor.
+			//
+			// El carrusel es la excepción y no por comodidad: necesita el análisis POR
+			// PÁGINA para saber qué va en cada una, y eso solo lo devuelve /plan.
+			if (!wantsFullCarousel) {
+				await approveAndGenerate({ productIds, offering: offeringForSubmit });
+				return;
+			}
+
 			const form = new FormData();
 			form.set('referencePath', effectiveReferencePath);
 			if (wantsFullCarousel) form.set('referencePaths', JSON.stringify(carouselSlides));
@@ -857,7 +877,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		return payload.avatar.id as string;
 	}
 
-	async function approveAndGenerate() {
+	/**
+	 * `directo` viene del flujo sin revisión: trae los ids recién importados porque
+	 * el setState del scaneo todavía no se refleja en el mismo handler, y marca que
+	 * no hay plan revisado que mandar.
+	 */
+	async function approveAndGenerate(directo?: { productIds: string[]; offering: 'product' | 'service' | 'catalog' }) {
 		// Mismo cerrojo que el carrusel: el botón se deshabilita con `phase`, pero
 		// entre dos clics muy seguidos ese estado todavía vale el valor viejo.
 		if (enviando.current) return;
@@ -866,7 +891,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		borrarBorrador();
 		onGenerationRequested?.();
 		try {
-			if (productMode === 'url' && selectedProductIds.length === 0) {
+			const idsDeProducto = directo?.productIds ?? selectedProductIds;
+			if (productMode === 'url' && idsDeProducto.length === 0) {
 				throw new Error('Elegí al menos un producto para generar la imagen.');
 			}
 			const pathPrefixId = parseInt(ad.imagePath.split('/')[0], 10);
@@ -884,21 +910,28 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (Object.keys(paletteOverride).length) form.set('paletteOverride', JSON.stringify(paletteOverride));
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
-			form.set('subjectMode', detectedOffering);
+			form.set('subjectMode', directo?.offering ?? detectedOffering);
 			form.set('includeLogo', includeLogo ? '1' : '0');
-			form.set('logoMode', logoMode);
-			if ((productMode === 'url' || isService) && selectedProductIds.length) {
-				selectedProductIds.forEach((id) => form.append('productIds', id));
+			// Sin revisión no se manda ninguna de estas: son respuestas a preguntas que
+			// ya no se hacen, y mandarlas con su valor por defecto sería peor que no
+			// mandarlas. `logoMode: 'nada'` apagaría la firma en TODOS los avisos,
+			// incluso en los que el ganador firma; sin el campo, el prompt decide
+			// mirando la referencia, que es lo que queremos.
+			if (!directo) {
+				form.set('logoMode', logoMode);
+				form.set('personMode', personMode);
+				form.set('pressRowMode', pressRowMode);
+				if (pressRowMode !== 'quitar') form.set('pressRowItems', pressRowItems.trim());
+				if (personMode === 'upload') form.set('avatarId', await guardarAvatarCargado());
+				form.set('plan', JSON.stringify(planRevisado()));
+			}
+			if ((productMode === 'url' || isService) && idsDeProducto.length) {
+				idsDeProducto.forEach((id) => form.append('productIds', id));
 			} else if (productMode === 'manual') {
 				if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
-			form.set('personMode', personMode);
-			form.set('pressRowMode', pressRowMode);
-			if (pressRowMode !== 'quitar') form.set('pressRowItems', pressRowItems.trim());
-			if (personMode === 'upload') form.set('avatarId', await guardarAvatarCargado());
-			form.set('plan', JSON.stringify(planRevisado()));
 
 			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
 			const payload = await response.json();
@@ -917,7 +950,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			}
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la generación.');
-			setPhase('review');
+			setPhase(directo ? 'setup' : 'review');
 		} finally {
 			enviando.current = false;
 		}
@@ -1141,7 +1174,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					<p style={{ margin: '0 0 18px', fontSize: '13.5px', color: '#716d79', lineHeight: 1.5 }}>
 						{wantsFullCarousel
 							? `Se replica el carrusel completo (${carouselSlides.length} páginas) con tu producto. Analizamos cada página y antes de generar podés ajustar la identidad, los colores y los textos.`
-							: 'Se replica la composición visual del ganador con tu producto. Antes de generar podés ajustar la identidad y las personas.'}
+							: 'Se replica la composición visual del ganador con tu producto. Elegís los colores, la tipografía y el formato, y el resto lo resuelve la IA.'}
 					</p>
 
 					{/* Misma barra de progreso que el generador por lote. */}
@@ -1150,7 +1183,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							{ n: 1, label: 'Tu producto', active: phase === 'setup' && formStep === 1, done: phase !== 'setup' || formStep > 1 },
 							{ n: 2, label: 'Formato', active: phase === 'setup' && formStep === 2, done: phase !== 'setup' || formStep > 2 },
 							{ n: 3, label: 'Estilo', active: phase === 'setup' && formStep === 3, done: phase !== 'setup' },
-							{ n: 4, label: 'Revisar', active: phase === 'planning' || phase === 'review' || phase === 'starting', done: false },
+							{ n: 4, label: wantsFullCarousel ? 'Revisar' : 'Generar', active: phase === 'planning' || phase === 'review' || phase === 'starting', done: false },
 						].map((item) => (
 							<li key={item.n} className={`wiz-progress-item ${item.active ? 'active' : ''} ${item.done ? 'done' : ''}`}>
 								<span className="wiz-progress-dot">{item.done ? '✓' : item.n}</span>
@@ -1174,7 +1207,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 						</div>
 					)}
 
-					{(phase === 'setup' || phase === 'planning') && <>
+					{/* `starting` sin plan es el flujo sin revisión: no hay pantalla de
+				    revisión que mostrar, así que el formulario se queda con el botón
+				    girando hasta que la generación arranca y se navega. Sin esto la
+				    pantalla quedaba en blanco en el medio. */}
+				{(phase === 'setup' || phase === 'planning' || (phase === 'starting' && !plan)) && <>
 						{/* 1 · Tu producto / Servicio */}
 						<div className="wiz-step" hidden={formStep !== 1}>
 							<div className="wiz-body">
@@ -1430,14 +1467,21 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									<button
 										type="button"
 										onClick={() => { if (!step1Ready) { setError('Contanos qué vas a promocionar antes de continuar.'); setFormStep(1); return; } void requestPlan(); }}
-										disabled={phase === 'planning'}
+										disabled={phase === 'planning' || phase === 'starting'}
 										className="url-batch-submit-btn"
 									>
-										{phase === 'planning'
-											? <><span className="studio-spinner small" aria-hidden="true" /> {wantsFullCarousel ? `Analizando las ${carouselSlides.length} páginas…` : 'Analizando referencia…'}</>
-											: wantsFullCarousel ? `Analizar las ${carouselSlides.length} páginas` : 'Analizar referencia'}
+										{phase === 'planning' || phase === 'starting'
+											? <><span className="studio-spinner small" aria-hidden="true" /> {wantsFullCarousel ? `Analizando las ${carouselSlides.length} páginas…` : 'Analizando y generando…'}</>
+											: wantsFullCarousel ? `Analizar las ${carouselSlides.length} páginas` : `Generar ${count > 1 ? `${count} imágenes` : 'la imagen'}`}
 									</button>
-									{phase !== 'planning' && <span className="batch-credit-note">Todavía no gastás créditos</span>}
+									{/* Decía "todavía no gastás créditos" porque después venía la
+									    revisión. Ahora este click genera: prometerle lo otro a
+									    alguien que está por gastar es mentirle. */}
+									{phase === 'setup' && (
+										<span className="batch-credit-note">
+											{wantsFullCarousel ? 'Todavía no gastás créditos' : `Se descuentan ${count} crédito${count > 1 ? 's' : ''} al generar`}
+										</span>
+									)}
 								</div>
 							</div>
 						)}

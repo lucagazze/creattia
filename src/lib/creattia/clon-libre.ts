@@ -37,6 +37,13 @@ export type FichaDelProducto = {
 	icp?: string;
 	/** Idioma pedido por el usuario. Sin esto se usa el de la ficha. */
 	idioma?: string;
+	/**
+	 * Los dos únicos controles del aviso: de dónde salen los colores y la
+	 * tipografía. Sin elegir nada se usan los del ganador, que es lo que hace que
+	 * el clon se parezca al original.
+	 */
+	coloresDeLaMarca?: string[];
+	tipografiaDeLaMarca?: { headings?: string; body?: string };
 	/** El usuario decidió qué hacer con el logo: pisa la regla por defecto. */
 	decisionDeLogo?: string;
 	/** Para una página de carrusel: en cuál va y de cuántas. */
@@ -177,13 +184,27 @@ export function buildPromptLibre(ficha: FichaDelProducto): string {
 		? `Every word in the ad is written in ${ficha.idioma}.`
 		: 'Every word in the ad is written in the language the product information above is written in.';
 
+	// Los colores y la tipografía de la marca no se agregan como un pedido más:
+	// REEMPLAZAN la cláusula del ganador. Tener las dos es pedirle dos cosas
+	// distintas, y ahí gana la que ve en la imagen y la elección se ignora.
+	const letra = (ficha.tipografiaDeLaMarca?.headings || ficha.tipografiaDeLaMarca?.body)
+		? `the same type sizes, weights, alignments and hierarchy, but set in this brand's own typefaces (${[
+			ficha.tipografiaDeLaMarca.headings && `${ficha.tipografiaDeLaMarca.headings} for headings`,
+			ficha.tipografiaDeLaMarca.body && `${ficha.tipografiaDeLaMarca.body} for body`,
+		].filter(Boolean).join(', ')})`
+		: 'the same typography — the very letterforms you can see in the image — the same type sizes, weights and alignments';
+
+	const color = ficha.coloresDeLaMarca?.length
+		? `this brand's own palette (${ficha.coloresDeLaMarca.join(', ')}) mapped onto the very same roles the reference uses — what was the background stays the background, what was the ink stays the ink, and the accent still lands on the equivalent word`
+		: 'the same colour palette, the same accent colour on the same word';
+
 	const pagina = ficha.carrusel
 		? `\nThis is page ${ficha.carrusel.indice + 1} of a ${ficha.carrusel.total}-page carousel and the reference is that page: make this one only, and make it sit with the others as one set.\n`
 		: '';
 
 	return `The first input image is a winning advertisement. Make EXACTLY THIS AD, for a different product. The images after it are real photos of that product.
 
-Everything about the design stays: the same layout, the same composition, the same typography — the very letterforms you can see in the image — the same type sizes, weights and alignments, the same colour palette, the same accent colour on the same word, the same spacing and the same margins. Someone comparing the two must see the same ad twice, about two different things.
+Everything about the design stays: the same layout, the same composition, ${letra}, ${color}, the same spacing and the same margins. Someone comparing the two must see the same ad twice, about two different things.
 
 FIRST, READ EVERY WORD IN THE IMAGE. Go through it block by block — the logo lockup, the headline, every line of it, the paragraph, the button, any badge, pill, caption or small print — and for EACH ONE write the equivalent line for the product below. Every one of them changes. A line that still talks about the original advertiser's business is the single worst thing this can produce: the ad ends up looking right and saying nothing.
 

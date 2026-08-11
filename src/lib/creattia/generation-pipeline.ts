@@ -360,6 +360,10 @@ export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalys
 			url: input.productUrl,
 			logoUrl: input.logoUrl,
 			paleta: input.brandColors,
+			// Los dos únicos controles: 'winner' deja los del ganador, cualquier otro
+			// origen trae los de la marca o los de la web del usuario.
+			coloresDeLaMarca: input.colorMode !== 'winner' ? input.brandColors : undefined,
+			tipografiaDeLaMarca: input.typoMode !== 'winner' ? input.brandTypography : undefined,
 			aspecto: input.lectura?.aspecto,
 			icp: input.lectura?.icp,
 			// El idioma que eligió el usuario manda; sin elección se usa el de la ficha.
