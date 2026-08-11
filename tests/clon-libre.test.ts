@@ -208,3 +208,19 @@ describe('los colores de la web por función', () => {
 		assert.doesNotMatch(buildPromptLibre(ficha), /is its background/);
 	});
 });
+
+describe('los bloques sin equivalente', () => {
+	/**
+	 * El defecto, visto en producción: un ganador con "$20 OFF" gigante y una ficha
+	 * sin oferta devolvía el aviso con "$20 OFF" intacto. El modelo tenía que
+	 * escribir el equivalente, tenía prohibido inventar un descuento y no podía
+	 * dejar el bloque más grande vacío: copiar era su única salida. Lo mismo pasaba
+	 * con el disclaimer de la FDA de un suplemento, traducido, en un bóxer.
+	 *
+	 * Sin esta regla el aviso sale con el texto del otro anunciante, que es lo peor
+	 * que puede producir: parece correcto y está vendiendo otra cosa.
+	 */
+	test('no se copian nunca, ni cuando no hay con qué reemplazarlos', () => {
+		assert.match(buildPromptLibre(ficha), /it STILL never keeps the original's words/);
+	});
+});

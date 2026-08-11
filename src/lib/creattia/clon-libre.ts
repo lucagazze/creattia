@@ -322,6 +322,8 @@ FIRST, READ EVERY WORD IN THE IMAGE. Go through it block by block — the logo l
 
 Each new line keeps the shape of the one it replaces: the same number of lines, roughly the same length, the same tone, the same job in the ad — a headline stays a headline, a benefit line stays a benefit line, a button stays a button. Where the original highlights one word in the accent colour, highlight the equivalent word of the new line.
 
+If a block has no equivalent — the reference discounts and there is no offer here, the reference carries a legal line that means nothing for this product — it STILL never keeps the original's words. Write the truest thing about this product that fits that block's shape and does its job. Keeping a line because you found nothing to replace it with is the single thing that gives the whole ad away as somebody else's.
+
 THE PRODUCT THIS AD IS NOW FOR
 ${datosDelProducto}${pagina}
 ${pedido}
