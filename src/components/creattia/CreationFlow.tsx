@@ -175,6 +175,15 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const [paletteOverride, setPaletteOverride] = useState<Record<string, string>>({});
 	const [typoMode, setTypoMode] = useState<'winner' | 'url' | 'brand'>('winner');
+	/**
+	 * Lo que el usuario quiere destacar, en sus palabras.
+	 *
+	 * Es lo único que sobrevivió de la revisión vieja, y a propósito: ahí se
+	 * decidía QUÉ decía cada texto y DÓNDE iba, y lo segundo es lo que hacía que el
+	 * clon saliera rígido y con el mundo del otro anunciante adentro. Acá entra la
+	 * intención sola; dónde ponerlo y de qué tamaño lo decide la IA.
+	 */
+	const [indicaciones, setIndicaciones] = useState('');
 	const [brandSource, setBrandSource] = useState('url');
 	/**
 	 * El logo arranca apagado y no se enciende solo nunca.
@@ -248,7 +257,15 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 
 	// El armado es secuencial, como en el lote: 1 producto, 2 formato, 3 estilo.
 	const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
-	const [phase, setPhase] = useState<'setup' | 'planning' | 'review' | 'starting'>('setup');
+	/**
+	 * `confirmar` es la pantalla que reemplazó a la revisión larga: no se edita
+	 * nada, se MIRA. Qué se leyó de la URL, qué colores y qué letra se detectaron,
+	 * y qué ganador se va a clonar. Con eso a la vista se escriben las
+	 * indicaciones, que es lo único que se escribe a mano.
+	 */
+	const [phase, setPhase] = useState<'setup' | 'planning' | 'confirmar' | 'review' | 'starting'>('setup');
+	/** Lo que devolvió el escaneo: se guarda porque el setState no llega a tiempo. */
+	const [confirmacion, setConfirmacion] = useState<{ productIds: string[]; offering: 'product' | 'service' | 'catalog' } | null>(null);
 	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
 	const [plan, setPlan] = useState<any>(null);
 	/**
@@ -317,6 +334,18 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * que lo deja guardado con el producto importado. Es el mismo archivo que el
 	 * servidor vuelve a bajar al generar con logo.
 	 */
+	/**
+	 * Lo que el escaneo leyó de la web, para mostrarlo antes de gastar un crédito.
+	 * Se muestra aunque el aviso vaya con la identidad del ganador: es la única
+	 * forma de darse cuenta a tiempo de que el escaneo leyó cualquier cosa.
+	 */
+	const marcaDeLaUrl: any = (importedProducts.find((item: any) => selectedProductIds.includes(item.id) && item?.metadata?.brandFromUrl)
+		|| importedProducts[0] as any)?.metadata?.brandFromUrl || null;
+	const paletaDeLaUrl: string[] = [...new Set(Object.values(marcaDeLaUrl?.palette || {})
+		.filter((valor): valor is string => typeof valor === 'string' && /^#[0-9a-f]{6}$/i.test(valor)))];
+	const tipografiaDeLaUrl: string = [marcaDeLaUrl?.typography?.headings, marcaDeLaUrl?.typography?.body]
+		.filter(Boolean).join(' · ');
+
 	const logoDeLaUrl: string = (() => {
 		const elegido = importedProducts.find((item: any) => selectedProductIds.includes(item.id) && item?.metadata?.brandFromUrl?.logoUrl);
 		return (elegido as any)?.metadata?.brandFromUrl?.logoUrl
@@ -492,7 +521,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			phase, formStep, copyMode, fondoDelAviso, carouselMode, carouselSameProduct, selectedSlideIndex,
 			productMode, scannedOffering, alcanceOverride, urls, selectedProductIds, importedProducts,
 			manualProductName, manualProductFacts,
-			format, language, colorMode, typoMode, brandSource, paletteOverride,
+			format, language, colorMode, typoMode, brandSource, paletteOverride, indicaciones,
 			logoMode, logoCarouselPages: [...logoCarouselPages],
 			personMode, personModeSugerido, avatarConsent,
 			pressRowMode, pressRowItems, variantes,
@@ -540,6 +569,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		poner(e.manualProductName, setManualProductName); poner(e.manualProductFacts, setManualProductFacts);
 		poner(e.format, setFormat); poner(e.language, setLanguage);
 		poner(e.colorMode, setColorMode); poner(e.typoMode, setTypoMode);
+		poner(e.indicaciones, setIndicaciones);
 		poner(e.brandSource, setBrandSource); poner(e.paletteOverride, setPaletteOverride);
 		poner(e.logoMode, setLogoMode);
 		if (Array.isArray(e.logoCarouselPages)) setLogoCarouselPages(new Set(e.logoCarouselPages));
@@ -758,7 +788,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			// El carrusel es la excepción y no por comodidad: necesita el análisis POR
 			// PÁGINA para saber qué va en cada una, y eso solo lo devuelve /plan.
 			if (!wantsFullCarousel) {
-				await approveAndGenerate({ productIds, offering: offeringForSubmit });
+				setConfirmacion({ productIds, offering: offeringForSubmit });
+				setPhase('confirmar');
 				return;
 			}
 
@@ -907,6 +938,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('format', format);
 			form.set('language', language);
 			form.set('colorMode', colorMode);
+			if (indicaciones.trim()) form.set('brief', indicaciones.trim());
 			if (Object.keys(paletteOverride).length) form.set('paletteOverride', JSON.stringify(paletteOverride));
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
@@ -950,7 +982,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			}
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la generación.');
-			setPhase(directo ? 'setup' : 'review');
+			setPhase(directo ? 'confirmar' : 'review');
 		} finally {
 			enviando.current = false;
 		}
@@ -1183,7 +1215,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							{ n: 1, label: 'Tu producto', active: phase === 'setup' && formStep === 1, done: phase !== 'setup' || formStep > 1 },
 							{ n: 2, label: 'Formato', active: phase === 'setup' && formStep === 2, done: phase !== 'setup' || formStep > 2 },
 							{ n: 3, label: 'Estilo', active: phase === 'setup' && formStep === 3, done: phase !== 'setup' },
-							{ n: 4, label: wantsFullCarousel ? 'Revisar' : 'Generar', active: phase === 'planning' || phase === 'review' || phase === 'starting', done: false },
+							{ n: 4, label: 'Revisar', active: phase === 'planning' || phase === 'confirmar' || phase === 'review' || phase === 'starting', done: false },
 						].map((item) => (
 							<li key={item.n} className={`wiz-progress-item ${item.active ? 'active' : ''} ${item.done ? 'done' : ''}`}>
 								<span className="wiz-progress-dot">{item.done ? '✓' : item.n}</span>
@@ -1211,7 +1243,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				    revisión que mostrar, así que el formulario se queda con el botón
 				    girando hasta que la generación arranca y se navega. Sin esto la
 				    pantalla quedaba en blanco en el medio. */}
-				{(phase === 'setup' || phase === 'planning' || (phase === 'starting' && !plan)) && <>
+				{(phase === 'setup' || phase === 'planning') && <>
 						{/* 1 · Tu producto / Servicio */}
 						<div className="wiz-step" hidden={formStep !== 1}>
 							<div className="wiz-body">
@@ -1467,25 +1499,124 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									<button
 										type="button"
 										onClick={() => { if (!step1Ready) { setError('Contanos qué vas a promocionar antes de continuar.'); setFormStep(1); return; } void requestPlan(); }}
-										disabled={phase === 'planning' || phase === 'starting'}
+										disabled={phase === 'planning'}
 										className="url-batch-submit-btn"
 									>
-										{phase === 'planning' || phase === 'starting'
-											? <><span className="studio-spinner small" aria-hidden="true" /> {wantsFullCarousel ? `Analizando las ${carouselSlides.length} páginas…` : 'Analizando y generando…'}</>
-											: wantsFullCarousel ? `Analizar las ${carouselSlides.length} páginas` : `Generar ${count > 1 ? `${count} imágenes` : 'la imagen'}`}
+										{phase === 'planning'
+											? <><span className="studio-spinner small" aria-hidden="true" /> {wantsFullCarousel ? `Analizando las ${carouselSlides.length} páginas…` : 'Leyendo tu web…'}</>
+											: wantsFullCarousel ? `Analizar las ${carouselSlides.length} páginas` : 'Continuar'}
 									</button>
 									{/* Decía "todavía no gastás créditos" porque después venía la
 									    revisión. Ahora este click genera: prometerle lo otro a
 									    alguien que está por gastar es mentirle. */}
-									{phase === 'setup' && (
-										<span className="batch-credit-note">
-											{wantsFullCarousel ? 'Todavía no gastás créditos' : `Se descuentan ${count} crédito${count > 1 ? 's' : ''} al generar`}
-										</span>
-									)}
+									{phase === 'setup' && <span className="batch-credit-note">Todavía no gastás créditos</span>}
 								</div>
 							</div>
 						)}
 					</>}
+
+					{/*
+					  * Confirmar: se mira, no se edita.
+					  *
+					  * La revisión vieja pedía resolver una cosa por vez —qué decía cada
+					  * texto, quién aparecía, con qué se firmaba— porque el prompt detallado
+					  * necesitaba que alguien decidiera todo eso antes de dictárselo al
+					  * motor. Con el clon libre esas respuestas ya no las lee nadie, pero
+					  * quedaba algo que sí valía: ver qué se leyó de la URL antes de gastar
+					  * un crédito. Eso es esta pantalla, y abajo lo único que se escribe.
+					  */}
+					{(phase === 'confirmar' || (phase === 'starting' && !plan)) && (
+						<div className="batch-detail-card" style={{ marginTop: '4px' }}>
+							<h2 style={{ margin: '0 0 4px', fontSize: '17px', color: '#19171d' }}>Esto leímos de tu web</h2>
+							<p className="batch-detail-help" style={{ marginTop: 0 }}>Si algo no cuadra, volvé y cambiá la URL. Todavía no gastaste créditos.</p>
+
+							<div className="creation-confirm-grid">
+								<div>
+									<span className="picker-label">Tu producto</span>
+									{importedProducts.filter((item) => confirmacion?.productIds.includes(item.id)).map((item) => (
+										<div key={item.id} className="creation-confirm-product">
+											{(item.imageUrls?.[0] || item.media?.[0]?.url) && (
+												<img src={item.imageUrls?.[0] || item.media?.[0]?.url} alt="" width={54} height={54} />
+											)}
+											<div>
+												<strong>{item.name}</strong>
+												{item.price_text && <small>{item.price_text}</small>}
+											</div>
+										</div>
+									))}
+								</div>
+								<div>
+									<span className="picker-label">El ganador que vas a clonar</span>
+									{referenceUrl && <img className="creation-confirm-winner" src={referenceUrl} alt="Anuncio ganador elegido" />}
+								</div>
+							</div>
+
+							{/* Los colores y la letra que se detectaron. Se muestran SIEMPRE,
+							    incluso con "los del ganador" elegido: es la única forma de
+							    darse cuenta a tiempo de que el escaneo leyó mal la web. */}
+							<div className="creation-confirm-identity">
+								<div>
+									<span className="picker-label">Colores detectados en tu web</span>
+									{paletaDeLaUrl.length ? (
+										<div className="creation-confirm-swatches">
+											{paletaDeLaUrl.map((color) => (
+												<span key={color} title={color}><i style={{ background: color }} aria-hidden="true" />{color}</span>
+											))}
+										</div>
+									) : <p className="batch-detail-help" style={{ margin: 0 }}>No se detectaron colores.</p>}
+									<p className="batch-detail-help" style={{ margin: '6px 0 0' }}>
+										{colorMode === 'winner' ? 'Este aviso usa los colores del ganador.' : 'Este aviso usa estos colores.'}
+									</p>
+								</div>
+								<div>
+									<span className="picker-label">Tipografía detectada</span>
+									<p style={{ margin: 0, fontSize: '13.5px', color: '#3d3945' }}>{tipografiaDeLaUrl || 'No se detectó.'}</p>
+									<p className="batch-detail-help" style={{ margin: '6px 0 0' }}>
+										{typoMode === 'winner' ? 'Este aviso usa la tipografía del ganador.' : 'Este aviso usa esta tipografía.'}
+									</p>
+								</div>
+								{logoDeLaUrl && (
+									<div>
+										<span className="picker-label">Logo detectado</span>
+										<img src={logoDeLaUrl} alt="Logo detectado en la web" className="creation-confirm-logo" />
+									</div>
+								)}
+							</div>
+
+							<div style={{ marginTop: '18px' }}>
+								<span className="picker-label">¿Algo que quieras destacar? <small style={{ fontWeight: 400, color: '#8a8593' }}>(opcional)</small></span>
+								<p className="batch-detail-help">Contale qué querés que se vea. Dónde ponerlo y de qué tamaño lo decide la IA.</p>
+								<textarea
+									value={indicaciones}
+									onChange={(event) => setIndicaciones(event.target.value.slice(0, 600))}
+									rows={3}
+									maxLength={600}
+									disabled={phase === 'starting'}
+									placeholder="Ej: que se vea el 4+2 de regalo y que la tela es de bambú"
+									style={{ width: '100%', padding: '10px 12px', border: '1px solid #e3e0e8', borderRadius: '10px', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical' }}
+								/>
+							</div>
+
+							{error && <p style={{ margin: '14px 0 0', padding: '12px 14px', background: '#fff0f0', border: '1px solid #f5dcdc', borderRadius: '10px', color: '#a43f3f', fontSize: '14px' }}>{error}</p>}
+
+							<div className="wiz-actions" style={{ marginTop: '18px' }}>
+								<button type="button" className="wiz-back-btn" disabled={phase === 'starting'} onClick={() => { setError(''); setPhase('setup'); }}>Volver</button>
+								<button
+									type="button"
+									className="url-batch-submit-btn"
+									disabled={phase === 'starting'}
+									onClick={() => { if (confirmacion) void approveAndGenerate(confirmacion); }}
+								>
+									{phase === 'starting'
+										? <><span className="studio-spinner small" aria-hidden="true" /> Generando…</>
+										: `Generar ${count > 1 ? `${count} imágenes` : 'la imagen'}`}
+								</button>
+								{phase !== 'starting' && (
+									<span className="batch-credit-note">Se descuenta{count > 1 ? 'n' : ''} {count} crédito{count > 1 ? 's' : ''}</span>
+								)}
+							</div>
+						</div>
+					)}
 
 					{(phase === 'review' || phase === 'starting') && plan && <>
 						{productMode === 'url' && importedProducts.length > 0 && (

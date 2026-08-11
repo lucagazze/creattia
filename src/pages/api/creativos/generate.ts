@@ -12,7 +12,7 @@ import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
 import { leerElProducto } from '../../../lib/creattia/clon-libre';
-import { alcanceDesde, buildClonePrompt, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
 import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
@@ -905,6 +905,12 @@ The result must look like the same image with only that one adjustment applied.`
 				googleKey,
 				openAIKey,
 				prompt,
+				// Cuando OpenAI rechaza el pedido por su filtro, el motor reintenta con
+				// esta versión antes de cambiar de motor. Es null si no hay nada que
+				// sacar, y entonces el reintento ni se intenta.
+				promptDeRespaldo: (isExactRevision || !useClonePrompt)
+					? undefined
+					: buildClonePromptDeRespaldo({ ...cloneInput, lectura }, hasLogo) || undefined,
 				images: inputBuffers,
 				format: effectiveFormat,
 				tier,

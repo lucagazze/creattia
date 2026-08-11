@@ -160,6 +160,15 @@ export async function generateAdImage(input: {
 	googleKey?: string;
 	openAIKey?: string;
 	prompt: string;
+	/**
+	 * Prompt de respaldo para cuando OpenAI rechaza el pedido por su filtro.
+	 *
+	 * El rechazo es del pedido ENTERO —400, sin imagen— y no depende de lo que se
+	 * vaya a dibujar sino de lo que el prompt describe: con ropa interior alcanza
+	 * una línea sobre una persona para que no genere nada. Reintentar con la misma
+	 * cosa no sirve; hay que mandarle menos.
+	 */
+	promptDeRespaldo?: string;
 	images?: EngineImage[];
 	format: string;
 	/** Nivel de calidad de gpt-image-2. Lo decide quality-router.ts. */
@@ -198,8 +207,31 @@ export async function generateAdImage(input: {
 			failures.push(`${model}: respuesta vacía`);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			console.error(`[image-engines] ${model} falló, se cae a Gemini:`, message);
 			failures.push(`${model}: ${message}`);
+			// Un rechazo del filtro no es un fallo del motor: el motor anda y se negó a
+			// leer ESTE texto. Cambiar de motor es la última opción, porque Gemini
+			// escribe peor el texto chico; primero se prueba con menos texto.
+			const esFiltro = /safety|moderation|content[_ ]policy/i.test(message);
+			if (esFiltro && input.promptDeRespaldo && input.promptDeRespaldo !== input.prompt) {
+				console.warn(`[image-engines] ${model} rechazó el prompt por su filtro, se reintenta sin el ICP ni las indicaciones`);
+				try {
+					const reintento = await generateWithOpenAI({
+						apiKey: input.openAIKey,
+						model,
+						prompt: input.promptDeRespaldo,
+						images,
+						size: sizeMap[input.format] || '1024x1024',
+						openAIQuality: input.tier || 'medium',
+					});
+					if (reintento.buffer.length > 1024) return { buffer: reintento.buffer, engine: `${model} (${input.tier || 'medium'}, reintento)`, usage: reintento.usage };
+				} catch (segundo) {
+					const mensajeSegundo = segundo instanceof Error ? segundo.message : String(segundo);
+					console.error(`[image-engines] el reintento también fue rechazado:`, mensajeSegundo);
+					failures.push(`${model} (reintento): ${mensajeSegundo}`);
+				}
+			} else {
+				console.error(`[image-engines] ${model} falló, se cae a Gemini:`, message);
+			}
 		}
 	}
 

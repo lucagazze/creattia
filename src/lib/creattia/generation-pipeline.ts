@@ -348,11 +348,9 @@ function firmaElegida(logoMode: LogoMode | undefined, hasLogo: boolean) {
 	return undefined;
 }
 
-/** El prompt clon a partir del análisis. Separado para poder testearlo solo. */
-export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalysis | null, hasLogo: boolean) {
-	const camino = caminoDeRender();
-	if (camino === 'libre') {
-		return buildPromptLibre({
+/** La ficha con la que se arma el prompt libre, y también su versión magra. */
+function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
+	return {
 			nombres: input.productNames,
 			datos: input.productFacts.filter(Boolean),
 			marca: input.brandName,
@@ -364,14 +362,34 @@ export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalys
 			// origen trae los de la marca o los de la web del usuario.
 			coloresDeLaMarca: input.colorMode !== 'winner' ? input.brandColors : undefined,
 			tipografiaDeLaMarca: input.typoMode !== 'winner' ? input.brandTypography : undefined,
+			indicaciones: input.brief,
 			aspecto: input.lectura?.aspecto,
 			icp: input.lectura?.icp,
 			// El idioma que eligió el usuario manda; sin elección se usa el de la ficha.
 			idioma: input.language ? LANGUAGE_NAMES[input.language] : undefined,
 			decisionDeLogo: firmaElegida(input.logoMode, hasLogo),
-			carrusel: input.carousel ? { indice: input.carousel.index, total: input.carousel.total } : undefined,
-		});
-	}
+		carrusel: input.carousel ? { indice: input.carousel.index, total: input.carousel.total } : undefined,
+	};
+}
+
+/**
+ * El prompt para reintentar cuando OpenAI rechaza el pedido por su filtro.
+ *
+ * Devuelve `null` cuando no hay nada que sacar —sin ICP ni indicaciones el
+ * prompt magro es idéntico— para que el motor no gaste un reintento en mandar
+ * exactamente lo mismo.
+ */
+export function buildClonePromptDeRespaldo(input: ClonePromptInput, hasLogo: boolean): string | null {
+	if (caminoDeRender() !== 'libre') return null;
+	const ficha = fichaDesde(input, hasLogo);
+	if (!ficha.icp && !ficha.indicaciones?.trim()) return null;
+	return buildPromptLibre(ficha, true);
+}
+
+/** El prompt clon a partir del análisis. Separado para poder testearlo solo. */
+export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalysis | null, hasLogo: boolean) {
+	const camino = caminoDeRender();
+	if (camino === 'libre') return buildPromptLibre(fichaDesde(input, hasLogo));
 	const armar = camino === 'corto' ? buildPromptCorto : buildReferenceClonePrompt;
 	return armar({
 		productNames: input.productNames,
@@ -449,6 +467,7 @@ export async function renderReferenceClone(input: ReferenceCloneInput): Promise<
 		googleKey: input.keys.googleKey,
 		openAIKey: input.keys.openAIKey,
 		prompt,
+		promptDeRespaldo: buildClonePromptDeRespaldo({ ...input, lectura }, Boolean(input.logo)) || undefined,
 		images,
 		format,
 		tier: input.tier,

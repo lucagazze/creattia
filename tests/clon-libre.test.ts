@@ -155,3 +155,31 @@ describe('qué fotos llegan al motor', () => {
 		assert.equal(fotosParaElMotor(fotos, { conPersona: [] }).length, 3);
 	});
 });
+
+describe('el prompt de respaldo, para cuando OpenAI rechaza', () => {
+	/**
+	 * El rechazo del filtro es del pedido ENTERO —400, sin imagen— y no depende de
+	 * lo que se vaya a dibujar sino de lo que el prompt describe: con un producto
+	 * sensible alcanza una línea sobre una persona para que no genere nada.
+	 * Medido: con ICP e indicaciones se caían 2 de 7 referencias; sacando esas dos
+	 * líneas las 2 salieron.
+	 */
+	test('saca el ICP y las indicaciones, que es lo que dispara el filtro', () => {
+		const completo = buildPromptLibre({ ...ficha, icp: 'Un hombre de 30 activo', indicaciones: 'que se vea el 4+2' });
+		const magro = buildPromptLibre({ ...ficha, icp: 'Un hombre de 30 activo', indicaciones: 'que se vea el 4+2' }, true);
+		assert.match(completo, /WHO THIS AD IS FOR: Un hombre/);
+		assert.match(completo, /que se vea el 4\+2/);
+		assert.doesNotMatch(magro, /Un hombre de 30 activo/);
+		assert.doesNotMatch(magro, /que se vea el 4\+2/);
+		assert.ok(magro.length < completo.length);
+	});
+
+	/** Todo lo demás sigue igual: se sacan dos líneas, no se cambia de prompt. */
+	test('lo que se midió que sirve no se toca', () => {
+		const magro = buildPromptLibre({ ...ficha, icp: 'Un hombre de 30' }, true);
+		assert.match(magro, /The decoration is what survives by mistake/);
+		assert.match(magro, /EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT/);
+		assert.match(magro, /keep the sides clearly opposed/);
+		assert.match(magro, /does it show a logo or a brand name anywhere\?/);
+	});
+});

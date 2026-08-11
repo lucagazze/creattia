@@ -44,6 +44,15 @@ export type FichaDelProducto = {
 	 */
 	coloresDeLaMarca?: string[];
 	tipografiaDeLaMarca?: { headings?: string; body?: string };
+	/**
+	 * Lo que el usuario quiere destacar, en sus palabras.
+	 *
+	 * Entra como INTENCIÓN, nunca como ejecución. "Mostrá el precio" cambia el
+	 * aviso; "el precio arriba a la derecha en 40px" es volver a dictarle la
+	 * maqueta, que es exactamente lo que hacía que el clon saliera rígido y con el
+	 * mundo del otro anunciante adentro.
+	 */
+	indicaciones?: string;
 	/** El usuario decidió qué hacer con el logo: pisa la regla por defecto. */
 	decisionDeLogo?: string;
 	/** Para una página de carrusel: en cuál va y de cuántas. */
@@ -156,8 +165,17 @@ const linea = (etiqueta: string, valor?: string | string[] | null) => {
 /** Sin el punto final, que después se le agrega otro y quedan dos. */
 const sinPuntoFinal = (texto: string) => texto.replace(/\s*\.\s*$/, '');
 
-/** El prompt del clon libre. Fijo: no crece con la referencia. */
-export function buildPromptLibre(ficha: FichaDelProducto): string {
+/**
+ * El prompt del clon libre. Fijo: no crece con la referencia.
+ *
+ * `magro` arma la versión para reintentar cuando OpenAI rechaza el pedido por su
+ * filtro. Saca las dos líneas que medimos que disparan el rechazo —el ICP y las
+ * indicaciones del usuario—: las dos describen personas y situaciones, y con un
+ * producto sensible eso alcanza para que devuelva 400 sin generar nada. Se
+ * pierde algo de puntería, pero una imagen sin el ICP es infinitamente mejor que
+ * ninguna imagen.
+ */
+export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string {
 	const datosDelProducto = [
 		linea('Product', ficha.nombres.filter(Boolean).join(' + ')),
 		linea('Brand', ficha.marca),
@@ -176,7 +194,7 @@ export function buildPromptLibre(ficha: FichaDelProducto): string {
 		? `THE BRAND MARK — ${ficha.decisionDeLogo}`
 		: `THE BRAND MARK — Look at the reference: does it show a logo or a brand name anywhere? If it does NOT, this ad does not get one either. Do not add a logo, a mark, a wordmark or a brand line anywhere, at any size, no matter how natural it would look — an ad that gains a logo the original did not have is no longer the same ad. If it DOES show one, replace it with this brand's, in the same position, at the same size and in the same style as the ad.`;
 
-	const publico = ficha.icp
+	const publico = (!magro && ficha.icp)
 		? `WHO THIS AD IS FOR: ${sinPuntoFinal(ficha.icp)}. Whoever appears in it is that person, and every choice in it is made so that person recognises themselves at a glance.`
 		: `WHO THIS AD IS FOR is the customer the product information above describes. Whoever appears in it is that person, and every choice in it is made so that person recognises themselves at a glance.`;
 
@@ -198,6 +216,15 @@ export function buildPromptLibre(ficha: FichaDelProducto): string {
 		? `this brand's own palette (${ficha.coloresDeLaMarca.join(', ')}) mapped onto the very same roles the reference uses — what was the background stays the background, what was the ink stays the ink, and the accent still lands on the equivalent word`
 		: 'the same colour palette, the same accent colour on the same word';
 
+	// Se dice UNA vez y corta. Repetirlo o desarrollarlo le come atención a las
+	// reglas que sí se midieron, y el prompt es un presupuesto, no una lista.
+	const pedido = (!magro && ficha.indicaciones?.trim())
+		? `
+WHAT THE ADVERTISER WANTS THIS AD TO GET ACROSS: ${ficha.indicaciones.trim()}
+Work it in where it belongs — you decide which block carries it, how big it is and where it sits. If they told you where to put something, treat it as what they want said, not as a layout instruction. Nothing else about the ad changes because of it.
+`
+		: '';
+
 	const pagina = ficha.carrusel
 		? `\nThis is page ${ficha.carrusel.indice + 1} of a ${ficha.carrusel.total}-page carousel and the reference is that page: make this one only, and make it sit with the others as one set.\n`
 		: '';
@@ -212,6 +239,7 @@ Each new line keeps the shape of the one it replaces: the same number of lines, 
 
 THE PRODUCT THIS AD IS NOW FOR
 ${datosDelProducto}${pagina}
+${pedido}
 THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its seams, labels, prints and proportions where the photos show them. Getting the product wrong ruins the ad even if everything else is perfect.
 
 NOTHING EXPLICIT IS EVER SHOWN — people may wear the product and their body may be seen, hips, waist and the area the garment covers included. What must never appear is bare genitals, the shape of genitals read through the fabric, or bare nipples. The fabric is opaque and sits flat, and the framing is the one a retailer uses for its catalogue, not an erotic one.
