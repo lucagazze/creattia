@@ -69,46 +69,115 @@ const FUENTES = [
 ];
 
 /**
- * Un campo de tipografía con buscador.
+ * Trae de Google los archivos de las fuentes de la lista, para poder mostrarlas.
+ *
+ * Se pide UNA sola vez y con `text=`: así Google devuelve un subconjunto con las
+ * letras que hacen falta para escribir los nombres y nada más. Sin eso serían
+ * cuarenta tipografías completas bajando para leer cuarenta palabras.
+ */
+let fuentesPedidas = false;
+function cargarFuentes() {
+	if (fuentesPedidas || typeof document === 'undefined') return;
+	fuentesPedidas = true;
+	const familias = FUENTES.map((fuente) => `family=${fuente.replace(/ /g, '+')}`).join('&');
+	const letras = encodeURIComponent('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz 0123456789');
+	const link = document.createElement('link');
+	link.rel = 'stylesheet';
+	link.href = `https://fonts.googleapis.com/css2?${familias}&display=swap&text=${letras}`;
+	document.head.appendChild(link);
+}
+
+/**
+ * Elegir tipografía de una lista, viéndola.
+ *
+ * Antes era un campo libre: había que saber el nombre exacto y escribirlo bien, y
+ * no se veía cómo era hasta tener la imagen generada. Ahora cada opción se
+ * dibuja en su propia tipografía. "Otra" queda para el que use una que no está
+ * en la lista, que es un caso real pero no el común.
  *
  * Va fuera del componente a propósito: definido adentro, React lo trataría como
- * un tipo nuevo en cada render y el campo perdería el foco a cada letra.
+ * un tipo nuevo en cada render y el panel se cerraría a cada tecla.
  */
 function SelectorDeFuente({ etiqueta, valor, onChange, disabled }: {
 	etiqueta: string; valor: string; onChange: (v: string) => void; disabled?: boolean;
 }) {
 	const [abierto, setAbierto] = useState(false);
-	const busqueda = valor.trim().toLowerCase();
-	const coincidencias = busqueda
-		? FUENTES.filter((fuente) => fuente.toLowerCase().includes(busqueda)).slice(0, 8)
-		: FUENTES.slice(0, 8);
+	const [busqueda, setBusqueda] = useState('');
+	const [aMano, setAMano] = useState(false);
+	const caja = useRef<HTMLDivElement | null>(null);
+
+	useEffect(() => {
+		if (!abierto) return;
+		cargarFuentes();
+		const afuera = (evento: MouseEvent) => {
+			if (caja.current && !caja.current.contains(evento.target as Node)) setAbierto(false);
+		};
+		document.addEventListener('mousedown', afuera);
+		return () => document.removeEventListener('mousedown', afuera);
+	}, [abierto]);
+
+	const filtro = busqueda.trim().toLowerCase();
+	const coincidencias = filtro ? FUENTES.filter((fuente) => fuente.toLowerCase().includes(filtro)) : FUENTES;
+
 	return (
-		<label className="creation-typo-field">
+		<div className="creation-typo-field" ref={caja}>
 			<span>{etiqueta}</span>
 			<div className="creation-typo-combo">
-				<input
-					type="text" maxLength={60} placeholder="Escribí para buscar"
-					value={valor}
+				<button
+					type="button"
+					className="creation-typo-boton"
 					disabled={disabled}
-					onChange={(event) => { onChange(event.target.value); setAbierto(true); }}
-					onFocus={() => setAbierto(true)}
-					// El blur se demora: sin eso el clic en una opción cierra la lista
-					// antes de que el clic llegue a registrarse.
-					onBlur={() => window.setTimeout(() => setAbierto(false), 140)}
-				/>
-				{abierto && coincidencias.length > 0 && (
-					<ul className="creation-typo-lista">
-						{coincidencias.map((fuente) => (
-							<li key={fuente}>
-								<button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(fuente); setAbierto(false); }}>
-									{fuente}
-								</button>
-							</li>
-						))}
-					</ul>
+					aria-expanded={abierto}
+					onClick={() => { cargarFuentes(); setAbierto((previo) => !previo); }}
+					style={valor ? { fontFamily: `'${valor}', system-ui, sans-serif` } : undefined}
+				>
+					<span>{valor || 'Elegir tipografía'}</span>
+					<i aria-hidden="true">▾</i>
+				</button>
+				{abierto && (
+					<div className="creation-typo-panel">
+						<input
+							type="text"
+							className="creation-typo-buscador"
+							placeholder="Buscar…"
+							value={busqueda}
+							autoFocus
+							onChange={(evento) => setBusqueda(evento.target.value)}
+						/>
+						<ul>
+							{coincidencias.map((fuente) => (
+								<li key={fuente}>
+									<button
+										type="button"
+										className={fuente === valor ? 'active' : ''}
+										style={{ fontFamily: `'${fuente}', system-ui, sans-serif` }}
+										onClick={() => { onChange(fuente); setAbierto(false); setBusqueda(''); }}
+									>
+										{fuente}
+									</button>
+								</li>
+							))}
+							{!coincidencias.length && <li className="creation-typo-vacio">Ninguna coincide</li>}
+						</ul>
+						<div className="creation-typo-otra">
+							{aMano ? (
+								<input
+									type="text"
+									maxLength={60}
+									autoFocus
+									placeholder="Nombre de tu tipografía"
+									defaultValue={FUENTES.includes(valor) ? '' : valor}
+									onKeyDown={(evento) => { if (evento.key === 'Enter') { onChange((evento.target as HTMLInputElement).value); setAbierto(false); } }}
+									onBlur={(evento) => { if (evento.target.value.trim()) onChange(evento.target.value.trim()); }}
+								/>
+							) : (
+								<button type="button" onClick={() => setAMano(true)}>Usar otra que no está en la lista</button>
+							)}
+						</div>
+					</div>
 				)}
 			</div>
-		</label>
+		</div>
 	);
 }
 

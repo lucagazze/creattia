@@ -7066,39 +7066,54 @@
 .creation-logo-acciones > label input { display: none; }
 .creation-logo-acciones > button:disabled { opacity: .5; cursor: default; }
 
-/* Las dos tipografías del aviso, una abajo de la otra y con buscador. */
-.creation-typo-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; max-width: 340px; }
+/* Las dos tipografías del aviso: se eligen de una lista y se ven. */
+.creation-typo-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; max-width: 380px; }
 .creation-typo-field { display: flex; align-items: center; gap: 10px; }
-.creation-typo-field > span {
-	flex: none; width: 58px; font-size: 12px; color: #8a8593;
-}
+.creation-typo-field > span { flex: none; width: 58px; font-size: 12px; color: #8a8593; }
 .creation-typo-combo { position: relative; flex: 1 1 auto; min-width: 0; }
-.creation-typo-combo input {
-	width: 100%; padding: 7px 10px; border: 1px solid #ece9f1; border-radius: 8px; background: #fff;
+.creation-typo-boton {
+	display: flex; align-items: center; justify-content: space-between; gap: 8px;
+	width: 100%; padding: 8px 11px; border: 1px solid #ece9f1; border-radius: 9px; background: #fff;
+	font-size: 14px; color: #3d3945; cursor: pointer; text-align: left; font-family: inherit;
+}
+.creation-typo-boton > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.creation-typo-boton > i { flex: none; font-style: normal; font-size: 10px; color: #8a8593; }
+.creation-typo-boton:hover:not(:disabled) { border-color: #c9bcf0; }
+.creation-typo-boton:disabled { opacity: .55; cursor: default; }
+
+.creation-typo-panel {
+	position: absolute; z-index: 30; top: calc(100% + 5px); left: 0; right: 0;
+	background: #fff; border: 1px solid #e3e0e8; border-radius: 12px; overflow: hidden;
+	box-shadow: 0 14px 34px rgba(28, 22, 45, .16);
+}
+.creation-typo-buscador {
+	width: 100%; padding: 10px 12px; border: 0; border-bottom: 1px solid #f0edf5;
 	font-size: 13px; font-family: inherit; color: #3d3945;
 }
-.creation-typo-combo input::placeholder { color: #b5b1bd; }
-.creation-typo-combo input:focus { outline: none; border-color: #c9bcf0; box-shadow: 0 0 0 2px #f3eeff; }
-.creation-typo-lista {
-	position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0;
-	margin: 0; padding: 4px; list-style: none; max-height: 214px; overflow-y: auto;
-	background: #fff; border: 1px solid #e3e0e8; border-radius: 10px;
-	box-shadow: 0 10px 26px rgba(28, 22, 45, .13);
+.creation-typo-buscador:focus { outline: none; background: #fbfaff; }
+.creation-typo-panel ul { margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow-y: auto; }
+.creation-typo-panel li button {
+	display: block; width: 100%; padding: 8px 9px; border: 0; border-radius: 7px; background: none;
+	font-size: 15px; color: #3d3945; text-align: left; cursor: pointer; line-height: 1.35;
 }
-.creation-typo-lista button {
-	display: block; width: 100%; padding: 7px 9px; border: 0; border-radius: 7px; background: none;
-	font-size: 13px; font-family: inherit; color: #3d3945; text-align: left; cursor: pointer;
+.creation-typo-panel li button:hover { background: #f5f1ff; }
+.creation-typo-panel li button.active { background: #f2ecff; color: #4a2a9e; }
+.creation-typo-vacio { padding: 10px 12px; font-size: 12.5px; color: #8a8593; }
+.creation-typo-otra { padding: 7px; border-top: 1px solid #f0edf5; background: #fbfafd; }
+.creation-typo-otra button {
+	width: 100%; padding: 7px; border: 0; border-radius: 7px; background: none;
+	font: 600 12px/1.4 inherit; color: #744bde; cursor: pointer;
 }
-.creation-typo-lista button:hover { background: #f5f1ff; color: #4a2a9e; }
-
-.creation-color-encabezado { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
-.creation-color-restablecer {
-	flex: none; padding: 5px 11px; border: 1px solid #ddd8e4; border-radius: 999px; background: #fff;
-	font: 600 11.5px/1.4 inherit; color: #716d79; cursor: pointer;
-	transition: border-color .15s, background .15s, color .15s;
+.creation-typo-otra button:hover { background: #f2ecff; }
+.creation-typo-otra input {
+	width: 100%; padding: 8px 10px; border: 1px solid #ddd8e4; border-radius: 8px;
+	font-size: 13px; font-family: inherit; color: #3d3945;
 }
-.creation-color-restablecer:hover:not(:disabled) { border-color: #b9a6ee; background: #faf7ff; color: #4a2a9e; }
-.creation-color-restablecer:disabled { opacity: .5; cursor: default; }
+@media (max-width: 560px) {
+	.creation-typo-fields { max-width: none; }
+	.creation-typo-field { align-items: stretch; flex-direction: column; gap: 5px; }
+	.creation-typo-field > span { width: auto; }
+}
 
 /* Qué páginas del carrusel se generan. */
 .creation-paginas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
