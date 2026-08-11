@@ -103,6 +103,29 @@ export const POST: APIRoute = async ({ request }) => {
 		const normalizedReference = await normalizeImageInput(Buffer.from(await referenceBlob.arrayBuffer()));
 		if (!normalizedReference) throw new Error('El anuncio ganador de referencia no se pudo procesar.');
 
+		/**
+		 * Las OTRAS páginas del carrusel, para que esta pueda no repetirlas.
+		 *
+		 * Cada página se genera sola y todas reciben la misma ficha del producto, así
+		 * que las tres escribían el mismo titular: decirle "sos la 2 de 4" no alcanza
+		 * si no tiene con qué saber qué dicen la 1 y la 3. Con las páginas delante lo
+		 * ve, y no hay que dictarle qué escribir en cada una.
+		 *
+		 * Una página ilegible se saltea: es contexto, no puede tumbar la generación.
+		 */
+		const hermanas: Array<{ buffer: Buffer; type: string }> = [];
+		const rutasDelCarrusel: string[] = Array.isArray(snapshot.carouselPaths) ? snapshot.carouselPaths : [];
+		if (snapshot.carousel && rutasDelCarrusel.length > 1) {
+			for (const ruta of rutasDelCarrusel.slice(0, 8)) {
+				if (ruta === referencePath) continue;
+				try {
+					const { data: blob } = await admin.storage.from(REFERENCES).download(ruta);
+					const normalizada = blob ? await normalizeImageInput(Buffer.from(await blob.arrayBuffer())) : null;
+					if (normalizada) hermanas.push({ buffer: normalizada.buffer, type: normalizada.type });
+				} catch { /* una página que no se puede leer no corta el carrusel */ }
+			}
+		}
+
 		// ── 2. Las fotos reales del producto ─────────────────────────────────
 		const productImages: EngineImage[] = [];
 		const productId = row.product_id || snapshot.productId || null;
@@ -262,6 +285,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const { buffer, engine, prompt, analysis } = await renderReferenceClone({
 			keys: { openAIKey, googleKey },
 			reference: { buffer: normalizedReference.buffer, type: normalizedReference.type },
+			otrasPaginas: hermanas,
 			productImages,
 			avatarImages: avatarReferenceImages,
 			logo: logoImage,

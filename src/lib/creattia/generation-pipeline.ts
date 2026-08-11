@@ -298,6 +298,14 @@ export type ReferenceCloneInput = ClonePromptInput & {
 	reference: EngineImage;
 	/** Fotos reales del producto (o de los productos, si son varios). */
 	productImages: EngineImage[];
+	/**
+	 * Las otras páginas del mismo carrusel, como contexto.
+	 *
+	 * Van al final de las imágenes de entrada: la primera sigue siendo la página
+	 * que hay que hacer. Sirven para que esta página no repita lo que dicen las
+	 * demás, no para copiarlas.
+	 */
+	otrasPaginas?: EngineImage[];
 	avatarImages?: EngineImage[];
 	logo?: EngineImage | null;
 	/** Plan ya revisado por el usuario: si viene, no se vuelve a analizar. */
@@ -528,6 +536,7 @@ export function buildEngineImages(input: ReferenceCloneInput, analysis: LayoutAn
 	return [
 		input.reference,
 		...(referenceShowsProduct ? fotos : []),
+		...(input.otrasPaginas || []),
 		...(input.avatarImages || []),
 		...(input.logo ? [input.logo] : []),
 	];

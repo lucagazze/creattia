@@ -68,6 +68,8 @@ export type FichaDelProducto = {
 	decisionDeLogo?: string;
 	/** Para una página de carrusel: en cuál va y de cuántas. */
 	carrusel?: { indice: number; total: number };
+	/** Cuántas páginas del carrusel viajan como contexto, al final de las imágenes. */
+	otrasPaginas?: number;
 };
 
 export type LecturaDelProducto = {
@@ -292,7 +294,7 @@ WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: ${ficha.indicaciones.trim()}
 		// Las páginas se generan por separado y sin verse entre sí, y todas reciben
 		// la misma ficha: sin esto las tres escribían el mismo titular y el mismo
 		// beneficio, y el carrusel quedaba diciendo lo mismo tres veces.
-		? `\nThis is page ${ficha.carrusel.indice + 1} of a ${ficha.carrusel.total}-page carousel and the reference is that page: make this one only, and make it sit with the others as one set. The pages are read one after the other and each carries its own step of the argument — the step this reference page is making. Say what only THIS page says: no headline, no claim and no benefit repeated from another page, and nothing that would leave a later page with nothing left to add. Page ${ficha.carrusel.indice + 1} of ${ficha.carrusel.total} is one moment in a sequence, not the whole ad said again.\n`
+		? `\nThis is page ${ficha.carrusel.indice + 1} of a ${ficha.carrusel.total}-page carousel and the reference is that page: make this one only, and make it sit with the others as one set. The pages are read one after the other and each carries its own step of the argument — the step this reference page is making. Say what only THIS page says: no headline, no claim and no benefit repeated from another page, and nothing that would leave a later page with nothing left to add. Page ${ficha.carrusel.indice + 1} of ${ficha.carrusel.total} is one moment in a sequence, not the whole ad said again.${ficha.otrasPaginas ? ` The last ${ficha.otrasPaginas} input image${ficha.otrasPaginas > 1 ? 's are' : ' is'} the other page${ficha.otrasPaginas > 1 ? 's' : ''} of this same carousel — they are there so you can read what they already say and say something else. Read them first, then write what is missing. They are context and nothing else: never draw them, never copy their words, never let any of them into this page.` : ''}\n`
 		: '';
 
 	return `The first input image is a winning advertisement. Make EXACTLY THIS AD, for a different product. The images after it are real photos of that product.

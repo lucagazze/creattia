@@ -252,6 +252,9 @@ export const POST: APIRoute = async ({ request }) => {
 					carousel: true,
 					carouselIndex: index + 1,
 					carouselTotal: count,
+					// Todas las páginas, para que cada una pueda leer a las otras cuando
+					// se genera y decir algo distinto de lo que ya dicen.
+					carouselPaths: slides,
 					brief,
 					rolesDeColor,
 					tipografiaOverride,

@@ -289,3 +289,28 @@ describe('las páginas de un carrusel', () => {
 		assert.doesNotMatch(buildPromptLibre(ficha), /carousel/);
 	});
 });
+
+describe('las otras páginas del carrusel como contexto', () => {
+	/**
+	 * Decirle "sos la 2 de 4" no alcanzaba: cada página se genera sola y todas
+	 * reciben la misma ficha, así que no tenía con qué saber qué dicen las otras y
+	 * las tres escribían el mismo titular. Ahora las otras páginas viajan como
+	 * imágenes de entrada, y el prompt tiene que nombrarlas — si no, las lee como
+	 * fotos más del producto y las dibuja adentro del aviso.
+	 */
+	test('se nombran para que no las dibuje', () => {
+		const prompt = buildPromptLibre({ ...ficha, carrusel: { indice: 1, total: 4 }, otrasPaginas: 3 });
+		assert.match(prompt, /The last 3 input images are the other pages of this same carousel/);
+		assert.match(prompt, /never draw them, never copy their words/);
+	});
+
+	test('con una sola página hermana, el texto va en singular', () => {
+		const prompt = buildPromptLibre({ ...ficha, carrusel: { indice: 0, total: 2 }, otrasPaginas: 1 });
+		assert.match(prompt, /The last 1 input image is the other page of this same carousel/);
+	});
+
+	test('sin hermanas no se menciona ninguna', () => {
+		const prompt = buildPromptLibre({ ...ficha, carrusel: { indice: 0, total: 3 } });
+		assert.doesNotMatch(prompt, /the other page/);
+	});
+});
