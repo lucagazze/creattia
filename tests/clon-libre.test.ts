@@ -164,14 +164,27 @@ describe('el prompt de respaldo, para cuando OpenAI rechaza', () => {
 	 * Medido: con ICP e indicaciones se caían 2 de 7 referencias; sacando esas dos
 	 * líneas las 2 salieron.
 	 */
-	test('saca el ICP y las indicaciones, que es lo que dispara el filtro', () => {
-		const completo = buildPromptLibre({ ...ficha, icp: 'Un hombre de 30 activo', indicaciones: 'que se vea el 4+2' });
-		const magro = buildPromptLibre({ ...ficha, icp: 'Un hombre de 30 activo', indicaciones: 'que se vea el 4+2' }, true);
+	test('saca el ICP y lo que pidió el usuario, que es lo que dispara el filtro', () => {
+		const conTodo = { ...ficha, icp: 'Un hombre de 30 activo', indicaciones: 'que se vea el 4+2' };
+		const completo = buildPromptLibre(conTodo);
+		const magro = buildPromptLibre(conTodo, true);
 		assert.match(completo, /WHO THIS AD IS FOR: Un hombre/);
 		assert.match(completo, /que se vea el 4\+2/);
 		assert.doesNotMatch(magro, /Un hombre de 30 activo/);
 		assert.doesNotMatch(magro, /que se vea el 4\+2/);
 		assert.ok(magro.length < completo.length);
+	});
+
+	/**
+	 * Lo que pide el usuario entra como UN dato más de la ficha, sin explicarle
+	 * cómo obedecerlo. Las tres frases que le decían dónde ponerlo se sacaron: el
+	 * prompt es un presupuesto de atención, y cada orden le come lugar a las reglas
+	 * que sí se midieron contra imágenes.
+	 */
+	test('lo que pide el usuario entra en una línea, sin instrucciones alrededor', () => {
+		const prompt = buildPromptLibre({ ...ficha, indicaciones: 'que se vea el 4+2 de regalo' });
+		assert.match(prompt, /WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: que se vea el 4\+2 de regalo/);
+		assert.doesNotMatch(prompt, /you decide which block carries it/);
 	});
 
 	/** Todo lo demás sigue igual: se sacan dos líneas, no se cambia de prompt. */
@@ -184,43 +197,4 @@ describe('el prompt de respaldo, para cuando OpenAI rechaza', () => {
 	});
 });
 
-describe('los colores de la web por función', () => {
-	/**
-	 * Un hexadecimal suelto no le dice nada al modelo: el mismo violeta como fondo
-	 * o como acento son dos avisos distintos. Lo que sirve es la función.
-	 */
-	test('entran diciendo para qué usa la marca cada uno', () => {
-		const prompt = buildPromptLibre({ ...ficha, rolesDeColor: { fondo: '#0B1120', acento: '#DD1D1D' } });
-		assert.match(prompt, /#0B1120 is its background, #DD1D1D its accent/);
-	});
 
-	/**
-	 * Es DATO, no orden de pintado: con los colores del ganador elegidos el aviso
-	 * no cambia de paleta, pero el modelo ya sabe con qué juzgar lo que agregue.
-	 */
-	test('no reemplazan a la paleta del ganador', () => {
-		const prompt = buildPromptLibre({ ...ficha, rolesDeColor: { fondo: '#0B1120' } });
-		assert.match(prompt, /the same colour palette, the same accent colour on the same word/);
-		assert.match(prompt, /Use it to judge, not to repaint/);
-	});
-
-	test('sin roles no se dice nada', () => {
-		assert.doesNotMatch(buildPromptLibre(ficha), /is its background/);
-	});
-});
-
-describe('los bloques sin equivalente', () => {
-	/**
-	 * El defecto, visto en producción: un ganador con "$20 OFF" gigante y una ficha
-	 * sin oferta devolvía el aviso con "$20 OFF" intacto. El modelo tenía que
-	 * escribir el equivalente, tenía prohibido inventar un descuento y no podía
-	 * dejar el bloque más grande vacío: copiar era su única salida. Lo mismo pasaba
-	 * con el disclaimer de la FDA de un suplemento, traducido, en un bóxer.
-	 *
-	 * Sin esta regla el aviso sale con el texto del otro anunciante, que es lo peor
-	 * que puede producir: parece correcto y está vendiendo otra cosa.
-	 */
-	test('no se copian nunca, ni cuando no hay con qué reemplazarlos', () => {
-		assert.match(buildPromptLibre(ficha), /it STILL never keeps the original's words/);
-	});
-});

@@ -28,6 +28,7 @@ export type FichaDelProducto = {
 	datos: string[];
 	marca?: string;
 	queVendeLaTienda?: string;
+	categoria?: string;
 	url?: string;
 	logoUrl?: string;
 	paleta?: string[];
@@ -45,19 +46,13 @@ export type FichaDelProducto = {
 	coloresDeLaMarca?: string[];
 	tipografiaDeLaMarca?: { headings?: string; body?: string };
 	/**
-	 * Los colores de la web repartidos por función: cuál es el fondo, cuál el
-	 * titular, cuál el acento. Es DATO, no orden — el modelo sigue decidiendo cómo
-	 * usarlos. Un mismo hexadecimal suelto no dice nada; saber que es el fondo de
-	 * la marca y no su acento cambia el aviso entero.
-	 */
-	rolesDeColor?: { fondo?: string; titulo?: string; texto?: string; acento?: string; boton?: string };
-	/**
 	 * Lo que el usuario quiere destacar, en sus palabras.
 	 *
-	 * Entra como INTENCIÓN, nunca como ejecución. "Mostrá el precio" cambia el
-	 * aviso; "el precio arriba a la derecha en 40px" es volver a dictarle la
-	 * maqueta, que es exactamente lo que hacía que el clon saliera rígido y con el
-	 * mundo del otro anunciante adentro.
+	 * No es una regla más: es del mismo tipo que el precio o la descripción, un
+	 * dato del producto que la ficha no traía. Va como UNA línea y sin explicarle
+	 * cómo obedecerla —dónde ponerlo y de qué tamaño lo sigue decidiendo él—,
+	 * porque el prompt es un presupuesto de atención y cada orden que se agrega le
+	 * come lugar a las reglas que sí se midieron.
 	 */
 	indicaciones?: string;
 	/** El usuario decidió qué hacer con el logo: pisa la regla por defecto. */
@@ -163,66 +158,6 @@ export function fotosParaElMotor(fotos: EngineImage[], lectura: LecturaDelProduc
 	return limpias.length ? limpias : fotos;
 }
 
-/**
- * Tres o cuatro cosas concretas que valdría la pena destacar en ESTE aviso.
- *
- * Mira el ganador y la ficha del producto a la vez, porque la sugerencia útil
- * sale del cruce: un ganador que compara dos lados pide un contra qué compararse,
- * uno con una chapa de precio pide el precio. Devuelve intenciones, nunca
- * maquetas: dónde va cada cosa lo decide el modelo al generar.
- *
- * `recursos` no lo lee nadie y NO se puede sacar: existe para obligarlo a mirar
- * la imagen. Pidiéndole las sugerencias de una, los tres ganadores devolvían las
- * mismas tres —los beneficios sueltos de la ficha— porque contestaba desde el
- * texto sin abrir la imagen. Teniendo que escribir primero qué recursos usa ESTE
- * aviso, la respuesta cambia con el ganador: el que enfrenta dos lados devuelve
- * "Bambú VS Algodón", el del descuento devuelve la oferta.
- */
-export async function sugerirQueDestacar(
-	claves: ClavesDeApi,
-	entrada: { ganador: EngineImage; nombre?: string; datos?: string },
-): Promise<string[]> {
-	if (!claves.openAIKey) return [];
-	try {
-		const respuesta = await fetch('https://api.openai.com/v1/chat/completions', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${claves.openAIKey}` },
-			body: JSON.stringify({
-				model: 'gpt-4o',
-				response_format: { type: 'json_object' },
-				max_tokens: 400,
-				messages: [{
-					role: 'user',
-					content: [
-						{
-							type: 'text',
-							text: `Look at the image. It is an ad that is about to be remade for this product:
-${entrada.nombre || ''}
-${entrada.datos || ''}
-
-"recursos": name the THREE devices THIS image uses to sell — read them off the image, do not guess. Quote the actual words where there are words: its offer or discount, what it compares itself against, what it stamps in a badge or seal, the promise in its headline, the proof it shows. Three, in English, under 10 words each.
-
-"sugerencias": for each device, what this product's equivalent would be, in the advertiser's own everyday words. A discount ad asks what this product's offer is. An ad pitting two sides asks what this product beats. A badge asks what proof this product has. Under 9 words each, in the language of the product information above. Only what that information supports: if there is no equivalent for one device, skip it. Never say where to put anything or how big.
-
-Answer JSON: {"recursos":["...","...","..."],"sugerencias":["...","...","..."]}`,
-						},
-						{ type: 'image_url', image_url: { url: `data:${entrada.ganador.type};base64,${entrada.ganador.buffer.toString('base64')}` } },
-					],
-				}],
-			}),
-		});
-		if (!respuesta.ok) return [];
-		const json = await respuesta.json();
-		const leido = JSON.parse(json?.choices?.[0]?.message?.content || '{}');
-		return Array.isArray(leido.sugerencias)
-			? leido.sugerencias.filter((s: unknown) => typeof s === 'string' && s.trim()).map((s: string) => s.trim().slice(0, 120)).slice(0, 3)
-			: [];
-	} catch (error) {
-		console.error('[clon-libre] no se pudieron armar las sugerencias:', error);
-		return [];
-	}
-}
-
 const linea = (etiqueta: string, valor?: string | string[] | null) => {
 	if (!valor) return '';
 	const texto = Array.isArray(valor) ? valor.filter(Boolean).join(' · ') : String(valor).trim();
@@ -236,11 +171,10 @@ const sinPuntoFinal = (texto: string) => texto.replace(/\s*\.\s*$/, '');
  * El prompt del clon libre. Fijo: no crece con la referencia.
  *
  * `magro` arma la versión para reintentar cuando OpenAI rechaza el pedido por su
- * filtro. Saca las dos líneas que medimos que disparan el rechazo —el ICP y las
- * indicaciones del usuario—: las dos describen personas y situaciones, y con un
- * producto sensible eso alcanza para que devuelva 400 sin generar nada. Se
- * pierde algo de puntería, pero una imagen sin el ICP es infinitamente mejor que
- * ninguna imagen.
+ * filtro de contenido. Saca las dos líneas que hablan de personas —el ICP y lo
+ * que pidió el usuario—, que es lo que medimos que dispara el rechazo con un
+ * producto sensible. Se pierde puntería, pero una imagen sin el ICP es
+ * infinitamente mejor que ninguna imagen.
  */
 export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string {
 	const datosDelProducto = [
@@ -248,6 +182,7 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 		linea('Brand', ficha.marca),
 		linea('What it is', ficha.datos),
 		linea('What this shop sells', ficha.queVendeLaTienda),
+		linea('Category', ficha.categoria),
 		linea('Brand colours', ficha.paleta),
 		linea('url', ficha.url),
 		linea('logo', ficha.logoUrl),
@@ -279,34 +214,13 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 		].filter(Boolean).join(', ')})`
 		: 'the same typography — the very letterforms you can see in the image — the same type sizes, weights and alignments';
 
-	const roles = ficha.rolesDeColor || {};
-	const rolesEscritos = [
-		roles.fondo && `${roles.fondo} is its background`,
-		roles.titulo && `${roles.titulo} its headlines`,
-		roles.texto && `${roles.texto} its body text`,
-		roles.acento && `${roles.acento} its accent`,
-		roles.boton && `${roles.boton} its buttons`,
-	].filter(Boolean).join(', ');
-
 	const color = ficha.coloresDeLaMarca?.length
 		? `this brand's own palette (${ficha.coloresDeLaMarca.join(', ')}) mapped onto the very same roles the reference uses — what was the background stays the background, what was the ink stays the ink, and the accent still lands on the equivalent word`
 		: 'the same colour palette, the same accent colour on the same word';
 
-	// Se dice como referencia de la marca, no como instrucción de pintado: con los
-	// colores del ganador elegidos esto NO cambia el aviso, sirve para que lo que
-	// se agregue —una chapa, un botón— no salga de un color ajeno a la marca.
-	const referenciaDeMarca = rolesEscritos
-		? `
-For reference, this is how the brand uses colour on its own site: ${rolesEscritos}. Use it to judge, not to repaint.
-`
-		: '';
-
-	// Se dice UNA vez y corta. Repetirlo o desarrollarlo le come atención a las
-	// reglas que sí se midieron, y el prompt es un presupuesto, no una lista.
 	const pedido = (!magro && ficha.indicaciones?.trim())
 		? `
-WHAT THE ADVERTISER WANTS THIS AD TO GET ACROSS: ${ficha.indicaciones.trim()}
-Work it in where it belongs — you decide which block carries it, how big it is and where it sits. If they told you where to put something, treat it as what they want said, not as a layout instruction. Nothing else about the ad changes because of it.
+WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: ${ficha.indicaciones.trim()}
 `
 		: '';
 
@@ -322,15 +236,11 @@ FIRST, READ EVERY WORD IN THE IMAGE. Go through it block by block — the logo l
 
 Each new line keeps the shape of the one it replaces: the same number of lines, roughly the same length, the same tone, the same job in the ad — a headline stays a headline, a benefit line stays a benefit line, a button stays a button. Where the original highlights one word in the accent colour, highlight the equivalent word of the new line.
 
-If a block has no equivalent — the reference discounts and there is no offer here, the reference carries a legal line that means nothing for this product — it STILL never keeps the original's words. Write the truest thing about this product that fits that block's shape and does its job. Keeping a line because you found nothing to replace it with is the single thing that gives the whole ad away as somebody else's.
-
 THE PRODUCT THIS AD IS NOW FOR
-${datosDelProducto}${pagina}
-${pedido}
-${referenciaDeMarca}
-THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its seams, labels, prints and proportions where the photos show them. Getting the product wrong ruins the ad even if everything else is perfect.
+${datosDelProducto}${pedido}${pagina}
+THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its waistband, seams, labels, prints and proportions where the photos show them. Getting the product wrong ruins the ad even if everything else is perfect.
 
-NOTHING EXPLICIT IS EVER SHOWN — people may wear the product and their body may be seen, hips, waist and the area the garment covers included. What must never appear is bare genitals, the shape of genitals read through the fabric, or bare nipples. The fabric is opaque and sits flat, and the framing is the one a retailer uses for its catalogue, not an erotic one.
+NOTHING EXPLICIT IS EVER SHOWN — people may wear the product and their body may be seen, hips, waist and the groin area the garment covers included. What must never appear is bare genitals, the shape of genitals read through the fabric, or bare nipples. The fabric is opaque and sits flat, and the framing is the one a retailer uses for its catalogue, not an erotic one.
 
 EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now: another person, the one this product is for, somewhere this product is really used. The same face in the same place is the sign nothing was adapted.
 

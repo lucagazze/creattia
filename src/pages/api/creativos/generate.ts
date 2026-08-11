@@ -834,6 +834,7 @@ The result must look like the same image with only that one adjustment applied.`
 			rolesDeColor: parseRolesDeColor(form.get('rolesDeColor')) || undefined,
 			logoUrl: urlLogoUrl || undefined,
 			storeDescription: effectiveBrandSummary || undefined,
+			productCategory: storedProducts[0]?.analysis?.category || undefined,
 			lectura,
 		};
 		const prompt = isExactRevision ? revisionPrompt : useClonePrompt

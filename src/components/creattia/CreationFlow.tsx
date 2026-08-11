@@ -198,15 +198,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const [indicaciones, setIndicaciones] = useState('');
 	/**
-	 * Lo que propone la IA mirando ESTE ganador y ESTE producto.
-	 *
-	 * Frente a un campo vacío casi nadie escribe: no porque no tenga qué decir,
-	 * sino porque no sabe qué se puede pedir. Con opciones concretas la pregunta se
-	 * contesta con un toque, y el que quiere escribir escribe igual.
-	 */
-	const [sugerencias, setSugerencias] = useState<string[]>([]);
-	const [buscandoSugerencias, setBuscandoSugerencias] = useState(false);
-	/**
 	 * Los colores de la web repartidos por función, corregidos a mano si hizo
 	 * falta. Van al prompt como DATO —así usa la marca sus colores— y no como
 	 * orden de pintado: el aviso lo sigue resolviendo el modelo.
@@ -818,7 +809,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (!wantsFullCarousel) {
 				setConfirmacion({ productIds, offering: offeringForSubmit });
 				setPhase('confirmar');
-				void pedirSugerencias(productIds);
 				return;
 			}
 
@@ -918,45 +908,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * pedido, lo hace un worker minutos después, y para entonces los archivos que
 	 * el usuario eligió en el navegador ya no existen en ningún lado.
 	 */
-	/**
-	 * Qué destacar, propuesto mirando el ganador y el producto.
-	 *
-	 * Falla en silencio a propósito: sin sugerencias el campo se escribe a mano
-	 * igual, y un cartel rojo por esto sería ruido sobre algo opcional.
-	 */
-	useEffect(() => {
-		if (phase !== 'confirmar') return;
-		const detectada = marcaDeLaUrl?.palette || {};
-		setRolesDeColor((previo) => {
-			// Solo se completan los vacíos: si alguien ya corrigió un color, volver a
-			// entrar a esta pantalla no puede deshacérselo.
-			const siguiente = { ...previo };
-			for (const rol of ROLES_DE_COLOR) {
-				const valor = detectada[rol.desde];
-				if (!siguiente[rol.id] && typeof valor === 'string' && /^#[0-9a-f]{6}$/i.test(valor)) siguiente[rol.id] = valor;
-			}
-			return siguiente;
-		});
-	}, [phase, marcaDeLaUrl]);
-
-	async function pedirSugerencias(productIds: string[]) {
-		if (!token) return;
-		setBuscandoSugerencias(true);
-		try {
-			const form = new FormData();
-			form.set('referencePath', effectiveReferencePath);
-			productIds.forEach((id) => form.append('productIds', id));
-			if (productMode === 'manual' || isService) {
-				form.set('productName', manualProductName.trim());
-				form.set('productFacts', manualProductFacts.trim());
-			}
-			const response = await fetch('/api/creativos/sugerencias', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
-			const payload = await response.json().catch(() => ({}));
-			setSugerencias(Array.isArray(payload.sugerencias) ? payload.sugerencias : []);
-		} catch { /* sin sugerencias: el campo se escribe a mano */ }
-		finally { setBuscandoSugerencias(false); }
-	}
-
 	async function guardarAvatarCargado(): Promise<string> {
 		// Con una foto alcanza para fijar la cara. El piso de cuatro dejaba afuera
 		// al que tiene una sola buena foto suya, que es el caso más común.
@@ -1661,30 +1612,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							<div style={{ marginTop: '18px' }}>
 								<span className="picker-label">¿Algo que quieras destacar? <small style={{ fontWeight: 400, color: '#8a8593' }}>(opcional)</small></span>
 								<p className="batch-detail-help">Tocá una de estas o escribí lo tuyo. Dónde ponerlo y de qué tamaño lo decide la IA.</p>
-								{buscandoSugerencias && <p className="batch-detail-help" style={{ margin: '0 0 8px' }}><span className="studio-spinner small" aria-hidden="true" /> Leyendo el ganador…</p>}
-								{sugerencias.length > 0 && (
-									<div className="creation-suggestion-chips">
-										{sugerencias.map((sugerencia) => {
-											const puesta = indicaciones.includes(sugerencia);
-											return (
-												<button
-													key={sugerencia}
-													type="button"
-													className={puesta ? 'active' : ''}
-													disabled={phase === 'starting'}
-													aria-pressed={puesta}
-													onClick={() => setIndicaciones((previo) => {
-														if (previo.includes(sugerencia)) return previo.replace(sugerencia, '').replace(/\s*·\s*·\s*/g, ' · ').replace(/^\s*·\s*|\s*·\s*$/g, '').trim();
-														return (previo.trim() ? `${previo.trim()} · ${sugerencia}` : sugerencia).slice(0, 600);
-													})}
-												>
-													{puesta ? '✓ ' : '+ '}{sugerencia}
-												</button>
-											);
-										})}
-									</div>
-								)}
-								<textarea
+									<textarea
 									value={indicaciones}
 									onChange={(event) => setIndicaciones(event.target.value.slice(0, 600))}
 									rows={3}

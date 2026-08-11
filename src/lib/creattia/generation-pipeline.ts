@@ -263,8 +263,9 @@ export type ClonePromptInput = {
 	productUrl?: string;
 	logoUrl?: string;
 	/** Los colores de la web por función, corregidos a mano si hizo falta. */
-	rolesDeColor?: { fondo?: string; titulo?: string; texto?: string; acento?: string; boton?: string };
+	rolesDeColor?: RolesDeColor;
 	storeDescription?: string;
+	productCategory?: string;
 	/** Lo que devolvió `leerElProducto`: cómo se ve y a quién le habla. */
 	lectura?: LecturaDelProducto | null;
 };
@@ -376,6 +377,18 @@ function firmaElegida(logoMode: LogoMode | undefined, hasLogo: boolean) {
 	return undefined;
 }
 
+/**
+ * Los colores corregidos a mano en la pantalla de confirmar.
+ *
+ * Mandan sobre los que trajo el escaneo: si alguien se tomó el trabajo de
+ * arreglar un color es porque el escaneo lo leyó mal. No agregan ninguna línea al
+ * prompt — son los mismos colores de la marca que ya se usaban, mejor leídos.
+ */
+function coloresCorregidos(roles: RolesDeColor | undefined) {
+	const lista = [...new Set([roles?.fondo, roles?.titulo, roles?.texto, roles?.acento, roles?.boton].filter(Boolean) as string[])];
+	return lista.length ? lista : null;
+}
+
 /** La ficha con la que se arma el prompt libre, y también su versión magra. */
 function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
 	return {
@@ -383,14 +396,18 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
 			datos: input.productFacts.filter(Boolean),
 			marca: input.brandName,
 			queVendeLaTienda: input.storeDescription,
+			categoria: input.productCategory,
 			url: input.productUrl,
 			logoUrl: input.logoUrl,
 			paleta: input.brandColors,
 			// Los dos únicos controles: 'winner' deja los del ganador, cualquier otro
-			// origen trae los de la marca o los de la web del usuario.
-			coloresDeLaMarca: input.colorMode !== 'winner' ? input.brandColors : undefined,
+			// origen trae los de la marca o los de la web del usuario. Los corregidos
+			// a mano mandan sobre los del escaneo: si alguien se tomó el trabajo de
+			// arreglar un color es porque el escaneo lo leyó mal.
+			coloresDeLaMarca: input.colorMode !== 'winner'
+				? (coloresCorregidos(input.rolesDeColor) || input.brandColors)
+				: undefined,
 			tipografiaDeLaMarca: input.typoMode !== 'winner' ? input.brandTypography : undefined,
-		rolesDeColor: input.rolesDeColor,
 			indicaciones: input.brief,
 			aspecto: input.lectura?.aspecto,
 			icp: input.lectura?.icp,
