@@ -175,7 +175,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const requestedImageType = clean(form.get('imageType'), 30) || 'product';
 		const imageType = imageTypes.has(requestedImageType) ? requestedImageType : 'product';
 		const referenceId = clean(form.get('referenceId'), 60);
-		const referencePath = clean(form.get('referencePath'), 300);
+		let referencePath = clean(form.get('referencePath'), 300);
 		const sourceGenerationId = clean(form.get('sourceGenerationId'), 60);
 		const requestedFidelity = Number(clean(form.get('fidelity'), 2) || 1);
 		const fidelity = [1, 2, 3].includes(requestedFidelity) ? requestedFidelity : 1;
@@ -259,7 +259,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const variationStrength = variationStrengths.has(requestedVariationStrength) ? requestedVariationStrength : 'exact';
 		const requestedLanguage = clean(form.get('language'), 5);
 		const language = LANGUAGE_NAMES[requestedLanguage] ? requestedLanguage : '';
-		const productIds = uniqueIds([
+		let productIds = uniqueIds([
 			...form.getAll('productIds').filter((value): value is string => typeof value === 'string'),
 			clean(form.get('productId'), 60),
 		]);
@@ -325,6 +325,32 @@ export const POST: APIRoute = async ({ request }) => {
 			if (!data?.output_path) return json({ error: 'La imagen de referencia no está disponible.' }, 400);
 			sourceGeneration = data;
 		}
+
+	/**
+	 * Pedir otra versión SIN escribir un cambio no es revisar: es querer otro tiro
+	 * del mismo trabajo.
+	 *
+	 * Las dos intenciones compartían camino y la segunda salía mal: se le pasaba al
+	 * modelo la imagen YA generada como referencia y se armaba el prompt genérico
+	 * viejo, así que la nueva versión no pasaba por el clon libre en ningún momento
+	 * y se notaba. Con el snapshot de la generación original —que guarda el ganador,
+	 * los productos y las elecciones de estilo— se vuelve a correr exactamente el
+	 * camino que la produjo, y lo que cambia es lo único que tiene que cambiar: el
+	 * tiro del modelo.
+	 *
+	 * Con un cambio escrito se sigue como antes: ahí sí lo que se quiere es ESA
+	 * imagen con una corrección, y la referencia correcta es ella misma.
+	 */
+	const rehacerDeCero = Boolean(sourceGeneration) && !brief;
+	const snapshotOriginal: any = rehacerDeCero ? ((sourceGeneration as any)?.settings_snapshot || {}) : {};
+	if (rehacerDeCero && typeof snapshotOriginal.referencePath === 'string') {
+		referencePath = snapshotOriginal.referencePath;
+	}
+	// El historial no reenvía los productos de la generación original: sin esto el
+	// aviso se rehacía sin producto y el clon no tenía qué mostrar.
+	if (rehacerDeCero && !productIds.length && Array.isArray(snapshotOriginal.productIds)) {
+		productIds = uniqueIds(snapshotOriginal.productIds.filter((id: unknown) => typeof id === 'string'));
+	}
 
 		const manualProductName = clean(form.get('productName'), 120);
 		const manualProductFacts = clean(form.get('productFacts'), 1200);
@@ -418,7 +444,7 @@ export const POST: APIRoute = async ({ request }) => {
 		// con la biblioteca paga completa. Ahora tiene que existir de verdad en
 		// el manifiesto y estar habilitada para el plan de la cuenta.
 		let storedReference: { id: string | null; image_path: string } | null = null;
-		if (referencePath && !sourceGeneration) {
+		if (referencePath && (!sourceGeneration || rehacerDeCero)) {
 			const verdict = await checkReferencePath(referencePath, access, new URL(request.url).origin);
 			if (!verdict.ok) return json({ error: verdict.error, ...(verdict.code ? { code: verdict.code } : {}) }, verdict.status);
 			storedReference = { id: null, image_path: verdict.path };
@@ -542,7 +568,7 @@ export const POST: APIRoute = async ({ request }) => {
 		let hasSourceGeneration = false;
 		let referenceBuffer: Buffer | null = null;
 		let referenceMime = 'image/png';
-		if (sourceGeneration?.output_path) {
+		if (sourceGeneration?.output_path && !rehacerDeCero) {
 			const { data: sourceBlob, error } = await admin.storage.from('creative-assets').download(sourceGeneration.output_path);
 			if (error || !sourceBlob) throw error || new Error('No se pudo recuperar la imagen de referencia.');
 			const sourceBuf = Buffer.from(await sourceBlob.arrayBuffer());

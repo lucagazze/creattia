@@ -228,8 +228,14 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const [logoPropio, setLogoPropio] = useState<File | null>(null);
 	const [logoPropioVista, setLogoPropioVista] = useState('');
-	/** Qué rol se está editando: la tabla de colores de abajo pinta ese. */
-	const [rolActivo, setRolActivo] = useState<string>('fondo');
+	/**
+	 * Qué rol se está editando, o null cuando no se está editando ninguno.
+	 *
+	 * Arranca cerrado: el panel abierto por defecto ocupaba media pantalla para
+	 * una corrección que casi nunca hace falta, y hacía parecer que había algo
+	 * pendiente de resolver antes de generar.
+	 */
+	const [rolActivo, setRolActivo] = useState<string | null>(null);
 	const [brandSource, setBrandSource] = useState('url');
 	/**
 	 * El logo arranca apagado y no se enciende solo nunca.
@@ -1638,7 +1644,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												className={`creation-color-role ${rolActivo === rol.id ? 'active' : ''}`}
 												disabled={phase === 'starting'}
 												aria-pressed={rolActivo === rol.id}
-												onClick={() => setRolActivo(rol.id)}
+												onClick={() => setRolActivo((previo) => (previo === rol.id ? null : rol.id))}
 											>
 												<span>{rol.label}</span>
 												<i style={{ background: rolesDeColor[rol.id] || 'transparent' }} aria-hidden="true" />
@@ -1647,9 +1653,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 										))}
 									</div>
 
-									{/* Se edita el rol elegido arriba: escribiendo el hexadecimal, o
-									    tocando uno de los treinta. El selector nativo queda como
-									    tercera opción para el que quiera un tono que no está. */}
+									{/* Se abre al tocar un color y se edita ahí mismo: escribiendo el
+									    hexadecimal, o tocando uno de los treinta. El selector nativo
+									    queda de tercera opción para un tono que no esté. */}
+									{rolActivo && (
 									<div className="creation-color-editor">
 										<div className="creation-color-editor-head">
 											<span>Editando <b>{ROLES_DE_COLOR.find((rol) => rol.id === rolActivo)?.label}</b></span>
@@ -1692,7 +1699,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												/>
 											))}
 										</div>
+										<button type="button" className="creation-color-listo" onClick={() => setRolActivo(null)}>Listo</button>
 									</div>
+									)}
 								</div>
 								)}
 								{typoMode !== 'winner' && (
