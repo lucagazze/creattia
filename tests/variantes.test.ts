@@ -62,3 +62,33 @@ describe('fotos del producto que llegan al render', () => {
 		assert.match(generar, /productInputPlan\.length < 8/);
 	});
 });
+
+/**
+ * Una sola URL de producto.
+ *
+ * Varias hacían que un aviso hablara de dos productos a la vez, y el ganador que
+ * se está clonando fue diseñado para uno: los textos, el lugar del héroe y la
+ * jerarquía son de un solo producto.
+ *
+ * Queda una excepción que NO es lo mismo: el carrusel con un producto por
+ * página. Ahí cada URL es una página, no un producto más dentro del mismo aviso.
+ */
+const flujo = readFileSync(new URL('../src/components/creattia/CreationFlow.tsx', import.meta.url), 'utf8');
+
+describe('cuántas URLs de producto se pueden cargar', () => {
+	test('agregar otra URL solo existe en el carrusel por página', () => {
+		assert.match(flujo, /const variasUrls = wantsFullCarousel && !carouselSameProduct;/);
+		assert.match(flujo, /\{variasUrls && \(/);
+		// El rótulo de "otro producto" no puede volver: ya no hay caso que lo use.
+		assert.doesNotMatch(flujo, /otro producto/);
+	});
+
+	/**
+	 * Y las que ya estaban cargadas se recortan al salir de ese modo: quien armó
+	 * tres en el carrusel y volvió a imagen suelta se quedaba con tres y sin nada
+	 * en la pantalla que explicara de dónde salían.
+	 */
+	test('al salir del carrusel por página queda una sola', () => {
+		assert.match(flujo, /if \(!variasUrls\) setUrls\(\(prev\) => \(prev\.length > 1 \? \[prev\[0\]\] : prev\)\);/);
+	});
+});

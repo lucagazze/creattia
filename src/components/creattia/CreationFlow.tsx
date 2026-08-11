@@ -192,6 +192,21 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const [variantes, setVariantes] = useState(1);
 	const count = wantsFullCarousel ? carouselSlides.length : variantes;
+
+	/**
+	 * Una sola URL fuera del carrusel por página.
+	 *
+	 * Varias URLs hacían que un aviso hablara de dos productos a la vez, y el
+	 * ganador que se está clonando fue diseñado para uno: los textos, el lugar
+	 * del héroe y la jerarquía son de un solo producto. Se sacó el botón de
+	 * agregar, pero faltaba esto: quien armaba tres en el carrusel y después
+	 * volvía a imagen suelta se quedaba con tres cargadas y sin nada en la
+	 * pantalla que explicara de dónde salían.
+	 */
+	const variasUrls = wantsFullCarousel && !carouselSameProduct;
+	useEffect(() => {
+		if (!variasUrls) setUrls((prev) => (prev.length > 1 ? [prev[0]] : prev));
+	}, [variasUrls]);
 	const [manualProductName, setManualProductName] = useState('');
 	const [manualProductFacts, setManualProductFacts] = useState('');
 	/**
@@ -1221,7 +1236,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 										{urls.map((u, i) => (
 											<div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-												{wantsFullCarousel && !carouselSameProduct && (
+												{variasUrls && (
 													<span style={{ flexShrink: 0, width: '22px', fontSize: '12px', fontWeight: 800, color: '#8b8490', textAlign: 'center' }}>{i + 1}</span>
 												)}
 												<UrlInput
@@ -1236,10 +1251,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												)}
 											</div>
 										))}
-										{!(wantsFullCarousel && carouselSameProduct) && (
+										{wantsFullCarousel && !carouselSameProduct && (
 											<button type="button" onClick={() => setUrls((prev) => [...prev, ''])}
 												style={{ alignSelf: 'flex-start', padding: '7px 13px', borderRadius: '9px', border: '1px dashed #cbb8f0', background: '#faf8ff', color: '#5b3fc4', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer' }}>
-												+ Agregar otra URL {wantsFullCarousel && !carouselSameProduct ? '(otra página)' : '(otro producto)'}
+												+ Agregar otra URL (otra página)
 											</button>
 										)}
 										{isService && (
