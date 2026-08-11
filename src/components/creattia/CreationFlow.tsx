@@ -45,6 +45,73 @@ const COLORES_A_MANO = [
 	'#FF2D55', '#FF7A9C', '#8B5E3C', '#C9A96E', '#F5E6D3', '#1B4332',
 ];
 
+/**
+ * Las tipografías que se pueden elegir a mano.
+ *
+ * Van embebidas y no se le piden a Google en vivo: la lista casi no cambia y
+ * traerla por red sería una dependencia más que se puede caer justo cuando
+ * alguien está por generar. Se puede escribir cualquier otra igual — el campo
+ * acepta lo que sea, esto solo evita tener que acordarse del nombre exacto.
+ */
+const FUENTES = [
+	'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Raleway', 'Nunito', 'Nunito Sans',
+	'Work Sans', 'Rubik', 'Manrope', 'DM Sans', 'Karla', 'Mulish', 'Outfit', 'Figtree', 'Plus Jakarta Sans',
+	'Source Sans 3', 'PT Sans', 'Noto Sans', 'Barlow', 'Cabin', 'Quicksand', 'Josefin Sans', 'Urbanist',
+	'Space Grotesk', 'Sora', 'Epilogue', 'Archivo', 'Public Sans', 'Red Hat Display', 'Chivo', 'Lexend',
+	'Oswald', 'Anton', 'Bebas Neue', 'Teko', 'Archivo Black', 'Alfa Slab One', 'Fjalla One', 'Staatliches',
+	'Playfair Display', 'Merriweather', 'Lora', 'PT Serif', 'Libre Baskerville', 'Crimson Text', 'Cormorant Garamond',
+	'EB Garamond', 'Bitter', 'Source Serif 4', 'Noto Serif', 'Spectral', 'Zilla Slab', 'Frank Ruhl Libre',
+	'DM Serif Display', 'Abril Fatface', 'Prata', 'Marcellus', 'Cinzel', 'Italiana', 'Bodoni Moda', 'Instrument Serif',
+	'Dancing Script', 'Pacifico', 'Great Vibes', 'Lobster', 'Caveat', 'Satisfy', 'Sacramento', 'Parisienne',
+	'Righteous', 'Comfortaa', 'Fredoka', 'Baloo 2', 'Titan One', 'Bangers', 'Luckiest Guy', 'Permanent Marker',
+	'Roboto Mono', 'JetBrains Mono', 'IBM Plex Mono', 'Space Mono', 'Fira Code', 'Courier Prime',
+	'Helvetica', 'Helvetica Neue', 'Arial', 'Futura', 'Avenir', 'Gotham', 'Proxima Nova', 'Georgia', 'Garamond', 'Times New Roman',
+];
+
+/**
+ * Un campo de tipografía con buscador.
+ *
+ * Va fuera del componente a propósito: definido adentro, React lo trataría como
+ * un tipo nuevo en cada render y el campo perdería el foco a cada letra.
+ */
+function SelectorDeFuente({ etiqueta, valor, onChange, disabled }: {
+	etiqueta: string; valor: string; onChange: (v: string) => void; disabled?: boolean;
+}) {
+	const [abierto, setAbierto] = useState(false);
+	const busqueda = valor.trim().toLowerCase();
+	const coincidencias = busqueda
+		? FUENTES.filter((fuente) => fuente.toLowerCase().includes(busqueda)).slice(0, 8)
+		: FUENTES.slice(0, 8);
+	return (
+		<label className="creation-typo-field">
+			<span>{etiqueta}</span>
+			<div className="creation-typo-combo">
+				<input
+					type="text" maxLength={60} placeholder="Escribí para buscar"
+					value={valor}
+					disabled={disabled}
+					onChange={(event) => { onChange(event.target.value); setAbierto(true); }}
+					onFocus={() => setAbierto(true)}
+					// El blur se demora: sin eso el clic en una opción cierra la lista
+					// antes de que el clic llegue a registrarse.
+					onBlur={() => window.setTimeout(() => setAbierto(false), 140)}
+				/>
+				{abierto && coincidencias.length > 0 && (
+					<ul className="creation-typo-lista">
+						{coincidencias.map((fuente) => (
+							<li key={fuente}>
+								<button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { onChange(fuente); setAbierto(false); }}>
+									{fuente}
+								</button>
+							</li>
+						))}
+					</ul>
+				)}
+			</div>
+		</label>
+	);
+}
+
 const FORMAT_ITEMS = [
 	{ id: 'original', text: 'Original', desc: 'Igual al ganador', shape: 'original' },
 	{ id: '1:1', text: '1:1', desc: 'Feed', shape: 'square' },
@@ -1774,24 +1841,18 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 											: 'No se detectó ninguna. Escribí las que use tu marca.'}
 									</p>
 									<div className="creation-typo-fields">
-										<label>
-											<span>Títulos</span>
-											<input
-												type="text" maxLength={60} placeholder="Ej: Playfair Display"
-												value={tipografiaElegida.headings}
-												disabled={phase === 'starting'}
-												onChange={(event) => setTipografiaElegida((previo) => ({ ...previo, headings: event.target.value }))}
-											/>
-										</label>
-										<label>
-											<span>Textos</span>
-											<input
-												type="text" maxLength={60} placeholder="Ej: Inter"
-												value={tipografiaElegida.body}
-												disabled={phase === 'starting'}
-												onChange={(event) => setTipografiaElegida((previo) => ({ ...previo, body: event.target.value }))}
-											/>
-										</label>
+										<SelectorDeFuente
+											etiqueta="Títulos"
+											valor={tipografiaElegida.headings}
+											disabled={phase === 'starting'}
+											onChange={(valor) => setTipografiaElegida((previo) => ({ ...previo, headings: valor }))}
+										/>
+										<SelectorDeFuente
+											etiqueta="Textos"
+											valor={tipografiaElegida.body}
+											disabled={phase === 'starting'}
+											onChange={(valor) => setTipografiaElegida((previo) => ({ ...previo, body: valor }))}
+										/>
 									</div>
 								</div>
 								)}

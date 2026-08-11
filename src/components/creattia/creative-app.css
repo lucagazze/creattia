@@ -7066,12 +7066,27 @@
 .creation-logo-acciones > label input { display: none; }
 .creation-logo-acciones > button:disabled { opacity: .5; cursor: default; }
 
-/* Las dos tipografías del aviso, corregibles antes de generar. */
-.creation-typo-fields { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-.creation-typo-fields label { display: flex; flex-direction: column; gap: 5px; flex: 1 1 180px; min-width: 0; }
-.creation-typo-fields span { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #716d79; }
-.creation-typo-fields input {
-	padding: 9px 11px; border: 1px solid #ddd8e4; border-radius: 9px; background: #fff;
-	font-size: 13.5px; font-family: inherit; color: #3d3945; min-width: 0;
+/* Las dos tipografías del aviso, una abajo de la otra y con buscador. */
+.creation-typo-fields { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; max-width: 340px; }
+.creation-typo-field { display: flex; align-items: center; gap: 10px; }
+.creation-typo-field > span {
+	flex: none; width: 58px; font-size: 12px; color: #8a8593;
 }
-.creation-typo-fields input:focus { outline: none; border-color: #744bde; box-shadow: 0 0 0 2px #ece3ff; }
+.creation-typo-combo { position: relative; flex: 1 1 auto; min-width: 0; }
+.creation-typo-combo input {
+	width: 100%; padding: 7px 10px; border: 1px solid #ece9f1; border-radius: 8px; background: #fff;
+	font-size: 13px; font-family: inherit; color: #3d3945;
+}
+.creation-typo-combo input::placeholder { color: #b5b1bd; }
+.creation-typo-combo input:focus { outline: none; border-color: #c9bcf0; box-shadow: 0 0 0 2px #f3eeff; }
+.creation-typo-lista {
+	position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0;
+	margin: 0; padding: 4px; list-style: none; max-height: 214px; overflow-y: auto;
+	background: #fff; border: 1px solid #e3e0e8; border-radius: 10px;
+	box-shadow: 0 10px 26px rgba(28, 22, 45, .13);
+}
+.creation-typo-lista button {
+	display: block; width: 100%; padding: 7px 9px; border: 0; border-radius: 7px; background: none;
+	font-size: 13px; font-family: inherit; color: #3d3945; text-align: left; cursor: pointer;
+}
+.creation-typo-lista button:hover { background: #f5f1ff; color: #4a2a9e; }
