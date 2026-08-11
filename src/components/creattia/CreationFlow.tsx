@@ -1718,13 +1718,23 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												placeholder="#000000"
 												aria-label="Código hexadecimal"
 												onChange={(event) => {
-													// Se acepta con o sin numeral y se completa mientras se escribe:
-													// exigir el formato exacto para poder tipear hace que el campo se
-													// sienta roto en la mitad de cada corrección.
-													const escrito = event.target.value.trim().replace(/[^0-9a-f#]/gi, '');
-													const valor = escrito.startsWith('#') ? escrito : `#${escrito}`;
-													setRolesDeColor((previo) => ({ ...previo, [rolActivo]: valor.slice(0, 7).toUpperCase() }));
+													// Se tiran TODOS los numerales y se pone uno solo adelante. Pegar
+													// "#ba3d39" en un campo que ya mostraba "#" daba "##ba3d3": el
+													// numeral se contaba como carácter y el último dígito se perdía.
+													// Así da igual pegarlo con numeral, sin numeral, o encima de otro.
+													const soloHex = event.target.value.replace(/[^0-9a-f]/gi, '').slice(0, 6);
+													setRolesDeColor((previo) => ({ ...previo, [rolActivo]: soloHex ? `#${soloHex.toUpperCase()}` : '' }));
 												}}
+												onBlur={() => setRolesDeColor((previo) => {
+													// El atajo de tres dígitos que se usa en CSS: #f00 es #FF0000. Se
+													// expande al salir y no mientras se escribe, para no pisar a alguien
+													// que iba por el cuarto dígito.
+													const valor = previo[rolActivo] || '';
+													const corto = valor.match(/^#([0-9a-f]{3})$/i);
+													if (!corto) return previo;
+													const [r, g, b] = corto[1].split('');
+													return { ...previo, [rolActivo]: `#${r}${r}${g}${g}${b}${b}`.toUpperCase() };
+												})}
 											/>
 											<input
 												type="color"

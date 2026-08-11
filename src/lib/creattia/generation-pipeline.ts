@@ -394,7 +394,13 @@ function caminoDeRender(): 'libre' | 'detallado' | 'corto' {
  */
 function quienAparece(mode: PersonMode | undefined, hayFotos: boolean, descripcion?: string) {
 	if (mode === 'none') return 'No person appears anywhere in this ad — not a face, not a hand, not a silhouette. If the reference showed someone, that space is filled by the product or by the setting.';
-	if (mode === 'upload' && hayFotos) return 'The person in it is the one in the supplied photos: same face, same build, same hair. Put them where the reference puts its own person, in that pose and that framing.';
+	// Lo que se sube es una CARA y un FÍSICO, no un vestuario ni una pose. Decirle
+	// que copie la foto entera hacía que el aviso heredara la ropa y el encuadre
+	// de una foto que se sacó para otra cosa, y que una foto de teléfono movida
+	// saliera movida en el aviso.
+	if (mode === 'upload' && hayFotos) {
+		return 'The person in it is the one in the supplied photos — that exact face and that exact build, unmistakably them, with their own hair, skin and features. Only the person comes from those photos: what they wear, how they pose, how they are lit and where in the frame they stand all belong to this ad, so dress them for it and put them wherever the composition wants them. Draw them sharp and photographic even if the photos are soft, small or badly lit — real skin with real texture, real hair, no smoothing and no plastic finish.';
+	}
 	if (mode === 'described' && descripcion?.trim()) return `The person in it is: ${descripcion.trim()}. Put them where the reference puts its own person, in that pose and that framing.`;
 	return undefined;
 }

@@ -245,3 +245,20 @@ describe('lo que el ganador trajo prestado', () => {
 		assert.match(prompt, /stays only if THIS product genuinely has its own/);
 	});
 });
+
+describe('cuando se sube una persona', () => {
+	/**
+	 * Lo que se sube es una CARA y un FÍSICO, no un vestuario ni una pose. Decirle
+	 * que copiara la foto entera hacía que el aviso heredara la ropa y el encuadre
+	 * de una foto sacada para otra cosa, y que una foto de teléfono movida saliera
+	 * movida en el aviso.
+	 */
+	test('se toma la persona, no su ropa ni su foto', () => {
+		const prompt = buildPromptLibre({
+			...ficha,
+			decisionDePersona: 'The person in it is the one in the supplied photos — that exact face and that exact build. Only the person comes from those photos: what they wear belongs to this ad.',
+		});
+		assert.match(prompt, /Only the person comes from those photos/);
+		assert.doesNotMatch(prompt, /another person, the one this product is for/);
+	});
+});
