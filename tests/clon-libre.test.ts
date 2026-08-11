@@ -262,3 +262,21 @@ describe('cuando se sube una persona', () => {
 		assert.doesNotMatch(prompt, /another person, the one this product is for/);
 	});
 });
+
+describe('las páginas de un carrusel', () => {
+	/**
+	 * Se generan por separado, sin verse entre sí, y todas reciben la misma ficha
+	 * del producto. Sin decirles que son una secuencia, las tres escribían el mismo
+	 * titular y el mismo beneficio: el carrusel decía lo mismo tres veces.
+	 */
+	test('cada página dice lo suyo y no repite a las otras', () => {
+		const prompt = buildPromptLibre({ ...ficha, carrusel: { indice: 1, total: 4 } });
+		assert.match(prompt, /This is page 2 of a 4-page carousel/);
+		assert.match(prompt, /no headline, no claim and no benefit repeated from another page/);
+		assert.match(prompt, /one moment in a sequence, not the whole ad said again/);
+	});
+
+	test('una imagen suelta no dice nada de páginas', () => {
+		assert.doesNotMatch(buildPromptLibre(ficha), /carousel/);
+	});
+});

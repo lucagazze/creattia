@@ -286,7 +286,10 @@ WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: ${ficha.indicaciones.trim()}
 		: 'EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now: another person, the one this product is for, somewhere this product is really used. The same face in the same place is the sign nothing was adapted.';
 
 	const pagina = ficha.carrusel
-		? `\nThis is page ${ficha.carrusel.indice + 1} of a ${ficha.carrusel.total}-page carousel and the reference is that page: make this one only, and make it sit with the others as one set.\n`
+		// Las páginas se generan por separado y sin verse entre sí, y todas reciben
+		// la misma ficha: sin esto las tres escribían el mismo titular y el mismo
+		// beneficio, y el carrusel quedaba diciendo lo mismo tres veces.
+		? `\nThis is page ${ficha.carrusel.indice + 1} of a ${ficha.carrusel.total}-page carousel and the reference is that page: make this one only, and make it sit with the others as one set. The pages are read one after the other and each carries its own step of the argument — the step this reference page is making. Say what only THIS page says: no headline, no claim and no benefit repeated from another page, and nothing that would leave a later page with nothing left to add. Page ${ficha.carrusel.indice + 1} of ${ficha.carrusel.total} is one moment in a sequence, not the whole ad said again.\n`
 		: '';
 
 	return `The first input image is a winning advertisement. Make EXACTLY THIS AD, for a different product. The images after it are real photos of that product.
@@ -294,6 +297,8 @@ WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: ${ficha.indicaciones.trim()}
 Everything about the design stays: the same layout, the same composition, ${letra}, ${color}, the same spacing and the same margins. Someone comparing the two must see the same ad twice, about two different things.
 
 FIRST, READ EVERY WORD IN THE IMAGE. Go through it block by block — the logo lockup, the headline, every line of it, the paragraph, the button, any badge, pill, caption or small print — and for EACH ONE write the equivalent line for the product below. Every one of them changes. A line that still talks about the original advertiser's business is the single worst thing this can produce: the ad ends up looking right and saying nothing.
+
+THE TYPE IS TYPESET, NOT DRAWN. Every letter comes out crisp at full resolution, with clean edges, even weight across the whole word and even spacing between letters. No ghosting, no doubled strokes, no soft halo, no drop shadow or glow the reference does not have, no letters that go blurry or dissolve at the end of a line. Spelling and accents are exact and every line reads like something a person would actually write. If a line will not fit cleanly at that size, shorten the wording — never squeeze the letters, never blur them, never let them overlap.
 
 Each new line keeps the shape of the one it replaces: the same number of lines, roughly the same length, the same tone, the same job in the ad — a headline stays a headline, a benefit line stays a benefit line, a button stays a button. Where the original highlights one word in the accent colour, highlight the equivalent word of the new line.
 

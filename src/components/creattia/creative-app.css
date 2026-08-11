@@ -7090,3 +7090,36 @@
 	font-size: 13px; font-family: inherit; color: #3d3945; text-align: left; cursor: pointer;
 }
 .creation-typo-lista button:hover { background: #f5f1ff; color: #4a2a9e; }
+
+.creation-color-encabezado { display: flex; gap: 12px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+.creation-color-restablecer {
+	flex: none; padding: 5px 11px; border: 1px solid #ddd8e4; border-radius: 999px; background: #fff;
+	font: 600 11.5px/1.4 inherit; color: #716d79; cursor: pointer;
+	transition: border-color .15s, background .15s, color .15s;
+}
+.creation-color-restablecer:hover:not(:disabled) { border-color: #b9a6ee; background: #faf7ff; color: #4a2a9e; }
+.creation-color-restablecer:disabled { opacity: .5; cursor: default; }
+
+/* Qué páginas del carrusel se generan. */
+.creation-paginas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.creation-paginas button {
+	position: relative; width: 62px; padding: 0; border: 1px solid #e3e0e8; border-radius: 9px;
+	background: #fff; cursor: pointer; overflow: hidden; opacity: .42; transition: opacity .15s, border-color .15s, box-shadow .15s;
+}
+.creation-paginas button.active { opacity: 1; border-color: #744bde; box-shadow: 0 0 0 1px #744bde; }
+.creation-paginas button:disabled { cursor: default; }
+.creation-paginas img { display: block; width: 100%; height: 78px; object-fit: cover; }
+.creation-paginas b {
+	position: absolute; top: 4px; left: 4px; min-width: 18px; padding: 1px 4px; border-radius: 5px;
+	background: rgba(25, 23, 29, .74); color: #fff; font: 700 11px/1.5 inherit;
+}
+
+/* El cuadrado que abre el selector del sistema, al final de los treinta. */
+.creation-color-propio {
+	position: relative; display: flex; align-items: center; justify-content: center;
+	aspect-ratio: 1; border: 1px dashed #c4bcd4; border-radius: 6px; background: #fff;
+	cursor: pointer; color: #8a8593; font-size: 15px; line-height: 1;
+	transition: border-color .12s, color .12s, transform .12s;
+}
+.creation-color-propio:hover { border-color: #744bde; color: #744bde; transform: scale(1.14); }
+.creation-color-propio input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; padding: 0; border: 0; cursor: pointer; }

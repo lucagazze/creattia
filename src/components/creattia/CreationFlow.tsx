@@ -181,6 +181,14 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		: [];
 	const isCarouselAd = carouselSlides.length > 0;
 	const [carouselMode, setCarouselMode] = useState<'full' | 'single'>('full');
+	/**
+	 * Qué páginas del carrusel se generan.
+	 *
+	 * Antes eran las dos puntas: todas, o una sola. Un carrusel de seis del que
+	 * solo sirven la primera y la última obligaba a generar seis y pagar seis.
+	 * Vacío quiere decir todas, que es lo que corresponde al entrar.
+	 */
+	const [paginasElegidas, setPaginasElegidas] = useState<number[]>([]);
 	const [carouselSameProduct, setCarouselSameProduct] = useState(true);
 	const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
 	/**
@@ -194,6 +202,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const enviando = useRef(false);
 	const wantsFullCarousel = isCarouselAd && carouselMode === 'full';
+	/** Las páginas que se van a generar, en su orden original. */
+	const paginasAGenerar: string[] = !isCarouselAd ? [] : carouselSlides.filter(
+		(_, indice) => !paginasElegidas.length || paginasElegidas.includes(indice),
+	);
 	// La página que se clona cuando se elige "solo una página": el resto del
 	// flujo de revisión visual funciona exactamente igual que un anuncio suelto.
 	const effectiveReferencePath = isCarouselAd && carouselMode === 'single' ? carouselSlides[selectedSlideIndex] : ad.imagePath;
@@ -350,7 +362,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * páginas tiene el ganador.
 	 */
 	const [variantes, setVariantes] = useState(1);
-	const count = wantsFullCarousel ? carouselSlides.length : variantes;
+	const count = wantsFullCarousel ? paginasAGenerar.length : variantes;
 
 	/**
 	 * Una sola URL fuera del carrusel por página.
@@ -655,7 +667,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	function estadoDeLaRevision() {
 		return {
-			phase, formStep, copyMode, fondoDelAviso, carouselMode, carouselSameProduct, selectedSlideIndex,
+			phase, formStep, copyMode, fondoDelAviso, carouselMode, carouselSameProduct, selectedSlideIndex, paginasElegidas,
 			productMode, scannedOffering, alcanceOverride, urls, selectedProductIds, importedProducts,
 			manualProductName, manualProductFacts,
 			format, language, colorMode, typoMode, brandSource, paletteOverride, indicaciones,
@@ -699,6 +711,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		const poner = <T,>(valor: T | undefined, set: (v: T) => void) => { if (valor !== undefined) set(valor); };
 		poner(e.formStep, setFormStep); poner(e.copyMode, setCopyMode);
 		poner(e.carouselMode, setCarouselMode); poner(e.carouselSameProduct, setCarouselSameProduct);
+		poner(e.paginasElegidas, setPaginasElegidas);
 		poner(e.selectedSlideIndex, setSelectedSlideIndex);
 		poner(e.productMode, setProductMode); poner(e.scannedOffering, setScannedOffering);
 		poner(e.alcanceOverride, setAlcanceOverride); poner(e.urls, setUrls);
@@ -770,7 +783,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	);
 	// Carrusel completo con productos distintos: 1 URL por página, en orden.
 	// El resto de los casos (mismo producto, o solo una página) piden 1 solo.
-	const urlsNeeded = wantsFullCarousel && !carouselSameProduct ? carouselSlides.length : 1;
+	const urlsNeeded = wantsFullCarousel && !carouselSameProduct ? paginasAGenerar.length : 1;
 	const filledUrls = urls.map((u) => u.trim()).filter(Boolean).length;
 	const step1Ready = (productMode === 'url' && filledUrls >= urlsNeeded)
 		
@@ -929,7 +942,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 
 			const form = new FormData();
 			form.set('referencePath', effectiveReferencePath);
-			if (wantsFullCarousel) form.set('referencePaths', JSON.stringify(carouselSlides));
+			if (wantsFullCarousel) form.set('referencePaths', JSON.stringify(paginasAGenerar));
 			form.set('language', language);
 			form.set('brandSource', brandSource);
 			form.set('subjectMode', offeringForSubmit);
@@ -1023,21 +1036,32 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * pedido, lo hace un worker minutos después, y para entonces los archivos que
 	 * el usuario eligió en el navegador ya no existen en ningún lado.
 	 */
-	useEffect(() => {
-		if (phase !== 'confirmar') return;
+	/**
+	 * Los colores tal como los leyó el escaneo.
+	 *
+	 * `pisando` distingue los dos usos: al entrar a la pantalla se completan solo
+	 * los vacíos —si alguien ya corrigió un color, volver a entrar no puede
+	 * deshacérselo— y el botón de restablecer sí pisa todo, que es lo que se le
+	 * está pidiendo.
+	 */
+	function coloresDetectados(pisando: boolean) {
 		const paleta = marcaDeLaUrl?.palette || {};
 		const sueltos: string[] = Array.isArray(marcaDeLaUrl?.colors) ? marcaDeLaUrl.colors : [];
 		setRolesDeColor((previo) => {
-			// Solo se completan los vacíos: si alguien ya corrigió un color, volver a
-			// entrar a esta pantalla no puede deshacérselo.
 			const siguiente = { ...previo };
 			ROLES_DE_COLOR.forEach((rol, i) => {
-				if (siguiente[rol.id]) return;
+				if (siguiente[rol.id] && !pisando) return;
 				const detectado = paleta[rol.desde] || sueltos[i];
 				if (typeof detectado === 'string' && /^#[0-9a-f]{6}$/i.test(detectado)) siguiente[rol.id] = detectado.toUpperCase();
+				else if (pisando) delete siguiente[rol.id];
 			});
 			return siguiente;
 		});
+	}
+
+	useEffect(() => {
+		if (phase !== 'confirmar') return;
+		coloresDetectados(false);
 		setTipografiaElegida((previo) => ({
 			headings: previo.headings || String(marcaDeLaUrl?.typography?.headings || ''),
 			body: previo.body || String(marcaDeLaUrl?.typography?.body || ''),
@@ -1306,7 +1330,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				method: 'POST',
 				headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
 				body: JSON.stringify({
-					referenceSlidePaths: carouselSlides,
+					referenceSlidePaths: paginasAGenerar,
 					referenceName: ad.name || 'Carrusel ganador',
 					templateId: !isNaN(pathPrefixId) ? pathPrefixId : 40,
 					productIds,
@@ -1326,7 +1350,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					// Sin revisión no hay plan que mandar: cada página la lee el worker
 					// cuando la genera. Mandar objetos vacíos sería peor que no mandar
 					// nada, porque el worker los tomaría por un análisis aprobado.
-					approvedPlans: plan ? carouselSlides.map((_, indice) => planRevisado(indice + 1)) : null,
+					approvedPlans: plan ? paginasAGenerar.map((ruta) => planRevisado(carouselSlides.indexOf(ruta) + 1)) : null,
 					brief: indicaciones.trim() || undefined,
 					rolesDeColor: Object.values(rolesDeColor).some(Boolean) ? rolesDeColor : undefined,
 					tipografiaOverride: (typoMode !== 'winner' && (tipografiaElegida.headings.trim() || tipografiaElegida.body.trim()))
@@ -1698,8 +1722,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 										className="url-batch-submit-btn"
 									>
 										{phase === 'planning'
-											? <><span className="studio-spinner small" aria-hidden="true" /> {wantsFullCarousel ? `Analizando las ${carouselSlides.length} páginas…` : 'Leyendo tu web…'}</>
-											: wantsFullCarousel ? `Analizar las ${carouselSlides.length} páginas` : 'Continuar'}
+											? <><span className="studio-spinner small" aria-hidden="true" /> Leyendo tu web…</>
+											: 'Continuar'}
 									</button>
 									{/* Decía "todavía no gastás créditos" porque después venía la
 									    revisión. Ahora este click genera: prometerle lo otro a
@@ -1753,7 +1777,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								{colorMode !== 'winner' && (
 								<div style={{ gridColumn: '1 / -1' }}>
 									<span className="picker-label">Colores detectados en tu web</span>
-									<p className="batch-detail-help">Corregí el que no cuadre. La IA los usa como referencia, no los copia tal cual.</p>
+									<div className="creation-color-encabezado">
+										<p className="batch-detail-help" style={{ margin: 0 }}>Corregí el que no cuadre. La IA los usa como referencia, no los copia tal cual.</p>
+										<button type="button" className="creation-color-restablecer" disabled={phase === 'starting'} onClick={() => coloresDetectados(true)}>
+											Restablecer los de la web
+										</button>
+									</div>
 									<div className="creation-color-roles">
 										{ROLES_DE_COLOR.map((rol) => (
 											<button
@@ -1826,6 +1855,19 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 													onClick={() => setRolesDeColor((previo) => ({ ...previo, [rolActivo]: color }))}
 												/>
 											))}
+											{/* El último cuadrado abre el selector del sistema: los treinta cubren
+											    lo que usa una marca, pero el que necesita un tono exacto que no
+											    está no tiene que irse a buscar el hexadecimal a otro lado. */}
+											<label className="creation-color-propio" title="Elegir otro color">
+												<input
+													type="color"
+													value={/^#[0-9a-f]{6}$/i.test(rolesDeColor[rolActivo] || '') ? rolesDeColor[rolActivo] : '#ffffff'}
+													disabled={phase === 'starting'}
+													aria-label="Elegir otro color"
+													onChange={(event) => setRolesDeColor((previo) => ({ ...previo, [rolActivo]: event.target.value.toUpperCase() }))}
+												/>
+												<span aria-hidden="true">+</span>
+											</label>
 										</div>
 										<button type="button" className="creation-color-listo" onClick={() => setRolActivo(null)}>Listo</button>
 									</div>
@@ -1896,6 +1938,37 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									</p>
 								)}
 							</div>
+
+							{wantsFullCarousel && carouselSlides.length > 1 && (
+								<div style={{ marginTop: '18px' }}>
+									<span className="picker-label">¿Qué páginas querés?</span>
+									<p className="batch-detail-help">Tocá para sacar las que no te sirven. Cada una cuesta un crédito.</p>
+									<div className="creation-paginas">
+										{carouselSlides.map((ruta, indice) => {
+											const elegida = !paginasElegidas.length || paginasElegidas.includes(indice);
+											return (
+												<button
+													key={ruta}
+													type="button"
+													className={elegida ? 'active' : ''}
+													disabled={phase === 'starting'}
+													aria-pressed={elegida}
+													onClick={() => setPaginasElegidas((previo) => {
+														// Vacío quiere decir "todas": el primer clic tiene que materializar
+														// esa lista antes de sacarle una, si no el primer destildado se pierde.
+														const actual = previo.length ? previo : carouselSlides.map((_, i) => i);
+														const siguiente = actual.includes(indice) ? actual.filter((i) => i !== indice) : [...actual, indice].sort((a, b) => a - b);
+														return siguiente.length ? siguiente : actual;
+													})}
+												>
+													{referenceUrlFor(ruta) && <img src={referenceUrlFor(ruta)} alt="" />}
+													<b>{indice + 1}</b>
+												</button>
+											);
+										})}
+									</div>
+								</div>
+							)}
 
 							{/* Quién aparece. Sin elegir nada lo decide la IA mirando el ganador,
 							    que es lo que sale bien casi siempre; las otras dos reemplazan esa
@@ -2003,7 +2076,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									{phase === 'starting'
 										? <><span className="studio-spinner small" aria-hidden="true" /> Generando…</>
 										: wantsFullCarousel
-											? `Generar el carrusel (${carouselSlides.length} páginas)`
+											? `Generar ${paginasAGenerar.length === carouselSlides.length ? 'el carrusel entero' : `${paginasAGenerar.length} página${paginasAGenerar.length > 1 ? 's' : ''}`} (${paginasAGenerar.length})`
 											: `Generar ${count > 1 ? `${count} imágenes` : 'la imagen'}`}
 								</button>
 								{phase !== 'starting' && (
