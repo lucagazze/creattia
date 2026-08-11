@@ -204,7 +204,15 @@ describe('tamaño del prompt de render', () => {
 	 */
 	test('las REGLAS del prompt no crecen', () => {
 		const soloReglas = buildClonePrompt({ ...base, subjectMode: 'product' }, analisisCon(0), true);
-		assert.ok(soloReglas.length < 18700, `la prosa fija creció a ${soloReglas.length} caracteres`);
+		// Subió 250 por NOTHING INTIMATE IS EVER SHOWN, y es el único caso en que
+		// esto se toca a propósito: la regla del antes/después pide mostrar dónde
+		// trabaja el producto y con un bóxer devolvió un primer plano de una
+		// entrepierna irritada. Una imagen impublicable es una falla total, no
+		// una imperfección, y el presupuesto existe justamente para gastarlo en
+		// la regla que evita eso. Se pagó lo que se pudo con duplicación real —
+		// MARGINS repetía la primera frase de LAYOUT FIDELITY— y el resto se
+		// asume.
+		assert.ok(soloReglas.length < 18950, `la prosa fija creció a ${soloReglas.length} caracteres`);
 	});
 
 	/**
@@ -232,7 +240,7 @@ describe('tamaño del prompt de render', () => {
 	test('ocho zonas medidas entran bajo el techo', () => {
 		const medida = '3.1% of width, bold, sentence case, near-black, flush-left, lines at 1.15x';
 		const prompt = buildClonePrompt({ ...base, subjectMode: 'product' }, analisisCon(8, medida), true);
-		assert.ok(prompt.length < 20600, `con ocho zonas el prompt llegó a ${prompt.length} caracteres`);
+		assert.ok(prompt.length < 20850, `con ocho zonas el prompt llegó a ${prompt.length} caracteres`);
 	});
 
 	test('no le pide al modelo una resolución que no va a producir', () => {

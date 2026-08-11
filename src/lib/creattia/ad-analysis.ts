@@ -870,7 +870,7 @@ SPLIT INTEGRITY (CRITICAL) — This is a comparison and the two sides must stay 
 SIDE MEANING MUST NOT FLIP — Whatever the template puts on the negative/"before"/"other option" side stays on that side, and whatever it puts on the positive/"our product" side stays on that side. Every text block keeps the side it had: a positive line ("choose ours", "the better way") may never end up over the negative half, and a problem statement may never end up over the hero half. Read each replacement, decide which side it argues for, and place it on the same side the template placed its equivalent. If the template's bottom-left line is a transition that spans both sides, keep it spanning both sides in the same place — do not turn it into a one-sided claim.
 ${input.analysis.comparison.type === 'before-after'
 			? `
-WHAT THE TWO HALVES SHOW — Both halves show THE SAME PLACE: the exact part of the body, the surface or the situation where ${productLabel} is actually used, from the same angle and the same distance, so the ONLY difference between them is the state. The template's own body part is not that place unless this product is used there — a toenail treatment's toe becomes wherever THIS product does its work, and picking a generic body part instead is how the ad stops being about anything. If the product is worn or applied, it is VISIBLE on the AFTER side: that is what the reader is being shown to buy.`
+WHAT THE TWO HALVES SHOW — Both halves show THE SAME PLACE: the exact part of the body, the surface or the situation where ${productLabel} is actually used, from the same angle and the same distance, so the ONLY difference between them is the state. The template's own body part is not that place unless this product is used there — a toenail treatment's toe becomes wherever THIS product does its work, and picking a generic body part instead is how the ad stops being about anything. If the product is worn or applied, it is VISIBLE on the AFTER side: that is what the reader is being shown to buy. When that place is a private area, the difference is shown on the GARMENT and on what it does — fabric, fit, dryness — never by exposing the body, under the rule about intimate anatomy.`
 			: ''}`
 		: '';
 
@@ -1184,6 +1184,20 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 	 * que mas parecido aporta de todo el prompt.
 	 */
 	const hayAlguien = people.length > 0 || personMode === 'upload' || personMode === 'described';
+	/**
+	 * Lo que no se muestra nunca.
+	 *
+	 * La regla del antes/después pide mostrar el lugar donde el producto hace su
+	 * trabajo, y con un bóxer ese lugar es la ingle: el modelo lo tomó literal y
+	 * devolvió un primer plano de una entrepierna irritada. La regla estaba bien
+	 * —sin ella el aviso no es sobre nada— y lo que faltaba era el límite.
+	 *
+	 * Va siempre, no solo cuando aparece gente: cuesta caracteres en todos los
+	 * avisos y los vale, porque una imagen que no se puede mostrar en el celular
+	 * en público no sirve para nada por bien que haya salido lo demás, y la
+	 * plataforma la rechaza igual.
+	 */
+	const pudorRule = `\nNOTHING INTIMATE IS EVER SHOWN (CRITICAL) — No genitals, buttocks, bare crotch or nipples, and no skin condition on bare intimate skin. Underwear and swimwear are framed the way a catalogue frames them: the garment filling the frame from waist to mid-thigh, on a body that reads as covered. An image that cannot be shown on a phone in public is a failed ad however good the rest is.`;
 	const realismoRule = hayAlguien && !looksIllustrated
 		? `\nPHOTOGRAPHIC SKIN (CRITICAL) — Anyone who appears reads as a PHOTOGRAPH of a real person: pores and fine lines, a face never perfectly symmetrical, light with real falloff and a catchlight in the eye, five correct fingers at the right scale. Never the plastic AI finish: poreless airbrushed skin, waxy sheen, moulded hair, dead eyes.`
 		: '';
@@ -1243,7 +1257,7 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 	 * a que diga todo.
 	 */
 	const encajeRule = `\nTEXT FIT (CRITICAL) — Every replacement occupies the same space as the text it replaces: same lines, same size, same block height. Where a block carries a measurement, that measurement IS the block: exactly that cap-height, weight, case, colour, alignment and leading, never bigger, never looser, never re-aligned. Type set slightly bigger and looser "so it reads well" is the commonest way a faithful clone still looks like another ad. Do NOT reflow the layout for a longer text, do not shrink the type, do not let a line wrap where the original did not. If it does not fit, SHORTEN it — cut whole words. A shorter phrase that keeps the rhythm beats a complete one that breaks it.
-MARGINS ARE PART OF THE DESIGN — Keep the same clear space between every text block and the edges as the template has. No letter may touch or cross an edge, and no word may be clipped or cut to make a line fit: "CON CAMELOT" never becomes "CON CAM". Remove a whole word and rewrite the line instead. Same inside a card, pill, badge or button: the text keeps its padding.`;
+MARGINS ARE PART OF THE DESIGN — No letter may touch or cross an edge, and no word may be clipped or cut to make a line fit: "CON CAMELOT" never becomes "CON CAM". Remove a whole word and rewrite the line instead. Same inside a card, pill, badge or button: the text keeps its padding.`;
 	const strategyBlock = input.analysis?.messageStrategy
 		? `\nMESSAGE STRATEGY OF THE WINNING AD — preserve the same persuasion, adapted to ${productLabel}: ${input.analysis.messageStrategy}\n`
 		: '';
@@ -1314,7 +1328,7 @@ WEBSITE VISIBILITY — ${input.includeWebsite && input.displayWebsite ? `The use
 4. STRICT FIDELITY — Copy the template's layout structure 1:1: same background treatment (no added waves, gradients or decorative shapes), same divider style, same badge/pill arrangement and count, same positions. Small icons may be adapted only when their meaning no longer applies to the new content, keeping the same visual style and weight. ${colorRule} ${typoRule} Do not include watermarks or platform UI. The result is the same ad campaign as the template${referenceHasProduct ? `, now selling ${productLabel}` : ''}.
 ${layoutFidelityRule}${encajeRule}${catalogRule}${qualityRule}${TEXT_RENDERING_RULE}${semanticPaletteRule}${identityBlock}
 ${logoDecision}
-${peopleBlock}${realismoRule}${comparisonBlock}${comparisonContext}${creativeDecisionBlock}
+${peopleBlock}${realismoRule}${pudorRule}${comparisonBlock}${comparisonContext}${creativeDecisionBlock}
 
 USER DIRECTION
 ${input.brief || 'None.'}${textSwap ? `
