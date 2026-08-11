@@ -409,6 +409,15 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		: -1;
 	/** Qué decisiones tienen abierto el campo para escribir una respuesta propia. */
 	const [escribiendo, setEscribiendo] = useState<Set<number>>(new Set());
+	/**
+	 * El fondo del aviso, corregible antes de generar.
+	 *
+	 * Se medía en prosa —"verde salvia suave"— y un nombre se re-interpreta
+	 * al volver a dibujar, así que el clon salía con otro verde. Ahora viene en
+	 * hexadecimal, se ve, y se puede corregir: es lo único de la paleta que se
+	 * podía arreglar en un segundo y había que descubrir gastando un crédito.
+	 */
+	const [fondoDelAviso, setFondoDelAviso] = useState('');
 	const [comparisonGuidance, setComparisonGuidance] = useState('');
 	const [error, setError] = useState('');
 
@@ -467,7 +476,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	function estadoDeLaRevision() {
 		return {
-			phase, formStep, copyMode, carouselMode, carouselSameProduct, selectedSlideIndex,
+			phase, formStep, copyMode, fondoDelAviso, carouselMode, carouselSameProduct, selectedSlideIndex,
 			productMode, scannedOffering, alcanceOverride, urls, selectedProductIds, importedProducts,
 			manualProductName, manualProductFacts,
 			format, language, colorMode, typoMode, brandSource, paletteOverride,
@@ -529,6 +538,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		poner(e.zones, setZones); poner(e.people, setPeople);
 		poner(e.comparisons, setComparisons); poner(e.creativeDecisions, setCreativeDecisions);
 		poner(e.comparisonGuidance, setComparisonGuidance);
+		poner(e.fondoDelAviso, setFondoDelAviso);
 		setBorradorGuardado(null);
 		// Vuelve a la pantalla donde lo dejó. Mandarlo siempre a la revisión hacía
 		// que un borrador sin analizar cayera en una pantalla que no tiene nada
@@ -770,6 +780,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			// lado, el clon firma ahí y con el nombre escrito. En un carrusel la
 			// firma puede estar en una sola página, así que se miran todas.
 			setLogoMode(logoModeRecomendado(Array.isArray(payload.slideAnalyses) && payload.slideAnalyses.length ? payload.slideAnalyses : analysis));
+			setFondoDelAviso(analysis.backgroundColor || '');
 			setComparisons(Array.isArray(analysis.comparisonItems) ? analysis.comparisonItems.map((c: any) => ({ ...c, directive: '' })) : []);
 			setCreativeDecisions(Array.isArray(analysis.creativeDecisions) ? analysis.creativeDecisions.map((decision: any) => ({ ...decision, directive: '' })) : []);
 			setComparisonGuidance('');
@@ -799,6 +810,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			people: suyo(people),
 			comparisonItems: suyo(comparisons),
 			creativeDecisions: suyo(creativeDecisions),
+			// El fondo corregido pisa al medido: si alguien lo tocó, es porque el
+			// que se leyó estaba mal.
+			backgroundColor: fondoDelAviso || base?.backgroundColor || '',
 			comparison: { ...(base?.comparison || {}), userGuidance: comparisonGuidance.trim() },
 		};
 	}
@@ -1596,6 +1610,24 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							</section>
 						)}
 
+						{/* El fondo del aviso, en hexadecimal y corregible. Se medía en prosa
+						    —"verde salvia suave"— y un nombre se re-interpreta al volver a
+						    dibujar, así que el clon salía con otro verde. Es lo único de la
+						    paleta que se arregla en un segundo y había que descubrir gastando
+						    un crédito. */}
+						{fondoDelAviso && (
+							<div className="fondo-del-aviso">
+								<label title="Tocá para cambiar el color de fondo">
+									<input type="color" value={fondoDelAviso} onChange={(event) => setFondoDelAviso(event.target.value.toUpperCase())} />
+									<i style={{ background: fondoDelAviso }} />
+								</label>
+								<div>
+									<strong>Fondo del anuncio</strong>
+									<small>{fondoDelAviso} · el color que va a llevar la imagen. Tocá la muestra si no es el correcto.</small>
+								</div>
+							</div>
+						)}
+
 						<div className="detected-copy-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
 							<strong style={{ ...label, marginBottom: 0 }}>Textos detectados del anuncio</strong>
 							<div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -1628,8 +1660,18 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 													    con qué se iba a escribir cada bloque. */}
 													{(zone.textColor || zone.boxColor) && (
 														<span className="copy-colores">
-															{zone.textColor && <em title={`Color de la letra: ${zone.textColor}`}><i style={{ background: zone.textColor }} />{zone.textColor}</em>}
-															{zone.boxColor && <em title={`Fondo de su cápsula: ${zone.boxColor}`}><i style={{ background: zone.boxColor }} />fondo</em>}
+															{zone.textColor && (
+																<label title="Color de la letra — tocá para cambiarlo">
+																	<input type="color" value={zone.textColor} onChange={(event) => setZones((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, textColor: event.target.value.toUpperCase() } : item))} />
+																	<i style={{ background: zone.textColor }} />{zone.textColor}
+																</label>
+															)}
+															{zone.boxColor && (
+																<label title="Fondo de su cápsula — tocá para cambiarlo">
+																	<input type="color" value={zone.boxColor} onChange={(event) => setZones((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, boxColor: event.target.value.toUpperCase() } : item))} />
+																	<i style={{ background: zone.boxColor }} />fondo
+																</label>
+															)}
 														</span>
 													)}
 												</div>

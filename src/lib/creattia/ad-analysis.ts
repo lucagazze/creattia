@@ -105,6 +105,15 @@ export type LayoutAnalysis = {
 	 * el orden correcto pero con otros tamaños, que es exactamente lo que hace que
 	 * el clon "no se parezca" aunque cada elemento esté.
 	 */
+	/**
+	 * El fondo del aviso, en hexadecimal.
+	 *
+	 * El color del fondo se decidía por descripción —"verde salvia suave"— y
+	 * un nombre se re-interpreta al volver a dibujar: el clon salía con otro
+	 * verde. Además es lo único que se puede corregir a mano antes de gastar
+	 * un crédito, y para eso hay que poder verlo.
+	 */
+	backgroundColor?: string;
 	compositionGeometry?: string;
 	productHasPackaging?: boolean;
 	referenceHasProduct?: boolean;
@@ -432,6 +441,7 @@ Return STRICT JSON:
   "logoIsWordmark": true|false — is that brand mark simply the BRAND NAME SET IN TYPE (letters only, no emblem, shield, crest, seal, badge or pictorial symbol)? A name written in a styled typeface is still a wordmark → true. Only an actual drawn symbol, or a symbol locked up with the name, is false. Null if there is no brand mark at all.,
   "logoDescription": "if templateHasLogoSlot is true, briefly describe the mark itself (e.g. 'small wordmark in white caps'); else null",
   "logoWhere": "if templateHasLogoSlot is true, WHERE that mark sits, in Spanish and in a few plain words someone who knows nothing about design would understand (e.g. 'abajo a la derecha', 'arriba centrado, sobre el titular'); else null",
+  "backgroundColor": "the dominant background of the whole ad as a hex value read off the image (e.g. '#8FA86B'). If the background is a photograph, give the colour that fills most of it. This is the field that decides whether the clone keeps the ad's colour or drifts to a generic one.",
   "productHasPackaging": true|false,
   "productPlacement": "precise description of where/how the template's MAIN product sits: position, scale relative to canvas, angle, cropping, lighting, shadow — or null if the template shows no product",
   "productInstances": [
@@ -568,6 +578,9 @@ Rules:
 			parsed.compositionGeometry = typeof parsed.compositionGeometry === 'string' ? parsed.compositionGeometry.trim().slice(0, 700) : '';
 			parsed.logoIsWordmark = parsed.logoIsWordmark === true;
 			parsed.logoWhere = typeof parsed.logoWhere === 'string' ? parsed.logoWhere.trim().slice(0, 80) : '';
+			// Solo un hexadecimal completo: un nombre de color acá volvería a ser
+			// prosa, que es exactamente lo que hace que el fondo se corra de tono.
+			parsed.backgroundColor = /^#[0-9a-f]{6}$/i.test(String(parsed.backgroundColor || '').trim()) ? String(parsed.backgroundColor).trim().toUpperCase() : '';
 			parsed.pressRow = parsed.pressRow && typeof parsed.pressRow === 'object' && parsed.pressRow.detected === true
 				? {
 					detected: true,
@@ -1105,7 +1118,7 @@ The new ad must be shot the same way. A flat, evenly lit product on a plain back
 
 	const colorRule = input.colorMode !== 'winner' && input.brandColors?.length
 		? `COLOR RESTYLE (REQUIRED) — This is a hard requirement: recolor the ad into the selected brand palette ${input.brandColors.join(', ')} (the FIRST color is the primary/dominant one, the next are secondary/accents). The dominant background, the main accents, the buttons/CTA and the badges MUST visibly use these exact brand colors instead of the template's original colors — the finished ad has to read as belonging to the selected brand at a glance. Keep the template's exact LAYOUT, contrast hierarchy and legibility (dark text on light areas and vice-versa); only the hues change. Do not keep the template's original brand colors.`
-		: `Do not change the background color or palette — keep the template's exact colors.`;
+		: `Do not change the background color or palette — keep the template's exact colors.${input.analysis?.backgroundColor ? ` The ad's background is exactly ${input.analysis.backgroundColor}: use that value, not a colour that resembles it.` : ''}`;
 
 	// Personas: reconstruir según lo que pidió el usuario, o mantener si no indicó nada.
 	const semanticPaletteRule = input.colorMode !== 'winner' && input.brandPalette
