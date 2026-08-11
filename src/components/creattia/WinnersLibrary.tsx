@@ -629,9 +629,27 @@ export default function WinnersLibrary({
 	 */
 	const signedUrls = useReferenceUrls(useMemo(() => {
 		const portadas = pedidoItems.map((item: any) => item.imagePath);
+		/**
+		 * Las páginas de carrusel que se están mirando EN LA GRILLA, más la
+		 * siguiente.
+		 *
+		 * Solo se firmaba la portada, así que pasar a la página 2 dentro de una
+		 * tarjeta dejaba el hueco en blanco: la imagen existía y la URL no. Se
+		 * firma la que se ve y la que sigue —para que el próximo clic sea
+		 * instantáneo— y no las N de cada tarjeta, que con veinte carruseles en
+		 * pantalla serían cien firmas para mirar dos.
+		 */
+		const paginasEnLaGrilla = pedidoItems.flatMap((item: any) => {
+			const slides = item.metadata?.mediaType === 'carousel' && Array.isArray(item.metadata?.carouselImages)
+				? item.metadata.carouselImages as string[]
+				: null;
+			if (!slides || slides.length < 2) return [];
+			const actual = Math.min(carouselSlideIndex[item.imagePath] || 0, slides.length - 1);
+			return [slides[actual], slides[(actual + 1) % slides.length]];
+		});
 		const abierto = activeAd ? [activeAd.imagePath, ...((activeAd as any).metadata?.carouselImages || [])] : [];
-		return [...portadas, ...abierto];
-	}, [pedidoItems, activeAd]));
+		return [...portadas, ...paginasEnLaGrilla, ...abierto];
+	}, [pedidoItems, activeAd, carouselSlideIndex]));
 
 	/**
 	 * Primero lo que se ve, y el resto a medida que bajás.

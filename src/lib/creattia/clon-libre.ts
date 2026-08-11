@@ -256,9 +256,12 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 		? `WHO THIS AD IS FOR: ${sinPuntoFinal(ficha.icp)}. Whoever appears in it is that person, and every choice in it is made so that person recognises themselves at a glance.`
 		: `WHO THIS AD IS FOR is the customer the product information above describes. Whoever appears in it is that person, and every choice in it is made so that person recognises themselves at a glance.`;
 
-	const idioma = ficha.idioma
-		? `Every word in the ad is written in ${ficha.idioma}.`
-		: 'Every word in the ad is written in the language the product information above is written in.';
+	// El defecto, visto en producción: un ganador en francés devolvió "OBTENEZ
+	// VOTRE BOXER PREMIUM DE BAMBÚ" — media frase en el idioma del ganador y media
+	// en el pedido. Decir en qué idioma escribir no alcanzaba: hay que decir que
+	// NINGUNA palabra del ganador sobrevive por parecerse.
+	const enQueIdioma = ficha.idioma || 'the language the product information above is written in';
+	const idioma = `EVERY WORD IN THE AD IS WRITTEN IN ${ficha.idioma ? ficha.idioma.toUpperCase() : 'THE LANGUAGE OF THE PRODUCT INFORMATION ABOVE'} — the headline, the body, the button, the badges, the small print, all of it. The reference may be in another language: not one of its words survives, not even one that looks like it would work. Do not mix two languages in a line or across the ad, and do not leave a word untranslated because it is short or looks international. Write it as a person who speaks ${enQueIdioma} would actually write it — correct spelling, correct accents, and sentences that mean something, not words strung together.`;
 
 	// Los colores y la tipografía de la marca no se agregan como un pedido más:
 	// REEMPLAZAN la cláusula del ganador. Tener las dos es pedirle dos cosas

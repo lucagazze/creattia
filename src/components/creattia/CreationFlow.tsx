@@ -515,14 +515,27 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * miniatura decía "no tenemos logo" y el anuncio salía con uno.
 	 */
 	const [logoDeMiMarca, setLogoDeMiMarca] = useState('');
+	/**
+	 * Los colores y la tipografía guardados en Mi marca.
+	 *
+	 * La pantalla de confirmar mostraba siempre lo scrapeado de la URL, aunque el
+	 * aviso fuera a usar la identidad propia: se veían unos colores y salían
+	 * otros. Se traen del mismo endpoint que el logo.
+	 */
+	const [miMarca, setMiMarca] = useState<{ colors: string[]; typography: { headings?: string; body?: string } } | null>(null);
 	useEffect(() => {
-		if (phase !== 'review' || brandSource !== 'mine' || !token) return;
+		if ((phase !== 'review' && phase !== 'confirmar') || brandSource !== 'mine' || !token) return;
 		let cancelado = false;
 		void fetch('/api/creativos/brands', { headers: { authorization: `Bearer ${token}` } })
 			.then((response) => response.ok ? response.json() : null)
 			.then((payload) => {
 				if (cancelado) return;
 				setLogoDeMiMarca(typeof payload?.profileLogoUrl === 'string' ? payload.profileLogoUrl : '');
+				const activa = (payload?.brands || []).find((marca: any) => marca.id === payload?.activeBrandId) || (payload?.brands || [])[0];
+				setMiMarca(activa ? {
+					colors: Array.isArray(activa.brand_colors) ? activa.brand_colors : [],
+					typography: activa.brand_style?.typography || {},
+				} : null);
 			})
 			.catch(() => { /* sin miniatura se sigue pudiendo elegir */ });
 		return () => { cancelado = true; };
@@ -1045,8 +1058,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * está pidiendo.
 	 */
 	function coloresDetectados(pisando: boolean) {
-		const paleta = marcaDeLaUrl?.palette || {};
-		const sueltos: string[] = Array.isArray(marcaDeLaUrl?.colors) ? marcaDeLaUrl.colors : [];
+		const deMiMarca = colorMode === 'brand';
+		const paleta = deMiMarca ? {} : (marcaDeLaUrl?.palette || {});
+		const sueltos: string[] = deMiMarca
+			? (miMarca?.colors || [])
+			: (Array.isArray(marcaDeLaUrl?.colors) ? marcaDeLaUrl.colors : []);
 		setRolesDeColor((previo) => {
 			const siguiente = { ...previo };
 			ROLES_DE_COLOR.forEach((rol, i) => {
@@ -1062,11 +1078,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	useEffect(() => {
 		if (phase !== 'confirmar') return;
 		coloresDetectados(false);
+		const letra = typoMode === 'brand' ? miMarca?.typography : marcaDeLaUrl?.typography;
 		setTipografiaElegida((previo) => ({
-			headings: previo.headings || String(marcaDeLaUrl?.typography?.headings || ''),
-			body: previo.body || String(marcaDeLaUrl?.typography?.body || ''),
+			headings: previo.headings || String(letra?.headings || ''),
+			body: previo.body || String(letra?.body || ''),
 		}));
-	}, [phase, marcaDeLaUrl]);
+	}, [phase, marcaDeLaUrl, miMarca, colorMode, typoMode]);
 
 	/**
 	 * Qué destacar, propuesto mirando el ganador y el producto.
@@ -1352,6 +1369,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					// nada, porque el worker los tomaría por un análisis aprobado.
 					approvedPlans: plan ? paginasAGenerar.map((ruta) => planRevisado(carouselSlides.indexOf(ruta) + 1)) : null,
 					brief: indicaciones.trim() || undefined,
+					// Los colores que el usuario dejó en la revisión, sean de la URL o de
+					// Mi marca: sin esto el carrusel se generaba con los detectados.
 					rolesDeColor: Object.values(rolesDeColor).some(Boolean) ? rolesDeColor : undefined,
 					tipografiaOverride: (typoMode !== 'winner' && (tipografiaElegida.headings.trim() || tipografiaElegida.body.trim()))
 						? tipografiaElegida : undefined,
@@ -1776,11 +1795,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							<div className="creation-confirm-identity">
 								{colorMode !== 'winner' && (
 								<div style={{ gridColumn: '1 / -1' }}>
-									<span className="picker-label">Colores detectados en tu web</span>
+									<span className="picker-label">{colorMode === 'brand' ? 'Los colores de Mi marca' : 'Colores detectados en tu web'}</span>
 									<div className="creation-color-encabezado">
 										<p className="batch-detail-help" style={{ margin: 0 }}>Corregí el que no cuadre. La IA los usa como referencia, no los copia tal cual.</p>
 										<button type="button" className="creation-color-restablecer" disabled={phase === 'starting'} onClick={() => coloresDetectados(true)}>
-											Restablecer los de la web
+											{colorMode === 'brand' ? 'Restablecer los de Mi marca' : 'Restablecer los de la web'}
 										</button>
 									</div>
 									<div className="creation-color-roles">
@@ -1876,7 +1895,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								)}
 								{typoMode !== 'winner' && (
 								<div style={{ gridColumn: '1 / -1' }}>
-									<span className="picker-label">Tipografía detectada en tu web</span>
+									<span className="picker-label">{typoMode === 'brand' ? 'La tipografía de Mi marca' : 'Tipografía detectada en tu web'}</span>
 									<p className="batch-detail-help">
 										{tipografiaDeLaUrl
 											? 'Corregila si el escaneo devolvió el nombre interno de la fuente en vez del real.'

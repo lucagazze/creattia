@@ -74,9 +74,18 @@ describe('el prompt del clon libre', () => {
 		assert.doesNotMatch(prompt, /does it show a logo or a brand name anywhere\?/);
 	});
 
-	test('el idioma elegido manda sobre el de la ficha', () => {
-		assert.match(buildPromptLibre({ ...ficha, idioma: 'natural Argentine Spanish' }), /written in natural Argentine Spanish/);
-		assert.match(buildPromptLibre(ficha), /the language the product information above is written in/);
+	/**
+	 * El defecto: un ganador en francés devolvió "OBTENEZ VOTRE BOXER PREMIUM DE
+	 * BAMBÚ" — media frase en el idioma del ganador y media en el pedido. Decir en
+	 * qué idioma escribir no alcanzaba: hay que decir que ninguna palabra del
+	 * ganador sobrevive por parecerse a la que iba.
+	 */
+	test('el idioma elegido manda, y ninguna palabra del ganador sobrevive', () => {
+		const elegido = buildPromptLibre({ ...ficha, idioma: 'natural Argentine Spanish' });
+		assert.match(elegido, /EVERY WORD IN THE AD IS WRITTEN IN NATURAL ARGENTINE SPANISH/);
+		assert.match(elegido, /not one of its words survives/);
+		assert.match(elegido, /Do not mix two languages/);
+		assert.match(buildPromptLibre(ficha), /THE LANGUAGE OF THE PRODUCT INFORMATION ABOVE/);
 	});
 
 	/** Sin ICP el anuncio lo protagoniza un modelo cualquiera y no se lo apropia nadie. */
@@ -256,9 +265,9 @@ describe('cuando se sube una persona', () => {
 	test('se toma la persona, no su ropa ni su foto', () => {
 		const prompt = buildPromptLibre({
 			...ficha,
-			decisionDePersona: 'The person in it is the one in the supplied photos — that exact face and that exact build. Only the person comes from those photos: what they wear belongs to this ad.',
+			decisionDePersona: 'The person in this ad is the one in the supplied photos, and THE FACE HAS TO COME OUT IDENTICAL. Everything else is yours: what they wear belongs to this ad.',
 		});
-		assert.match(prompt, /Only the person comes from those photos/);
+		assert.match(prompt, /THE FACE HAS TO COME OUT IDENTICAL/);
 		assert.doesNotMatch(prompt, /another person, the one this product is for/);
 	});
 });
