@@ -208,27 +208,54 @@ export async function generateAdImage(input: {
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			failures.push(`${model}: ${message}`);
-			// Un rechazo del filtro no es un fallo del motor: el motor anda y se negó a
-			// leer ESTE texto. Cambiar de motor es la última opción, porque Gemini
-			// escribe peor el texto chico; primero se prueba con menos texto.
+			/**
+			 * Un rechazo del filtro no es un fallo del motor: el motor anda y se negó
+			 * a leer ESTE pedido.
+			 *
+			 * Y no es determinístico: el mismo prompt con la misma referencia pasa una
+			 * vez y se rechaza la siguiente. Se comprobó quitando una por una las
+			 * líneas sospechosas —el ICP, el párrafo de las personas, la categoría, la
+			 * descripción del producto— y las seis variantes se rechazaron igual,
+			 * incluida la que ya había pasado minutos antes. No hay línea culpable:
+			 * hay un clasificador con varianza.
+			 *
+			 * Por eso se reintenta lo MISMO antes de recortar nada. Y sale casi
+			 * gratis: un rechazo devuelve 400 sin imagen, así que no se cobra como
+			 * generación. Recién si eso tampoco pasa se manda la versión sin el ICP ni
+			 * las indicaciones, y recién después se cambia de motor —Gemini queda
+			 * último porque escribe peor el texto chico.
+			 */
 			const esFiltro = /safety|moderation|content[_ ]policy/i.test(message);
-			if (esFiltro && input.promptDeRespaldo && input.promptDeRespaldo !== input.prompt) {
-				console.warn(`[image-engines] ${model} rechazó el prompt por su filtro, se reintenta sin el ICP ni las indicaciones`);
-				try {
-					const reintento = await generateWithOpenAI({
-						apiKey: input.openAIKey,
-						model,
-						prompt: input.promptDeRespaldo,
-						images,
-						size: sizeMap[input.format] || '1024x1024',
-						openAIQuality: input.tier || 'medium',
-					});
-					if (reintento.buffer.length > 1024) return { buffer: reintento.buffer, engine: `${model} (${input.tier || 'medium'}, reintento)`, usage: reintento.usage };
-				} catch (segundo) {
-					const mensajeSegundo = segundo instanceof Error ? segundo.message : String(segundo);
-					console.error(`[image-engines] el reintento también fue rechazado:`, mensajeSegundo);
-					failures.push(`${model} (reintento): ${mensajeSegundo}`);
+			if (esFiltro) {
+				const reintentos = [
+					{ prompt: input.prompt, etiqueta: 'el mismo prompt' },
+					...(input.promptDeRespaldo && input.promptDeRespaldo !== input.prompt
+						? [{ prompt: input.promptDeRespaldo, etiqueta: 'sin el ICP ni las indicaciones' }]
+						: []),
+				];
+				for (const [indice, intento] of reintentos.entries()) {
+					console.warn(`[image-engines] ${model} rechazó el pedido por su filtro, se reintenta con ${intento.etiqueta}`);
+					try {
+						const otra = await generateWithOpenAI({
+							apiKey: input.openAIKey,
+							model,
+							prompt: intento.prompt,
+							images,
+							size: sizeMap[input.format] || '1024x1024',
+							openAIQuality: input.tier || 'medium',
+						});
+						if (otra.buffer.length > 1024) {
+							return { buffer: otra.buffer, engine: `${model} (${input.tier || 'medium'}, reintento ${indice + 1})`, usage: otra.usage };
+						}
+					} catch (otroError) {
+						const mensaje = otroError instanceof Error ? otroError.message : String(otroError);
+						failures.push(`${model} (reintento ${indice + 1}): ${mensaje}`);
+						// Un error que NO es del filtro no se reintenta: es del motor o de
+						// la red, y volver a mandar lo mismo no lo va a arreglar.
+						if (!/safety|moderation|content[_ ]policy/i.test(mensaje)) break;
+					}
 				}
+				console.error(`[image-engines] ${model} rechazó todos los intentos, se cae a Gemini`);
 			} else {
 				console.error(`[image-engines] ${model} falló, se cae a Gemini:`, message);
 			}

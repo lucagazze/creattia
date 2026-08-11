@@ -314,3 +314,24 @@ describe('las otras páginas del carrusel como contexto', () => {
 		assert.doesNotMatch(prompt, /the other page/);
 	});
 });
+
+describe('las personas usando el producto', () => {
+	/**
+	 * El párrafo enumeraba anatomía para prohibirla, y medido contra 7 referencias
+	 * eso era lo que hacía que OpenAI rechazara el pedido ENTERO: 5 de 7 con él, 6
+	 * de 7 sin él. Dice lo mismo por el lado positivo y sin una sola de esas
+	 * palabras — el estándar de una campaña de tienda ya excluye lo que hay que
+	 * excluir, y una persona en ropa interior es justo lo que esas campañas
+	 * muestran.
+	 *
+	 * Si alguien vuelve a meter esas palabras, vuelven los rechazos.
+	 */
+	test('se permite mostrarlas, sin nombrar anatomía', () => {
+		const prompt = buildPromptLibre(ficha);
+		assert.match(prompt, /PEOPLE CAN WEAR THE PRODUCT/);
+		assert.match(prompt, /an editorial retail photograph/);
+		for (const palabra of ['genital', 'nipple', 'groin', 'erotic', 'bare ']) {
+			assert.doesNotMatch(prompt, new RegExp(palabra, 'i'), `el prompt no puede decir "${palabra}"`);
+		}
+	});
+});

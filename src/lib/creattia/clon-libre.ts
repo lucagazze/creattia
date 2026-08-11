@@ -311,7 +311,7 @@ THE PRODUCT THIS AD IS NOW FOR
 ${datosDelProducto}${pedido}${pagina}
 THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its waistband, seams, labels, prints and proportions where the photos show them. Its surface is copied as closely as its shape: the same weave or grain, the same perforations, speckles, flecks or bubbles, the same sheen and the same texture up close. Anything printed, stitched, embossed or moulded on it — a wordmark, a size tag, a seal, a logo — is reproduced letter for letter and sits exactly where the photos put it, at the same size and the same angle. Getting the product wrong ruins the ad even if everything else is perfect.
 
-NOTHING EXPLICIT IS EVER SHOWN — people may wear the product and their body may be seen, hips, waist and the groin area the garment covers included. What must never appear is bare genitals, the shape of genitals read through the fabric, or bare nipples. The fabric is opaque and sits flat, and the framing is the one a retailer uses for its catalogue, not an erotic one.
+PEOPLE CAN WEAR THE PRODUCT — shoot them the way the brand itself would for its own campaign: an editorial retail photograph, the kind a shop publishes on its product page and runs as an ad. The garment is opaque, sits flat and stays where it belongs, the pose is one a catalogue would print, and the crop is the one a retailer chooses.
 
 ${escena}
 
