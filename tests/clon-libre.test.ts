@@ -198,3 +198,33 @@ describe('el prompt de respaldo, para cuando OpenAI rechaza', () => {
 });
 
 
+
+describe('quién aparece en el aviso', () => {
+	/**
+	 * Sin elegir nada el aviso lo resuelve mirando el ganador, que es lo que sale
+	 * bien casi siempre. Si esto se invierte, un aviso que funcionaba con gente
+	 * empieza a salir sin nadie.
+	 */
+	test('sin decisión, la escena se recastea sola', () => {
+		const prompt = buildPromptLibre(ficha);
+		assert.match(prompt, /another person, the one this product is for/);
+		assert.match(prompt, /The same face in the same place is the sign nothing was adapted/);
+	});
+
+	/**
+	 * La decisión REEMPLAZA la frase, no se le suma. Con las dos presentes se le
+	 * piden dos cosas distintas y gana la que ve en la imagen del ganador, así que
+	 * elegir "nadie" sobre un ganador con gente no hacía nada.
+	 */
+	test('elegir que no aparezca nadie reemplaza el recasteo', () => {
+		const prompt = buildPromptLibre({ ...ficha, decisionDePersona: 'No person appears anywhere in this ad.' });
+		assert.match(prompt, /No person appears anywhere in this ad\./);
+		assert.doesNotMatch(prompt, /another person, the one this product is for/);
+	});
+
+	test('con fotos propias, la persona es la de las fotos', () => {
+		const prompt = buildPromptLibre({ ...ficha, decisionDePersona: 'The person in it is the one in the supplied photos.' });
+		assert.match(prompt, /the one in the supplied photos/);
+		assert.doesNotMatch(prompt, /The same face in the same place/);
+	});
+});

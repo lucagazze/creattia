@@ -55,6 +55,15 @@ export type FichaDelProducto = {
 	 * come lugar a las reglas que sí se midieron.
 	 */
 	indicaciones?: string;
+	/**
+	 * Quién aparece, cuando el usuario lo decidió.
+	 *
+	 * Sin decisión el aviso la toma solo, que es lo que sale bien casi siempre.
+	 * Cuando hay decisión REEMPLAZA la frase que dice recastear a la persona: con
+	 * las dos presentes se le piden dos cosas distintas y gana la que ve en la
+	 * imagen del ganador, así que la elección se ignoraba.
+	 */
+	decisionDePersona?: string;
 	/** El usuario decidió qué hacer con el logo: pisa la regla por defecto. */
 	decisionDeLogo?: string;
 	/** Para una página de carrusel: en cuál va y de cuántas. */
@@ -158,6 +167,53 @@ export function fotosParaElMotor(fotos: EngineImage[], lectura: LecturaDelProduc
 	return limpias.length ? limpias : fotos;
 }
 
+/**
+ * Tres cosas del producto que valdría la pena destacar, para no dejar el campo
+ * de indicaciones en blanco.
+ *
+ * Sale de lo que se scrapeó de la URL y nada más: no mira el anuncio ganador. Se
+ * probó mirándolo y no pagaba —tres ganadores muy distintos devolvían las mismas
+ * tres frases— así que la llamada de visión y la descarga de la imagen se
+ * ahorran enteras. Son un punto de partida, no una recomendación: la cuarta
+ * opción, escribir lo propio, es el campo de abajo y nunca se va.
+ */
+export async function sugerirQueDestacar(
+	claves: ClavesDeApi,
+	entrada: { nombre?: string; datos?: string },
+): Promise<string[]> {
+	if (!claves.openAIKey || !(entrada.nombre || entrada.datos)) return [];
+	try {
+		const respuesta = await fetch('https://api.openai.com/v1/chat/completions', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${claves.openAIKey}` },
+			body: JSON.stringify({
+				model: 'gpt-4o-mini',
+				response_format: { type: 'json_object' },
+				max_tokens: 250,
+				messages: [{
+					role: 'user',
+					content: `A shop sells this:
+${entrada.nombre || ''}
+${entrada.datos || ''}
+
+Three things worth putting in an ad for it, in the advertiser's own everyday words: its offer if it has one, what makes it better than what people use today, the proof or guarantee it can show. Under 9 words each, in the same language as the text above. Only what that text supports — skip anything it does not say. Never mention where to put them or how big.
+
+Answer JSON: {"sugerencias":["...","...","..."]}`,
+				}],
+			}),
+		});
+		if (!respuesta.ok) return [];
+		const json = await respuesta.json();
+		const leido = JSON.parse(json?.choices?.[0]?.message?.content || '{}');
+		return Array.isArray(leido.sugerencias)
+			? leido.sugerencias.filter((s: unknown) => typeof s === 'string' && s.trim()).map((s: string) => s.trim().slice(0, 120)).slice(0, 3)
+			: [];
+	} catch (error) {
+		console.error('[clon-libre] no se pudieron armar las sugerencias:', error);
+		return [];
+	}
+}
+
 const linea = (etiqueta: string, valor?: string | string[] | null) => {
 	if (!valor) return '';
 	const texto = Array.isArray(valor) ? valor.filter(Boolean).join(' · ') : String(valor).trim();
@@ -224,6 +280,11 @@ WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: ${ficha.indicaciones.trim()}
 `
 		: '';
 
+	// La decisión sobre la persona reemplaza la frase entera, no se le suma.
+	const escena = ficha.decisionDePersona
+		? `EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now, somewhere this product is really used. ${ficha.decisionDePersona}`
+		: 'EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now: another person, the one this product is for, somewhere this product is really used. The same face in the same place is the sign nothing was adapted.';
+
 	const pagina = ficha.carrusel
 		? `\nThis is page ${ficha.carrusel.indice + 1} of a ${ficha.carrusel.total}-page carousel and the reference is that page: make this one only, and make it sit with the others as one set.\n`
 		: '';
@@ -242,7 +303,7 @@ THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you 
 
 NOTHING EXPLICIT IS EVER SHOWN — people may wear the product and their body may be seen, hips, waist and the groin area the garment covers included. What must never appear is bare genitals, the shape of genitals read through the fabric, or bare nipples. The fabric is opaque and sits flat, and the framing is the one a retailer uses for its catalogue, not an erotic one.
 
-EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now: another person, the one this product is for, somewhere this product is really used. The same face in the same place is the sign nothing was adapted.
+${escena}
 
 If the ad sets two sides against each other — before and after, us against them, with and without — keep that comparison and keep the sides clearly opposed. The product's side is the good one.
 

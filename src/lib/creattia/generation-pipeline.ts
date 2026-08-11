@@ -364,6 +364,19 @@ function caminoDeRender(): 'libre' | 'detallado' | 'corto' {
 	return 'libre';
 }
 
+/**
+ * Quién aparece, cuando el usuario lo eligió.
+ *
+ * `ai` es no haber elegido: devuelve undefined y el aviso lo resuelve mirando el
+ * ganador, que es lo que sale bien casi siempre.
+ */
+function quienAparece(mode: PersonMode | undefined, hayFotos: boolean, descripcion?: string) {
+	if (mode === 'none') return 'No person appears anywhere in this ad — not a face, not a hand, not a silhouette. If the reference showed someone, that space is filled by the product or by the setting.';
+	if (mode === 'upload' && hayFotos) return 'The person in it is the one in the supplied photos: same face, same build, same hair. Put them where the reference puts its own person, in that pose and that framing.';
+	if (mode === 'described' && descripcion?.trim()) return `The person in it is: ${descripcion.trim()}. Put them where the reference puts its own person, in that pose and that framing.`;
+	return undefined;
+}
+
 /** La decisión de firma del usuario, dicha en una línea que reemplaza la regla. */
 function firmaElegida(logoMode: LogoMode | undefined, hasLogo: boolean) {
 	if (logoMode === 'nada') return 'This ad carries no logo, no wordmark and no brand line anywhere, at any size.';
@@ -414,6 +427,7 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
 			// El idioma que eligió el usuario manda; sin elección se usa el de la ficha.
 			idioma: input.language ? LANGUAGE_NAMES[input.language] : undefined,
 			decisionDeLogo: firmaElegida(input.logoMode, hasLogo),
+		decisionDePersona: quienAparece(input.personMode, (input.avatarImageCount || 0) > 0, input.avatarDescription),
 		carrusel: input.carousel ? { indice: input.carousel.index, total: input.carousel.total } : undefined,
 	};
 }

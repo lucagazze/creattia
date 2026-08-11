@@ -226,6 +226,16 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * nombre de la marca donde el ganador firma, que es lo que sale bien casi
 	 * siempre. Ofrecer un cambio que no cambia nada sería un control decorativo.
 	 */
+	/**
+	 * Lo que propone la IA mirando ESTE ganador y ESTE producto.
+	 *
+	 * Frente a un campo vacío casi nadie escribe: no porque no tenga qué decir,
+	 * sino porque no sabe qué se puede pedir. Con tres opciones concretas la
+	 * pregunta se contesta con un toque, y la cuarta —escribir lo propio— es el
+	 * campo de abajo, que nunca se va.
+	 */
+	const [sugerencias, setSugerencias] = useState<string[]>([]);
+	const [buscandoSugerencias, setBuscandoSugerencias] = useState(false);
 	const [logoPropio, setLogoPropio] = useState<File | null>(null);
 	const [logoPropioVista, setLogoPropioVista] = useState('');
 	/**
@@ -842,6 +852,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (!wantsFullCarousel) {
 				setConfirmacion({ productIds, offering: offeringForSubmit });
 				setPhase('confirmar');
+				void pedirSugerencias(productIds);
 				return;
 			}
 
@@ -958,6 +969,29 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		});
 	}, [phase, marcaDeLaUrl]);
 
+	/**
+	 * Qué destacar, propuesto mirando el ganador y el producto.
+	 *
+	 * Falla en silencio a propósito: sin sugerencias el campo se escribe a mano
+	 * igual, y un cartel rojo por esto sería ruido sobre algo opcional.
+	 */
+	async function pedirSugerencias(productIds: string[]) {
+		if (!token) return;
+		setBuscandoSugerencias(true);
+		try {
+			const form = new FormData();
+			productIds.forEach((id) => form.append('productIds', id));
+			if (productMode === 'manual' || isService) {
+				form.set('productName', manualProductName.trim());
+				form.set('productFacts', manualProductFacts.trim());
+			}
+			const response = await fetch('/api/creativos/sugerencias', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
+			const payload = await response.json().catch(() => ({}));
+			setSugerencias(Array.isArray(payload.sugerencias) ? payload.sugerencias : []);
+		} catch { /* sin sugerencias: el campo se escribe a mano */ }
+		finally { setBuscandoSugerencias(false); }
+	}
+
 	async function guardarAvatarCargado(): Promise<string> {
 		// Con una foto alcanza para fijar la cara. El piso de cuatro dejaba afuera
 		// al que tiene una sola buena foto suya, que es el caso más común.
@@ -1026,12 +1060,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			// mandarlas. `logoMode: 'nada'` apagaría la firma en TODOS los avisos,
 			// incluso en los que el ganador firma; sin el campo, el prompt decide
 			// mirando la referencia, que es lo que queremos.
+			form.set('personMode', personMode);
+			if (personMode === 'upload') form.set('avatarId', await guardarAvatarCargado());
 			if (!directo) {
 				form.set('logoMode', logoMode);
-				form.set('personMode', personMode);
 				form.set('pressRowMode', pressRowMode);
 				if (pressRowMode !== 'quitar') form.set('pressRowItems', pressRowItems.trim());
-				if (personMode === 'upload') form.set('avatarId', await guardarAvatarCargado());
 				form.set('plan', JSON.stringify(planRevisado()));
 			}
 			if ((productMode === 'url' || isService) && idsDeProducto.length) {
@@ -1752,9 +1786,64 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								)}
 							</div>
 
+							{/* Quién aparece. Sin elegir nada lo decide la IA mirando el ganador,
+							    que es lo que sale bien casi siempre; las otras dos reemplazan esa
+							    frase del prompt en vez de sumarse a ella. */}
+							<div style={{ marginTop: '18px' }}>
+								<span className="picker-label">¿Querés que aparezca una persona?</span>
+								<p className="batch-detail-help">Si dejás "que decida la IA", lo resuelve mirando el anuncio ganador.</p>
+								<div className="logo-decision-options opciones-cortas" role="radiogroup" aria-label="Quién aparece en el aviso">
+									{([
+										{ id: 'ai', label: 'Que decida la IA' },
+										{ id: 'none', label: 'Nadie' },
+										{ id: 'upload', label: 'Con mis fotos' },
+									] as Array<{ id: PersonMode; label: string }>).map((opcion) => (
+										<button
+											key={opcion.id}
+											type="button" role="radio" aria-checked={personMode === opcion.id}
+											className={personMode === opcion.id ? 'active' : ''}
+											disabled={phase === 'starting'}
+											onClick={() => setPersonMode(opcion.id)}
+										>
+											{opcion.label}
+										</button>
+									))}
+								</div>
+								{personMode === 'upload' && cargaDeAvatar}
+							</div>
+
 							<div style={{ marginTop: '18px' }}>
 								<span className="picker-label">¿Algo que quieras destacar? <small style={{ fontWeight: 400, color: '#8a8593' }}>(opcional)</small></span>
 								<p className="batch-detail-help">Tocá una de estas o escribí lo tuyo. Dónde ponerlo y de qué tamaño lo decide la IA.</p>
+								{buscandoSugerencias && (
+									<p className="batch-detail-help" style={{ margin: '0 0 8px' }}>
+										<span className="studio-spinner small" aria-hidden="true" /> Buscando qué destacar…
+									</p>
+								)}
+								{sugerencias.length > 0 && (
+									<div className="creation-suggestion-chips">
+										{sugerencias.map((sugerencia) => {
+											const puesta = indicaciones.includes(sugerencia);
+											return (
+												<button
+													key={sugerencia}
+													type="button"
+													className={puesta ? 'active' : ''}
+													disabled={phase === 'starting'}
+													aria-pressed={puesta}
+													onClick={() => setIndicaciones((previo) => {
+														if (previo.includes(sugerencia)) {
+															return previo.replace(sugerencia, '').replace(/\s*·\s*·\s*/g, ' · ').replace(/^\s*·\s*|\s*·\s*$/g, '').trim();
+														}
+														return (previo.trim() ? `${previo.trim()} · ${sugerencia}` : sugerencia).slice(0, 600);
+													})}
+												>
+													{puesta ? '✓ ' : '+ '}{sugerencia}
+												</button>
+											);
+										})}
+									</div>
+								)}
 									<textarea
 									value={indicaciones}
 									onChange={(event) => setIndicaciones(event.target.value.slice(0, 600))}
@@ -1793,7 +1882,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								<button
 									type="button"
 									className="url-batch-submit-btn"
-									disabled={phase === 'starting'}
+									disabled={phase === 'starting' || Boolean(faltaParaElAvatar)}
 									onClick={() => { if (confirmacion) void approveAndGenerate(confirmacion); }}
 								>
 									{phase === 'starting'
