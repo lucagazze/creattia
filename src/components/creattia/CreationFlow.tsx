@@ -818,7 +818,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (!wantsFullCarousel) {
 				setConfirmacion({ productIds, offering: offeringForSubmit });
 				setPhase('confirmar');
-				precargarRolesDeColor();
 				void pedirSugerencias(productIds);
 				return;
 			}
@@ -925,7 +924,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * Falla en silencio a propósito: sin sugerencias el campo se escribe a mano
 	 * igual, y un cartel rojo por esto sería ruido sobre algo opcional.
 	 */
-	function precargarRolesDeColor() {
+	useEffect(() => {
+		if (phase !== 'confirmar') return;
 		const detectada = marcaDeLaUrl?.palette || {};
 		setRolesDeColor((previo) => {
 			// Solo se completan los vacíos: si alguien ya corrigió un color, volver a
@@ -937,7 +937,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			}
 			return siguiente;
 		});
-	}
+	}, [phase, marcaDeLaUrl]);
 
 	async function pedirSugerencias(productIds: string[]) {
 		if (!token) return;

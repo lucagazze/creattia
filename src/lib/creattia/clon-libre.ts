@@ -170,6 +170,13 @@ export function fotosParaElMotor(fotos: EngineImage[], lectura: LecturaDelProduc
  * sale del cruce: un ganador que compara dos lados pide un contra qué compararse,
  * uno con una chapa de precio pide el precio. Devuelve intenciones, nunca
  * maquetas: dónde va cada cosa lo decide el modelo al generar.
+ *
+ * `recursos` no lo lee nadie y NO se puede sacar: existe para obligarlo a mirar
+ * la imagen. Pidiéndole las sugerencias de una, los tres ganadores devolvían las
+ * mismas tres —los beneficios sueltos de la ficha— porque contestaba desde el
+ * texto sin abrir la imagen. Teniendo que escribir primero qué recursos usa ESTE
+ * aviso, la respuesta cambia con el ganador: el que enfrenta dos lados devuelve
+ * "Bambú VS Algodón", el del descuento devuelve la oferta.
  */
 export async function sugerirQueDestacar(
 	claves: ClavesDeApi,
@@ -189,13 +196,15 @@ export async function sugerirQueDestacar(
 					content: [
 						{
 							type: 'text',
-							text: `The image is an ad that is about to be remade for this product:
+							text: `Look at the image. It is an ad that is about to be remade for this product:
 ${entrada.nombre || ''}
 ${entrada.datos || ''}
 
-Looking at what this particular ad does — what it compares, what it puts in a badge, what it promises — propose 4 things worth highlighting when it is remade for this product. Each one is what the advertiser WANTS SAID, in their own everyday words, never where to put it and never a size. Under 9 words each. Only things the product information above supports.
+"recursos": name the THREE devices THIS image uses to sell — read them off the image, do not guess. Quote the actual words where there are words: its offer or discount, what it compares itself against, what it stamps in a badge or seal, the promise in its headline, the proof it shows. Three, in English, under 10 words each.
 
-Write them in the same language as the product information. Answer JSON: {"sugerencias":["...","..."]}`,
+"sugerencias": for each device, what this product's equivalent would be, in the advertiser's own everyday words. A discount ad asks what this product's offer is. An ad pitting two sides asks what this product beats. A badge asks what proof this product has. Under 9 words each, in the language of the product information above. Only what that information supports: if there is no equivalent for one device, skip it. Never say where to put anything or how big.
+
+Answer JSON: {"recursos":["...","...","..."],"sugerencias":["...","...","..."]}`,
 						},
 						{ type: 'image_url', image_url: { url: `data:${entrada.ganador.type};base64,${entrada.ganador.buffer.toString('base64')}` } },
 					],
@@ -206,7 +215,7 @@ Write them in the same language as the product information. Answer JSON: {"suger
 		const json = await respuesta.json();
 		const leido = JSON.parse(json?.choices?.[0]?.message?.content || '{}');
 		return Array.isArray(leido.sugerencias)
-			? leido.sugerencias.filter((s: unknown) => typeof s === 'string' && s.trim()).map((s: string) => s.trim().slice(0, 120)).slice(0, 4)
+			? leido.sugerencias.filter((s: unknown) => typeof s === 'string' && s.trim()).map((s: string) => s.trim().slice(0, 120)).slice(0, 3)
 			: [];
 	} catch (error) {
 		console.error('[clon-libre] no se pudieron armar las sugerencias:', error);
