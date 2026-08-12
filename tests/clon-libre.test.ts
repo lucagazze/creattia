@@ -108,27 +108,35 @@ describe('el prompt del clon libre', () => {
 	});
 
 	/**
-	 * Elegir la identidad propia REEMPLAZA la cláusula del ganador, no se suma.
-	 * Con las dos presentes se le piden dos cosas distintas y gana la que ve en la
-	 * imagen, así que la elección se ignoraba.
+	 * La identidad elegida sale de la lista y pasa a un bloque propio.
+	 *
+	 * Nombrada DENTRO de la enumeración de siete cosas que se conservan del
+	 * ganador, pesaba como un ítem más entre siete: se elegían los colores de la
+	 * web y el aviso salía con los del ganador igual. En la lista queda la
+	 * ESTRUCTURA —tamaños, pesos, roles de color— y la identidad se dice aparte,
+	 * que es lo único que la hace pesar.
 	 */
-	test('la identidad elegida reemplaza a la del ganador', () => {
+	test('la identidad elegida se dice en su propio bloque', () => {
 		const prompt = buildPromptLibre({
 			...ficha,
 			coloresDeLaMarca: ['#0b1120', '#dd1d1d'],
 			tipografiaDeLaMarca: { headings: 'Outfit', body: 'Inter' },
 		});
-		assert.match(prompt, /Outfit for headings, Inter for body/);
-		assert.match(prompt, /#0b1120, #dd1d1d/);
+		assert.match(prompt, /THIS AD IS SET IN THE ADVERTISER'S OWN IDENTITY, NOT THE REFERENCE'S/);
+		assert.match(prompt, /Outfit for every headline/);
+		assert.match(prompt, /Inter for the body copy/);
+		assert.match(prompt, /#0b1120, #dd1d1d, and only those/);
+		// Y la del ganador deja de nombrarse: tener las dos es pedirle dos cosas.
 		assert.doesNotMatch(prompt, /the very letterforms you can see in the image/);
-		assert.doesNotMatch(prompt, /the same colour palette/);
+		assert.doesNotMatch(prompt, /the same colour palette, the same accent colour/);
 	});
 
 	/** Se puede cambiar una sola: la otra sigue siendo la del ganador. */
 	test('los dos controles son independientes', () => {
 		const soloLetra = buildPromptLibre({ ...ficha, tipografiaDeLaMarca: { headings: 'Outfit' } });
-		assert.match(soloLetra, /Outfit for headings/);
-		assert.match(soloLetra, /the same colour palette/);
+		assert.match(soloLetra, /Outfit for every headline/);
+		assert.match(soloLetra, /the same colour palette, the same accent colour/);
+		assert.doesNotMatch(soloLetra, /and only those/);
 	});
 
 	test('lo que se scrapeó del producto viaja entero', () => {

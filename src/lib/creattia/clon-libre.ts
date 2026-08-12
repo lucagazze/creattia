@@ -380,16 +380,36 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 	// Los colores y la tipografía de la marca no se agregan como un pedido más:
 	// REEMPLAZAN la cláusula del ganador. Tener las dos es pedirle dos cosas
 	// distintas, y ahí gana la que ve en la imagen y la elección se ignora.
-	const letra = (ficha.tipografiaDeLaMarca?.headings || ficha.tipografiaDeLaMarca?.body)
-		? `the same type sizes, weights, alignments and hierarchy, but set in this brand's own typefaces (${[
-			ficha.tipografiaDeLaMarca.headings && `${ficha.tipografiaDeLaMarca.headings} for headings`,
-			ficha.tipografiaDeLaMarca.body && `${ficha.tipografiaDeLaMarca.body} for body`,
-		].filter(Boolean).join(', ')})`
+	// La identidad elegida salía nombrada DENTRO de la lista de siete cosas que se
+	// conservan del ganador, y ahí pesaba como un ítem más entre siete: se elegían
+	// los colores de la web y el aviso salía con los del ganador igual. Lo que
+	// queda en la lista es la ESTRUCTURA —tamaños, pesos, alineaciones, roles— y
+	// la identidad pasa a un bloque propio, que es lo único que la hace pesar.
+	const eligioLetra = Boolean(ficha.tipografiaDeLaMarca?.headings || ficha.tipografiaDeLaMarca?.body);
+	const eligioColor = Boolean(ficha.coloresDeLaMarca?.length);
+
+	const letra = eligioLetra
+		? 'the same type sizes, weights, alignments and hierarchy'
 		: 'the same typography — the very letterforms you can see in the image — the same type sizes, weights and alignments';
 
-	const color = ficha.coloresDeLaMarca?.length
-		? `this brand's own palette (${ficha.coloresDeLaMarca.join(', ')}) mapped onto the very same roles the reference uses — what was the background stays the background, what was the ink stays the ink, and the accent still lands on the equivalent word`
+	const color = eligioColor
+		? 'the same colour roles: what was the background is still the background, what was the ink is still the ink, and the accent still lands on the equivalent word'
 		: 'the same colour palette, the same accent colour on the same word';
+
+	const tipografiaPedida = [
+		ficha.tipografiaDeLaMarca?.headings && `${ficha.tipografiaDeLaMarca.headings} for every headline and every large word`,
+		ficha.tipografiaDeLaMarca?.body && `${ficha.tipografiaDeLaMarca.body} for the body copy, the captions and the small print`,
+	].filter(Boolean).join(', and ');
+
+	const identidad = (eligioLetra || eligioColor)
+		? `THIS AD IS SET IN THE ADVERTISER'S OWN IDENTITY, NOT THE REFERENCE'S. ${
+			eligioLetra ? `The type is ${tipografiaPedida}. Those are the typefaces that get drawn — the reference's letterforms do not appear anywhere in this ad, not even where they would look better. ` : ''
+		}${
+			eligioColor ? `The colours are ${ficha.coloresDeLaMarca!.join(', ')}, and only those: every surface, every block, every word and every button is painted from that set, in the same roles the reference uses them. A colour of the reference that is not in that list does not survive. ` : ''
+		}This is the part somebody will check first against their own brand, so it is the part that has to be exact.
+
+`
+		: '';
 
 	// Iba como una línea suelta dentro de la ficha, al lado del precio y la
 	// categoría, y se leía como un dato más entre veinte. Se pedía algo y a veces
@@ -464,7 +484,7 @@ ${textosEscritos}Each new line keeps the shape of the one it replaces: the same 
 
 THE PRODUCT THIS AD IS NOW FOR
 ${datosDelProducto}${pagina}
-${pedido}THE DESIGN COMES FROM THE FIRST IMAGE AND FROM NOWHERE ELSE. If a product photo arrives with a design of its own on it — text, a headline, a price, a badge, a banner, a flag — that design belongs to whoever made that photo and has nothing to do with this ad. Take the object out of it and leave the rest behind.
+${identidad}${pedido}THE DESIGN COMES FROM THE FIRST IMAGE AND FROM NOWHERE ELSE. If a product photo arrives with a design of its own on it — text, a headline, a price, a badge, a banner, a flag — that design belongs to whoever made that photo and has nothing to do with this ad. Take the object out of it and leave the rest behind.
 
 THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its waistband, seams, labels, prints and proportions where the photos show them. Its surface is copied as closely as its shape: the same weave or grain, the same perforations, speckles, flecks or bubbles, the same sheen and the same texture up close. Anything printed, stitched, embossed or moulded on it — a wordmark, a size tag, a seal, a logo — is reproduced letter for letter and sits exactly where the photos put it, at the same size and the same angle. Getting the product wrong ruins the ad even if everything else is perfect.
 
