@@ -35,13 +35,18 @@ export const POST: APIRoute = async ({ request }) => {
 		 * Cada llamada firma hasta 250 rutas contra Storage y lee el manifiesto
 		 * entero para validarlas. Es barato por llamada pero se invoca en cada
 		 * scroll, así que sin techo una cuenta puede pedirlo en bucle y saturar la
-		 * cuota de Storage para todos los demás. Doscientas por hora cubren de
-		 * sobra a alguien recorriendo la biblioteca completa.
+		 * cuota de Storage para todos los demás.
+		 *
+		 * Mil y no doscientas: el front pide por tarjeta, no por pantalla, así que
+		 * una hora de uso real de UNA persona midió 237 pedidos — con 200 la
+		 * biblioteca se le puso en blanco a un usuario navegando normal, en todas
+		 * las versiones a la vez porque el contador vive en la base compartida. El
+		 * techo es para el bucle de un script, no para el scroll de una persona.
 		 *
 		 * No cierra por defecto: si el limitador está caído, preferimos que la
 		 * biblioteca se siga viendo.
 		 */
-		const dentroDelLimite = await checkRateLimit(admin, auth.user.id, 'reference-urls', 200, 3600);
+		const dentroDelLimite = await checkRateLimit(admin, auth.user.id, 'reference-urls', 1000, 3600);
 		if (!dentroDelLimite) return json({ error: 'Demasiados pedidos seguidos. Esperá unos segundos.' }, 429);
 
 		const access = await getEffectiveAccess(admin, auth.user.id, auth.user.email);
