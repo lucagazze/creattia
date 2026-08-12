@@ -2068,6 +2068,15 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 																		}}
 																	/>
 																</label>
+																{fotosElegidas.length !== 1 && fotos.length > 1 && (
+																	<button
+																		type="button"
+																		className="creation-fotos-todas"
+																		onClick={() => setFotosElegidas([fotos[0].path || 'upload:0'])}
+																	>
+																		Dejar solo la primera
+																	</button>
+																)}
 																{fotosElegidas.length > 0 && fotosElegidas.length < fotos.length && (
 																	<button type="button" className="creation-fotos-todas" onClick={() => setFotosElegidas([])}>
 																		Volver a usarlas todas
