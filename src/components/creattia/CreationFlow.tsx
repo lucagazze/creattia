@@ -1325,6 +1325,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const [rehaciendo, setRehaciendo] = useState<number | null>(null);
 
+	/** El producto elegido, para los textos que se reescriben desde una URL. */
+	const productoImportado: any = importedProducts.find((item: any) => selectedProductIds.includes(item.id)) || importedProducts[0] || null;
+
 	async function regenerateCopy(index: number) {
 		const zone = zones[index];
 		if (!zone) return;
@@ -1338,8 +1341,14 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					original: zone.original,
 					current: zone.replacement,
 					messageRole: zone.messageRole,
-					productName: manualProductName || 'producto',
-					productFacts: manualProductFacts,
+					// Con una URL, `manualProductName` está vacío: el producto vino del
+					// escaneo. Sin este respaldo, "Rehacer" reescribía el texto para un
+					// "producto" genérico y sin un solo dato, que es peor que el original.
+					productName: manualProductName || productoImportado?.name || 'producto',
+					productFacts: manualProductFacts || [
+						productoImportado?.description,
+						productoImportado?.price_text && `${productoImportado.price_text} ${productoImportado.currency || ''}`,
+					].filter(Boolean).join(' · '),
 					language,
 				}),
 			});
@@ -2121,18 +2130,42 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									<p className="batch-detail-help">Corregí lo que no te guste. Sale exactamente esto, así que si algo está mal escrito acá, va mal escrito a la imagen.</p>
 									<div className="creation-textos">
 										{zones.map((zone, index) => (
-											<label key={`${zone.where || 'texto'}-${index}`} className="creation-texto">
-												<small title={zone.original || ''}>{zone.original || 'Texto sin leer'}</small>
-												<textarea
-													value={zone.replacement || ''}
-													rows={(zone.replacement || '').length > 70 ? 3 : 1}
-													maxLength={300}
-													disabled={phase === 'starting'}
-													onChange={(event) => setZones((actual) => actual.map((item, i) => (
-														i === index ? { ...item, replacement: event.target.value } : item
-													)))}
-												/>
-											</label>
+											<div
+												className="detected-copy-row"
+												key={`${zone.where || 'texto'}-${index}`}
+												title={`${zone.where || ''}${zone.messageRole ? ` · ${zone.messageRole}` : ''}`}
+												style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, .8fr) minmax(220px, 1.2fr)', gap: '12px', alignItems: 'start', padding: '10px 0', borderTop: index ? '1px solid #f0edf5' : 'none' }}
+											>
+												{/* Lo que decía el ganador, a la izquierda: es contexto para saber qué
+												    bloque se está tocando, no algo editable. */}
+												<div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+													<span style={{ fontSize: '12px', fontWeight: 600, color: '#8b8490', lineHeight: 1.35, fontStyle: 'italic' }}>
+														{zone.original || 'Texto sin leer'}
+													</span>
+													{zone.messageRole && <span style={{ fontSize: '11px', color: '#744bde', fontWeight: 700 }}>{zone.messageRole}</span>}
+												</div>
+												<div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', minWidth: 0 }}>
+													<textarea
+														value={zone.replacement || ''}
+														rows={(zone.replacement || '').length > 60 ? 2 : 1}
+														maxLength={300}
+														disabled={phase === 'starting'}
+														style={{ flex: 1, minWidth: 0, padding: '8px 11px', border: '1px solid #ece9f1', borderRadius: '9px', fontSize: '13.5px', fontFamily: 'inherit', color: '#19171d', lineHeight: 1.4, resize: 'vertical' }}
+														onChange={(event) => setZones((actual) => actual.map((item, i) => (
+															i === index ? { ...item, replacement: event.target.value } : item
+														)))}
+													/>
+													<button
+														type="button"
+														className="creation-texto-rehacer"
+														disabled={rehaciendo !== null || phase === 'starting'}
+														title="Que la IA lo escriba de nuevo"
+														onClick={() => void regenerateCopy(index)}
+													>
+														{rehaciendo === index ? '…' : 'Rehacer'}
+													</button>
+												</div>
+											</div>
 										))}
 									</div>
 								</div>

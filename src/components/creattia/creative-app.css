@@ -7153,18 +7153,14 @@
 .creation-color-restablecer:hover:not(:disabled) svg { transform: rotate(-180deg); }
 .creation-color-restablecer:disabled { opacity: .45; cursor: default; }
 
-/* Los textos del aviso, ya escritos y corregibles antes de generar. */
-.creation-textos { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-.creation-texto { display: flex; flex-direction: column; gap: 3px; }
-/* Lo que decía el ganador va arriba y en chico: es contexto para entender qué
-   bloque se está tocando, no algo que se pueda editar. */
-.creation-texto > small {
-	font-size: 11px; color: #a5a1ae; line-height: 1.35;
-	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+/* Los textos del aviso, ya escritos y corregibles antes de generar.
+   Mismo formato que la revisión de siempre: lo que decía a la izquierda, lo que
+   va a decir a la derecha, y un botón para que la IA lo reescriba. */
+.creation-textos { margin-top: 10px; }
+.creation-texto-rehacer {
+	flex: none; padding: 8px 12px; border: 1px solid #dcd5e4; border-radius: 9px; background: #fff;
+	font: 600 12px/1.2 inherit; color: #716d79; cursor: pointer;
+	transition: border-color .15s, background .15s, color .15s;
 }
-.creation-texto textarea {
-	width: 100%; padding: 8px 11px; border: 1px solid #ece9f1; border-radius: 9px; background: #fff;
-	font-size: 13.5px; font-family: inherit; color: #3d3945; line-height: 1.4; resize: vertical;
-}
-.creation-texto textarea:focus { outline: none; border-color: #c9bcf0; box-shadow: 0 0 0 2px #f3eeff; }
-.creation-texto textarea:disabled { opacity: .6; }
+.creation-texto-rehacer:hover:not(:disabled) { border-color: #b9a6ee; background: #faf7ff; color: #4a2a9e; }
+.creation-texto-rehacer:disabled { opacity: .45; cursor: default; }
