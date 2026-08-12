@@ -563,6 +563,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		.filter((valor): valor is string => typeof valor === 'string' && /^#[0-9a-f]{6}$/i.test(valor)))];
 	const tipografiaDeLaUrl: string = [marcaDeLaUrl?.typography?.headings, marcaDeLaUrl?.typography?.body]
 		.filter(Boolean).join(' · ');
+	/** Si hay algo detectado que valga la pena poder restablecer. */
+	const hayColoresDetectados: boolean = colorMode === 'brand'
+		? Boolean(miMarca?.colors?.length)
+		: Boolean(paletaDeLaUrl.length || (Array.isArray(marcaDeLaUrl?.colors) && marcaDeLaUrl.colors.length));
 
 	const logoDeLaUrl: string = (() => {
 		const elegido = importedProducts.find((item: any) => selectedProductIds.includes(item.id) && item?.metadata?.brandFromUrl?.logoUrl);
@@ -1864,13 +1868,22 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							<div className="creation-confirm-identity">
 								{colorMode !== 'winner' && (
 								<div style={{ gridColumn: '1 / -1' }}>
-									<span className="picker-label">{colorMode === 'brand' ? 'Los colores de Mi marca' : 'Colores detectados en tu web'}</span>
+									{/* El botón va en la línea del título y no debajo del texto de
+									    ayuda: ahí competía con el párrafo y quedaba flotando en el medio.
+									    Y solo aparece si hay algo detectado que restablecer — si no,
+									    sería un control que no hace nada. */}
 									<div className="creation-color-encabezado">
-										<p className="batch-detail-help" style={{ margin: 0 }}>Corregí el que no cuadre. La IA los usa como referencia, no los copia tal cual.</p>
-										<button type="button" className="creation-color-restablecer" disabled={phase === 'starting'} onClick={() => coloresDetectados(true)}>
-											{colorMode === 'brand' ? 'Restablecer los de Mi marca' : 'Restablecer los de la web'}
-										</button>
+										<span className="picker-label" style={{ margin: 0 }}>{colorMode === 'brand' ? 'Los colores de Mi marca' : 'Colores detectados en tu web'}</span>
+										{hayColoresDetectados && (
+											<button type="button" className="creation-color-restablecer" disabled={phase === 'starting'} onClick={() => coloresDetectados(true)}>
+												<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+													<path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" />
+												</svg>
+												Restablecer
+											</button>
+										)}
 									</div>
+									<p className="batch-detail-help">Corregí el que no cuadre. La IA los usa como referencia, no los copia tal cual.</p>
 									<div className="creation-color-roles">
 										{ROLES_DE_COLOR.map((rol) => (
 											<button
