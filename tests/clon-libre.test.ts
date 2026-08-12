@@ -105,6 +105,8 @@ describe('el prompt del clon libre', () => {
 		const prompt = buildPromptLibre(ficha);
 		assert.match(prompt, /the same typography — the very letterforms you can see in the image/);
 		assert.match(prompt, /the same colour palette, the same accent colour on the same word/);
+		// Y sin bloque de identidad: no hay identidad propia que imponer.
+		assert.doesNotMatch(prompt, /ADVERTISER'S OWN IDENTITY/);
 	});
 
 	/**
@@ -118,17 +120,67 @@ describe('el prompt del clon libre', () => {
 			coloresDeLaMarca: ['#0b1120', '#dd1d1d'],
 			tipografiaDeLaMarca: { headings: 'Outfit', body: 'Inter' },
 		});
-		assert.match(prompt, /Outfit for headings, Inter for body/);
+		assert.match(prompt, /Outfit for every headline/);
+		assert.match(prompt, /Inter for the body copy/);
 		assert.match(prompt, /#0b1120, #dd1d1d/);
 		assert.doesNotMatch(prompt, /the very letterforms you can see in the image/);
 		assert.doesNotMatch(prompt, /the same colour palette/);
 	});
 
+	/**
+	 * Y sale en un bloque propio, no adentro de la lista de lo que se conserva.
+	 *
+	 * Ahí adentro pesaba como un ítem más entre siete y el aviso salía con los
+	 * colores del ganador igual. Lo que se verifica es que la identidad esté
+	 * ARRIBA de la enumeración —titulada, aparte— y que en la lista quede solo la
+	 * estructura, que es lo que sí se conserva del ganador.
+	 */
+	test('la identidad elegida sale en un bloque propio, no dentro de la lista', () => {
+		const prompt = buildPromptLibre({
+			...ficha,
+			coloresDeLaMarca: ['#0b1120'],
+			tipografiaDeLaMarca: { headings: 'Outfit' },
+		});
+		assert.match(prompt, /THIS AD IS SET IN THE ADVERTISER'S OWN IDENTITY, NOT THE REFERENCE'S/);
+		assert.match(prompt, /Everything about the design stays: the same layout, the same composition, the same type sizes, weights, alignments and hierarchy/);
+		assert.ok(
+			prompt.indexOf('OWN IDENTITY') < prompt.indexOf('THE DESIGN COMES FROM THE FIRST IMAGE'),
+			'el bloque de identidad tiene que estar antes de las reglas de diseño',
+		);
+	});
+
+	/**
+	 * Cada color con el nombre de lo que pinta.
+	 *
+	 * La pantalla los deja elegir uno por uno, y hasta acá viajaban aplastados en
+	 * una lista de hexadecimales sueltos: sin saber cuál era el fondo, el modelo
+	 * los repartía él y el color elegido como fondo terminaba de titular.
+	 */
+	test('los colores viajan por rol, no como lista suelta', () => {
+		const prompt = buildPromptLibre({
+			...ficha,
+			coloresDeLaMarca: ['#0b1120', '#ffffff', '#dd1d1d'],
+			rolesDeColor: { fondo: '#0b1120', titulo: '#ffffff', acento: '#dd1d1d' },
+		});
+		assert.match(prompt, /#0b1120 is the background/);
+		assert.match(prompt, /#ffffff is every headline/);
+		assert.match(prompt, /#dd1d1d is the accent/);
+		// Los roles que no se eligieron no se inventan.
+		assert.doesNotMatch(prompt, /fills the buttons/);
+	});
+
+	/** Sin roles cargados sigue viajando la lista, que es mejor que nada. */
+	test('sin roles, los colores viajan igual como paleta cerrada', () => {
+		const prompt = buildPromptLibre({ ...ficha, coloresDeLaMarca: ['#0b1120', '#dd1d1d'] });
+		assert.match(prompt, /The colours are #0b1120, #dd1d1d, and only those/);
+	});
+
 	/** Se puede cambiar una sola: la otra sigue siendo la del ganador. */
 	test('los dos controles son independientes', () => {
 		const soloLetra = buildPromptLibre({ ...ficha, tipografiaDeLaMarca: { headings: 'Outfit' } });
-		assert.match(soloLetra, /Outfit for headings/);
+		assert.match(soloLetra, /Outfit for every headline/);
 		assert.match(soloLetra, /the same colour palette/);
+		assert.doesNotMatch(soloLetra, /The colours are/);
 	});
 
 	test('lo que se scrapeó del producto viaja entero', () => {
