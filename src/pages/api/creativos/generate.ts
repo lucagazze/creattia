@@ -752,9 +752,9 @@ export const POST: APIRoute = async ({ request }) => {
 			const avatar = await resolveAvatarReferences({ admin, userId: auth.user!.id, mode: 'saved', avatarId });
 			avatarReferenceImages = avatar.images;
 			avatarDescription = avatar.description || avatar.name;
-			for (const [index, image] of avatarReferenceImages.entries()) {
-				await pushInput(image.buffer, image.type, `avatar-${index + 1}.png`, `reference photo ${index + 1} of the same selected person/avatar; preserve identity consistently`);
-			}
+			// Las fotos NO se adjuntan acá: el avatar tiene que quedar último de la
+			// lista porque el prompt lo nombra por posición, y el packshot se agrega
+			// más abajo. Se adjuntan al final, junto antes de generar.
 		}
 
 		stamp(`inputs listos (${inputBuffers.length} imágenes)`);
@@ -886,6 +886,18 @@ export const POST: APIRoute = async ({ request }) => {
 				}
 			}
 		}
+		/**
+		 * El avatar va ÚLTIMO, después del producto, del logo y del packshot.
+		 *
+		 * No es cosmético: el motor recibe una lista ordenada de imágenes sin
+		 * etiquetas, así que la única forma de señalarle cuál es la persona es la
+		 * posición. Adjuntándolo antes del packshot, "la última imagen es el modelo"
+		 * le señalaba una foto del producto.
+		 */
+		for (const [index, image] of avatarReferenceImages.entries()) {
+			await pushInput(image.buffer, image.type, `avatar-${index + 1}.png`, `reference photo ${index + 1} of the same selected person/avatar; preserve identity consistently`);
+		}
+
 		/**
 		 * Qué viajó al motor, dicho con las claves que la pantalla conoce. Va al
 		 * snapshot de la generación para que "estas fotos se usaron" y "el

@@ -386,6 +386,13 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * la buena gana. El servidor ya sabía recibirlo — faltaba dónde elegirla.
 	 */
 	const [fotosElegidas, setFotosElegidas] = useState<string[]>([]);
+	/**
+	 * La persona descrita con palabras.
+	 *
+	 * El servidor ya la leía de `avatarDescription` desde siempre, pero no había
+	 * dónde escribirla: "yo la describo" era un modo válido sin pantalla.
+	 */
+	const [personaEscrita, setPersonaEscrita] = useState('');
 	/** Si el selector está abierto. Cerrado quiere decir: se usan todas. */
 	const [eligiendoFotos, setEligiendoFotos] = useState(false);
 	/**
@@ -771,7 +778,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			manualProductName, manualProductFacts,
 			format, language, colorMode, typoMode, brandSource, paletteOverride, indicaciones,
 			logoMode, logoCarouselPages: [...logoCarouselPages],
-			personMode, personModeSugerido, avatarConsent,
+			personMode, personModeSugerido, avatarConsent, personaEscrita,
 			pressRowMode, pressRowItems, variantes,
 			plan, slidePlans, zones, people, comparisons, creativeDecisions, comparisonGuidance,
 		};
@@ -823,6 +830,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		poner(e.logoMode, setLogoMode);
 		if (Array.isArray(e.logoCarouselPages)) setLogoCarouselPages(new Set(e.logoCarouselPages));
 		poner(e.personMode, setPersonMode); poner(e.personModeSugerido, setPersonModeSugerido);
+		poner(e.personaEscrita, setPersonaEscrita);
 		poner(e.avatarConsent, setAvatarConsent);
 		poner(e.pressRowMode, setPressRowMode); poner(e.pressRowItems, setPressRowItems);
 		poner(e.variantes, setVariantes);
@@ -1265,6 +1273,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			// incluso en los que el ganador firma; sin el campo, el prompt decide
 			// mirando la referencia, que es lo que queremos.
 			form.set('personMode', personMode);
+			if (personMode === 'described' && personaEscrita.trim()) form.set('avatarDescription', personaEscrita.trim());
 			if (personMode === 'upload') form.set('avatarId', await guardarAvatarCargado());
 			if (plan) form.set('plan', JSON.stringify(planRevisado()));
 			if (!directo) {
@@ -2353,12 +2362,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							    frase del prompt en vez de sumarse a ella. */}
 							<div style={{ marginTop: '18px' }}>
 								<span className="picker-label">¿Querés que aparezca una persona?</span>
-								<p className="batch-detail-help">Si dejás "que decida la IA", lo resuelve mirando el anuncio ganador.</p>
 								<div className="logo-decision-options opciones-cortas" role="radiogroup" aria-label="Quién aparece en el aviso">
 									{([
 										{ id: 'ai', label: 'Que decida la IA' },
-										{ id: 'none', label: 'Nadie' },
+										{ id: 'described', label: 'Yo la describo' },
 										{ id: 'upload', label: 'Con mis fotos' },
+										{ id: 'none', label: 'Nadie' },
 									] as Array<{ id: PersonMode; label: string }>).map((opcion) => (
 										<button
 											key={opcion.id}
@@ -2371,6 +2380,55 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 										</button>
 									))}
 								</div>
+								{/* Con "que decida la IA", las tres opciones que el análisis armó
+								    cruzando el ganador con el producto. Estaban abajo, mezcladas con el
+								    fondo y el styling, cuando son la respuesta a ESTA pregunta. */}
+								{personMode === 'ai' && (() => {
+									const dePersona = creativeDecisions.find((d) => d.type === 'person' && (d.options || []).length);
+									if (!dePersona) return null;
+									const i = creativeDecisions.indexOf(dePersona);
+									return (
+										<div className="creation-persona-opciones">
+											<span>{dePersona.question || '¿Cómo debería ser?'}</span>
+											<div className="creation-decision-opciones">
+												{(dePersona.options || []).slice(0, 3).map((opcion) => {
+													const puesta = decisionElegida[i] === opcion;
+													return (
+														<button
+															key={opcion}
+															type="button"
+															className={puesta ? 'active' : ''}
+															disabled={phase === 'starting'}
+															aria-pressed={puesta}
+															onClick={() => setDecisionElegida((previo) => {
+																const siguiente = { ...previo };
+																if (puesta) delete siguiente[i];
+																else siguiente[i] = opcion;
+																return siguiente;
+															})}
+														>
+															{puesta ? '✓ ' : '+ '}{opcion}
+														</button>
+													);
+												})}
+											</div>
+										</div>
+									);
+								})()}
+								{/* La cuarta: describirla con palabras. Va al mismo campo por el que
+								    ya viajaba el avatar guardado su descripción. */}
+								{personMode === 'described' && (
+									<input
+										type="text"
+										className="creation-persona-propia"
+										maxLength={200}
+										autoFocus
+										disabled={phase === 'starting'}
+										placeholder="Ej: un hombre de unos 40, canoso, en ropa de trabajo"
+										value={personaEscrita}
+										onChange={(evento) => setPersonaEscrita(evento.target.value)}
+									/>
+								)}
 								{personMode === 'upload' && cargaDeAvatar}
 							</div>
 

@@ -444,6 +444,18 @@ function quienAparece(mode: PersonMode | undefined, hayFotos: boolean, descripci
 		return 'The person in this ad is the one in the supplied photos, and THE FACE HAS TO COME OUT IDENTICAL: the same bone structure, the same eyes, nose and mouth and the same distances between them, the same jaw and hairline, the same skin tone, the same moles, freckles, scars and lines. Somebody who knows them has to recognise them at a glance — a person who merely looks like them is a failure, not a variation. If the photos show their whole body, their build and proportions are theirs too. Rebuild that face as a real photograph at the highest fidelity you can reach: pores, fine lines and stubble in the skin, hair strand by strand, catchlights in the eyes, light passing through the skin, the shallow depth of field of a real lens. Do this even if the photos come small, soft, compressed or badly lit — you are re-photographing that person, not upscaling their snapshot, and you never smooth the skin, even out the tone or let it drift into the waxy look of a render. Everything else is yours: what they wear, how they pose, how they are lit and where in the frame they stand all belong to this ad, so dress them for it and put them wherever the composition wants them.';
 	}
 	if (mode === 'described' && descripcion?.trim()) return `The person in it is: ${descripcion.trim()}. Put them where the reference puts its own person, in that pose and that framing.`;
+	/**
+	 * "Que decida la IA" no era una decisión: devolvía undefined y el aviso caía en
+	 * la frase genérica del recasteo.
+	 *
+	 * Eso alcanza a veces y a veces no: con un ganador donde la foto ES el aviso,
+	 * volvía la misma cara, la misma ropa y la misma ciudad. Decidir sigue siendo
+	 * del modelo —si el ganador no muestra a nadie, acá tampoco aparece nadie— pero
+	 * lo que NO puede decidir es reciclar a la persona del ganador.
+	 */
+	if (mode === 'ai') {
+		return `another person, the one this product is for, somewhere this product is really used. Read the reference to decide whether anyone appears at all: if it shows people, this ad shows people too; if it shows none, nobody is added. But whoever the reference shows is never who appears here — not that face, not that build, not that look, not that age. The person in this ad is cast for THIS product and for the buyer described above, and they have to look like somebody that buyer would believe.${descripcion?.trim() ? ` The advertiser asked for: ${descripcion.trim()}.` : ''} The same face in the same place is the sign nothing was adapted.`;
+	}
 	return undefined;
 }
 
@@ -626,8 +638,12 @@ export function buildEngineImages(input: ReferenceCloneInput, analysis: LayoutAn
 		input.reference,
 		...(referenceShowsProduct ? fotos : []),
 		...(input.otrasPaginas || []),
-		...(input.avatarImages || []),
 		...(input.logo ? [input.logo] : []),
+		// El avatar va ÚLTIMO en los dos caminos, y no es cosmético: el prompt lo
+		// nombra por posición —"la última imagen es el modelo"— porque el motor
+		// recibe una lista ordenada sin etiquetas. Con el logo o el packshot después,
+		// le estaríamos señalando el logo y pidiéndole que dibuje esa cara.
+		...(input.avatarImages || []),
 	];
 }
 

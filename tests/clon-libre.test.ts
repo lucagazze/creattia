@@ -544,3 +544,21 @@ describe('los colores elegidos, con su rol', () => {
 		assert.match(prompt, /the very letterforms you can see in the image/);
 	});
 });
+
+describe('quién aparece cuando decide la IA', () => {
+	/**
+	 * "Que decida la IA" no era una decisión: devolvía undefined y el aviso caía en
+	 * la frase genérica del recasteo. Alcanza a veces y a veces no — con un ganador
+	 * donde la foto ES el aviso, volvía la misma cara, la misma ropa y la misma
+	 * ciudad. Decidir SI aparece alguien sigue siendo del modelo; lo que no puede
+	 * decidir es reciclar a la persona del ganador.
+	 */
+	test('decide si aparece alguien, pero nunca es el del ganador', () => {
+		const prompt = buildPromptLibre({
+			...ficha,
+			decisionDePersona: 'another person, the one this product is for. Read the reference to decide whether anyone appears at all: if it shows people, this ad shows people too; if it shows none, nobody is added. But whoever the reference shows is never who appears here.',
+		});
+		assert.match(prompt, /whether anyone appears at all/);
+		assert.match(prompt, /never who appears here/);
+	});
+});
