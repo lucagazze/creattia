@@ -563,10 +563,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		.filter((valor): valor is string => typeof valor === 'string' && /^#[0-9a-f]{6}$/i.test(valor)))];
 	const tipografiaDeLaUrl: string = [marcaDeLaUrl?.typography?.headings, marcaDeLaUrl?.typography?.body]
 		.filter(Boolean).join(' · ');
-	/** Si hay algo detectado que valga la pena poder restablecer. */
-	const hayColoresDetectados: boolean = colorMode === 'brand'
-		? Boolean(miMarca?.colors?.length)
-		: Boolean(paletaDeLaUrl.length || (Array.isArray(marcaDeLaUrl?.colors) && marcaDeLaUrl.colors.length));
 
 	const logoDeLaUrl: string = (() => {
 		const elegido = importedProducts.find((item: any) => selectedProductIds.includes(item.id) && item?.metadata?.brandFromUrl?.logoUrl);
@@ -596,6 +592,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * otros. Se traen del mismo endpoint que el logo.
 	 */
 	const [miMarca, setMiMarca] = useState<{ colors: string[]; typography: { headings?: string; body?: string } } | null>(null);
+	/** Si hay algo detectado que valga la pena poder restablecer. */
+	const hayColoresDetectados: boolean = colorMode === 'brand'
+		? Boolean(miMarca?.colors?.length)
+		: Boolean(paletaDeLaUrl.length || (Array.isArray(marcaDeLaUrl?.colors) && marcaDeLaUrl.colors.length));
 	useEffect(() => {
 		if ((phase !== 'review' && phase !== 'confirmar') || brandSource !== 'mine' || !token) return;
 		let cancelado = false;

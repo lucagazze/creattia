@@ -377,3 +377,21 @@ describe('las personas usando el producto', () => {
 		assert.doesNotMatch(buildPromptLibre({ ...ficha, seUsaEnElCuerpo: true }, true), /PEOPLE CAN WEAR THE PRODUCT/);
 	});
 });
+
+describe('el reintento y las páginas hermanas, cableados de punta a punta', () => {
+	/**
+	 * El prompt magro saca el ICP, las indicaciones Y el bloque de prendas. La
+	 * condición que decidía si valía la pena reintentar solo miraba las dos
+	 * primeras, así que un producto que se usa puesto, sin ICP ni indicaciones, se
+	 * quedaba sin reintento — y esos son justamente los que dispara el filtro.
+	 */
+	test('un producto que se usa puesto tiene un magro distinto del completo', () => {
+		const puesto = { ...ficha, seUsaEnElCuerpo: true };
+		assert.notEqual(buildPromptLibre(puesto), buildPromptLibre(puesto, true));
+	});
+
+	/** Sin nada de eso los dos son iguales y reintentar sería mandar lo mismo. */
+	test('sin nada quitable, el magro es idéntico', () => {
+		assert.equal(buildPromptLibre(ficha), buildPromptLibre(ficha, true));
+	});
+});

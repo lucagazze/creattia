@@ -217,6 +217,49 @@ export function fotosParaElMotor(fotos: EngineImage[], lectura: LecturaDelProduc
 }
 
 /**
+ * Re-fotografía el producto solo, sobre fondo neutro y sin una letra encima.
+ *
+ * Existe para las tiendas cuya galería son todas placas promocionales —bandera,
+ * caja, "SORTEO DÍA 30", que es lo normal en Tiendanube y Shopify—. Mandarle esas
+ * placas al motor es peor que no mandarle nada: las lee como el producto y
+ * termina clonando el diseño de la tienda en vez del anuncio ganador.
+ *
+ * Va por el mismo motor que genera los avisos y no por Gemini: es una llamada de
+ * imagen común, y hacerla con la clave que ya está configurada evita que esta
+ * función quede muerta en las cuentas que no tienen la de Google. Cuesta unos
+ * ocho centavos y unos cuarenta segundos.
+ */
+export async function refotografiarProducto(
+	claves: ClavesDeApi,
+	foto: EngineImage,
+	descripcion?: string,
+): Promise<EngineImage | null> {
+	if (!claves.openAIKey) return null;
+	try {
+		const { generateAdImage } = await import('./image-engines');
+		const r = await generateAdImage({
+			openAIKey: claves.openAIKey,
+			googleKey: claves.googleKey,
+			prompt: `The image shows a product, most likely inside a promotional graphic made by the shop that sells it. Take that product out and photograph it on its own.
+
+${descripcion ? `The product is: ${descripcion}
+
+` : ''}One single object, centred, with generous margins, on a plain neutral studio background under soft even light and one gentle contact shadow. Its shape, proportions, colours, materials and texture come out exactly as they are in the image, down to anything printed or moulded on the object itself.
+
+Everything that was around it stays behind: the layout, the headlines, the prices, the badges, the banners, the flags, the arrows and any other object. What comes out is the product and the background, and nothing else.`,
+			images: [foto],
+			format: '1:1',
+			tier: 'low',
+		});
+		return r.buffer.length > 1024 ? { buffer: r.buffer, type: 'image/png' } : null;
+	} catch (error) {
+		// Sin packshot se genera igual, con la descripción de texto: peor, no roto.
+		console.error('[clon-libre] no se pudo rehacer la foto del producto:', error);
+		return null;
+	}
+}
+
+/**
  * Tres cosas del producto que valdría la pena destacar, para no dejar el campo
  * de indicaciones en blanco.
  *

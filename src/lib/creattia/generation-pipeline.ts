@@ -1,6 +1,6 @@
-import { analyzeReferenceLayout, buildReferenceClonePrompt, LANGUAGE_NAMES, renderStudioProductShot, type LayoutAnalysis, type LogoMode } from './ad-analysis';
+import { analyzeReferenceLayout, buildReferenceClonePrompt, LANGUAGE_NAMES, type LayoutAnalysis, type LogoMode } from './ad-analysis';
 import { buildPromptCorto } from './prompt-corto';
-import { buildPromptLibre, fotosParaElMotor, leerElProducto, type LecturaDelProducto } from './clon-libre';
+import { buildPromptLibre, fotosParaElMotor, leerElProducto, refotografiarProducto, type LecturaDelProducto } from './clon-libre';
 import { generateAdImage, type EngineImage, type EngineUsage } from './image-engines';
 import { closestFormat } from './formats';
 import type { QualityTier } from './quality-router';
@@ -281,6 +281,15 @@ export type ClonePromptInput = {
 	avatarImageCount?: number;
 	/** Para una página de carrusel: en cuál va y de cuántas. */
 	carousel?: { index: number; total: number };
+	/**
+	 * Cuántas páginas hermanas se adjuntan como contexto.
+	 *
+	 * El prompt TIENE que nombrarlas. Viajaban como imágenes y ninguna línea decía
+	 * qué eran, así que el modelo recibía dos o tres anuncios terminados de más sin
+	 * una palabra sobre ellos — y el riesgo es que copie una hermana en vez de la
+	 * referencia, que es exactamente lo que se quería evitar.
+	 */
+	otrasPaginasCount?: number;
 	/** La URL de la que salió el producto, y el logo del sitio. Van a la ficha. */
 	productUrl?: string;
 	logoUrl?: string;
@@ -444,24 +453,25 @@ function firmaElegida(logoMode: LogoMode | undefined, hasLogo: boolean) {
 async function fotosLimpiasDelProducto(
 	input: ReferenceCloneInput,
 	lectura: LecturaDelProducto,
+	referenciaMuestraProducto: boolean,
 ): Promise<EngineImage[]> {
 	const limpias = fotosParaElMotor(input.productImages, lectura);
 	if (limpias.length || !input.productImages.length) return limpias;
+	// Si el ganador no muestra ningún producto, las fotos no se adjuntan igual:
+	// fabricar una sería pagar diez segundos y ocho centavos por una imagen que se
+	// descarta dos líneas más abajo.
+	if (!referenciaMuestraProducto) return [];
 
 	const label = input.logLabel || '[pipeline]';
-	if (!input.keys.googleKey) {
-		console.warn(`${label} todas las fotos del producto son placas de diseño y no hay clave de Gemini para rehacer una: se genera sin fotos`);
-		return [];
-	}
 	console.log(`${label} ninguna foto limpia del producto: se rehace una en estudio`);
 	// La primera es la que la tienda eligió como principal, así que es la que más
 	// probablemente muestre el objeto entero aunque tenga diseño encima.
-	const packshot = await renderStudioProductShot(input.keys.googleKey, input.productImages[0]).catch(() => null);
+	const packshot = await refotografiarProducto(input.keys, input.productImages[0], lectura.aspecto);
 	if (!packshot) {
 		console.warn(`${label} no se pudo rehacer la foto del producto: se genera sin fotos`);
 		return [];
 	}
-	return [{ buffer: packshot.buffer, type: packshot.type }];
+	return [packshot];
 }
 
 /**
@@ -504,6 +514,7 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
 			decisionDeLogo: firmaElegida(input.logoMode, hasLogo),
 		decisionDePersona: quienAparece(input.personMode, (input.avatarImageCount || 0) > 0, input.avatarDescription),
 		carrusel: input.carousel ? { indice: input.carousel.index, total: input.carousel.total } : undefined,
+		otrasPaginas: input.otrasPaginasCount,
 	};
 }
 
@@ -517,7 +528,12 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
 export function buildClonePromptDeRespaldo(input: ClonePromptInput, hasLogo: boolean): string | null {
 	if (caminoDeRender() !== 'libre') return null;
 	const ficha = fichaDesde(input, hasLogo);
-	if (!ficha.icp && !ficha.indicaciones?.trim()) return null;
+	// Sin ICP, sin indicaciones y sin el bloque de prendas el magro sería idéntico
+	// al completo y el reintento gastaría una llamada en mandar lo mismo. Pero el
+	// magro TAMBIÉN saca ese bloque, y los productos que se usan puestos son
+	// justamente los que disparan el filtro: sin esta condición se quedaban sin el
+	// único reintento que les sirve.
+	if (!ficha.icp && !ficha.indicaciones?.trim() && !ficha.seUsaEnElCuerpo) return null;
 	return buildPromptLibre(ficha, true);
 }
 
@@ -593,9 +609,14 @@ export async function renderReferenceClone(input: ReferenceCloneInput): Promise<
 			url: input.productUrl,
 		}),
 	]);
-	const prompt = buildClonePrompt({ ...input, avatarImageCount: (input.avatarImages || []).length, lectura }, analysis, Boolean(input.logo));
+	const prompt = buildClonePrompt({
+		...input,
+		avatarImageCount: (input.avatarImages || []).length,
+		otrasPaginasCount: (input.otrasPaginas || []).length || undefined,
+		lectura,
+	}, analysis, Boolean(input.logo));
 	const format = await resolveFormat(input.requestedFormat, input.reference);
-	const images = buildEngineImages(input, analysis, await fotosLimpiasDelProducto(input, lectura));
+	const images = buildEngineImages(input, analysis, await fotosLimpiasDelProducto(input, lectura, analysis?.referenceHasProduct !== false));
 
 	console.log(`${label} generando en ${format} (${images.length} imágenes de entrada, calidad ${input.tier})`);
 	const { buffer, engine, usage } = await generateAdImage({

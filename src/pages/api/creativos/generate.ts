@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { waitUntil } from '@vercel/functions';
 import { toFile } from 'openai';
-import { analyzeReferenceLayout, normalizeImageInput, renderStudioProductShot, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
+import { analyzeReferenceLayout, normalizeImageInput, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import { generateAdImage } from '../../../lib/creattia/image-engines';
 import { authenticateRequest, checkRateLimit, closeGenerationsAndCountRefunds, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
@@ -11,7 +11,7 @@ import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
-import { fotosParaElMotor, leerElProducto } from '../../../lib/creattia/clon-libre';
+import { fotosParaElMotor, leerElProducto, refotografiarProducto } from '../../../lib/creattia/clon-libre';
 import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, parseRolesDeColor, parseTipografiaElegida, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
@@ -844,8 +844,8 @@ export const POST: APIRoute = async ({ request }) => {
 		 * tienda. `renderStudioProductShot` re-fotografía el objeto solo sobre fondo
 		 * neutro y sin una letra encima.
 		 */
-		if (!fotosQueSeQuedan.size && productVisionInputs.length && googleKey && !isExactRevision) {
-			const packshot = await renderStudioProductShot(googleKey, productVisionInputs[0]).catch(() => null);
+		if (!fotosQueSeQuedan.size && productVisionInputs.length && !isExactRevision) {
+			const packshot = await refotografiarProducto({ openAIKey, googleKey }, productVisionInputs[0], lectura?.aspecto);
 			if (packshot) {
 				await pushInput(packshot.buffer, packshot.type, 'producto-en-estudio.png', 'the product re-photographed on its own, clean, with no text or graphics: this is the product to show');
 				stamp('ninguna foto limpia del producto: se rehízo una en estudio');
