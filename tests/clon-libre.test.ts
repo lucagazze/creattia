@@ -75,14 +75,17 @@ describe('el prompt del clon libre', () => {
 	});
 
 	/**
-	 * La línea de idioma es la de b8ded8c: una sola, sin advertencias. La cura del
-	 * "OBTENEZ VOTRE BOXER" real (mix de idiomas) fue la frase "Not one word of
-	 * the reference survives", que se fue con la vuelta a b8ded8c y es la primera
-	 * candidata a reintroducción — de a una y comparando contra b8ded8c.
+	 * La advertencia volvió el 2026-08-11, sola y con disparador visto: con la
+	 * línea pelada de b8ded8c salieron un "Wait..." intacto y el "Mmmhmm"
+	 * manuscrito del ganador en avisos de una campera GAP. Las palabras del
+	 * ganador sobreviven justo cuando no parecen idioma — cortas e
+	 * "internacionales", o en cursiva de firma — así que la advertencia las
+	 * nombra a las dos.
 	 */
-	test('el idioma elegido manda', () => {
+	test('el idioma elegido manda, y ninguna palabra del ganador sobrevive', () => {
 		const elegido = buildPromptLibre({ ...ficha, idioma: 'natural Argentine Spanish' });
-		assert.match(elegido, /Every word in the ad is written in natural Argentine Spanish\./);
+		assert.match(elegido, /Every word in the ad is written in natural Argentine Spanish/);
+		assert.match(elegido, /not a handwritten interjection/);
 		assert.match(buildPromptLibre(ficha), /the language the product information above is written in/);
 	});
 
@@ -271,6 +274,18 @@ describe('quién aparece en el aviso', () => {
 		const prompt = buildPromptLibre({ ...ficha, decisionDePersona: 'The person in it is the one in the supplied photos.' });
 		assert.match(prompt, /the one in the supplied photos/);
 		assert.doesNotMatch(prompt, /The same face in the same place/);
+	});
+
+	/**
+	 * El lugar elegido SUSTITUYE la cláusula del recasteo, no le suma una orden —
+	 * mismo patrón que la persona y el logo. Sin elección, la frase es la de
+	 * b8ded8c letra por letra.
+	 */
+	test('el lugar elegido reemplaza el "somewhere" del recasteo', () => {
+		const prompt = buildPromptLibre({ ...ficha, lugarElegido: 'una parrilla al aire libre' });
+		assert.match(prompt, /in this exact setting: una parrilla al aire libre\./);
+		assert.doesNotMatch(prompt, /somewhere this product is really used/);
+		assert.doesNotMatch(buildPromptLibre(ficha), /in this exact setting/);
 	});
 });
 

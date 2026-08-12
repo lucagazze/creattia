@@ -293,6 +293,8 @@ export type ClonePromptInput = {
 	personMode?: PersonMode;
 	/** Con qué se firma: el nombre escrito, el archivo del logo, o nada. */
 	logoMode?: LogoMode;
+	/** Dónde pasa la escena, cuando el usuario lo pidió. Sustituye, no suma. */
+	lugarElegido?: string;
 	pressRowMode?: 'quitar' | 'texto' | 'logos';
 	pressRowItems?: string[];
 	/**
@@ -538,6 +540,7 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
 			idioma: input.language ? LANGUAGE_NAMES[input.language] : undefined,
 			decisionDeLogo: firmaElegida(input.logoMode, hasLogo),
 		decisionDePersona: quienAparece(input.personMode, (input.avatarImageCount || 0) > 0, input.avatarDescription),
+		lugarElegido: input.lugarElegido,
 		carrusel: input.carousel ? { indice: input.carousel.index, total: input.carousel.total } : undefined,
 		otrasPaginas: input.otrasPaginasCount,
 	};

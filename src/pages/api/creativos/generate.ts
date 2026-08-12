@@ -227,6 +227,9 @@ export const POST: APIRoute = async ({ request }) => {
 		 */
 		const personMode = parsePersonMode(form.get('personMode'), avatarId ? 'upload' : 'ai');
 		const personaEscrita = personMode === 'described' ? clean(form.get('avatarDescription'), 600) : '';
+		// Dónde pasa la escena, si el usuario lo pidió. Sustituye la cláusula del
+		// recasteo en el prompt; vacío no agrega ni cambia nada.
+		const lugarEscena = clean(form.get('lugarEscena'), 200);
 		/**
 		 * Que hacer con la fila de medios del ganador ("As seen on: Forbes, NBC").
 		 *
@@ -506,6 +509,7 @@ export const POST: APIRoute = async ({ request }) => {
 			// desde el historial se vuelve a armar el mismo aviso, y sin esto un
 			// creativo pedido sin gente volvía con gente.
 			personMode,
+			lugarEscena: lugarEscena || null,
 			pressRowMode,
 			pressRowItems,
 			avatarDescription: personaEscrita,
@@ -919,6 +923,7 @@ The result must look like the same image with only that one adjustment applied.`
 			brandPalette: effectiveBrandPalette,
 			personMode,
 			logoMode,
+			lugarElegido: lugarEscena || undefined,
 			pressRowMode,
 			pressRowItems,
 			avatarDescription,

@@ -28,8 +28,9 @@
  * nada: la galería que es 100% placas promocionales (el caso mojarra, donde el
  * output era basura segura) viaja como packshot; con una sola foto real, nada
  * se filtra ni se limita. Si algún otro arreglo vuelve, vuelve DE A UNO y
- * midiéndolo contra b8ded8c en el flujo staged de Vercel; las candidatas son la
- * advertencia de idioma (mató el "OBTENEZ VOTRE BOXER" real) y la cláusula de
+ * midiéndolo contra b8ded8c en el flujo staged de Vercel. La advertencia de
+ * idioma ya volvió (2026-08-11: un "Wait..." y un "Mmmhmm" del ganador
+ * sobrevivieron intactos en producción); queda como candidata la cláusula de
  * sellos ajenos (vista tres veces en producción).
  */
 import type { EngineImage } from './image-engines';
@@ -85,6 +86,14 @@ export type FichaDelProducto = {
 	decisionDeLogo?: string;
 	/** Sin efecto desde la vuelta a b8ded8c: el bloque de pudor volvió a ser fijo. */
 	seUsaEnElCuerpo?: boolean;
+	/**
+	 * El lugar donde pasa la escena, cuando el usuario lo pidió.
+	 *
+	 * Mismo patrón que la persona y el logo: sin elección el prompt es b8ded8c
+	 * intacto, y la elección SUSTITUYE la cláusula del recasteo ("somewhere this
+	 * product is really used") en vez de sumarle una orden.
+	 */
+	lugarElegido?: string;
 	/** Para una página de carrusel: en cuál va y de cuántas. */
 	carrusel?: { indice: number; total: number };
 	/** Cuántas páginas del carrusel viajan como contexto, al final de las imágenes. */
@@ -365,12 +374,12 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 		? `WHO THIS AD IS FOR: ${sinPuntoFinal(ficha.icp)}. Whoever appears in it is that person, and every choice in it is made so that person recognises themselves at a glance.`
 		: `WHO THIS AD IS FOR is the customer the product information above describes. Whoever appears in it is that person, and every choice in it is made so that person recognises themselves at a glance.`;
 
-	// La línea de b8ded8c, sin la advertencia. Si el mix de idiomas vuelve (el
-	// "OBTENEZ VOTRE BOXER" real), la cura medida fue una frase: "Not one word of
-	// the reference survives" — reintroducirla sola y comparando contra b8ded8c.
-	const idioma = ficha.idioma
-		? `Every word in the ad is written in ${ficha.idioma}.`
-		: 'Every word in the ad is written in the language the product information above is written in.';
+	// La advertencia volvió el 2026-08-11, sola y con disparador visto: con la
+	// línea pelada de b8ded8c salieron un "Wait..." intacto y el "Mmmhmm"
+	// manuscrito del ganador en avisos de una campera GAP — palabras del ganador
+	// que sobreviven por no parecer idioma. Es la reintroducción 1 de la lista
+	// del encabezado; se compara contra producción antes de promover.
+	const idioma = `Every word in the ad is written in ${ficha.idioma || 'the language the product information above is written in'}, exactly as a native speaker would write it — correct spelling, correct accents, correct grammar. Not one word of the reference survives: not a short word that looks international, not a handwritten interjection — each one is replaced by what a person selling THIS product would actually write.`;
 
 	// Los colores y la tipografía de la marca no se agregan como un pedido más:
 	// REEMPLAZAN la cláusula del ganador. Tener las dos es pedirle dos cosas
@@ -392,10 +401,14 @@ WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: ${ficha.indicaciones.trim()}
 `
 		: '';
 
-	// La decisión sobre la persona reemplaza la frase entera, no se le suma.
+	// La decisión sobre la persona reemplaza la frase entera, no se le suma. El
+	// lugar elegido sustituye la cláusula del recasteo, con la misma lógica.
+	const dondePasa = ficha.lugarElegido?.trim()
+		? `in this exact setting: ${sinPuntoFinal(ficha.lugarElegido.trim())}`
+		: 'somewhere this product is really used';
 	const escena = ficha.decisionDePersona
-		? `EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now, somewhere this product is really used. ${ficha.decisionDePersona}`
-		: 'EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now: another person, the one this product is for, somewhere this product is really used. The same face in the same place is the sign nothing was adapted.';
+		? `EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now, ${dondePasa}. ${ficha.decisionDePersona}`
+		: `EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now: another person, the one this product is for, ${dondePasa}. The same face in the same place is the sign nothing was adapted.`;
 
 	const pagina = ficha.carrusel
 		// Las páginas se generan por separado y sin verse entre sí, y todas reciben
