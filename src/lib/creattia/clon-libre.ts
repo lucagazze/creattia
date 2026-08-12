@@ -81,15 +81,6 @@ export type FichaDelProducto = {
 	 * el clon se parezca al original.
 	 */
 	coloresDeLaMarca?: string[];
-	/**
-	 * Y cuál de esos colores va en qué.
-	 *
-	 * La pantalla los deja elegir uno por uno —fondo, títulos, texto, acento,
-	 * botón— y hasta acá se aplastaban en una lista plana de hexadecimales. Sin el
-	 * nombre de lo que pinta cada uno, el modelo los reparte a su criterio, y el
-	 * color que se eligió como fondo terminaba de titular.
-	 */
-	rolesDeColor?: { fondo?: string; titulo?: string; texto?: string; acento?: string; boton?: string };
 	tipografiaDeLaMarca?: { headings?: string; body?: string };
 	/**
 	 * Lo que el usuario quiere destacar, en sus palabras.
@@ -389,52 +380,16 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 	// Los colores y la tipografía de la marca no se agregan como un pedido más:
 	// REEMPLAZAN la cláusula del ganador. Tener las dos es pedirle dos cosas
 	// distintas, y ahí gana la que ve en la imagen y la elección se ignora.
-	//
-	// Pero reemplazarla no alcanzaba: la identidad elegida quedaba nombrada DENTRO
-	// de la lista de siete cosas que se conservan del ganador, y ahí pesa como un
-	// ítem más entre siete. Se elegían los colores de la web y el aviso salía con
-	// los del ganador igual. Lo que queda en esa lista es la ESTRUCTURA —tamaños,
-	// pesos, alineaciones, qué rol cumple cada color— y la identidad se va a un
-	// bloque propio, con título, que es lo único que la hace pesar.
-	const eligioLetra = Boolean(ficha.tipografiaDeLaMarca?.headings || ficha.tipografiaDeLaMarca?.body);
-	const eligioColor = Boolean(ficha.coloresDeLaMarca?.length);
-
-	const letra = eligioLetra
-		? 'the same type sizes, weights, alignments and hierarchy'
+	const letra = (ficha.tipografiaDeLaMarca?.headings || ficha.tipografiaDeLaMarca?.body)
+		? `the same type sizes, weights, alignments and hierarchy, but set in this brand's own typefaces (${[
+			ficha.tipografiaDeLaMarca.headings && `${ficha.tipografiaDeLaMarca.headings} for headings`,
+			ficha.tipografiaDeLaMarca.body && `${ficha.tipografiaDeLaMarca.body} for body`,
+		].filter(Boolean).join(', ')})`
 		: 'the same typography — the very letterforms you can see in the image — the same type sizes, weights and alignments';
 
-	const color = eligioColor
-		? 'the same colour roles: what was the background is still the background, what was the ink is still the ink, and the accent still lands on the equivalent word'
+	const color = ficha.coloresDeLaMarca?.length
+		? `this brand's own palette (${ficha.coloresDeLaMarca.join(', ')}) mapped onto the very same roles the reference uses — what was the background stays the background, what was the ink stays the ink, and the accent still lands on the equivalent word`
 		: 'the same colour palette, the same accent colour on the same word';
-
-	const tipografiaPedida = [
-		ficha.tipografiaDeLaMarca?.headings && `${ficha.tipografiaDeLaMarca.headings} for every headline and every large word`,
-		ficha.tipografiaDeLaMarca?.body && `${ficha.tipografiaDeLaMarca.body} for the body copy, the captions and the small print`,
-	].filter(Boolean).join(', and ');
-
-	// Cada color con el nombre de lo que pinta. Es la diferencia entre darle cinco
-	// hexadecimales sueltos y decirle cuál es el fondo: lo primero lo decide él, y
-	// eso es justo lo que se estaba eligiendo a mano en la pantalla.
-	const roles = ficha.rolesDeColor || {};
-	const porRol = [
-		roles.fondo && `${roles.fondo} is the background`,
-		roles.titulo && `${roles.titulo} is every headline`,
-		roles.texto && `${roles.texto} is the body copy and the small print`,
-		roles.acento && `${roles.acento} is the accent`,
-		roles.boton && `${roles.boton} fills the buttons`,
-	].filter(Boolean).join(', ');
-
-	const identidad = (eligioLetra || eligioColor)
-		? `THIS AD IS SET IN THE ADVERTISER'S OWN IDENTITY, NOT THE REFERENCE'S. ${
-			eligioLetra ? `The type is ${tipografiaPedida}. Those are the typefaces that get drawn — the reference's letterforms do not appear anywhere in this ad, not even where they would look better. ` : ''
-		}${
-			eligioColor ? (porRol
-				? `The colours are assigned, not suggested: ${porRol}. Paint each thing with the colour named for it and with no other. A colour of the reference that is not in that list does not survive anywhere in the ad. `
-				: `The colours are ${ficha.coloresDeLaMarca!.join(', ')}, and only those: every surface, every block, every word and every button is painted from that set, in the same roles the reference uses them. A colour of the reference that is not in that list does not survive. `) : ''
-		}This is the part somebody will check first against their own brand, so it is the part that has to be exact.
-
-`
-		: '';
 
 	const pedido = (!magro && ficha.indicaciones?.trim())
 		? `
@@ -502,7 +457,7 @@ ${textosEscritos}Each new line keeps the shape of the one it replaces: the same 
 
 THE PRODUCT THIS AD IS NOW FOR
 ${datosDelProducto}${pedido}${pagina}
-${identidad}THE DESIGN COMES FROM THE FIRST IMAGE AND FROM NOWHERE ELSE. If a product photo arrives with a design of its own on it — text, a headline, a price, a badge, a banner, a flag — that design belongs to whoever made that photo and has nothing to do with this ad. Take the object out of it and leave the rest behind.
+THE DESIGN COMES FROM THE FIRST IMAGE AND FROM NOWHERE ELSE. If a product photo arrives with a design of its own on it — text, a headline, a price, a badge, a banner, a flag — that design belongs to whoever made that photo and has nothing to do with this ad. Take the object out of it and leave the rest behind.
 
 THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its waistband, seams, labels, prints and proportions where the photos show them. Its surface is copied as closely as its shape: the same weave or grain, the same perforations, speckles, flecks or bubbles, the same sheen and the same texture up close. Anything printed, stitched, embossed or moulded on it — a wordmark, a size tag, a seal, a logo — is reproduced letter for letter and sits exactly where the photos put it, at the same size and the same angle. Getting the product wrong ruins the ad even if everything else is perfect.
 

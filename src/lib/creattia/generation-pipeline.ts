@@ -530,10 +530,6 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean, analysis?: Layout
 			coloresDeLaMarca: input.colorMode !== 'winner'
 				? (coloresCorregidos(input.rolesDeColor) || input.brandColors)
 				: undefined,
-			// Y cuál va en cuál. Los roles ya se elegían en la pantalla y se venían
-			// aplastando acá en la lista plana de arriba: al motor le llegaban cinco
-			// hexadecimales sin decirle cuál era el fondo, así que los repartía él.
-			rolesDeColor: input.colorMode !== 'winner' ? input.rolesDeColor : undefined,
 			tipografiaDeLaMarca: input.typoMode !== 'winner' ? input.brandTypography : undefined,
 			indicaciones: input.brief,
 			aspecto: input.lectura?.aspecto,
