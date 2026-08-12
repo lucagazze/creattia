@@ -174,7 +174,7 @@ export function logoModeRecomendado(analisis: LayoutAnalysis | null | undefined 
 	return paginas.some((pagina) => pagina?.templateHasLogoSlot) ? 'texto' : 'nada';
 }
 
-const ROLES_DE_COLOR = ['fondo', 'titulo', 'texto', 'acento', 'boton', 'textoBoton'] as const;
+const ROLES_DE_COLOR = ['fondo', 'titulo', 'texto', 'acento', 'boton'] as const;
 export type RolesDeColor = Partial<Record<typeof ROLES_DE_COLOR[number], string>>;
 
 /**
@@ -444,10 +444,6 @@ function quienAparece(mode: PersonMode | undefined, hayFotos: boolean, descripci
 		return 'The person in this ad is the one in the supplied photos, and THE FACE HAS TO COME OUT IDENTICAL: the same bone structure, the same eyes, nose and mouth and the same distances between them, the same jaw and hairline, the same skin tone, the same moles, freckles, scars and lines. Somebody who knows them has to recognise them at a glance — a person who merely looks like them is a failure, not a variation. If the photos show their whole body, their build and proportions are theirs too. Rebuild that face as a real photograph at the highest fidelity you can reach: pores, fine lines and stubble in the skin, hair strand by strand, catchlights in the eyes, light passing through the skin, the shallow depth of field of a real lens. Do this even if the photos come small, soft, compressed or badly lit — you are re-photographing that person, not upscaling their snapshot, and you never smooth the skin, even out the tone or let it drift into the waxy look of a render. Everything else is yours: what they wear, how they pose, how they are lit and where in the frame they stand all belong to this ad, so dress them for it and put them wherever the composition wants them.';
 	}
 	if (mode === 'described' && descripcion?.trim()) return `The person in it is: ${descripcion.trim()}. Put them where the reference puts its own person, in that pose and that framing.`;
-	// "Que decida la IA" NO emite instrucción: cae en la frase genérica del
-	// recasteo, que es como estaba en bb23858. Se probó darle una propia —"nunca
-	// la persona del ganador"— y entró junto con otros cambios; las imágenes
-	// salieron peor y se vuelve. Para reponerla hay que medirla sola.
 	return undefined;
 }
 
@@ -534,11 +530,6 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean, analysis?: Layout
 			coloresDeLaMarca: input.colorMode !== 'winner'
 				? (coloresCorregidos(input.rolesDeColor) || input.brandColors)
 				: undefined,
-			// Y qué color va en qué. La pantalla deja elegirlo uno por uno y hasta
-			// ahora se aplastaba en una lista sin decir cuál era cuál: al modelo le
-			// llegaban cinco hexadecimales y los repartía a su criterio, así que el
-			// fondo de la marca terminaba de titular.
-			rolesDeColor: input.colorMode !== 'winner' ? input.rolesDeColor : undefined,
 			tipografiaDeLaMarca: input.typoMode !== 'winner' ? input.brandTypography : undefined,
 			indicaciones: input.brief,
 			aspecto: input.lectura?.aspecto,
@@ -630,12 +621,8 @@ export function buildEngineImages(input: ReferenceCloneInput, analysis: LayoutAn
 		input.reference,
 		...(referenceShowsProduct ? fotos : []),
 		...(input.otrasPaginas || []),
-		...(input.logo ? [input.logo] : []),
-		// El avatar va ÚLTIMO en los dos caminos, y no es cosmético: el prompt lo
-		// nombra por posición —"la última imagen es el modelo"— porque el motor
-		// recibe una lista ordenada sin etiquetas. Con el logo o el packshot después,
-		// le estaríamos señalando el logo y pidiéndole que dibuje esa cara.
 		...(input.avatarImages || []),
+		...(input.logo ? [input.logo] : []),
 	];
 }
 

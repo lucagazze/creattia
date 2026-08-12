@@ -108,35 +108,27 @@ describe('el prompt del clon libre', () => {
 	});
 
 	/**
-	 * La identidad elegida sale de la lista y pasa a un bloque propio.
-	 *
-	 * Nombrada DENTRO de la enumeración de siete cosas que se conservan del
-	 * ganador, pesaba como un ítem más entre siete: se elegían los colores de la
-	 * web y el aviso salía con los del ganador igual. En la lista queda la
-	 * ESTRUCTURA —tamaños, pesos, roles de color— y la identidad se dice aparte,
-	 * que es lo único que la hace pesar.
+	 * Elegir la identidad propia REEMPLAZA la cláusula del ganador, no se suma.
+	 * Con las dos presentes se le piden dos cosas distintas y gana la que ve en la
+	 * imagen, así que la elección se ignoraba.
 	 */
-	test('la identidad elegida se dice en su propio bloque', () => {
+	test('la identidad elegida reemplaza a la del ganador', () => {
 		const prompt = buildPromptLibre({
 			...ficha,
 			coloresDeLaMarca: ['#0b1120', '#dd1d1d'],
 			tipografiaDeLaMarca: { headings: 'Outfit', body: 'Inter' },
 		});
-		assert.match(prompt, /THIS AD IS SET IN THE ADVERTISER'S OWN IDENTITY, NOT THE REFERENCE'S/);
-		assert.match(prompt, /Outfit for every headline/);
-		assert.match(prompt, /Inter for the body copy/);
-		assert.match(prompt, /#0b1120, #dd1d1d, and only those/);
-		// Y la del ganador deja de nombrarse: tener las dos es pedirle dos cosas.
+		assert.match(prompt, /Outfit for headings, Inter for body/);
+		assert.match(prompt, /#0b1120, #dd1d1d/);
 		assert.doesNotMatch(prompt, /the very letterforms you can see in the image/);
-		assert.doesNotMatch(prompt, /the same colour palette, the same accent colour/);
+		assert.doesNotMatch(prompt, /the same colour palette/);
 	});
 
 	/** Se puede cambiar una sola: la otra sigue siendo la del ganador. */
 	test('los dos controles son independientes', () => {
 		const soloLetra = buildPromptLibre({ ...ficha, tipografiaDeLaMarca: { headings: 'Outfit' } });
-		assert.match(soloLetra, /Outfit for every headline/);
-		assert.match(soloLetra, /the same colour palette, the same accent colour/);
-		assert.doesNotMatch(soloLetra, /and only those/);
+		assert.match(soloLetra, /Outfit for headings/);
+		assert.match(soloLetra, /the same colour palette/);
 	});
 
 	test('lo que se scrapeó del producto viaja entero', () => {
@@ -234,16 +226,14 @@ describe('el prompt de respaldo, para cuando OpenAI rechaza', () => {
 
 	/**
 	 * Lo que pide el usuario entra como UN dato más de la ficha, sin explicarle
-	 * cómo obedecerlo.
-	 *
-	 * Se probó una versión con más peso —"no es opcional, tiene que verse"— y entró
-	 * junto con otros cambios; las imágenes salieron peor y se volvió a esta. Para
-	 * reponerla hay que medirla sola contra bb23858.
+	 * cómo obedecerlo. Las tres frases que le decían dónde ponerlo se sacaron: el
+	 * prompt es un presupuesto de atención, y cada orden le come lugar a las reglas
+	 * que sí se midieron contra imágenes.
 	 */
 	test('lo que pide el usuario entra en una línea, sin instrucciones alrededor', () => {
 		const prompt = buildPromptLibre({ ...ficha, indicaciones: 'que se vea el 4+2 de regalo' });
 		assert.match(prompt, /WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: que se vea el 4\+2 de regalo/);
-		assert.doesNotMatch(prompt, /not optional/);
+		assert.doesNotMatch(prompt, /you decide which block carries it/);
 	});
 
 	/** Todo lo demás sigue igual: se sacan dos líneas, no se cambia de prompt. */
@@ -504,41 +494,5 @@ describe('los textos ya escritos', () => {
 
 	test('sin lista el prompt queda como estaba', () => {
 		assert.doesNotMatch(buildPromptLibre(ficha), /THE TEXT IS ALREADY WRITTEN/);
-	});
-});
-
-describe('los colores elegidos, con su rol', () => {
-	const roles = { fondo: '#0B1120', titulo: '#FFFFFF', texto: '#C9C7D1', acento: '#DD1D1D', boton: '#DD1D1D', textoBoton: '#FFFFFF' };
-
-	/**
-	 * La pantalla deja elegir el color de cada cosa por separado, y al prompt
-	 * llegaba una lista plana de hexadecimales: el modelo los repartía a su
-	 * criterio, así que el fondo de la marca terminaba de titular. Elegir uno por
-	 * uno no servía de nada si después no se decía cuál era cuál.
-	 */
-	test('cada color viaja con lo que pinta', () => {
-		const prompt = buildPromptLibre({ ...ficha, coloresDeLaMarca: Object.values(roles), rolesDeColor: roles });
-		assert.match(prompt, /#0B1120 is the background/);
-		assert.match(prompt, /#FFFFFF is every headline/);
-		assert.match(prompt, /#DD1D1D fills the buttons/);
-		assert.match(prompt, /#FFFFFF is the text on top of the buttons/);
-		assert.match(prompt, /Paint each thing with the colour named for it and with no other/);
-	});
-
-	/** Sin roles se cae a la lista suelta: peor, pero no roto. */
-	test('sin roles se nombran los colores sueltos', () => {
-		const prompt = buildPromptLibre({ ...ficha, coloresDeLaMarca: ['#0B1120', '#DD1D1D'] });
-		assert.match(prompt, /#0B1120, #DD1D1D, and only those/);
-	});
-
-	/**
-	 * Con la identidad del ganador elegida no se agrega NADA: es un agregado para
-	 * cuando se pide la propia, no un cambio del camino que ya funcionaba.
-	 */
-	test('con la del ganador el prompt no gana ni un bloque', () => {
-		const prompt = buildPromptLibre({ ...ficha, rolesDeColor: roles });
-		assert.doesNotMatch(prompt, /THIS AD IS SET IN THE ADVERTISER/);
-		assert.doesNotMatch(prompt, /is the background/);
-		assert.match(prompt, /the very letterforms you can see in the image/);
 	});
 });

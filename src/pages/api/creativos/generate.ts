@@ -679,11 +679,7 @@ export const POST: APIRoute = async ({ request }) => {
 				await pushInput(normalized.buffer, normalized.type, `product-${item.product.id}-${item.photoIndex}.png`, `verified photo ${item.photoIndex} of the SAME real product SKU “${item.product.name}”; preserve exact geometry, proportions, construction, packaging, label, material, texture, color and physical side orientation`);
 			}
 		}
-		// Las fotos subidas entran TAMBIÉN cuando el producto vino de una URL: son
-		// fotos más del mismo producto, no un producto distinto. Antes se ignoraban
-		// si había productIds, así que desde el flujo por URL no había forma de
-		// sumar una foto propia cuando la tienda no publicaba una que sirviera.
-		if (!isExactRevision && productsUploaded.length > 0) {
+		if (!isExactRevision && !productIds.length && productsUploaded.length > 0) {
 			for (let idx = 0; idx < productsUploaded.length; idx++) {
 				const fileObj = productsUploaded[idx];
 				const normalized = await normalizeImageInput(Buffer.from(await fileObj.arrayBuffer()));
@@ -752,9 +748,9 @@ export const POST: APIRoute = async ({ request }) => {
 			const avatar = await resolveAvatarReferences({ admin, userId: auth.user!.id, mode: 'saved', avatarId });
 			avatarReferenceImages = avatar.images;
 			avatarDescription = avatar.description || avatar.name;
-			// Las fotos NO se adjuntan acá: el avatar tiene que quedar último de la
-			// lista porque el prompt lo nombra por posición, y el packshot se agrega
-			// más abajo. Se adjuntan al final, junto antes de generar.
+			for (const [index, image] of avatarReferenceImages.entries()) {
+				await pushInput(image.buffer, image.type, `avatar-${index + 1}.png`, `reference photo ${index + 1} of the same selected person/avatar; preserve identity consistently`);
+			}
 		}
 
 		stamp(`inputs listos (${inputBuffers.length} imágenes)`);
@@ -886,18 +882,6 @@ export const POST: APIRoute = async ({ request }) => {
 				}
 			}
 		}
-		/**
-		 * El avatar va ÚLTIMO, después del producto, del logo y del packshot.
-		 *
-		 * No es cosmético: el motor recibe una lista ordenada de imágenes sin
-		 * etiquetas, así que la única forma de señalarle cuál es la persona es la
-		 * posición. Adjuntándolo antes del packshot, "la última imagen es el modelo"
-		 * le señalaba una foto del producto.
-		 */
-		for (const [index, image] of avatarReferenceImages.entries()) {
-			await pushInput(image.buffer, image.type, `avatar-${index + 1}.png`, `reference photo ${index + 1} of the same selected person/avatar; preserve identity consistently`);
-		}
-
 		/**
 		 * Qué viajó al motor, dicho con las claves que la pantalla conoce. Va al
 		 * snapshot de la generación para que "estas fotos se usaron" y "el
