@@ -7258,3 +7258,6 @@
 .creation-fotos-subir:hover { border-color: #744bde; color: #4a2a9e; background: #faf7ff; }
 .creation-fotos-subir input { display: none; }
 .creation-fotos-todas { margin: 0; }
+
+/* Cuando Mi marca no tiene nada guardado: se dice, y se arregla ahí mismo. */
+.creation-vacio { font-size: 11.5px; color: #b0761f; background: #fdf6e7; padding: 3px 9px; border-radius: 999px; }

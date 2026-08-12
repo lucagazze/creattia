@@ -609,7 +609,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		? Boolean(miMarca?.colors?.length)
 		: Boolean(paletaDeLaUrl.length || (Array.isArray(marcaDeLaUrl?.colors) && marcaDeLaUrl.colors.length));
 	useEffect(() => {
-		if ((phase !== 'review' && phase !== 'confirmar') || brandSource !== 'mine' || !token) return;
+		const laNecesito = brandSource === 'mine' || colorMode === 'brand' || typoMode === 'brand';
+		if ((phase !== 'review' && phase !== 'confirmar') || !laNecesito || !token) return;
 		let cancelado = false;
 		void fetch('/api/creativos/brands', { headers: { authorization: `Bearer ${token}` } })
 			.then((response) => response.ok ? response.json() : null)
@@ -624,7 +625,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			})
 			.catch(() => { /* sin miniatura se sigue pudiendo elegir */ });
 		return () => { cancelado = true; };
-	}, [phase, brandSource, token]);
+	}, [phase, brandSource, colorMode, typoMode, token]);
 	/** El archivo concreto que se pegaría si se elige "con logo". */
 	const logoQueSePondria = brandSource === 'mine' ? logoDeMiMarca : brandSource === 'url' ? logoDeLaUrl : '';
 	const origenDelLogo = brandSource === 'mine' ? 'Mi marca' : 'la URL';
@@ -2132,6 +2133,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									    sería un control que no hace nada. */}
 									<div className="creation-color-encabezado">
 										<span className="picker-label" style={{ margin: 0 }}>{colorMode === 'brand' ? 'Los colores de Mi marca' : 'Colores detectados en tu web'}</span>
+									{/* Elegir "Mi marca" sin tener nada cargado dejaba seis casilleros
+									    vacíos sin explicación. Se dice qué pasó y se aclara que se pueden
+									    poner acá mismo: el aviso usa lo que quede en estos casilleros. */}
+									{colorMode === 'brand' && !miMarca?.colors?.length && (
+										<span className="creation-vacio">Mi marca no tiene colores guardados — poné los que quieras acá</span>
+									)}
 										{hayColoresDetectados && (
 											<button type="button" className="creation-color-restablecer" disabled={phase === 'starting'} onClick={() => coloresDetectados(true)}>
 												<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
@@ -2235,6 +2242,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								{typoMode !== 'winner' && (
 								<div style={{ gridColumn: '1 / -1' }}>
 									<span className="picker-label">{typoMode === 'brand' ? 'La tipografía de Mi marca' : 'Tipografía detectada en tu web'}</span>
+									{typoMode === 'brand' && !miMarca?.typography?.headings && !miMarca?.typography?.body && (
+										<p className="creation-vacio" style={{ margin: '4px 0 0' }}>Mi marca no tiene tipografía guardada — elegila acá</p>
+									)}
 									<p className="batch-detail-help">
 										{tipografiaDeLaUrl
 											? 'Corregila si el escaneo devolvió el nombre interno de la fuente en vez del real.'
