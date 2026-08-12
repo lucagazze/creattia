@@ -1323,6 +1323,13 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * estaba pasando, lo natural es volver a tocarlo: se pedían dos reescrituras
 	 * y ganaba la que llegaba última.
 	 */
+	/**
+	 * Qué decisiones están con "otra…" abierta, para escribir la opción propia.
+	 *
+	 * Se guarda por índice y no dentro de la decisión: abrir el campo no es una
+	 * elección todavía, y guardarlo con el resto lo mandaría al prompt en blanco.
+	 */
+	const [decisionAMano, setDecisionAMano] = useState<number[]>([]);
 	const [rehaciendo, setRehaciendo] = useState<number | null>(null);
 
 	/** El producto elegido, para los textos que se reescriben desde una URL. */
@@ -1853,6 +1860,90 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 						<div className="batch-detail-card" style={{ marginTop: '4px' }}>
 							<h2 style={{ margin: '0 0 4px', fontSize: '17px', color: '#19171d' }}>Esto leímos de tu web</h2>
 							<p className="batch-detail-help" style={{ marginTop: 0 }}>Si algo no cuadra, volvé y cambiá la URL. Todavía no gastaste créditos.</p>
+
+							{/*
+							  * Lo que el análisis leyó del ganador, que hasta ahora se descartaba.
+							  *
+							  * La interpretación es SOLO para leer: el modelo tiene el ganador
+							  * delante cuando genera, así que describírselo en palabras sería gastar
+							  * atención en algo que está viendo. Sirve para que quien elige entienda
+							  * qué está clonando antes de decidir.
+							  *
+							  * Las decisiones sí bajan al campo de indicaciones, que ya llega al
+							  * prompt como intención y no como orden. Es el canal que ya está medido:
+							  * no se abre uno nuevo.
+							  */}
+							{(plan?.messageStrategy || creativeDecisions.length > 0) && (
+								<div className="creation-lectura">
+									{plan?.messageStrategy && (
+										<p className="creation-lectura-texto">
+											<b>Por qué funciona este ganador:</b> {plan.messageStrategy}
+										</p>
+									)}
+									{creativeDecisions.map((decision, index) => {
+										const opciones = (decision.options || []).slice(0, 3);
+										if (!opciones.length) return null;
+										const frase = (opcion: string) => `${decision.title ? `${decision.title}: ` : ''}${opcion}`;
+										const aMano = decisionAMano.includes(index);
+										return (
+											<div key={`${decision.type || 'decision'}-${index}`} className="creation-decision">
+												<span>{decision.question || decision.title}</span>
+												<div className="creation-decision-opciones">
+													{opciones.map((opcion) => {
+														const puesta = indicaciones.includes(frase(opcion));
+														return (
+															<button
+																key={opcion}
+																type="button"
+																className={puesta ? 'active' : ''}
+																disabled={phase === 'starting'}
+																aria-pressed={puesta}
+																onClick={() => setIndicaciones((previo) => {
+																	// Elegir otra opción de la MISMA decisión reemplaza a la
+																	// anterior: son excluyentes, y dejar las dos le pide al
+																	// modelo dos cosas que no pueden pasar juntas.
+																	let texto = previo;
+																	for (const otra of opciones) texto = texto.replace(frase(otra), '');
+																	texto = texto.replace(/\s*·\s*·\s*/g, ' · ').replace(/^\s*·\s*|\s*·\s*$/g, '').trim();
+																	if (puesta) return texto;
+																	return (texto ? `${texto} · ${frase(opcion)}` : frase(opcion)).slice(0, 600);
+																})}
+															>
+																{puesta ? '✓ ' : '+ '}{opcion}
+															</button>
+														);
+													})}
+													<button
+														type="button"
+														className={aMano ? 'active' : ''}
+														disabled={phase === 'starting'}
+														onClick={() => setDecisionAMano((previo) => (aMano ? previo.filter((i) => i !== index) : [...previo, index]))}
+													>
+														{aMano ? '× Otra' : 'Otra…'}
+													</button>
+												</div>
+												{aMano && (
+													<input
+														type="text"
+														className="creation-decision-propia"
+														autoFocus
+														maxLength={120}
+														placeholder="Escribí lo tuyo y apretá Enter"
+														disabled={phase === 'starting'}
+														onKeyDown={(evento) => {
+															if (evento.key !== 'Enter') return;
+															const escrito = (evento.target as HTMLInputElement).value.trim();
+															if (!escrito) return;
+															setIndicaciones((previo) => (previo.trim() ? `${previo.trim()} · ${frase(escrito)}` : frase(escrito)).slice(0, 600));
+															setDecisionAMano((previo) => previo.filter((i) => i !== index));
+														}}
+													/>
+												)}
+											</div>
+										);
+									})}
+								</div>
+							)}
 
 							{/* El ganador NO se repite acá: está en la columna de la izquierda,
 							    a la vista, desde que se entró a esta pantalla. */}

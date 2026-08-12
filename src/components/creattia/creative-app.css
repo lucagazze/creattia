@@ -7164,3 +7164,31 @@
 }
 .creation-texto-rehacer:hover:not(:disabled) { border-color: #b9a6ee; background: #faf7ff; color: #4a2a9e; }
 .creation-texto-rehacer:disabled { opacity: .45; cursor: default; }
+
+/* Lo que el análisis leyó del ganador: la interpretación y las decisiones.
+   Va arriba de todo y en tono bajo — es lo que ayuda a decidir, no una acción. */
+.creation-lectura {
+	margin: 0 0 18px; padding: 13px 15px; border: 1px solid #ece9f1; border-radius: 12px; background: #fbfafd;
+}
+.creation-lectura-texto {
+	margin: 0; font-size: 12.5px; line-height: 1.55; color: #716d79;
+}
+.creation-lectura-texto b { color: #3d3945; font-weight: 700; }
+.creation-decision { margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0edf5; }
+.creation-lectura-texto + .creation-decision { border-top: 1px solid #ece9f1; }
+.creation-decision > span { display: block; font-size: 12.5px; font-weight: 600; color: #3d3945; }
+.creation-decision-opciones { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+.creation-decision-opciones button {
+	padding: 6px 11px; border: 1px solid #ddd8e4; border-radius: 999px; background: #fff;
+	font: 400 12.5px/1.3 inherit; color: #3d3945; cursor: pointer;
+	transition: border-color .15s, background .15s, color .15s;
+}
+.creation-decision-opciones button:hover:not(:disabled) { border-color: #b9a6ee; background: #faf7ff; }
+.creation-decision-opciones button.active { border-color: #744bde; background: #f2ecff; color: #4a2a9e; font-weight: 600; }
+.creation-decision-opciones button:disabled { opacity: .55; cursor: default; }
+.creation-decision-propia {
+	width: 100%; max-width: 340px; margin-top: 8px; padding: 8px 11px;
+	border: 1px solid #c9bcf0; border-radius: 9px; background: #fff;
+	font-size: 13px; font-family: inherit; color: #3d3945;
+}
+.creation-decision-propia:focus { outline: none; box-shadow: 0 0 0 2px #f3eeff; }
