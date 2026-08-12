@@ -1,4 +1,4 @@
-import { analyzeReferenceLayout, buildReferenceClonePrompt, LANGUAGE_NAMES, type LayoutAnalysis, type LogoMode } from './ad-analysis';
+import { analyzeReferenceLayout, buildReferenceClonePrompt, LANGUAGE_NAMES, renderStudioProductShot, type LayoutAnalysis, type LogoMode } from './ad-analysis';
 import { buildPromptCorto } from './prompt-corto';
 import { buildPromptLibre, fotosParaElMotor, leerElProducto, type LecturaDelProducto } from './clon-libre';
 import { generateAdImage, type EngineImage, type EngineUsage } from './image-engines';
@@ -427,6 +427,44 @@ function firmaElegida(logoMode: LogoMode | undefined, hasLogo: boolean) {
 }
 
 /**
+ * Las fotos del producto que se le mandan al motor, fabricando una si hace falta.
+ *
+ * Cuando la tienda no publica una sola foto limpia del objeto —galería entera de
+ * placas promocionales, que es lo normal en Tiendanube y Shopify— mandar esas
+ * placas es peor que no mandar nada: el motor las lee como el producto y termina
+ * clonando el diseño de la tienda en vez del anuncio ganador. Pasó exactamente
+ * eso con una mojarra de pesca cuya galería era toda bandera, caja y "SORTEO DÍA
+ * 30 DE CADA MES", y el aviso salió siendo esa placa.
+ *
+ * `renderStudioProductShot` estaba escrita en `ad-analysis.ts` y no la llamaba
+ * nadie: re-fotografía el objeto solo, sobre fondo neutro y sin una letra encima.
+ * Cuesta unos diez segundos y tres centavos, y es la diferencia entre un aviso y
+ * una placa fotocopiada.
+ */
+async function fotosLimpiasDelProducto(
+	input: ReferenceCloneInput,
+	lectura: LecturaDelProducto,
+): Promise<EngineImage[]> {
+	const limpias = fotosParaElMotor(input.productImages, lectura);
+	if (limpias.length || !input.productImages.length) return limpias;
+
+	const label = input.logLabel || '[pipeline]';
+	if (!input.keys.googleKey) {
+		console.warn(`${label} todas las fotos del producto son placas de diseño y no hay clave de Gemini para rehacer una: se genera sin fotos`);
+		return [];
+	}
+	console.log(`${label} ninguna foto limpia del producto: se rehace una en estudio`);
+	// La primera es la que la tienda eligió como principal, así que es la que más
+	// probablemente muestre el objeto entero aunque tenga diseño encima.
+	const packshot = await renderStudioProductShot(input.keys.googleKey, input.productImages[0]).catch(() => null);
+	if (!packshot) {
+		console.warn(`${label} no se pudo rehacer la foto del producto: se genera sin fotos`);
+		return [];
+	}
+	return [{ buffer: packshot.buffer, type: packshot.type }];
+}
+
+/**
  * Los colores corregidos a mano en la pantalla de confirmar.
  *
  * Mandan sobre los que trajo el escaneo: si alguien se tomó el trabajo de
@@ -460,6 +498,7 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
 			indicaciones: input.brief,
 			aspecto: input.lectura?.aspecto,
 			icp: input.lectura?.icp,
+		seUsaEnElCuerpo: input.lectura?.seUsaEnElCuerpo,
 			// El idioma que eligió el usuario manda; sin elección se usa el de la ficha.
 			idioma: input.language ? LANGUAGE_NAMES[input.language] : undefined,
 			decisionDeLogo: firmaElegida(input.logoMode, hasLogo),
@@ -530,9 +569,8 @@ export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalys
  * fotos NO se adjuntan: tenerlas a la vista hace que el modelo las pegue igual y
  * arruine el diseño original.
  */
-export function buildEngineImages(input: ReferenceCloneInput, analysis: LayoutAnalysis | null, lectura?: LecturaDelProducto | null): EngineImage[] {
+export function buildEngineImages(input: ReferenceCloneInput, analysis: LayoutAnalysis | null, fotos: EngineImage[]): EngineImage[] {
 	const referenceShowsProduct = analysis?.referenceHasProduct !== false;
-	const fotos = lectura ? fotosParaElMotor(input.productImages, lectura) : input.productImages;
 	return [
 		input.reference,
 		...(referenceShowsProduct ? fotos : []),
@@ -557,7 +595,7 @@ export async function renderReferenceClone(input: ReferenceCloneInput): Promise<
 	]);
 	const prompt = buildClonePrompt({ ...input, avatarImageCount: (input.avatarImages || []).length, lectura }, analysis, Boolean(input.logo));
 	const format = await resolveFormat(input.requestedFormat, input.reference);
-	const images = buildEngineImages(input, analysis, lectura);
+	const images = buildEngineImages(input, analysis, await fotosLimpiasDelProducto(input, lectura));
 
 	console.log(`${label} generando en ${format} (${images.length} imágenes de entrada, calidad ${input.tier})`);
 	const { buffer, engine, usage } = await generateAdImage({

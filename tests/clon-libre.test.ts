@@ -131,37 +131,69 @@ describe('el prompt del clon libre', () => {
 	});
 
 	test('lo que se scrapeó del producto viaja entero', () => {
-		const prompt = buildPromptLibre({ ...ficha, url: 'https://rawmenoficial.com/p', aspecto: 'Negro, tejido perforado.' });
+		const prompt = buildPromptLibre({ ...ficha, aspecto: 'Negro, tejido perforado.' });
 		assert.match(prompt, /Bóxer premium de bambú/);
-		assert.match(prompt, /url: https:\/\/rawmenoficial\.com\/p/);
 		assert.match(prompt, /WHAT THE PRODUCT LOOKS LIKE, read off its real photos:\nNegro, tejido perforado\./);
+	});
+
+	/**
+	 * La URL y el logo salieron del texto: el modelo no abre links, el logo viaja
+	 * como imagen, y una dirección escrita en el prompt es candidata a terminar
+	 * impresa en el aviso.
+	 */
+	test('la url y el logo no se le escriben', () => {
+		const prompt = buildPromptLibre({ ...ficha, url: 'https://rawmenoficial.com/p', logoUrl: 'https://cdn/logo.png' });
+		assert.doesNotMatch(prompt, /rawmenoficial/);
+		assert.doesNotMatch(prompt, /cdn/);
+	});
+
+	/**
+	 * El defecto, visto en producción: una mojarra de pesca cuya galería eran todas
+	 * placas promocionales —bandera, caja, "SORTEO DÍA 30"— salió siendo esa placa.
+	 * El motor tenía dos diseños delante y la orden de reproducir letra por letra lo
+	 * impreso en el producto, así que clonó el de la tienda.
+	 */
+	test('el diseño sale del ganador, no de las fotos del producto', () => {
+		const prompt = buildPromptLibre(ficha);
+		assert.match(prompt, /THE DESIGN COMES FROM THE FIRST IMAGE AND FROM NOWHERE ELSE/);
+		assert.match(prompt, /Take the object out of it and leave the rest behind/);
 	});
 });
 
 describe('qué fotos llegan al motor', () => {
-	const fotos = [0, 1, 2].map((i) => ({ buffer: Buffer.from(`foto ${i}`), type: 'image/jpeg' }));
+	const fotos = [0, 1, 2, 3].map((i) => ({ buffer: Buffer.from(`foto ${i}`), type: 'image/jpeg' }));
+	const nombres = (elegidas: Array<{ buffer: Buffer }>) => elegidas.map((f) => f.buffer.toString());
 
 	/**
-	 * OpenAI rechaza el pedido ENTERO —no lo degrada— si sospecha un cuerpo en
-	 * ropa interior entre las imágenes de entrada, aunque el aviso a generar no
-	 * muestre nada. Esas fotos sirvieron para entender el producto y ahí terminan.
+	 * El defecto: una tienda con la galería llena de placas promocionales hacía que
+	 * el motor clonara el diseño de la tienda en vez del anuncio ganador. Tenía dos
+	 * diseños delante y la orden de ser fiel al producto.
 	 */
-	test('las fotos con una persona no viajan', () => {
-		const quedan = fotosParaElMotor(fotos, { conPersona: [1] });
-		assert.deepEqual(quedan.map((f) => f.buffer.toString()), ['foto 0', 'foto 2']);
+	test('las placas de diseño no viajan', () => {
+		assert.deepEqual(nombres(fotosParaElMotor(fotos, { mejores: [1, 3], graficas: [0, 2], conPersona: [] })), ['foto 1', 'foto 3']);
 	});
 
 	/**
-	 * Si TODAS tienen persona no se filtra: quedarse sin una sola foto es peor que
-	 * arriesgar el filtro, porque sin ninguna el motor dibuja el producto de
-	 * memoria y sale parecido en vez de igual.
+	 * OpenAI rechaza el pedido ENTERO —no lo degrada— si sospecha un cuerpo en ropa
+	 * interior entre las imágenes de entrada, aunque el aviso a generar no muestre
+	 * nada.
 	 */
-	test('nunca deja al motor sin ninguna foto', () => {
-		assert.equal(fotosParaElMotor(fotos, { conPersona: [0, 1, 2] }).length, 3);
+	test('las fotos con una persona tampoco', () => {
+		assert.deepEqual(nombres(fotosParaElMotor(fotos, { mejores: [0, 1, 2], graficas: [], conPersona: [1] })), ['foto 0', 'foto 2']);
 	});
 
-	test('sin personas no toca nada', () => {
-		assert.equal(fotosParaElMotor(fotos, { conPersona: [] }).length, 3);
+	/** Cada imagen de entrada es una señal que compite con la referencia. */
+	test('nunca viajan más de tres', () => {
+		assert.equal(fotosParaElMotor(fotos, { mejores: [], graficas: [], conPersona: [] }).length, 3);
+	});
+
+	/**
+	 * Devolver vacío es una respuesta con significado: no hay una sola foto del
+	 * objeto, y el que llama fabrica una en vez de mandar una placa. Es lo que
+	 * dispara `renderStudioProductShot`.
+	 */
+	test('sin ninguna foto limpia devuelve vacío, para que se fabrique una', () => {
+		assert.equal(fotosParaElMotor(fotos, { mejores: [], graficas: [0, 1, 2, 3], conPersona: [] }).length, 0);
 	});
 });
 
@@ -327,11 +359,21 @@ describe('las personas usando el producto', () => {
 	 * Si alguien vuelve a meter esas palabras, vuelven los rechazos.
 	 */
 	test('se permite mostrarlas, sin nombrar anatomía', () => {
-		const prompt = buildPromptLibre(ficha);
+		const prompt = buildPromptLibre({ ...ficha, seUsaEnElCuerpo: true });
 		assert.match(prompt, /PEOPLE CAN WEAR THE PRODUCT/);
 		assert.match(prompt, /an editorial retail photograph/);
 		for (const palabra of ['genital', 'nipple', 'groin', 'erotic', 'bare ']) {
 			assert.doesNotMatch(prompt, new RegExp(palabra, 'i'), `el prompt no puede decir "${palabra}"`);
 		}
+	});
+
+	/**
+	 * En un aviso de pesca o de suplementos ese párrafo no aporta nada, y sí aporta
+	 * el vocabulario que el filtro de OpenAI castiga. Y del prompt magro —el que se
+	 * manda cuando el filtro ya rechazó una vez— sale siempre.
+	 */
+	test('solo aparece si el producto se usa puesto', () => {
+		assert.doesNotMatch(buildPromptLibre(ficha), /PEOPLE CAN WEAR THE PRODUCT/);
+		assert.doesNotMatch(buildPromptLibre({ ...ficha, seUsaEnElCuerpo: true }, true), /PEOPLE CAN WEAR THE PRODUCT/);
 	});
 });

@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { waitUntil } from '@vercel/functions';
 import { toFile } from 'openai';
-import { analyzeReferenceLayout, normalizeImageInput, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
+import { analyzeReferenceLayout, normalizeImageInput, renderStudioProductShot, LANGUAGE_NAMES, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import { generateAdImage } from '../../../lib/creattia/image-engines';
 import { authenticateRequest, checkRateLimit, closeGenerationsAndCountRefunds, getAdminClient, json } from '../../../lib/creattia/server';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
@@ -11,7 +11,7 @@ import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
-import { leerElProducto } from '../../../lib/creattia/clon-libre';
+import { fotosParaElMotor, leerElProducto } from '../../../lib/creattia/clon-libre';
 import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, parseRolesDeColor, parseTipografiaElegida, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
@@ -812,16 +812,44 @@ export const POST: APIRoute = async ({ request }) => {
 		// un cuerpo en ropa interior, aunque el aviso a generar no muestre nada. Si
 		// todas tienen persona se mandan igual: sin ninguna foto el motor dibuja el
 		// producto de memoria, que es peor.
-		const aCortar = new Set((lectura?.conPersona || [])
-			.map((i) => indicesDeFotosDeProducto[i])
-			.filter((i) => typeof i === 'number'));
-		if (aCortar.size && aCortar.size < indicesDeFotosDeProducto.length) {
+		/**
+		 * Qué fotos del producto llegan al motor.
+		 *
+		 * Se quedan las limpias del objeto —como mucho tres, porque cada imagen de
+		 * entrada compite con la referencia— y quedan afuera dos cosas: las placas de
+		 * diseño de la tienda, que el motor leía como el producto y terminaba
+		 * clonando en vez del ganador, y las que muestran una persona, que hacen que
+		 * OpenAI rechace el pedido entero cuando el producto es ropa interior.
+		 */
+		const fotosQueSeQuedan = new Set(
+			fotosParaElMotor(productVisionInputs.map((f) => ({ buffer: f.buffer, type: f.type })), lectura || { mejores: [], graficas: [], conPersona: [] })
+				.map((elegida) => productVisionInputs.findIndex((f) => f.buffer === elegida.buffer)),
+		);
+		const aCortar = indicesDeFotosDeProducto
+			.map((posicion, i) => (fotosQueSeQuedan.has(i) ? -1 : posicion))
+			.filter((posicion) => posicion >= 0);
+		if (aCortar.length) {
 			for (const i of [...aCortar].sort((a, b) => b - a)) {
 				inputBuffers.splice(i, 1);
 				inputs.splice(i, 1);
 				inputImageMap.splice(i, 1);
 			}
-			stamp(`${aCortar.size} foto(s) con persona quedaron fuera del render`);
+			stamp(`${aCortar.length} foto(s) del producto quedaron fuera del render`);
+		}
+		/**
+		 * Sin una sola foto limpia se fabrica una.
+		 *
+		 * Es el caso de las tiendas cuya galería son todas placas promocionales:
+		 * mandarlas es peor que no mandar nada, porque el motor clona el diseño de la
+		 * tienda. `renderStudioProductShot` re-fotografía el objeto solo sobre fondo
+		 * neutro y sin una letra encima.
+		 */
+		if (!fotosQueSeQuedan.size && productVisionInputs.length && googleKey && !isExactRevision) {
+			const packshot = await renderStudioProductShot(googleKey, productVisionInputs[0]).catch(() => null);
+			if (packshot) {
+				await pushInput(packshot.buffer, packshot.type, 'producto-en-estudio.png', 'the product re-photographed on its own, clean, with no text or graphics: this is the product to show');
+				stamp('ninguna foto limpia del producto: se rehízo una en estudio');
+			}
 		}
 
 		const hasTargetProductInput = storedProducts.length > 0 || hasUploadedProduct || productVisionInputs.length > 0;

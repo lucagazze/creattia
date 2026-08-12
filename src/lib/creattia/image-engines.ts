@@ -227,8 +227,14 @@ export async function generateAdImage(input: {
 			 */
 			const esFiltro = /safety|moderation|content[_ ]policy/i.test(message);
 			if (esFiltro) {
+				// Medido sobre la referencia más difícil: con un solo reintento salía 2 de
+				// 5, y las dos veces fue en ese reintento. Como el rechazo no se cobra,
+				// lo único que cuesta una tirada más es la espera —el filtro contesta en
+				// segundos— así que se tiran varias antes de recortar el prompt.
 				const reintentos = [
 					{ prompt: input.prompt, etiqueta: 'el mismo prompt' },
+					{ prompt: input.prompt, etiqueta: 'el mismo prompt otra vez' },
+					{ prompt: input.prompt, etiqueta: 'el mismo prompt una vez más' },
 					...(input.promptDeRespaldo && input.promptDeRespaldo !== input.prompt
 						? [{ prompt: input.promptDeRespaldo, etiqueta: 'sin el ICP ni las indicaciones' }]
 						: []),
