@@ -556,12 +556,11 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
 export function buildClonePromptDeRespaldo(input: ClonePromptInput, hasLogo: boolean): string | null {
 	if (caminoDeRender() !== 'libre') return null;
 	const ficha = fichaDesde(input, hasLogo);
-	// Sin ICP, sin indicaciones y sin el bloque de prendas el magro sería idéntico
-	// al completo y el reintento gastaría una llamada en mandar lo mismo. Pero el
-	// magro TAMBIÉN saca ese bloque, y los productos que se usan puestos son
-	// justamente los que disparan el filtro: sin esta condición se quedaban sin el
-	// único reintento que les sirve.
-	if (!ficha.icp && !ficha.indicaciones?.trim() && !ficha.seUsaEnElCuerpo) return null;
+	// Sin ICP ni indicaciones el magro es idéntico al completo y el reintento
+	// gastaría una llamada en mandar lo mismo. El bloque de prendas del PROMPT B
+	// no cuenta: está escrito sin vocabulario que el filtro castigue y viaja
+	// también en el magro.
+	if (!ficha.icp && !ficha.indicaciones?.trim()) return null;
 	return buildPromptLibre(ficha, true);
 }
 

@@ -149,14 +149,15 @@ describe('el prompt del clon libre', () => {
 	});
 
 	/**
-	 * La defensa contra placas se probó dos veces —como bloque del prompt y como
-	 * clasificador de entrada— y las dos veces el conjunto salió peor que b8ded8c.
-	 * El caso de la galería toda-placas quedó como costo asumido. Este test guarda
-	 * la decisión: si el bloque vuelve al prompt, que sea a propósito y midiendo.
+	 * Dos de los bloques del PROMPT B, que le ganó 3 a 0 a la base en el
+	 * experimento de la campera GAP (2026-08-11): el diseño-sale-de-la-primera-
+	 * imagen y la tipografía impoluta. Entraron como paquete medido con imágenes,
+	 * no como parches sueltos.
 	 */
-	test('la defensa contra placas no está en el prompt', () => {
+	test('los bloques del PROMPT B están presentes', () => {
 		const prompt = buildPromptLibre(ficha);
-		assert.doesNotMatch(prompt, /THE DESIGN COMES FROM THE FIRST IMAGE/);
+		assert.match(prompt, /THE DESIGN COMES FROM THE FIRST IMAGE AND FROM NOWHERE ELSE/);
+		assert.match(prompt, /THE TYPE IS TYPESET, NOT DRAWN/);
 	});
 });
 
@@ -294,14 +295,13 @@ describe('lo que el ganador trajo prestado', () => {
 	 * Historia que no hay que perder: tres veces en producción sobrevivió una marca
 	 * de terceros — un sello "WELLBEING AWARDS 2023" sobre sillas de cuero, el
 	 * disclaimer de la FDA de un suplemento sobre un bóxer, un "$20 OFF" de nadie.
-	 * La cláusula que los nombraba se fue con la vuelta a b8ded8c (el cierre corto
-	 * es parte del todo que midió mejor) y es la segunda candidata a
-	 * reintroducción — de a una y comparando contra b8ded8c.
+	 * La cláusula que los nombra volvió con el PROMPT B, y el prompt mínimo del
+	 * mismo experimento mostró por qué hace falta: inventó un rating 4.7 y un
+	 * precio de $69.000 sobre un producto de $75.000.
 	 */
-	test('el cierre es el corto de b8ded8c', () => {
+	test('los sellos, ratings y letra chica de terceros no se quedan', () => {
 		const prompt = buildPromptLibre(ficha);
-		assert.match(prompt, /Do not keep the original advertiser's brand, logo, wordmark or product anywhere in the image\./);
-		assert.doesNotMatch(prompt, /award seals/);
+		assert.match(prompt, /award seals, press logos, star ratings, certifications, legal small print/);
 	});
 });
 
@@ -367,22 +367,19 @@ describe('las otras páginas del carrusel como contexto', () => {
 
 describe('las personas usando el producto', () => {
 	/**
-	 * El bloque volvió a ser el fijo de b8ded8c, que nombra anatomía para
-	 * prohibirla. Medido aparte, ese vocabulario sumaba rechazos del filtro (5/7
-	 * contra 6/7) y el condicional "PEOPLE CAN WEAR" los evitaba — pero el
-	 * conjunto b8ded8c midió mejor y volvió entero. Si los rechazos vuelven a
-	 * doler, el condicional es la tercera candidata a reintroducción, de a una y
-	 * midiendo contra b8ded8c.
+	 * El PROMPT B reemplazó el bloque fijo de pudor por el bloque de prendas
+	 * condicional: dice lo mismo por el lado positivo, sin el vocabulario que el
+	 * filtro de OpenAI castiga (medido: 5/7 rechazos con él, 6/7 sin él), y solo
+	 * cuando el producto se usa puesto — en un aviso de pesca no aporta nada.
 	 */
-	test('el bloque de pudor es el fijo de b8ded8c', () => {
-		const prompt = buildPromptLibre(ficha);
-		assert.match(prompt, /NOTHING EXPLICIT IS EVER SHOWN/);
-		assert.doesNotMatch(prompt, /PEOPLE CAN WEAR THE PRODUCT/);
-	});
-
-	/** `seUsaEnElCuerpo` quedó sin efecto: mismo prompt con y sin. */
-	test('marcar que se usa puesto no cambia nada', () => {
-		assert.equal(buildPromptLibre({ ...ficha, seUsaEnElCuerpo: true }), buildPromptLibre(ficha));
+	test('el bloque de prendas solo aparece si el producto se usa puesto', () => {
+		const puesto = buildPromptLibre({ ...ficha, seUsaEnElCuerpo: true });
+		assert.match(puesto, /PEOPLE CAN WEAR THE PRODUCT/);
+		assert.doesNotMatch(puesto, /NOTHING EXPLICIT/);
+		for (const palabra of ['genital', 'nipple', 'groin', 'erotic']) {
+			assert.doesNotMatch(puesto, new RegExp(palabra, 'i'), `el prompt no puede decir "${palabra}"`);
+		}
+		assert.doesNotMatch(buildPromptLibre(ficha), /PEOPLE CAN WEAR THE PRODUCT/);
 	});
 });
 

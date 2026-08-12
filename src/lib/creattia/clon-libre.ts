@@ -17,21 +17,26 @@
  * reales, no por parecer razonable. Las que se probaron y no cambiaron nada
  * están afuera. Antes de agregar una, generá con y sin ella y mirá las dos.
  *
- * TODO el camino de generación volvió a "Colores que se pueden elegir, logo que
- * se puede cambiar, producto más fiel" (b8ded8c): prompt corto, TODAS las fotos
- * del producto al motor, y el aspecto integrando la escenografía de las fotos.
- * Se probó dos veces "mejorarlo" —primero sumando bloques al prompt, después
- * filtrando la entrada con un clasificador y un packshot— y las dos veces las
- * imágenes salieron peor mirándolas al lado de las de b8ded8c. La lección es de
- * radio de acción: aquellas soluciones tocaban TODAS las generaciones para
- * arreglar un caso raro. La única excepción que quedó es quirúrgica y a todo o
- * nada: la galería que es 100% placas promocionales (el caso mojarra, donde el
- * output era basura segura) viaja como packshot; con una sola foto real, nada
- * se filtra ni se limita. Si algún otro arreglo vuelve, vuelve DE A UNO y
- * midiéndolo contra b8ded8c en el flujo staged de Vercel. La advertencia de
- * idioma ya volvió (2026-08-11: un "Wait..." y un "Mmmhmm" del ganador
- * sobrevivieron intactos en producción); queda como candidata la cláusula de
- * sellos ajenos (vista tres veces en producción).
+ * El prompt vigente es el PROMPT B del experimento de la campera GAP
+ * (2026-08-11): tres referencias reales —editorial MR PORTER, callouts de Oats
+ * Overnight, "Wait... Mmmhmm" de keto— generadas lado a lado con el prompt de
+ * la app (base b8ded8c + advertencia de idioma) y con B. B ganó las tres,
+ * juzgado por Luca y verificado aparte: styling más fiel al ganador, paleta del
+ * ganador conservada (la base se iba a los colores de la marca), la
+ * interjección manuscrita localizada ("Siiiiii" donde la base dejó "Mmmhmm") y
+ * la escenografía adaptada con criterio. B es la base b8ded8c más cuatro
+ * bloques: TYPESET, el diseño-sale-de-la-primera-imagen, el bloque de prendas
+ * en lugar del pudor fijo, y el cierre con marcas de terceros.
+ *
+ * La ENTRADA sigue siendo la de b8ded8c: TODAS las fotos del producto viajan,
+ * con una sola excepción quirúrgica y a todo o nada — la galería que es 100%
+ * placas promocionales (el caso mojarra) viaja como packshot. El filtrado
+ * parcial y el tope de fotos se midieron y perdieron.
+ *
+ * El prompt mínimo (C del mismo experimento) quedó DESCARTADO con causa: lindo
+ * y mentiroso — inventó un rating 4.7 y un precio de $69.000 sobre un producto
+ * de $75.000. Todo cambio nuevo entra de a uno, comparando imágenes contra el
+ * vigente en el flujo staged de Vercel.
  */
 import type { EngineImage } from './image-engines';
 
@@ -84,7 +89,10 @@ export type FichaDelProducto = {
 	decisionDePersona?: string;
 	/** El usuario decidió qué hacer con el logo: pisa la regla por defecto. */
 	decisionDeLogo?: string;
-	/** Sin efecto desde la vuelta a b8ded8c: el bloque de pudor volvió a ser fijo. */
+	/**
+	 * Si el producto se usa puesto sobre el cuerpo: activa el bloque de prendas
+	 * del PROMPT B. En un aviso de pesca o suplementos ese bloque no aporta nada.
+	 */
 	seUsaEnElCuerpo?: boolean;
 	/**
 	 * El lugar donde pasa la escena, cuando el usuario lo pidió.
@@ -125,7 +133,10 @@ export type LecturaDelProducto = {
 	 * viajar al motor.
 	 */
 	conPersona: number[];
-	/** Sin efecto desde la vuelta a b8ded8c: el bloque de pudor volvió a ser fijo. */
+	/**
+	 * Si el producto se usa puesto sobre el cuerpo: activa el bloque de prendas
+	 * del PROMPT B. En un aviso de pesca o suplementos ese bloque no aporta nada.
+	 */
 	seUsaEnElCuerpo?: boolean;
 };
 
@@ -167,7 +178,9 @@ Answer JSON with four keys:
 
 "conPersona": the 0-based indexes of the photos where a human body is visible. Photos of the product alone, flat lays and diagrams do not count.
 
-"graficas": the 0-based indexes of the images that are DESIGNED GRAPHICS rather than photographs of the object — a promo card with headlines, prices, badges, banners, flags or a collage laid over or beside it. A shop's own promo card counts even when the object is inside it. A plain photo never counts.`;
+"graficas": the 0-based indexes of the images that are DESIGNED GRAPHICS rather than photographs of the object — a promo card with headlines, prices, badges, banners, flags or a collage laid over or beside it. A shop's own promo card counts even when the object is inside it. A plain photo never counts.
+
+"seUsaEnElCuerpo": true only if this is something a person wears or puts on their body.`;
 
 	try {
 		const respuesta = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -202,6 +215,7 @@ Answer JSON with four keys:
 			mejores: [],
 			graficas: indices(leido.graficas),
 			conPersona: indices(leido.conPersona),
+			seUsaEnElCuerpo: leido.seUsaEnElCuerpo === true,
 		};
 	} catch (error) {
 		// Un fallo acá no corta nada: se genera igual, con una ficha más pobre.
@@ -410,6 +424,15 @@ WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: ${ficha.indicaciones.trim()}
 		? `EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now, ${dondePasa}. ${ficha.decisionDePersona}`
 		: `EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now: another person, the one this product is for, ${dondePasa}. The same face in the same place is the sign nothing was adapted.`;
 
+	// El bloque de prendas del PROMPT B: solo cuando el producto se usa puesto.
+	// Dice lo del pudor por el lado positivo y sin el vocabulario que el filtro
+	// de OpenAI castiga, así que va también en el magro.
+	const vestible = ficha.seUsaEnElCuerpo
+		? `PEOPLE CAN WEAR THE PRODUCT — shoot them the way the brand itself would for its own campaign: an editorial retail photograph, the kind a shop publishes on its product page and runs as an ad. The garment is opaque, sits flat and stays where it belongs, the pose is one a catalogue would print, and the crop is the one a retailer chooses.
+
+`
+		: '';
+
 	const pagina = ficha.carrusel
 		// Las páginas se generan por separado y sin verse entre sí, y todas reciben
 		// la misma ficha: sin esto las tres escribían el mismo titular y el mismo
@@ -423,15 +446,17 @@ Everything about the design stays: the same layout, the same composition, ${letr
 
 FIRST, READ EVERY WORD IN THE IMAGE. Go through it block by block — the logo lockup, the headline, every line of it, the paragraph, the button, any badge, pill, caption or small print — and for EACH ONE write the equivalent line for the product below. Every one of them changes. A line that still talks about the original advertiser's business is the single worst thing this can produce: the ad ends up looking right and saying nothing.
 
+THE TYPE IS TYPESET, NOT DRAWN. Every letter comes out crisp at full resolution, with clean edges, even weight across the whole word and even spacing between letters. No ghosting, no doubled strokes, no soft halo, no drop shadow or glow the reference does not have, no letters that go blurry or dissolve at the end of a line. Spelling and accents are exact and every line reads like something a person would actually write. If a line will not fit cleanly at that size, shorten the wording — never squeeze the letters, never blur them, never let them overlap.
+
 Each new line keeps the shape of the one it replaces: the same number of lines, roughly the same length, the same tone, the same job in the ad — a headline stays a headline, a benefit line stays a benefit line, a button stays a button. Where the original highlights one word in the accent colour, highlight the equivalent word of the new line.
 
 THE PRODUCT THIS AD IS NOW FOR
 ${datosDelProducto}${pedido}${pagina}
+THE DESIGN COMES FROM THE FIRST IMAGE AND FROM NOWHERE ELSE. If a product photo arrives with a design of its own on it — text, a headline, a price, a badge, a banner, a flag — that design belongs to whoever made that photo and has nothing to do with this ad. Take the object out of it and leave the rest behind.
+
 THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its waistband, seams, labels, prints and proportions where the photos show them. Its surface is copied as closely as its shape: the same weave or grain, the same perforations, speckles, flecks or bubbles, the same sheen and the same texture up close. Anything printed, stitched, embossed or moulded on it — a wordmark, a size tag, a seal, a logo — is reproduced letter for letter and sits exactly where the photos put it, at the same size and the same angle. Getting the product wrong ruins the ad even if everything else is perfect.
 
-NOTHING EXPLICIT IS EVER SHOWN — people may wear the product and their body may be seen, hips, waist and the groin area the garment covers included. What must never appear is bare genitals, the shape of genitals read through the fabric, or bare nipples. The fabric is opaque and sits flat, and the framing is the one a retailer uses for its catalogue, not an erotic one.
-
-${escena}
+${vestible}${escena}
 
 If the ad sets two sides against each other — before and after, us against them, with and without — keep that comparison and keep the sides clearly opposed. The product's side is the good one.
 
@@ -445,5 +470,5 @@ ${publico}
 
 ${idioma}
 
-Do not invent prices, percentages, ratings, guarantees or claims that are not written above. Do not keep the original advertiser's brand, logo, wordmark or product anywhere in the image. No watermarks, no platform UI.`;
+Do not invent prices, percentages, ratings, guarantees or claims that are not written above. Do not keep anything that came with the original ad: its brand, its logo, its wordmark, its product, and also the marks it borrowed from others — award seals, press logos, star ratings, certifications, legal small print. Any of those stays only if THIS product genuinely has its own. No watermarks, no platform UI.`;
 }
