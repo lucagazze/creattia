@@ -374,16 +374,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * nombre de la marca donde el ganador firma, que es lo que sale bien casi
 	 * siempre. Ofrecer un cambio que no cambia nada sería un control decorativo.
 	 */
-	/**
-	 * Lo que propone la IA mirando ESTE ganador y ESTE producto.
-	 *
-	 * Frente a un campo vacío casi nadie escribe: no porque no tenga qué decir,
-	 * sino porque no sabe qué se puede pedir. Con tres opciones concretas la
-	 * pregunta se contesta con un toque, y la cuarta —escribir lo propio— es el
-	 * campo de abajo, que nunca se va.
-	 */
-	const [sugerencias, setSugerencias] = useState<string[]>([]);
-	const [buscandoSugerencias, setBuscandoSugerencias] = useState(false);
 	const [logoPropio, setLogoPropio] = useState<File | null>(null);
 	const [logoPropioVista, setLogoPropioVista] = useState('');
 	/**
@@ -1022,7 +1012,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			// pedirle la imagen al motor.
 			//
 			setConfirmacion({ productIds, offering: offeringForSubmit });
-			void pedirSugerencias(productIds);
 			// El análisis del ganador se pedía DURANTE la generación y su lista de
 			// textos se descartaba entera. Ahora se pide acá para poder mostrarla y
 			// corregirla: el mismo trabajo, movido antes. Viaja con la generación,
@@ -1161,29 +1150,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			body: previo.body || String(letra?.body || ''),
 		}));
 	}, [phase, marcaDeLaUrl, miMarca, colorMode, typoMode]);
-
-	/**
-	 * Qué destacar, propuesto mirando el ganador y el producto.
-	 *
-	 * Falla en silencio a propósito: sin sugerencias el campo se escribe a mano
-	 * igual, y un cartel rojo por esto sería ruido sobre algo opcional.
-	 */
-	async function pedirSugerencias(productIds: string[]) {
-		if (!token) return;
-		setBuscandoSugerencias(true);
-		try {
-			const form = new FormData();
-			productIds.forEach((id) => form.append('productIds', id));
-			if (productMode === 'manual' || isService) {
-				form.set('productName', manualProductName.trim());
-				form.set('productFacts', manualProductFacts.trim());
-			}
-			const response = await fetch('/api/creativos/sugerencias', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
-			const payload = await response.json().catch(() => ({}));
-			setSugerencias(Array.isArray(payload.sugerencias) ? payload.sugerencias : []);
-		} catch { /* sin sugerencias: el campo se escribe a mano */ }
-		finally { setBuscandoSugerencias(false); }
-	}
 
 	async function guardarAvatarCargado(): Promise<string> {
 		// Con una foto alcanza para fijar la cara. El piso de cuatro dejaba afuera
@@ -1334,6 +1300,20 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 
 	/** El producto elegido, para los textos que se reescriben desde una URL. */
 	const productoImportado: any = importedProducts.find((item: any) => selectedProductIds.includes(item.id)) || importedProducts[0] || null;
+
+	/**
+	 * Cuántas filas necesita un texto para verse ENTERO.
+	 *
+	 * Con alto fijo la sugerencia quedaba cortada a la mitad y con flechitas de
+	 * scroll: había que desplazar dentro de cada campo para leer lo que la IA
+	 * propuso, que es justo lo que hay que poder revisar de un vistazo.
+	 */
+	function filasParaElTexto(texto?: string) {
+		const contenido = texto || '';
+		const porSaltos = contenido.split('\n').length;
+		const porLargo = Math.ceil(contenido.length / 38);
+		return Math.min(6, Math.max(2, porSaltos, porLargo));
+	}
 
 	async function regenerateCopy(index: number) {
 		const zone = zones[index];
@@ -2238,7 +2218,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												<div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', minWidth: 0 }}>
 													<textarea
 														value={zone.replacement || ''}
-														rows={(zone.replacement || '').length > 60 ? 2 : 1}
+														rows={filasParaElTexto(zone.replacement)}
 														maxLength={300}
 														disabled={phase === 'starting'}
 														style={{ flex: 1, minWidth: 0, padding: '8px 11px', border: '1px solid #ece9f1', borderRadius: '9px', fontSize: '13.5px', fontFamily: 'inherit', color: '#19171d', lineHeight: 1.4, resize: 'vertical' }}
@@ -2261,49 +2241,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 									</div>
 								</div>
 							)}
-
-							<div style={{ marginTop: '18px' }}>
-								<span className="picker-label">¿Algo que quieras destacar? <small style={{ fontWeight: 400, color: '#8a8593' }}>(opcional)</small></span>
-								<p className="batch-detail-help">Tocá una de estas o escribí lo tuyo. Dónde ponerlo y de qué tamaño lo decide la IA.</p>
-								{buscandoSugerencias && (
-									<p className="batch-detail-help" style={{ margin: '0 0 8px' }}>
-										<span className="studio-spinner small" aria-hidden="true" /> Buscando qué destacar…
-									</p>
-								)}
-								{sugerencias.length > 0 && (
-									<div className="creation-suggestion-chips">
-										{sugerencias.map((sugerencia) => {
-											const puesta = indicaciones.includes(sugerencia);
-											return (
-												<button
-													key={sugerencia}
-													type="button"
-													className={puesta ? 'active' : ''}
-													disabled={phase === 'starting'}
-													aria-pressed={puesta}
-													onClick={() => setIndicaciones((previo) => {
-														if (previo.includes(sugerencia)) {
-															return previo.replace(sugerencia, '').replace(/\s*·\s*·\s*/g, ' · ').replace(/^\s*·\s*|\s*·\s*$/g, '').trim();
-														}
-														return (previo.trim() ? `${previo.trim()} · ${sugerencia}` : sugerencia).slice(0, 600);
-													})}
-												>
-													{puesta ? '✓ ' : '+ '}{sugerencia}
-												</button>
-											);
-										})}
-									</div>
-								)}
-									<textarea
-									value={indicaciones}
-									onChange={(event) => setIndicaciones(event.target.value.slice(0, 600))}
-									rows={3}
-									maxLength={600}
-									disabled={phase === 'starting'}
-									placeholder="Ej: que se vea el 4+2 de regalo y que la tela es de bambú"
-									style={{ width: '100%', padding: '10px 12px', border: '1px solid #e3e0e8', borderRadius: '10px', fontSize: '13.5px', fontFamily: 'inherit', resize: 'vertical' }}
-								/>
-							</div>
 
 							<section className="logo-decision" aria-label="Cuántas versiones generar" style={{ margin: '18px 0 0' }}>
 								<div className="logo-decision-head">
@@ -2352,7 +2289,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 						</div>
 					)}
 
-					{(phase === 'review' || phase === 'starting') && plan && <>
+					{/* `confirmacion` distingue los dos caminos: la revisión larga es solo del
+					    carrusel. Sin esa condición, al generar desde la pantalla corta el
+					    `plan` ya existía y los bloques de la revisión aparecían medio segundo
+					    debajo del botón antes de navegar. */}
+					{(phase === 'review' || (phase === 'starting' && !confirmacion)) && plan && <>
 						{productMode === 'url' && importedProducts.length > 0 && (
 							<ProductAssetReview
 								products={importedProducts}

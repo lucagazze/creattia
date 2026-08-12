@@ -328,53 +328,6 @@ Everything that was around it stays behind: the layout, the headlines, the price
 	}
 }
 
-/**
- * Tres cosas del producto que valdría la pena destacar, para no dejar el campo
- * de indicaciones en blanco.
- *
- * Sale de lo que se scrapeó de la URL y nada más: no mira el anuncio ganador. Se
- * probó mirándolo y no pagaba —tres ganadores muy distintos devolvían las mismas
- * tres frases— así que la llamada de visión y la descarga de la imagen se
- * ahorran enteras. Son un punto de partida, no una recomendación: la cuarta
- * opción, escribir lo propio, es el campo de abajo y nunca se va.
- */
-export async function sugerirQueDestacar(
-	claves: ClavesDeApi,
-	entrada: { nombre?: string; datos?: string },
-): Promise<string[]> {
-	if (!claves.openAIKey || !(entrada.nombre || entrada.datos)) return [];
-	try {
-		const respuesta = await fetch('https://api.openai.com/v1/chat/completions', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${claves.openAIKey}` },
-			body: JSON.stringify({
-				model: 'gpt-4o-mini',
-				response_format: { type: 'json_object' },
-				max_tokens: 250,
-				messages: [{
-					role: 'user',
-					content: `A shop sells this:
-${entrada.nombre || ''}
-${entrada.datos || ''}
-
-Three things worth putting in an ad for it, in the advertiser's own everyday words: its offer if it has one, what makes it better than what people use today, the proof or guarantee it can show. Under 9 words each, in the same language as the text above. Only what that text supports — skip anything it does not say. Never mention where to put them or how big.
-
-Answer JSON: {"sugerencias":["...","...","..."]}`,
-				}],
-			}),
-		});
-		if (!respuesta.ok) return [];
-		const json = await respuesta.json();
-		const leido = JSON.parse(json?.choices?.[0]?.message?.content || '{}');
-		return Array.isArray(leido.sugerencias)
-			? leido.sugerencias.filter((s: unknown) => typeof s === 'string' && s.trim()).map((s: string) => s.trim().slice(0, 120)).slice(0, 3)
-			: [];
-	} catch (error) {
-		console.error('[clon-libre] no se pudieron armar las sugerencias:', error);
-		return [];
-	}
-}
-
 const linea = (etiqueta: string, valor?: string | string[] | null) => {
 	if (!valor) return '';
 	const texto = Array.isArray(valor) ? valor.filter(Boolean).join(' · ') : String(valor).trim();
