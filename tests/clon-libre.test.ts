@@ -508,3 +508,39 @@ describe('los textos ya escritos', () => {
 		assert.doesNotMatch(buildPromptLibre(ficha), /THE TEXT IS ALREADY WRITTEN/);
 	});
 });
+
+describe('los colores elegidos, con su rol', () => {
+	const roles = { fondo: '#0B1120', titulo: '#FFFFFF', texto: '#C9C7D1', acento: '#DD1D1D', boton: '#DD1D1D', textoBoton: '#FFFFFF' };
+
+	/**
+	 * La pantalla deja elegir el color de cada cosa por separado, y al prompt
+	 * llegaba una lista plana de hexadecimales: el modelo los repartía a su
+	 * criterio, así que el fondo de la marca terminaba de titular. Elegir uno por
+	 * uno no servía de nada si después no se decía cuál era cuál.
+	 */
+	test('cada color viaja con lo que pinta', () => {
+		const prompt = buildPromptLibre({ ...ficha, coloresDeLaMarca: Object.values(roles), rolesDeColor: roles });
+		assert.match(prompt, /#0B1120 is the background/);
+		assert.match(prompt, /#FFFFFF is every headline/);
+		assert.match(prompt, /#DD1D1D fills the buttons/);
+		assert.match(prompt, /#FFFFFF is the text on top of the buttons/);
+		assert.match(prompt, /Paint each thing with the colour named for it and with no other/);
+	});
+
+	/** Sin roles se cae a la lista suelta: peor, pero no roto. */
+	test('sin roles se nombran los colores sueltos', () => {
+		const prompt = buildPromptLibre({ ...ficha, coloresDeLaMarca: ['#0B1120', '#DD1D1D'] });
+		assert.match(prompt, /#0B1120, #DD1D1D, and only those/);
+	});
+
+	/**
+	 * Con la identidad del ganador elegida no se agrega NADA: es un agregado para
+	 * cuando se pide la propia, no un cambio del camino que ya funcionaba.
+	 */
+	test('con la del ganador el prompt no gana ni un bloque', () => {
+		const prompt = buildPromptLibre({ ...ficha, rolesDeColor: roles });
+		assert.doesNotMatch(prompt, /THIS AD IS SET IN THE ADVERTISER/);
+		assert.doesNotMatch(prompt, /is the background/);
+		assert.match(prompt, /the very letterforms you can see in the image/);
+	});
+});

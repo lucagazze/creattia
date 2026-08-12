@@ -174,7 +174,7 @@ export function logoModeRecomendado(analisis: LayoutAnalysis | null | undefined 
 	return paginas.some((pagina) => pagina?.templateHasLogoSlot) ? 'texto' : 'nada';
 }
 
-const ROLES_DE_COLOR = ['fondo', 'titulo', 'texto', 'acento', 'boton'] as const;
+const ROLES_DE_COLOR = ['fondo', 'titulo', 'texto', 'acento', 'boton', 'textoBoton'] as const;
 export type RolesDeColor = Partial<Record<typeof ROLES_DE_COLOR[number], string>>;
 
 /**
@@ -530,6 +530,11 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean, analysis?: Layout
 			coloresDeLaMarca: input.colorMode !== 'winner'
 				? (coloresCorregidos(input.rolesDeColor) || input.brandColors)
 				: undefined,
+			// Y qué color va en qué. La pantalla deja elegirlo uno por uno y hasta
+			// ahora se aplastaba en una lista sin decir cuál era cuál: al modelo le
+			// llegaban cinco hexadecimales y los repartía a su criterio, así que el
+			// fondo de la marca terminaba de titular.
+			rolesDeColor: input.colorMode !== 'winner' ? input.rolesDeColor : undefined,
 			tipografiaDeLaMarca: input.typoMode !== 'winner' ? input.brandTypography : undefined,
 			indicaciones: input.brief,
 			aspecto: input.lectura?.aspecto,

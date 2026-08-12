@@ -81,6 +81,12 @@ export type FichaDelProducto = {
 	 * el clon se parezca al original.
 	 */
 	coloresDeLaMarca?: string[];
+	/**
+	 * Qué color va en qué: el fondo, los títulos, los textos, el acento, el botón
+	 * y el texto del botón. Una lista plana de hexadecimales deja que el modelo los
+	 * reparta a su criterio, y así el fondo de la marca terminaba de titular.
+	 */
+	rolesDeColor?: { fondo?: string; titulo?: string; texto?: string; acento?: string; boton?: string; textoBoton?: string };
 	tipografiaDeLaMarca?: { headings?: string; body?: string };
 	/**
 	 * Lo que el usuario quiere destacar, en sus palabras.
@@ -401,11 +407,26 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 		ficha.tipografiaDeLaMarca?.body && `${ficha.tipografiaDeLaMarca.body} for the body copy, the captions and the small print`,
 	].filter(Boolean).join(', and ');
 
+	// Cada color con el nombre de lo que pinta. Sin esto son hexadecimales sueltos
+	// y el modelo decide él cuál va dónde, que es justamente lo que se estaba
+	// eligiendo a mano en la pantalla.
+	const roles = ficha.rolesDeColor || {};
+	const porRol = [
+		roles.fondo && `${roles.fondo} is the background`,
+		roles.titulo && `${roles.titulo} is every headline`,
+		roles.texto && `${roles.texto} is the body copy and the small print`,
+		roles.acento && `${roles.acento} is the accent`,
+		roles.boton && `${roles.boton} fills the buttons`,
+		roles.textoBoton && `${roles.textoBoton} is the text on top of the buttons`,
+	].filter(Boolean).join(', ');
+
 	const identidad = (eligioLetra || eligioColor)
 		? `THIS AD IS SET IN THE ADVERTISER'S OWN IDENTITY, NOT THE REFERENCE'S. ${
 			eligioLetra ? `The type is ${tipografiaPedida}. Those are the typefaces that get drawn — the reference's letterforms do not appear anywhere in this ad, not even where they would look better. ` : ''
 		}${
-			eligioColor ? `The colours are ${ficha.coloresDeLaMarca!.join(', ')}, and only those: every surface, every block, every word and every button is painted from that set, in the same roles the reference uses them. A colour of the reference that is not in that list does not survive. ` : ''
+			eligioColor ? (porRol
+				? `The colours are assigned, not suggested: ${porRol}. Paint each thing with the colour named for it and with no other. A colour of the reference that is not in that list does not survive anywhere in the ad. `
+				: `The colours are ${ficha.coloresDeLaMarca!.join(', ')}, and only those: every surface, every block, every word and every button is painted from that set, in the same roles the reference uses them. A colour of the reference that is not in that list does not survive. `) : ''
 		}This is the part somebody will check first against their own brand, so it is the part that has to be exact.
 
 `
