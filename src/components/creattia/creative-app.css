@@ -7248,3 +7248,13 @@
 	background: #fff; font-size: 13px; font-family: inherit; color: #3d3945;
 }
 .creation-extra input:focus { outline: none; border-color: #c9bcf0; box-shadow: 0 0 0 2px #f3eeff; }
+
+.creation-fotos-pie { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.creation-fotos-subir {
+	padding: 5px 11px; border: 1px dashed #c4bcd4; border-radius: 999px; background: #fff;
+	font: 600 11.5px/1.4 inherit; color: #716d79; cursor: pointer;
+	transition: border-color .15s, color .15s, background .15s;
+}
+.creation-fotos-subir:hover { border-color: #744bde; color: #4a2a9e; background: #faf7ff; }
+.creation-fotos-subir input { display: none; }
+.creation-fotos-todas { margin: 0; }

@@ -1007,7 +1007,18 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 				const list = urls.map((u) => u.trim()).filter(Boolean);
 				if (!list.length && productMode === 'url') { setError('Pegá al menos una URL.'); setPhase('setup'); return; }
 				if (list.length) productIds = await scanUrls(list);
-				if (productMode === 'url' && !productIds.length) { setPhase('setup'); return; }
+				// Volver al paso de la URL, que es lo único que se puede arreglar.
+				//
+				// Antes se volvía a `setup` dejando el paso en 3: aparecía la pantalla de
+				// estilo con un cartel rojo abajo y se leía como que la app se cayó sola,
+				// cuando en realidad la URL no se pudo leer. `scanUrls` ya dejó el motivo
+				// en `error`; acá se garantiza que haya uno aunque se haya perdido.
+				if (productMode === 'url' && !productIds.length) {
+					setError((previo) => previo || 'No pudimos leer esa URL. Revisala o probá con otra.');
+					setFormStep(1);
+					setPhase('setup');
+					return;
+				}
 				// setState no se refleja en este mismo handler: se relee del producto.
 				const scanned = importedProducts.find((item: any) => productIds.includes(item.id));
 				const scannedType = (scanned as any)?.metadata?.pageType;
@@ -1161,15 +1172,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 
 	useEffect(() => {
 		if (phase !== 'confirmar') return;
-		// Las tres primeras vienen marcadas: es lo que la tienda puso primero, y
-		// llegar con algo elegido es lo que hace que se pueda seguir de largo sin
-		// tener que decidir. Se completan solo si no hay elección previa.
-		setFotosElegidas((previo) => {
-			if (previo.length) return previo;
-			const elegido = importedProducts.find((item: any) => selectedProductIds.includes(item.id)) || importedProducts[0];
-			const fotos = ((elegido as any)?.media || []).filter((m: any) => m.type !== 'video' && m.url);
-			return fotos.slice(0, 3).map((foto: any, i: number) => foto.path || `upload:${i}`);
-		});
 		coloresDetectados(false);
 		const letra = typoMode === 'brand' ? miMarca?.typography : marcaDeLaUrl?.typography;
 		setTipografiaElegida((previo) => ({
@@ -1268,10 +1270,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if ((productMode === 'url' || isService) && idsDeProducto.length) {
 				idsDeProducto.forEach((id) => form.append('productIds', id));
 			} else if (productMode === 'manual') {
-				if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
 				form.set('productName', manualProductName.trim());
 				form.set('productFacts', manualProductFacts.trim());
 			}
+			// Las fotos propias van siempre, venga el producto de una URL o escrito a
+			// mano: son fotos más del mismo producto y se suman a las detectadas.
+			if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
 
 			const response = await fetch('/api/creativos/generate', { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form });
 			const payload = await response.json();
@@ -1895,44 +1899,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							  * prompt como intención y no como orden. Es el canal que ya está medido:
 							  * no se abre uno nuevo.
 							  */}
-							{(creativeDecisions.length > 0 || plan?.comparison?.detected) && (
+							{creativeDecisions.length > 0 && (
 								<div className="creation-lectura">
-									{/* Un aviso comparativo vive de que los dos lados digan cosas
-									    distintas. El análisis lo detecta y describe el contraste, pero
-									    esa lectura no llegaba a ninguna parte: se preguntaba por el
-									    modelo y por el fondo, y no por lo único que decide si la
-									    comparación funciona. */}
-									{plan?.comparison?.detected && plan.comparison.summary && (
-										<div className="creation-decision">
-											<span>Es un aviso comparativo. ¿Contra qué se compara tu producto?</span>
-											<div className="creation-decision-opciones">
-												{[
-													'Contra uno genérico sin marca',
-													'Contra uno más caro que no rinde más',
-													'Contra cómo se hacía antes',
-												].map((opcion) => {
-													const puesta = decisionElegida[-1] === opcion;
-													return (
-														<button
-															key={opcion}
-															type="button"
-															className={puesta ? 'active' : ''}
-															disabled={phase === 'starting'}
-															aria-pressed={puesta}
-															onClick={() => setDecisionElegida((previo) => {
-																const siguiente = { ...previo };
-																if (puesta) delete siguiente[-1];
-																else siguiente[-1] = opcion;
-																return siguiente;
-															})}
-														>
-															{puesta ? '✓ ' : '+ '}{opcion}
-														</button>
-													);
-												})}
-											</div>
-										</div>
-									)}
 									{creativeDecisions.map((decision, index) => {
 										const opciones = (decision.options || []).slice(0, 3);
 										if (!opciones.length) return null;
@@ -1943,7 +1911,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												<span>{decision.question || decision.title}</span>
 												<div className="creation-decision-opciones">
 													{opciones.map((opcion) => {
-														const puesta = decisionElegida[index] === opcion;
+														// Se guarda la frase con el título adelante, así que la
+														// comparación tiene que ser contra lo MISMO que se guarda: con
+														// `opcion` pelada nunca coincidía y el botón no se marcaba nunca.
+														const puesta = decisionElegida[index] === frase(opcion);
 														return (
 															<button
 																key={opcion}
@@ -2077,10 +2048,51 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 																	);
 																})}
 															</div>
-															{fotosElegidas.length > 0 && fotosElegidas.length < fotos.length && (
-																<button type="button" className="creation-fotos-todas" onClick={() => setFotosElegidas([])}>
-																	Volver a usarlas todas
-																</button>
+															<div className="creation-fotos-pie">
+																{/* Subir una propia cuando la tienda no publica ninguna que
+																    sirva. Se suma a las detectadas: son fotos más del mismo
+																    producto, no un producto distinto. */}
+																<label className="creation-fotos-subir">
+																	Subir una foto mía
+																	<input
+																		type="file"
+																		accept="image/png,image/jpeg,image/webp,image/avif"
+																		multiple
+																		disabled={phase === 'starting'}
+																		onChange={(evento) => {
+																			const nuevos = Array.from(evento.target.files || []).slice(0, 4);
+																			if (!nuevos.length) return;
+																			setUploadFiles((previo) => [...previo, ...nuevos].slice(0, 6));
+																			setUploadPreviews((previo) => [...previo, ...nuevos.map((f) => URL.createObjectURL(f))].slice(0, 6));
+																			evento.target.value = '';
+																		}}
+																	/>
+																</label>
+																{fotosElegidas.length > 0 && fotosElegidas.length < fotos.length && (
+																	<button type="button" className="creation-fotos-todas" onClick={() => setFotosElegidas([])}>
+																		Volver a usarlas todas
+																	</button>
+																)}
+															</div>
+															{uploadPreviews.length > 0 && (
+																<div className="creation-fotos">
+																	{uploadPreviews.map((vista, i) => (
+																		<button
+																			key={vista}
+																			type="button"
+																			className="active"
+																			disabled={phase === 'starting'}
+																			title="Sacar esta foto"
+																			onClick={() => {
+																				URL.revokeObjectURL(vista);
+																				setUploadFiles((previo) => previo.filter((_, n) => n !== i));
+																				setUploadPreviews((previo) => previo.filter((_, n) => n !== i));
+																			}}
+																		>
+																			<img src={vista} alt="" />
+																		</button>
+																	))}
+																</div>
 															)}
 														</>
 													)}

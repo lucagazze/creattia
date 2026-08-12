@@ -679,7 +679,11 @@ export const POST: APIRoute = async ({ request }) => {
 				await pushInput(normalized.buffer, normalized.type, `product-${item.product.id}-${item.photoIndex}.png`, `verified photo ${item.photoIndex} of the SAME real product SKU “${item.product.name}”; preserve exact geometry, proportions, construction, packaging, label, material, texture, color and physical side orientation`);
 			}
 		}
-		if (!isExactRevision && !productIds.length && productsUploaded.length > 0) {
+		// Las fotos subidas entran TAMBIÉN cuando el producto vino de una URL: son
+		// fotos más del mismo producto, no un producto distinto. Antes se ignoraban
+		// si había productIds, así que desde el flujo por URL no había forma de
+		// sumar una foto propia cuando la tienda no publicaba una que sirviera.
+		if (!isExactRevision && productsUploaded.length > 0) {
 			for (let idx = 0; idx < productsUploaded.length; idx++) {
 				const fileObj = productsUploaded[idx];
 				const normalized = await normalizeImageInput(Buffer.from(await fileObj.arrayBuffer()));
