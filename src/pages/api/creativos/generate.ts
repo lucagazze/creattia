@@ -841,7 +841,7 @@ export const POST: APIRoute = async ({ request }) => {
 		 *
 		 * Es el caso de las tiendas cuya galería son todas placas promocionales:
 		 * mandarlas es peor que no mandar nada, porque el motor clona el diseño de la
-		 * tienda. `renderStudioProductShot` re-fotografía el objeto solo sobre fondo
+		 * tienda. `refotografiarProducto` re-fotografía el objeto solo sobre fondo
 		 * neutro y sin una letra encima.
 		 */
 		if (!fotosQueSeQuedan.size && productVisionInputs.length && !isExactRevision

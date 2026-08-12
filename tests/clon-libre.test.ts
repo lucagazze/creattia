@@ -190,7 +190,7 @@ describe('qué fotos llegan al motor', () => {
 	/**
 	 * Devolver vacío es una respuesta con significado: no hay una sola foto del
 	 * objeto, y el que llama fabrica una en vez de mandar una placa. Es lo que
-	 * dispara `renderStudioProductShot`.
+	 * dispara `refotografiarProducto`.
 	 */
 	test('sin ninguna foto limpia devuelve vacío, para que se fabrique una', () => {
 		assert.equal(fotosParaElMotor(fotos, { mejores: [], graficas: [0, 1, 2, 3], conPersona: [] }).length, 0);

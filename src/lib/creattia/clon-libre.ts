@@ -162,7 +162,7 @@ ${entrada.datos || ''}
 ${entrada.queVendeLaTienda || ''}
 ${entrada.url || ''}
 
-Answer JSON with three keys:
+Answer JSON with these keys:
 
 "aspecto": THE OBJECT ITSELF and nothing around it — what kind of thing it is, its shape and cut, its exact colours, the material and how it behaves, the seams, labels, prints and where they sit, and anything written on it. Say nothing about the background, the surface it rests on, the lighting, the backdrop or the style of the photos: that goes in "ambiente". Never how it fits on a body, no anatomy, nothing about the models. Under 160 words.
 
@@ -204,6 +204,7 @@ Answer JSON with three keys:
 		const indices = (valor: unknown) => (Array.isArray(valor) ? valor.filter((i: unknown) => Number.isInteger(i)) as number[] : []);
 		return {
 			aspecto: typeof leido.aspecto === 'string' ? leido.aspecto.trim() : undefined,
+			ambiente: typeof leido.ambiente === 'string' && leido.ambiente.trim() ? leido.ambiente.trim() : undefined,
 			icp: typeof leido.icp === 'string' ? leido.icp.trim() : undefined,
 			mejores: indices(leido.mejores).slice(0, 3),
 			graficas: indices(leido.graficas),
@@ -444,7 +445,7 @@ ${vestible}${escena}
 
 If the ad sets two sides against each other — before and after, us against them, with and without — keep that comparison and keep the sides clearly opposed. The product's side is the good one.
 
-The decoration is what survives by mistake. Flowers, fruit, stones, ingredients, fabric, tools, scenery — whatever surrounds the original product was chosen to say something about THAT product and says nothing about this one. Replace it with the equivalent for this product, in the same spot and at the same size.
+The decoration is what survives by mistake. Flowers, fruit, stones, ingredients, fabric, tools, scenery — whatever surrounds the original product was chosen to say something about THAT product and says nothing about this one. Replace it with the equivalent for this product, in the same spot and at the same size.${ficha.ambiente ? ` This product's own world, seen in the brand's own photos: ${sinPuntoFinal(ficha.ambiente)}. When this ad needs scenery, a surface or a prop for the product, take it from that world.` : ''}
 
 THE PRODUCT IS SHOT THE WAY THE REFERENCE SHOOTS ITS OWN — Look at how the original product appears and repeat exactly that: the same number of pieces, laid out in the same arrangement and the same angles, at the same size in the frame, with the same crop, the same lighting and the same shadows, on a surface that plays the same role but belongs to this product. If the original scatters seven items across the canvas, this product is scattered as seven items too; if it shows one hero piece dead centre, so does this one. The product is real and photographed, never illustrated, and it is shown as what it actually is — not turned into the shape of the original product.
 

@@ -445,10 +445,8 @@ function firmaElegida(logoMode: LogoMode | undefined, hasLogo: boolean) {
  * eso con una mojarra de pesca cuya galería era toda bandera, caja y "SORTEO DÍA
  * 30 DE CADA MES", y el aviso salió siendo esa placa.
  *
- * `renderStudioProductShot` estaba escrita en `ad-analysis.ts` y no la llamaba
- * nadie: re-fotografía el objeto solo, sobre fondo neutro y sin una letra encima.
- * Cuesta unos diez segundos y tres centavos, y es la diferencia entre un aviso y
- * una placa fotocopiada.
+ * `refotografiarProducto` re-fotografía el objeto solo, sobre fondo neutro y sin
+ * una letra encima: es la diferencia entre un aviso y una placa fotocopiada.
  */
 async function fotosLimpiasDelProducto(
 	input: ReferenceCloneInput,
@@ -510,6 +508,7 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
 			tipografiaDeLaMarca: input.typoMode !== 'winner' ? input.brandTypography : undefined,
 			indicaciones: input.brief,
 			aspecto: input.lectura?.aspecto,
+			ambiente: input.lectura?.ambiente,
 			icp: input.lectura?.icp,
 		seUsaEnElCuerpo: input.lectura?.seUsaEnElCuerpo,
 			// El idioma que eligió el usuario manda; sin elección se usa el de la ficha.

@@ -1336,38 +1336,3 @@ ${input.brief || 'None.'}${textSwap ? `
 THE TEXTS ONE BY ONE (read this last and follow it literally) — everything above is HOW to rebuild the ad; this is WHAT it has to say and where each line goes. Each entry gives the block's position, the exact words, and how that block is set on the template. Where an entry and a general rule seem to disagree about a block, the entry wins: it was measured on this template.
 ${textSwap}` : ''}`;
 }
-
-// Pre-producción del producto: si hay template, re-fotografía el producto COMO SI
-// estuviera en la escena del anuncio ganador (misma luz, ángulo, pose y sombra que
-// el producto original del template) para que la composición final no parezca un
-// recorte pegado. Sin template, cae a toma de estudio neutra.
-export async function renderStudioProductShot(
-	googleKey: string,
-	image: { buffer: Buffer; type: string },
-	options?: { template?: { buffer: Buffer; type: string }; placement?: string },
-): Promise<{ buffer: Buffer; type: string } | null> {
-	try {
-		const prompt = options?.template
-			? `The first image is a winning ad TEMPLATE. The second image is a REAL PRODUCT photo. Re-photograph ONLY the real product as if it were shot inside the template's scene, ready to replace the template's product: same environment and background treatment, same lighting direction and color temperature, same camera angle, and the same pose, tilt and framing as the template's product${options.placement ? ` (${options.placement})` : ''}. ONE single coherent object with soft, scene-consistent shadows — never a flat cut-out with hard edges. Preserve the real product's exact shape, proportions, colors, materials and texture with total fidelity. Output the staged product alone in its scene context, with NO text, logos, cards, badges or graphics.`
-			: 'Re-photograph the EXACT product from this image as a professional studio product shot: ONE single coherent object, clean neutral light background, soft even studio lighting, gentle contact shadow, centered with generous margins. Preserve the product\'s exact shape, proportions, colors, materials and texture with total fidelity. Do not add any text, logos, props, packaging or extra items. Do not crop the product.';
-		const parts: any[] = [{ text: prompt }];
-		if (options?.template) parts.push({ inline_data: { mime_type: options.template.type, data: options.template.buffer.toString('base64') } });
-		parts.push({ inline_data: { mime_type: image.type, data: image.buffer.toString('base64') } });
-		const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${googleKey}`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({
-				contents: [{ parts }],
-				generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '1:1' } },
-			}),
-		});
-		const data: any = await response.json().catch(() => ({}));
-		if (!response.ok) throw new Error(`Gemini ${response.status}`);
-		const part = data.candidates?.[0]?.content?.parts?.find((item: any) => item.inlineData?.data || item.inline_data?.data);
-		if (!part) return null;
-		return { buffer: Buffer.from(part.inlineData?.data || part.inline_data?.data, 'base64'), type: 'image/png' };
-	} catch (error) {
-		console.error('Studio product shot failed (se usa la foto original):', error);
-		return null;
-	}
-}
