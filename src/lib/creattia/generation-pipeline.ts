@@ -513,7 +513,7 @@ function coloresCorregidos(roles: RolesDeColor | undefined) {
 }
 
 /** La ficha con la que se arma el prompt libre, y también su versión magra. */
-function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
+function fichaDesde(input: ClonePromptInput, hasLogo: boolean, analysis?: LayoutAnalysis | null) {
 	return {
 			nombres: input.productNames,
 			datos: input.productFacts.filter(Boolean),
@@ -543,6 +543,9 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean) {
 		lugarElegido: input.lugarElegido,
 		carrusel: input.carousel ? { indice: input.carousel.index, total: input.carousel.total } : undefined,
 		otrasPaginas: input.otrasPaginasCount,
+		// Lo que el análisis del ganador ya devolvía y se tiraba. Cuando el usuario
+		// los corrigió en la pantalla de confirmar, llegan corregidos.
+		textos: analysis?.textZones,
 	};
 }
 
@@ -567,7 +570,7 @@ export function buildClonePromptDeRespaldo(input: ClonePromptInput, hasLogo: boo
 /** El prompt clon a partir del análisis. Separado para poder testearlo solo. */
 export function buildClonePrompt(input: ClonePromptInput, analysis: LayoutAnalysis | null, hasLogo: boolean) {
 	const camino = caminoDeRender();
-	if (camino === 'libre') return buildPromptLibre(fichaDesde(input, hasLogo));
+	if (camino === 'libre') return buildPromptLibre(fichaDesde(input, hasLogo, analysis));
 	const armar = camino === 'corto' ? buildPromptCorto : buildReferenceClonePrompt;
 	return armar({
 		productNames: input.productNames,

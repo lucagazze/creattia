@@ -116,6 +116,21 @@ export type FichaDelProducto = {
 	 * product is really used") en vez de sumarle una orden.
 	 */
 	lugarElegido?: string;
+	/**
+	 * Los textos ya escritos: qué decía cada bloque del ganador y qué va a decir.
+	 *
+	 * El análisis del ganador ya devuelve esta lista en CADA generación y hasta
+	 * ahora se descartaba entera. Pasarla cambia quién escribe el copy: sin ella el
+	 * motor lo improvisa mientras dibuja, y ahí es donde sobrevivían el disclaimer
+	 * de la FDA, un "$20 OFF" que no era de nadie, un titular en inglés y los
+	 * números del ganador transliterados. Con la lista delante, el texto del
+	 * ganador no tiene por dónde colarse.
+	 *
+	 * Es la lista SOLA —700 a 1.000 caracteres— y no el análisis entero, que son
+	 * 10.000 a 14.000 y es lo que hacía que el prompt se pasara del techo de
+	 * OpenAI y saliera rígido.
+	 */
+	textos?: Array<{ original?: string; replacement?: string }>;
 	/** Para una página de carrusel: en cuál va y de cuántas. */
 	carrusel?: { indice: number; total: number };
 	/** Cuántas páginas del carrusel viajan como contexto, al final de las imágenes. */
@@ -447,6 +462,29 @@ WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: ${ficha.indicaciones.trim()}
 `
 		: '';
 
+	// Va donde el prompt ya está leyendo el aviso bloque por bloque, no al final.
+	//
+	// Con tope, porque esta lista es lo ÚNICO del prompt que crece con la
+	// referencia: sin límite, un ganador cargado de texto lo devuelve al problema
+	// que tumbaba al detallado, los 32.000 caracteres de OpenAI. Veinte bloques de
+	// doscientos caracteres cubren de sobra lo medido — entre 5 y 12 bloques, 295
+	// a 1.008 caracteres en total.
+	const recorte = (t: string) => (t.length > 200 ? `${t.slice(0, 199)}…` : t);
+	const listaDeTextos = (ficha.textos || [])
+		.filter((t) => (t.original || '').trim() && (t.replacement || '').trim())
+		.slice(0, 20)
+		.map((t, i) => `${i + 1}. "${recorte(t.original!.trim())}"  ->  "${recorte(t.replacement!.trim())}"`)
+		.join('\n');
+	const textosEscritos = listaDeTextos
+		? `THE TEXT IS ALREADY WRITTEN. This is each block of the reference and the line that replaces it:
+
+${listaDeTextos}
+
+Use those words. If one will not fit cleanly at its size, shorten it — never go back to the reference's own wording.
+
+`
+		: '';
+
 	const pagina = ficha.carrusel
 		// Las páginas se generan por separado y sin verse entre sí, y todas reciben
 		// la misma ficha: sin esto las tres escribían el mismo titular y el mismo
@@ -462,7 +500,7 @@ FIRST, READ EVERY WORD IN THE IMAGE. Go through it block by block — the logo l
 
 THE TYPE IS TYPESET, NOT DRAWN. Every letter comes out crisp at full resolution, with clean edges, even weight across the whole word and even spacing between letters. No ghosting, no doubled strokes, no soft halo, no drop shadow or glow the reference does not have, no letters that go blurry or dissolve at the end of a line. Spelling and accents are exact and every line reads like something a person would actually write. If a line will not fit cleanly at that size, shorten the wording — never squeeze the letters, never blur them, never let them overlap.
 
-Each new line keeps the shape of the one it replaces: the same number of lines, roughly the same length, the same tone, the same job in the ad — a headline stays a headline, a benefit line stays a benefit line, a button stays a button. Where the original highlights one word in the accent colour, highlight the equivalent word of the new line.
+${textosEscritos}Each new line keeps the shape of the one it replaces: the same number of lines, roughly the same length, the same tone, the same job in the ad — a headline stays a headline, a benefit line stays a benefit line, a button stays a button. Where the original highlights one word in the accent colour, highlight the equivalent word of the new line.
 
 THE PRODUCT THIS AD IS NOW FOR
 ${datosDelProducto}${pedido}${pagina}

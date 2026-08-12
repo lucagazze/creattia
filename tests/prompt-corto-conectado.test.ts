@@ -47,18 +47,25 @@ describe('los tres prompts conviven', () => {
 	});
 
 	/**
-	 * El libre NO crece con la referencia: es el mismo texto tenga el ganador dos
-	 * zonas de texto o treinta. Ahí murió el techo de 32.000 caracteres de OpenAI,
-	 * que con el detallado tumbaba generaciones reales.
+	 * El libre crece SOLO por la lista de textos, y con tope.
+	 *
+	 * Antes no crecía nada: el análisis se descartaba entero. Ahora se le pasa la
+	 * lista "esto decía → esto va a decir", que es lo que impide que el texto del
+	 * ganador sobreviva. Es lo único variable del prompt, así que lo que se
+	 * verifica es que un ganador cargadísimo de texto no lo devuelva al problema
+	 * que lo tumbaba: los 32.000 caracteres de OpenAI.
 	 */
-	test('el libre no crece con la cantidad de texto del ganador', () => {
+	test('el libre solo crece por la lista de textos, y con tope', () => {
 		delete process.env.RENDER_PROMPT;
 		const flaco = buildClonePrompt(base, analisis, false);
 		const cargado = buildClonePrompt(base, {
 			...analisis,
-			textZones: Array.from({ length: 30 }, (_, i) => ({ where: `zona ${i}`, original: `original ${i}`, replacement: `nuevo ${i}` })),
+			textZones: Array.from({ length: 60 }, (_, i) => ({
+				where: `zona ${i}`, original: `original ${i} `.repeat(40), replacement: `nuevo ${i} `.repeat(40),
+			})),
 		} as any, false);
-		assert.equal(flaco.length, cargado.length);
+		assert.ok(cargado.length > flaco.length, 'la lista tiene que llegar al prompt');
+		assert.ok(cargado.length < 20_000, `con 60 zonas gigantes mide ${cargado.length}, y el techo de OpenAI es 32.000`);
 	});
 
 	test('el corto dice lo mismo en mucho menos', () => {

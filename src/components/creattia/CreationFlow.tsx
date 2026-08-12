@@ -1022,9 +1022,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			// pedirle la imagen al motor.
 			//
 			setConfirmacion({ productIds, offering: offeringForSubmit });
-			setPhase('confirmar');
 			void pedirSugerencias(productIds);
-			return;
+			// El análisis del ganador se pedía DURANTE la generación y su lista de
+			// textos se descartaba entera. Ahora se pide acá para poder mostrarla y
+			// corregirla: el mismo trabajo, movido antes. Viaja con la generación,
+			// así que el servidor no lo repite.
 
 			const form = new FormData();
 			form.set('referencePath', effectiveReferencePath);
@@ -1081,10 +1083,12 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			setComparisons(Array.isArray(analysis.comparisonItems) ? analysis.comparisonItems.map((c: any) => ({ ...c, directive: '' })) : []);
 			setCreativeDecisions(Array.isArray(analysis.creativeDecisions) ? analysis.creativeDecisions.map((decision: any) => ({ ...decision, directive: '' })) : []);
 			setComparisonGuidance('');
-			setPhase('review');
+			setPhase(wantsFullCarousel ? 'review' : 'confirmar');
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'No se pudo analizar la referencia.');
-			setPhase('setup');
+			// Sin análisis se puede generar igual: el prompt libre no lo necesita, solo
+			// pierde la lista de textos. Cortar acá sería peor que seguir sin ella.
+			console.error('No se pudo analizar la referencia:', cause);
+			setPhase('confirmar');
 		}
 	}
 
@@ -1254,11 +1258,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			// mirando la referencia, que es lo que queremos.
 			form.set('personMode', personMode);
 			if (personMode === 'upload') form.set('avatarId', await guardarAvatarCargado());
+			if (plan) form.set('plan', JSON.stringify(planRevisado()));
 			if (!directo) {
 				form.set('logoMode', logoMode);
 				form.set('pressRowMode', pressRowMode);
 				if (pressRowMode !== 'quitar') form.set('pressRowItems', pressRowItems.trim());
-				form.set('plan', JSON.stringify(planRevisado()));
 			}
 			if ((productMode === 'url' || isService) && idsDeProducto.length) {
 				idsDeProducto.forEach((id) => form.append('productIds', id));
@@ -1836,7 +1840,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					  * quedaba algo que sí valía: ver qué se leyó de la URL antes de gastar
 					  * un crédito. Eso es esta pantalla, y abajo lo único que se escribe.
 					  */}
-					{(phase === 'confirmar' || (phase === 'starting' && !plan)) && (
+					{(phase === 'confirmar' || (phase === 'starting' && Boolean(confirmacion))) && (
 						<div className="batch-detail-card" style={{ marginTop: '4px' }}>
 							<h2 style={{ margin: '0 0 4px', fontSize: '17px', color: '#19171d' }}>Esto leímos de tu web</h2>
 							<p className="batch-detail-help" style={{ marginTop: 0 }}>Si algo no cuadra, volvé y cambiá la URL. Todavía no gastaste créditos.</p>
@@ -2096,6 +2100,43 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								</div>
 								{personMode === 'upload' && cargaDeAvatar}
 							</div>
+
+							{/*
+							  * Los textos del aviso, ya escritos y corregibles.
+							  *
+							  * El análisis del ganador siempre devolvió esta lista y siempre se
+							  * descartó. Sin ella el motor improvisa el copy mientras dibuja, y ahí
+							  * es donde sobrevivieron el disclaimer de la FDA, un "$20 OFF" que no
+							  * era de nadie, un titular que quedó en inglés y los números del
+							  * ganador transliterados a pesos.
+							  *
+							  * Medido: con la lista salieron los nueve textos de un us-vs-them
+							  * palabra por palabra. Por eso tiene que ser editable — el aviso hereda
+							  * sus errores con la misma fidelidad con la que hereda sus aciertos, y
+							  * el análisis escribe cosas como "COMPRAR AHORA AHORA MISMO".
+							  */}
+							{zones.length > 0 && (
+								<div style={{ marginTop: '18px' }}>
+									<span className="picker-label">Lo que va a decir el aviso</span>
+									<p className="batch-detail-help">Corregí lo que no te guste. Sale exactamente esto, así que si algo está mal escrito acá, va mal escrito a la imagen.</p>
+									<div className="creation-textos">
+										{zones.map((zone, index) => (
+											<label key={`${zone.where || 'texto'}-${index}`} className="creation-texto">
+												<small title={zone.original || ''}>{zone.original || 'Texto sin leer'}</small>
+												<textarea
+													value={zone.replacement || ''}
+													rows={(zone.replacement || '').length > 70 ? 3 : 1}
+													maxLength={300}
+													disabled={phase === 'starting'}
+													onChange={(event) => setZones((actual) => actual.map((item, i) => (
+														i === index ? { ...item, replacement: event.target.value } : item
+													)))}
+												/>
+											</label>
+										))}
+									</div>
+								</div>
+							)}
 
 							<div style={{ marginTop: '18px' }}>
 								<span className="picker-label">¿Algo que quieras destacar? <small style={{ fontWeight: 400, color: '#8a8593' }}>(opcional)</small></span>

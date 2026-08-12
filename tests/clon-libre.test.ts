@@ -452,3 +452,47 @@ describe('cuándo se fabrica un packshot', () => {
 		assert.equal(todasSonPlacas([], { mejores: [], graficas: [], conPersona: [] }), false);
 	});
 });
+
+describe('los textos ya escritos', () => {
+	const textos = [
+		{ original: 'BACKED UP?', replacement: '¿BUSCÁS CAMPERA?' },
+		{ original: '*This statement has not been evaluated by the FDA.', replacement: 'Producto en excelente estado.' },
+	];
+
+	/**
+	 * El análisis del ganador ya devuelve esta lista en CADA generación y se
+	 * descartaba entera. Sin ella el motor improvisa el copy mientras dibuja, y ahí
+	 * es donde sobrevivieron el disclaimer de la FDA, un "$20 OFF" que no era de
+	 * nadie, un titular en inglés y los números alemanes transliterados.
+	 *
+	 * Medido en la campera (2026-08-12): con la lista salieron los nueve textos de
+	 * un us-vs-them palabra por palabra. El control es real — por eso la lista
+	 * tiene que ser editable, porque el aviso hereda sus errores igual de fiel.
+	 */
+	test('la lista entra con lo que decía y lo que va a decir', () => {
+		const prompt = buildPromptLibre({ ...ficha, textos });
+		assert.match(prompt, /THE TEXT IS ALREADY WRITTEN/);
+		assert.match(prompt, /1\. "BACKED UP\?"  ->  "¿BUSCÁS CAMPERA\?"/);
+		assert.match(prompt, /2\. ".*FDA\."  ->  "Producto en excelente estado\."/);
+	});
+
+	/**
+	 * Es la lista SOLA, no el análisis entero: 700 a 1.000 caracteres contra
+	 * 10.000-14.000. Inyectar el análisis completo es lo que hacía que el prompt se
+	 * pasara del techo de 32.000 de OpenAI y saliera rígido.
+	 */
+	test('cuesta cientos de caracteres, no miles', () => {
+		const conLista = buildPromptLibre({ ...ficha, textos });
+		assert.ok(conLista.length - buildPromptLibre(ficha).length < 1500);
+	});
+
+	/** Una zona a medias no se manda: media línea es peor que ninguna. */
+	test('las zonas incompletas se descartan', () => {
+		const prompt = buildPromptLibre({ ...ficha, textos: [{ original: 'HOLA' }, { replacement: 'CHAU' }] });
+		assert.doesNotMatch(prompt, /THE TEXT IS ALREADY WRITTEN/);
+	});
+
+	test('sin lista el prompt queda como estaba', () => {
+		assert.doesNotMatch(buildPromptLibre(ficha), /THE TEXT IS ALREADY WRITTEN/);
+	});
+});
