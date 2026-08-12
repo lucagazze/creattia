@@ -162,15 +162,25 @@ describe('qué fotos llegan al motor', () => {
 	const nombres = (elegidas: Array<{ buffer: Buffer }>) => elegidas.map((f) => f.buffer.toString());
 
 	/**
-	 * TODAS, como en b8ded8c: el clasificador de placas y el tope de tres fotos se
-	 * midieron contra ese commit y las imágenes salían peor — entrada abundante
-	 * gana. `mejores` y `graficas` se ignoran a propósito aunque vengan llenos.
+	 * TODAS, como en b8ded8c: el filtrado parcial de placas y el tope de tres
+	 * fotos se midieron contra ese commit y las imágenes salían peor — entrada
+	 * abundante gana. Mientras haya UNA foto real, las placas mezcladas viajan
+	 * igual que viajaban en b8ded8c, y `mejores` se ignora a propósito.
 	 */
-	test('viajan todas, aunque el clasificador diga otra cosa', () => {
+	test('con al menos una foto real viajan todas, placas incluidas', () => {
 		assert.deepEqual(
 			nombres(fotosParaElMotor(fotos, { mejores: [1], graficas: [0, 2], conPersona: [] })),
 			['foto 0', 'foto 1', 'foto 2', 'foto 3'],
 		);
+	});
+
+	/**
+	 * La única excepción, a todo o nada: la galería 100% placas (el caso mojarra)
+	 * producía basura segura — el motor clonaba la placa de la tienda en vez del
+	 * ganador. Devolver vacío le dice al que llama que fabrique un packshot.
+	 */
+	test('con la galería toda placas no viaja ninguna, y se fabrica un packshot', () => {
+		assert.equal(fotosParaElMotor(fotos, { mejores: [], graficas: [0, 1, 2, 3], conPersona: [] }).length, 0);
 	});
 
 	/**

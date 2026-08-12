@@ -22,12 +22,15 @@
  * del producto al motor, y el aspecto integrando la escenografía de las fotos.
  * Se probó dos veces "mejorarlo" —primero sumando bloques al prompt, después
  * filtrando la entrada con un clasificador y un packshot— y las dos veces las
- * imágenes salieron peor mirándolas al lado de las de b8ded8c. El costo asumido
- * a sabiendas: una tienda cuya galería es toda placas promocionales vuelve a
- * clonar la placa (el caso mojarra). Si algún arreglo vuelve, vuelve DE A UNO y
- * midiéndolo contra b8ded8c en el flujo staged de Vercel; las primeras
- * candidatas son la advertencia de idioma (mató el "OBTENEZ VOTRE BOXER" real)
- * y la cláusula de sellos ajenos (vista tres veces en producción).
+ * imágenes salieron peor mirándolas al lado de las de b8ded8c. La lección es de
+ * radio de acción: aquellas soluciones tocaban TODAS las generaciones para
+ * arreglar un caso raro. La única excepción que quedó es quirúrgica y a todo o
+ * nada: la galería que es 100% placas promocionales (el caso mojarra, donde el
+ * output era basura segura) viaja como packshot; con una sola foto real, nada
+ * se filtra ni se limita. Si algún otro arreglo vuelve, vuelve DE A UNO y
+ * midiéndolo contra b8ded8c en el flujo staged de Vercel; las candidatas son la
+ * advertencia de idioma (mató el "OBTENEZ VOTRE BOXER" real) y la cláusula de
+ * sellos ajenos (vista tres veces en producción).
  */
 import type { EngineImage } from './image-engines';
 
@@ -96,11 +99,11 @@ export type LecturaDelProducto = {
 	/** El cliente ideal, para que la escena sea de él y no de un modelo cualquiera. */
 	icp?: string;
 	/**
-	 * Vacíos desde la vuelta a b8ded8c: el clasificador de placas y el tope de
-	 * tres fotos se midieron contra ese commit y las imágenes salían peor —
-	 * entrada abundante gana. Los campos quedan porque los llamadores los leen, y
-	 * porque son el punto exacto donde reintroducir el filtro si el caso de la
-	 * galería toda-placas vuelve a doler: llenarlos de nuevo y medir.
+	 * `mejores` queda siempre vacío: el tope de tres fotos se midió contra
+	 * b8ded8c y las imágenes salían peor — entrada abundante gana. `graficas` sí
+	 * se llena, pero alimenta una sola decisión, binaria: si la galería ENTERA
+	 * son placas de diseño, no viaja ninguna y se fabrica un packshot. Nunca un
+	 * filtrado parcial.
 	 */
 	mejores: number[];
 	graficas: number[];
@@ -147,13 +150,15 @@ ${entrada.datos || ''}
 ${entrada.queVendeLaTienda || ''}
 ${entrada.url || ''}
 
-Answer JSON with three keys:
+Answer JSON with four keys:
 
 "aspecto": what you actually SEE, so someone who never saw it can draw it exactly — what kind of object it is, its shape and cut, its exact colours, the material and how it behaves, the seams, labels, prints and where they sit, and anything written on it. Describe the object on its own: never how it fits on a body, no anatomy, nothing about the models. Under 180 words.
 
 "icp": the one customer this is really for, in ONE sentence a photographer could cast from — age range, gender, how they dress and how they live their day. A casting note, nothing about the body or about using the product. Only what the text above supports.
 
-"conPersona": the 0-based indexes of the photos where a human body is visible. Photos of the product alone, flat lays and diagrams do not count.`;
+"conPersona": the 0-based indexes of the photos where a human body is visible. Photos of the product alone, flat lays and diagrams do not count.
+
+"graficas": the 0-based indexes of the images that are DESIGNED GRAPHICS rather than photographs of the object — a promo card with headlines, prices, badges, banners, flags or a collage laid over or beside it. A shop's own promo card counts even when the object is inside it. A plain photo never counts.`;
 
 	try {
 		const respuesta = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -182,9 +187,11 @@ Answer JSON with three keys:
 		return {
 			aspecto: typeof leido.aspecto === 'string' ? leido.aspecto.trim() : undefined,
 			icp: typeof leido.icp === 'string' ? leido.icp.trim() : undefined,
-			// Vacíos a propósito: el clasificador se midió contra b8ded8c y perdió.
+			// `mejores` queda vacío a propósito: el tope de tres fotos se midió
+			// contra b8ded8c y perdió. `graficas` sí se lee, pero solo alimenta la
+			// pregunta binaria de `todasSonPlacas` — nunca un filtrado parcial.
 			mejores: [],
-			graficas: [],
+			graficas: indices(leido.graficas),
 			conPersona: indices(leido.conPersona),
 		};
 	} catch (error) {
@@ -195,10 +202,12 @@ Answer JSON with three keys:
 }
 
 /**
- * Desde la vuelta a b8ded8c el clasificador no corre y `graficas` llega vacío,
- * así que esto es siempre false: el packshot queda apagado sin tocar a los que
- * lo llaman. Si la galería toda-placas vuelve a doler, la reintroducción
- * empieza acá: llenar `graficas` de nuevo y medir contra b8ded8c.
+ * La única pregunta que se le hace al clasificador: ¿la galería ENTERA son
+ * placas de diseño? Ahí el output actual es basura segura —el motor clona la
+ * placa de la tienda, como pasó con la mojarra— así que cualquier intervención
+ * solo puede mejorar. Con una sola foto real la respuesta es no y no se toca
+ * nada: el filtrado parcial y el tope de fotos ya se midieron contra b8ded8c y
+ * perdieron.
  */
 export function todasSonPlacas(fotos: EngineImage[], lectura: LecturaDelProducto): boolean {
 	return fotos.length > 0 && lectura.graficas.length === fotos.length;
@@ -212,11 +221,13 @@ export function todasSonPlacas(fotos: EngineImage[], lectura: LecturaDelProducto
  * muestran no se filtra nada: quedarse sin fotos es peor que arriesgar el
  * filtro, porque sin ninguna el motor dibuja el producto de memoria.
  *
- * El tope de tres fotos y el filtro de placas se midieron contra b8ded8c y las
- * imágenes salían peor: entrada abundante gana, y acá se ignoran a propósito
- * `mejores` y `graficas`.
+ * La única excepción es la galería que es TODA placas: no viaja ninguna, y el
+ * vacío le dice al que llama que fabrique un packshot. Es a todo o nada a
+ * propósito — mientras haya una foto real, esto es b8ded8c intacto, placas
+ * incluidas.
  */
 export function fotosParaElMotor(fotos: EngineImage[], lectura: LecturaDelProducto): EngineImage[] {
+	if (todasSonPlacas(fotos, lectura)) return [];
 	if (!lectura.conPersona.length) return fotos;
 	const limpias = fotos.filter((_, i) => !lectura.conPersona.includes(i));
 	return limpias.length ? limpias : fotos;
