@@ -35,8 +35,15 @@
  *
  * El prompt mínimo (C del mismo experimento) quedó DESCARTADO con causa: lindo
  * y mentiroso — inventó un rating 4.7 y un precio de $69.000 sobre un producto
- * de $75.000. Todo cambio nuevo entra de a uno, comparando imágenes contra el
- * vigente en el flujo staged de Vercel.
+ * de $75.000, y en el panel de 5 referencias dejó la marca del ganador entera.
+ * Todo cambio nuevo entra de a uno, comparando imágenes contra el vigente en el
+ * flujo staged de Vercel.
+ *
+ * Dos ajustes post-panel de 5 referencias (2026-08-11), cada uno con su
+ * evidencia: la comparativa exige OTRO artículo genérico del otro lado (B puso
+ * la misma campera en los dos lados de un us-vs-them y la comparación no decía
+ * nada) y el cierre nombra garantías, envío gratis y promesas de servicio (B
+ * inventó "Garantía real" y "Atención personalizada" que la ficha no tenía).
  */
 import type { EngineImage } from './image-engines';
 
@@ -458,7 +465,7 @@ THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you 
 
 ${vestible}${escena}
 
-If the ad sets two sides against each other — before and after, us against them, with and without — keep that comparison and keep the sides clearly opposed. The product's side is the good one.
+If the ad sets two sides against each other — before and after, us against them, with and without — keep that comparison and keep the sides clearly opposed. The product's side is the good one, and the other side never shows this product again: it shows a DIFFERENT, generic, unbranded item of the same category — what the buyer would settle for instead. The same product on both sides says nothing.
 
 The decoration is what survives by mistake. Flowers, fruit, stones, ingredients, fabric, tools, scenery — whatever surrounds the original product was chosen to say something about THAT product and says nothing about this one. Replace it with the equivalent for this product, in the same spot and at the same size.
 
@@ -470,5 +477,5 @@ ${publico}
 
 ${idioma}
 
-Do not invent prices, percentages, ratings, guarantees or claims that are not written above. Do not keep anything that came with the original ad: its brand, its logo, its wordmark, its product, and also the marks it borrowed from others — award seals, press logos, star ratings, certifications, legal small print. Any of those stays only if THIS product genuinely has its own. No watermarks, no platform UI.`;
+Do not invent prices, percentages, ratings, guarantees, warranties, free shipping or service promises — if a claim is not written above, it does not appear in the ad. Do not keep anything that came with the original ad: its brand, its logo, its wordmark, its product, and also the marks it borrowed from others — award seals, press logos, star ratings, certifications, legal small print. Any of those stays only if THIS product genuinely has its own. No watermarks, no platform UI.`;
 }

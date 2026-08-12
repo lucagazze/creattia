@@ -303,6 +303,26 @@ describe('lo que el ganador trajo prestado', () => {
 		const prompt = buildPromptLibre(ficha);
 		assert.match(prompt, /award seals, press logos, star ratings, certifications, legal small print/);
 	});
+
+	/**
+	 * En el panel de 5 referencias B inventó "Garantía real" y "Atención
+	 * personalizada" — promesas de servicio que la ficha no tenía. El cierre las
+	 * nombra explícitamente: "guarantees" a secas no alcanzaba.
+	 */
+	test('las promesas de servicio inventadas están nombradas en el cierre', () => {
+		assert.match(buildPromptLibre(ficha), /guarantees, warranties, free shipping or service promises/);
+	});
+
+	/**
+	 * En el us-vs-them del panel, B puso la MISMA campera de los dos lados y la
+	 * comparación no decía nada. El otro lado muestra OTRO artículo, genérico y
+	 * sin marca — lo que el comprador aceptaría en su lugar.
+	 */
+	test('la comparativa exige otro artículo del lado malo', () => {
+		const prompt = buildPromptLibre(ficha);
+		assert.match(prompt, /a DIFFERENT, generic, unbranded item of the same category/);
+		assert.match(prompt, /The same product on both sides says nothing/);
+	});
 });
 
 describe('cuando se sube una persona', () => {
