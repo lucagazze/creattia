@@ -1,6 +1,6 @@
 import { analyzeReferenceLayout, buildReferenceClonePrompt, LANGUAGE_NAMES, type LayoutAnalysis, type LogoMode } from './ad-analysis';
 import { buildPromptCorto } from './prompt-corto';
-import { buildPromptLibre, fotosParaElMotor, leerElProducto, refotografiarProducto, type LecturaDelProducto } from './clon-libre';
+import { buildPromptLibre, fotosParaElMotor, leerElProducto, refotografiarProducto, todasSonPlacas, type LecturaDelProducto } from './clon-libre';
 import { generateAdImage, type EngineImage, type EngineUsage } from './image-engines';
 import { closestFormat } from './formats';
 import type { QualityTier } from './quality-router';
@@ -461,6 +461,9 @@ async function fotosLimpiasDelProducto(
 	// fabricar una sería pagar diez segundos y ocho centavos por una imagen que se
 	// descarta dos líneas más abajo.
 	if (!referenciaMuestraProducto) return [];
+	// Y solo si el clasificador dijo que TODAS son placas: si quedó vacío por otro
+	// motivo, mandar una foto regenerada por IA es peor que mandar el texto solo.
+	if (!todasSonPlacas(input.productImages, lectura)) return [];
 
 	const label = input.logLabel || '[pipeline]';
 	console.log(`${label} ninguna foto limpia del producto: se rehace una en estudio`);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'vitest';
-import { buildPromptLibre, fotosParaElMotor } from '../src/lib/creattia/clon-libre';
+import { buildPromptLibre, fotosParaElMotor, todasSonPlacas } from '../src/lib/creattia/clon-libre';
 
 /**
  * El clon libre, que es el que corre en producción.
@@ -393,5 +393,25 @@ describe('el reintento y las páginas hermanas, cableados de punta a punta', () 
 	/** Sin nada de eso los dos son iguales y reintentar sería mandar lo mismo. */
 	test('sin nada quitable, el magro es idéntico', () => {
 		assert.equal(buildPromptLibre(ficha), buildPromptLibre(ficha, true));
+	});
+});
+
+describe('cuándo se fabrica un packshot', () => {
+	const fotos = [0, 1, 2].map((i) => ({ buffer: Buffer.from(`foto ${i}`), type: 'image/jpeg' }));
+
+	/**
+	 * Una foto real regenerada por IA es copia de copia y se le nota. El packshot
+	 * tiene que ser el último recurso —cuando la tienda no publica una sola foto
+	 * del objeto— y nunca el efecto colateral de una clasificación floja que dejó
+	 * `mejores` vacío sin motivo.
+	 */
+	test('solo cuando el clasificador dijo que TODAS son placas', () => {
+		assert.equal(todasSonPlacas(fotos, { mejores: [], graficas: [0, 1, 2], conPersona: [] }), true);
+		assert.equal(todasSonPlacas(fotos, { mejores: [], graficas: [0, 1], conPersona: [] }), false);
+		assert.equal(todasSonPlacas(fotos, { mejores: [], graficas: [], conPersona: [0, 1, 2] }), false);
+	});
+
+	test('sin fotos no hay nada que rehacer', () => {
+		assert.equal(todasSonPlacas([], { mejores: [], graficas: [], conPersona: [] }), false);
 	});
 });

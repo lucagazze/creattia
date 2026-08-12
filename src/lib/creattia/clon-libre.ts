@@ -34,6 +34,8 @@ export type FichaDelProducto = {
 	paleta?: string[];
 	/** Cómo se ve el producto, leído de sus fotos. Lo llena `leerElProducto`. */
 	aspecto?: string;
+	/** La escenografía de las fotos de la marca. Lo llena `leerElProducto`. */
+	ambiente?: string;
 	/** A quién le habla, en una línea de casting. Lo llena `leerElProducto`. */
 	icp?: string;
 	/** Idioma pedido por el usuario. Sin esto se usa el de la ficha. */
@@ -83,6 +85,17 @@ export type FichaDelProducto = {
 export type LecturaDelProducto = {
 	/** Qué se ve en las fotos, para que el motor no lo dibuje de memoria. */
 	aspecto?: string;
+	/**
+	 * La escenografía de las fotos de la marca: nubes y plumas, estudio gris, agua.
+	 *
+	 * Antes viajaba mezclada dentro de `aspecto` y se filtraba al aviso sin control:
+	 * a veces quedaba hermoso (las nubes de un bóxer de bambú) y a veces era el
+	 * desastre de la placa. Separada, alimenta a propósito la regla de decoración
+	 * del prompt: cuando el aviso necesita utilería para este producto, la saca del
+	 * mundo de la marca en vez de inventarla. Solo escenografía, nunca texto ni
+	 * diseño: esa es la mitad que sí era un bug.
+	 */
+	ambiente?: string;
 	/** El cliente ideal, para que la escena sea de él y no de un modelo cualquiera. */
 	icp?: string;
 	/**
@@ -122,10 +135,17 @@ export type LecturaDelProducto = {
 const LECTURA_VACIA: LecturaDelProducto = { mejores: [], graficas: [], conPersona: [] };
 
 /**
- * Una sola llamada de visión que devuelve las tres cosas.
+ * Una sola llamada de visión que devuelve todo.
  *
- * Podrían ser tres llamadas separadas y se leería mejor, pero esto corre por
- * cada generación: una request con las fotos adentro se paga una vez y no tres.
+ * Podrían ser varias llamadas separadas y se leería mejor, pero esto corre por
+ * cada generación: una request con las fotos adentro se paga una vez y no cuatro.
+ *
+ * Va con el modelo GRANDE y no con un mini, y no es por comodidad. `aspecto` es
+ * literalmente la descripción con la que el motor dibuja el producto, y la
+ * clasificación decide qué fotos ve: con un mini la descripción sale más pobre y
+ * el producto se renderiza peor en TODAS las generaciones, y una clasificación
+ * floja puede dejar afuera fotos reales o disparar un packshot que no hacía
+ * falta. Se probó bajarlo para ahorrar y el resultado se notó enseguida.
  */
 export async function leerElProducto(
 	claves: ClavesDeApi,
@@ -144,7 +164,9 @@ ${entrada.url || ''}
 
 Answer JSON with three keys:
 
-"aspecto": THE OBJECT ITSELF and nothing around it — what kind of thing it is, its shape and cut, its exact colours, the material and how it behaves, the seams, labels, prints and where they sit, and anything written on it. Say nothing about the background, the surface it rests on, the lighting, the backdrop or the style of the photos: that belongs to whoever shot them and it leaks into the ad. Never how it fits on a body, no anatomy, nothing about the models. Under 160 words.
+"aspecto": THE OBJECT ITSELF and nothing around it — what kind of thing it is, its shape and cut, its exact colours, the material and how it behaves, the seams, labels, prints and where they sit, and anything written on it. Say nothing about the background, the surface it rests on, the lighting, the backdrop or the style of the photos: that goes in "ambiente". Never how it fits on a body, no anatomy, nothing about the models. Under 160 words.
+
+"ambiente": the world the brand's own photos stage the product in — backdrops, surfaces, props and mood (clouds and feathers, a grey studio, river stones, a wooden deck). ONE sentence. Scenery only: never text, prices, badges, cards or anything designed. Empty string if the photos show the object with no staging at all.
 
 "icp": the one customer this is really for, in ONE sentence a photographer could cast from — age range, gender, how they dress and how they live their day. A casting note, nothing about the body or about using the product. Only what the text above supports.
 
@@ -161,7 +183,7 @@ Answer JSON with three keys:
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${claves.openAIKey}` },
 			body: JSON.stringify({
-				model: 'gpt-4o-mini',
+				model: 'gpt-4o',
 				response_format: { type: 'json_object' },
 				max_tokens: 700,
 				messages: [{
@@ -206,6 +228,14 @@ Answer JSON with three keys:
  * Devolver vacío es una respuesta válida y significa algo: no hay una sola foto
  * del objeto, y el que llama tiene que fabricar una en vez de mandar una placa.
  */
+export function todasSonPlacas(fotos: EngineImage[], lectura: LecturaDelProducto): boolean {
+	// Se pide que el clasificador lo haya dicho de TODAS, no que el filtrado haya
+	// quedado vacío por otro motivo: una foto real regenerada por IA es copia de
+	// copia y se le nota, así que el packshot tiene que ser el último recurso y no
+	// el efecto colateral de una clasificación floja.
+	return fotos.length > 0 && lectura.graficas.length === fotos.length;
+}
+
 export function fotosParaElMotor(fotos: EngineImage[], lectura: LecturaDelProducto): EngineImage[] {
 	const elegidas = lectura.mejores.length
 		? lectura.mejores

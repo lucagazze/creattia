@@ -11,7 +11,7 @@ import { stripWebReferences, type AdaptedAdCopy } from '../../../lib/creattia/ad
 import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
-import { fotosParaElMotor, leerElProducto, refotografiarProducto } from '../../../lib/creattia/clon-libre';
+import { fotosParaElMotor, leerElProducto, refotografiarProducto, todasSonPlacas } from '../../../lib/creattia/clon-libre';
 import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, parseRolesDeColor, parseTipografiaElegida, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
@@ -844,7 +844,8 @@ export const POST: APIRoute = async ({ request }) => {
 		 * tienda. `renderStudioProductShot` re-fotografía el objeto solo sobre fondo
 		 * neutro y sin una letra encima.
 		 */
-		if (!fotosQueSeQuedan.size && productVisionInputs.length && !isExactRevision) {
+		if (!fotosQueSeQuedan.size && productVisionInputs.length && !isExactRevision
+			&& lectura && todasSonPlacas(productVisionInputs.map((f) => ({ buffer: f.buffer, type: f.type })), lectura)) {
 			const packshot = await refotografiarProducto({ openAIKey, googleKey }, productVisionInputs[0], lectura?.aspecto);
 			if (packshot) {
 				await pushInput(packshot.buffer, packshot.type, 'producto-en-estudio.png', 'the product re-photographed on its own, clean, with no text or graphics: this is the product to show');
