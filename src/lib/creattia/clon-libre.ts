@@ -17,15 +17,17 @@
  * reales, no por parecer razonable. Las que se probaron y no cambiaron nada
  * están afuera. Antes de agregar una, generá con y sin ella y mirá las dos.
  *
- * El cuerpo del prompt es el de "Colores que se pueden elegir, logo que se puede
- * cambiar, producto más fiel" (b8ded8c), que es el que hacía las imágenes que a
- * Luca le gustaban. Después de ese commit se le fueron sumando bloques —tipografía
- * impoluta, un párrafo entero de idioma, una defensa contra placas— y cada uno
- * arreglaba un caso puntual comiéndole atención al resto: las imágenes salieron
- * peor. Las defensas viven ahora en la ENTRADA (el clasificador de placas y el
- * packshot), que corrige sin gastar ni una palabra del prompt. Lo único que quedó
- * del idioma es la frase de que ninguna palabra del ganador sobrevive, que mató
- * el "OBTENEZ VOTRE BOXER" real de producción.
+ * TODO el camino de generación volvió a "Colores que se pueden elegir, logo que
+ * se puede cambiar, producto más fiel" (b8ded8c): prompt corto, TODAS las fotos
+ * del producto al motor, y el aspecto integrando la escenografía de las fotos.
+ * Se probó dos veces "mejorarlo" —primero sumando bloques al prompt, después
+ * filtrando la entrada con un clasificador y un packshot— y las dos veces las
+ * imágenes salieron peor mirándolas al lado de las de b8ded8c. El costo asumido
+ * a sabiendas: una tienda cuya galería es toda placas promocionales vuelve a
+ * clonar la placa (el caso mojarra). Si algún arreglo vuelve, vuelve DE A UNO y
+ * midiéndolo contra b8ded8c en el flujo staged de Vercel; las primeras
+ * candidatas son la advertencia de idioma (mató el "OBTENEZ VOTRE BOXER" real)
+ * y la cláusula de sellos ajenos (vista tres veces en producción).
  */
 import type { EngineImage } from './image-engines';
 
@@ -44,7 +46,7 @@ export type FichaDelProducto = {
 	paleta?: string[];
 	/** Cómo se ve el producto, leído de sus fotos. Lo llena `leerElProducto`. */
 	aspecto?: string;
-	/** La escenografía de las fotos de la marca. Lo llena `leerElProducto`. */
+	/** Sin efecto desde la vuelta a b8ded8c: la escenografía viaja adentro de `aspecto`. */
 	ambiente?: string;
 	/** A quién le habla, en una línea de casting. Lo llena `leerElProducto`. */
 	icp?: string;
@@ -78,13 +80,7 @@ export type FichaDelProducto = {
 	decisionDePersona?: string;
 	/** El usuario decidió qué hacer con el logo: pisa la regla por defecto. */
 	decisionDeLogo?: string;
-	/**
-	 * Si el producto se usa puesto sobre el cuerpo.
-	 *
-	 * De eso depende que el prompt hable de personas usándolo. En un aviso de
-	 * pesca o de suplementos ese párrafo no aporta nada, y sí aporta vocabulario
-	 * que el filtro de OpenAI castiga: el rechazo es del pedido entero.
-	 */
+	/** Sin efecto desde la vuelta a b8ded8c: el bloque de pudor volvió a ser fijo. */
 	seUsaEnElCuerpo?: boolean;
 	/** Para una página de carrusel: en cuál va y de cuántas. */
 	carrusel?: { indice: number; total: number };
@@ -95,33 +91,18 @@ export type FichaDelProducto = {
 export type LecturaDelProducto = {
 	/** Qué se ve en las fotos, para que el motor no lo dibuje de memoria. */
 	aspecto?: string;
-	/**
-	 * La escenografía de las fotos de la marca: nubes y plumas, estudio gris, agua.
-	 *
-	 * Antes viajaba mezclada dentro de `aspecto` y se filtraba al aviso sin control:
-	 * a veces quedaba hermoso (las nubes de un bóxer de bambú) y a veces era el
-	 * desastre de la placa. Separada, alimenta a propósito la regla de decoración
-	 * del prompt: cuando el aviso necesita utilería para este producto, la saca del
-	 * mundo de la marca en vez de inventarla. Solo escenografía, nunca texto ni
-	 * diseño: esa es la mitad que sí era un bug.
-	 */
+	/** Sin efecto desde la vuelta a b8ded8c: la escenografía viaja adentro de `aspecto`. */
 	ambiente?: string;
 	/** El cliente ideal, para que la escena sea de él y no de un modelo cualquiera. */
 	icp?: string;
 	/**
-	 * Las mejores fotos LIMPIAS del objeto, en orden y como mucho tres.
-	 *
-	 * Una tienda argentina promedio tiene la galería llena de placas promocionales
-	 * —bandera, caja, "SORTEO DÍA 30"— y el motor las leía como el producto: con
-	 * la orden de reproducir letra por letra lo impreso, clonaba la placa de la
-	 * tienda en vez del anuncio ganador. Acá se separan las que son foto del objeto
-	 * de las que son un diseño con texto encima.
-	 *
-	 * Tres como mucho porque cada imagen de entrada es una señal que compite con la
-	 * referencia: con ocho, el ganador pesa una novena parte.
+	 * Vacíos desde la vuelta a b8ded8c: el clasificador de placas y el tope de
+	 * tres fotos se midieron contra ese commit y las imágenes salían peor —
+	 * entrada abundante gana. Los campos quedan porque los llamadores los leen, y
+	 * porque son el punto exacto donde reintroducir el filtro si el caso de la
+	 * galería toda-placas vuelve a doler: llenarlos de nuevo y medir.
 	 */
 	mejores: number[];
-	/** Las que son diseño y no producto: no viajan al motor nunca. */
 	graficas: number[];
 	/**
 	 * Índices (base 0) de las fotos donde aparece una persona.
@@ -132,13 +113,7 @@ export type LecturaDelProducto = {
 	 * viajar al motor.
 	 */
 	conPersona: number[];
-	/**
-	 * Si el producto se usa puesto sobre el cuerpo.
-	 *
-	 * De eso depende que el prompt hable de personas usándolo: en un aviso de
-	 * pesca o de suplementos ese párrafo no aporta nada y sí aporta vocabulario que
-	 * el filtro de OpenAI castiga.
-	 */
+	/** Sin efecto desde la vuelta a b8ded8c: el bloque de pudor volvió a ser fijo. */
 	seUsaEnElCuerpo?: boolean;
 };
 
@@ -172,21 +147,13 @@ ${entrada.datos || ''}
 ${entrada.queVendeLaTienda || ''}
 ${entrada.url || ''}
 
-Answer JSON with these keys:
+Answer JSON with three keys:
 
-"aspecto": THE OBJECT ITSELF and nothing around it — what kind of thing it is, its shape and cut, its exact colours, the material and how it behaves, the seams, labels, prints and where they sit, and anything written on it. Say nothing about the background, the surface it rests on, the lighting, the backdrop or the style of the photos: that goes in "ambiente". Never how it fits on a body, no anatomy, nothing about the models. Under 160 words.
-
-"ambiente": the world the brand's own photos stage the product in — backdrops, surfaces, props and mood (clouds and feathers, a grey studio, river stones, a wooden deck). ONE sentence. Scenery only: never text, prices, badges, cards or anything designed. Empty string if the photos show the object with no staging at all.
+"aspecto": what you actually SEE, so someone who never saw it can draw it exactly — what kind of object it is, its shape and cut, its exact colours, the material and how it behaves, the seams, labels, prints and where they sit, and anything written on it. Describe the object on its own: never how it fits on a body, no anatomy, nothing about the models. Under 180 words.
 
 "icp": the one customer this is really for, in ONE sentence a photographer could cast from — age range, gender, how they dress and how they live their day. A casting note, nothing about the body or about using the product. Only what the text above supports.
 
-"conPersona": the 0-based indexes of the photos where a human body is visible. Photos of the product alone, flat lays and diagrams do not count.
-
-"graficas": the 0-based indexes of the images that are DESIGNED GRAPHICS rather than photographs of the object — anything with headlines, prices, badges, banners, flags, arrows, collages, infographics or promotional copy laid over or beside it. A shop's own promo card counts here even when the object is inside it.
-
-"mejores": the 0-based indexes of the up-to-THREE cleanest photographs of the object itself, best first — the object clearly visible, no text over it, no collage. Leave it empty if every image is a designed graphic.
-
-"seUsaEnElCuerpo": true only if this is something a person wears or puts on their body.`;
+"conPersona": the 0-based indexes of the photos where a human body is visible. Photos of the product alone, flat lays and diagrams do not count.`;
 
 	try {
 		const respuesta = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -214,12 +181,11 @@ Answer JSON with these keys:
 		const indices = (valor: unknown) => (Array.isArray(valor) ? valor.filter((i: unknown) => Number.isInteger(i)) as number[] : []);
 		return {
 			aspecto: typeof leido.aspecto === 'string' ? leido.aspecto.trim() : undefined,
-			ambiente: typeof leido.ambiente === 'string' && leido.ambiente.trim() ? leido.ambiente.trim() : undefined,
 			icp: typeof leido.icp === 'string' ? leido.icp.trim() : undefined,
-			mejores: indices(leido.mejores).slice(0, 3),
-			graficas: indices(leido.graficas),
+			// Vacíos a propósito: el clasificador se midió contra b8ded8c y perdió.
+			mejores: [],
+			graficas: [],
 			conPersona: indices(leido.conPersona),
-			seUsaEnElCuerpo: leido.seUsaEnElCuerpo === true,
 		};
 	} catch (error) {
 		// Un fallo acá no corta nada: se genera igual, con una ficha más pobre.
@@ -229,32 +195,31 @@ Answer JSON with these keys:
 }
 
 /**
- * Las fotos que pueden viajar al motor.
- *
- * Solo las limpias del objeto, como mucho tres. Quedan afuera las placas de
- * diseño —que el motor leía como el producto y terminaba clonando— y las que
- * muestran una persona, que hacen que OpenAI rechace el pedido entero cuando el
- * producto es ropa interior.
- *
- * Devolver vacío es una respuesta válida y significa algo: no hay una sola foto
- * del objeto, y el que llama tiene que fabricar una en vez de mandar una placa.
+ * Desde la vuelta a b8ded8c el clasificador no corre y `graficas` llega vacío,
+ * así que esto es siempre false: el packshot queda apagado sin tocar a los que
+ * lo llaman. Si la galería toda-placas vuelve a doler, la reintroducción
+ * empieza acá: llenar `graficas` de nuevo y medir contra b8ded8c.
  */
 export function todasSonPlacas(fotos: EngineImage[], lectura: LecturaDelProducto): boolean {
-	// Se pide que el clasificador lo haya dicho de TODAS, no que el filtrado haya
-	// quedado vacío por otro motivo: una foto real regenerada por IA es copia de
-	// copia y se le nota, así que el packshot tiene que ser el último recurso y no
-	// el efecto colateral de una clasificación floja.
 	return fotos.length > 0 && lectura.graficas.length === fotos.length;
 }
 
+/**
+ * Las fotos que pueden viajar al motor: TODAS, como en b8ded8c.
+ *
+ * Se quedan afuera solo las que muestran una persona, que hacen que OpenAI
+ * rechace el pedido entero cuando el producto es ropa interior. Si TODAS la
+ * muestran no se filtra nada: quedarse sin fotos es peor que arriesgar el
+ * filtro, porque sin ninguna el motor dibuja el producto de memoria.
+ *
+ * El tope de tres fotos y el filtro de placas se midieron contra b8ded8c y las
+ * imágenes salían peor: entrada abundante gana, y acá se ignoran a propósito
+ * `mejores` y `graficas`.
+ */
 export function fotosParaElMotor(fotos: EngineImage[], lectura: LecturaDelProducto): EngineImage[] {
-	const elegidas = lectura.mejores.length
-		? lectura.mejores
-		: fotos.map((_, i) => i).filter((i) => !lectura.graficas.includes(i));
-	return elegidas
-		.filter((i) => !lectura.conPersona.includes(i) && fotos[i])
-		.slice(0, 3)
-		.map((i) => fotos[i]);
+	if (!lectura.conPersona.length) return fotos;
+	const limpias = fotos.filter((_, i) => !lectura.conPersona.includes(i));
+	return limpias.length ? limpias : fotos;
 }
 
 /**
@@ -373,6 +338,8 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 		linea('What this shop sells', ficha.queVendeLaTienda),
 		linea('Category', ficha.categoria),
 		linea('Brand colours', ficha.paleta),
+		linea('url', ficha.url),
+		linea('logo', ficha.logoUrl),
 		ficha.aspecto ? `\nWHAT THE PRODUCT LOOKS LIKE, read off its real photos:\n${ficha.aspecto}\n` : '',
 	].filter(Boolean).join('');
 
@@ -387,10 +354,12 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 		? `WHO THIS AD IS FOR: ${sinPuntoFinal(ficha.icp)}. Whoever appears in it is that person, and every choice in it is made so that person recognises themselves at a glance.`
 		: `WHO THIS AD IS FOR is the customer the product information above describes. Whoever appears in it is that person, and every choice in it is made so that person recognises themselves at a glance.`;
 
-	// Una línea y una sola advertencia. El párrafo largo que vivió acá se midió y
-	// salía peor; la advertencia se queda porque mató un caso real de producción:
-	// un ganador en francés devolvió "OBTENEZ VOTRE BOXER PREMIUM DE BAMBÚ".
-	const idioma = `Every word in the ad is written in ${ficha.idioma || 'the language the product information above is written in'}. Not one word of the reference survives — not even one that looks like it would work in this language.`;
+	// La línea de b8ded8c, sin la advertencia. Si el mix de idiomas vuelve (el
+	// "OBTENEZ VOTRE BOXER" real), la cura medida fue una frase: "Not one word of
+	// the reference survives" — reintroducirla sola y comparando contra b8ded8c.
+	const idioma = ficha.idioma
+		? `Every word in the ad is written in ${ficha.idioma}.`
+		: 'Every word in the ad is written in the language the product information above is written in.';
 
 	// Los colores y la tipografía de la marca no se agregan como un pedido más:
 	// REEMPLAZAN la cláusula del ganador. Tener las dos es pedirle dos cosas
@@ -417,15 +386,6 @@ WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: ${ficha.indicaciones.trim()}
 		? `EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now, somewhere this product is really used. ${ficha.decisionDePersona}`
 		: 'EVERYTHING IN THE PICTURE IS RE-CAST FOR THIS PRODUCT — the setting, the scene and whoever appears in it. Same composition, same roles, same positions, same light, but photographed again for what is being sold now: another person, the one this product is for, somewhere this product is really used. The same face in the same place is the sign nothing was adapted.';
 
-	// Solo cuando el producto se usa puesto, y fuera del prompt magro: es el
-	// bloque con más vocabulario que el filtro castiga, y era justo el que el
-	// reintento dejaba intacto.
-	const vestible = (!magro && ficha.seUsaEnElCuerpo)
-		? `PEOPLE CAN WEAR THE PRODUCT — shoot them the way the brand itself would for its own campaign: an editorial retail photograph, the kind a shop publishes on its product page and runs as an ad. The garment is opaque, sits flat and stays where it belongs, the pose is one a catalogue would print, and the crop is the one a retailer chooses.
-
-`
-		: '';
-
 	const pagina = ficha.carrusel
 		// Las páginas se generan por separado y sin verse entre sí, y todas reciben
 		// la misma ficha: sin esto las tres escribían el mismo titular y el mismo
@@ -445,11 +405,13 @@ THE PRODUCT THIS AD IS NOW FOR
 ${datosDelProducto}${pedido}${pagina}
 THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its waistband, seams, labels, prints and proportions where the photos show them. Its surface is copied as closely as its shape: the same weave or grain, the same perforations, speckles, flecks or bubbles, the same sheen and the same texture up close. Anything printed, stitched, embossed or moulded on it — a wordmark, a size tag, a seal, a logo — is reproduced letter for letter and sits exactly where the photos put it, at the same size and the same angle. Getting the product wrong ruins the ad even if everything else is perfect.
 
-${vestible}${escena}
+NOTHING EXPLICIT IS EVER SHOWN — people may wear the product and their body may be seen, hips, waist and the groin area the garment covers included. What must never appear is bare genitals, the shape of genitals read through the fabric, or bare nipples. The fabric is opaque and sits flat, and the framing is the one a retailer uses for its catalogue, not an erotic one.
+
+${escena}
 
 If the ad sets two sides against each other — before and after, us against them, with and without — keep that comparison and keep the sides clearly opposed. The product's side is the good one.
 
-The decoration is what survives by mistake. Flowers, fruit, stones, ingredients, fabric, tools, scenery — whatever surrounds the original product was chosen to say something about THAT product and says nothing about this one. Replace it with the equivalent for this product, in the same spot and at the same size.${ficha.ambiente ? ` This product's own world, seen in the brand's own photos: ${sinPuntoFinal(ficha.ambiente)}. When this ad needs scenery, a surface or a prop for the product, take it from that world.` : ''}
+The decoration is what survives by mistake. Flowers, fruit, stones, ingredients, fabric, tools, scenery — whatever surrounds the original product was chosen to say something about THAT product and says nothing about this one. Replace it with the equivalent for this product, in the same spot and at the same size.
 
 THE PRODUCT IS SHOT THE WAY THE REFERENCE SHOOTS ITS OWN — Look at how the original product appears and repeat exactly that: the same number of pieces, laid out in the same arrangement and the same angles, at the same size in the frame, with the same crop, the same lighting and the same shadows, on a surface that plays the same role but belongs to this product. If the original scatters seven items across the canvas, this product is scattered as seven items too; if it shows one hero piece dead centre, so does this one. The product is real and photographed, never illustrated, and it is shown as what it actually is — not turned into the shape of the original product.
 
@@ -459,5 +421,5 @@ ${publico}
 
 ${idioma}
 
-Do not invent prices, percentages, ratings, guarantees or claims that are not written above. Do not keep the original advertiser's brand, logo, wordmark or product anywhere in the image, nor the marks the ad borrowed from others — award seals, press logos, star ratings, certifications, legal small print. No watermarks, no platform UI.`;
+Do not invent prices, percentages, ratings, guarantees or claims that are not written above. Do not keep the original advertiser's brand, logo, wordmark or product anywhere in the image. No watermarks, no platform UI.`;
 }

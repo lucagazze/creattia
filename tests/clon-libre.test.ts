@@ -75,15 +75,14 @@ describe('el prompt del clon libre', () => {
 	});
 
 	/**
-	 * El defecto: un ganador en francés devolvió "OBTENEZ VOTRE BOXER PREMIUM DE
-	 * BAMBÚ" — media frase en el idioma del ganador y media en el pedido. Del
-	 * párrafo entero que vivió acá quedó una línea y una sola advertencia: el
-	 * párrafo se midió contra imágenes y salían peor con él.
+	 * La línea de idioma es la de b8ded8c: una sola, sin advertencias. La cura del
+	 * "OBTENEZ VOTRE BOXER" real (mix de idiomas) fue la frase "Not one word of
+	 * the reference survives", que se fue con la vuelta a b8ded8c y es la primera
+	 * candidata a reintroducción — de a una y comparando contra b8ded8c.
 	 */
-	test('el idioma elegido manda, y ninguna palabra del ganador sobrevive', () => {
+	test('el idioma elegido manda', () => {
 		const elegido = buildPromptLibre({ ...ficha, idioma: 'natural Argentine Spanish' });
-		assert.match(elegido, /Every word in the ad is written in natural Argentine Spanish/);
-		assert.match(elegido, /Not one word of the reference survives/);
+		assert.match(elegido, /Every word in the ad is written in natural Argentine Spanish\./);
 		assert.match(buildPromptLibre(ficha), /the language the product information above is written in/);
 	});
 
@@ -136,23 +135,23 @@ describe('el prompt del clon libre', () => {
 	});
 
 	/**
-	 * La URL y el logo salieron del texto: el modelo no abre links, el logo viaja
-	 * como imagen, y una dirección escrita en el prompt es candidata a terminar
-	 * impresa en el aviso.
+	 * Volvieron con la vuelta a b8ded8c: son parte del todo que midió mejor —
+	 * sacarlos nunca se midió aislado. El riesgo conocido es una dirección
+	 * impresa en el aviso; si aparece, sacarlos se mide SOLO, contra b8ded8c.
 	 */
-	test('la url y el logo no se le escriben', () => {
+	test('la url y el logo viajan en la ficha, como en b8ded8c', () => {
 		const prompt = buildPromptLibre({ ...ficha, url: 'https://rawmenoficial.com/p', logoUrl: 'https://cdn/logo.png' });
-		assert.doesNotMatch(prompt, /rawmenoficial/);
-		assert.doesNotMatch(prompt, /cdn/);
+		assert.match(prompt, /url: https:\/\/rawmenoficial\.com\/p/);
+		assert.match(prompt, /logo: https:\/\/cdn\/logo\.png/);
 	});
 
 	/**
-	 * La defensa contra placas vivió acá como un bloque del prompt y las imágenes
-	 * salían peor con él. Hoy vive en la ENTRADA —el clasificador de `graficas` y
-	 * el packshot— que corrige sin gastarle una palabra al prompt. Este test guarda
-	 * la decisión: si el bloque vuelve, que sea a propósito y midiendo.
+	 * La defensa contra placas se probó dos veces —como bloque del prompt y como
+	 * clasificador de entrada— y las dos veces el conjunto salió peor que b8ded8c.
+	 * El caso de la galería toda-placas quedó como costo asumido. Este test guarda
+	 * la decisión: si el bloque vuelve al prompt, que sea a propósito y midiendo.
 	 */
-	test('la defensa contra placas vive en la entrada, no en el prompt', () => {
+	test('la defensa contra placas no está en el prompt', () => {
 		const prompt = buildPromptLibre(ficha);
 		assert.doesNotMatch(prompt, /THE DESIGN COMES FROM THE FIRST IMAGE/);
 	});
@@ -163,12 +162,15 @@ describe('qué fotos llegan al motor', () => {
 	const nombres = (elegidas: Array<{ buffer: Buffer }>) => elegidas.map((f) => f.buffer.toString());
 
 	/**
-	 * El defecto: una tienda con la galería llena de placas promocionales hacía que
-	 * el motor clonara el diseño de la tienda en vez del anuncio ganador. Tenía dos
-	 * diseños delante y la orden de ser fiel al producto.
+	 * TODAS, como en b8ded8c: el clasificador de placas y el tope de tres fotos se
+	 * midieron contra ese commit y las imágenes salían peor — entrada abundante
+	 * gana. `mejores` y `graficas` se ignoran a propósito aunque vengan llenos.
 	 */
-	test('las placas de diseño no viajan', () => {
-		assert.deepEqual(nombres(fotosParaElMotor(fotos, { mejores: [1, 3], graficas: [0, 2], conPersona: [] })), ['foto 1', 'foto 3']);
+	test('viajan todas, aunque el clasificador diga otra cosa', () => {
+		assert.deepEqual(
+			nombres(fotosParaElMotor(fotos, { mejores: [1], graficas: [0, 2], conPersona: [] })),
+			['foto 0', 'foto 1', 'foto 2', 'foto 3'],
+		);
 	});
 
 	/**
@@ -176,22 +178,16 @@ describe('qué fotos llegan al motor', () => {
 	 * interior entre las imágenes de entrada, aunque el aviso a generar no muestre
 	 * nada.
 	 */
-	test('las fotos con una persona tampoco', () => {
-		assert.deepEqual(nombres(fotosParaElMotor(fotos, { mejores: [0, 1, 2], graficas: [], conPersona: [1] })), ['foto 0', 'foto 2']);
-	});
-
-	/** Cada imagen de entrada es una señal que compite con la referencia. */
-	test('nunca viajan más de tres', () => {
-		assert.equal(fotosParaElMotor(fotos, { mejores: [], graficas: [], conPersona: [] }).length, 3);
+	test('las fotos con una persona no viajan', () => {
+		assert.deepEqual(nombres(fotosParaElMotor(fotos, { mejores: [], graficas: [], conPersona: [1] })), ['foto 0', 'foto 2', 'foto 3']);
 	});
 
 	/**
-	 * Devolver vacío es una respuesta con significado: no hay una sola foto del
-	 * objeto, y el que llama fabrica una en vez de mandar una placa. Es lo que
-	 * dispara `refotografiarProducto`.
+	 * Si TODAS muestran una persona no se filtra nada: quedarse sin fotos es peor
+	 * que arriesgar el filtro, porque sin ninguna el motor dibuja de memoria.
 	 */
-	test('sin ninguna foto limpia devuelve vacío, para que se fabrique una', () => {
-		assert.equal(fotosParaElMotor(fotos, { mejores: [], graficas: [0, 1, 2, 3], conPersona: [] }).length, 0);
+	test('si todas tienen persona, van todas igual', () => {
+		assert.equal(fotosParaElMotor(fotos, { mejores: [], graficas: [], conPersona: [0, 1, 2, 3] }).length, 4);
 	});
 });
 
@@ -270,17 +266,17 @@ describe('quién aparece en el aviso', () => {
 
 describe('lo que el ganador trajo prestado', () => {
 	/**
-	 * El defecto, visto en producción tres veces: un sello de "beauty shortlist
-	 * WELLBEING AWARDS 2023" sobre un aviso de sillas de cuero, el disclaimer de la
-	 * FDA de un suplemento sobre un bóxer, un "$20 OFF" que no era de nadie.
-	 *
-	 * La regla vieja decía "no conserves la marca del anunciante original", y un
-	 * sello ajeno no es del anunciante: es de un tercero que el ganador citaba. Por
-	 * ese hueco pasaba todo lo que más delata el aviso como de otro.
+	 * Historia que no hay que perder: tres veces en producción sobrevivió una marca
+	 * de terceros — un sello "WELLBEING AWARDS 2023" sobre sillas de cuero, el
+	 * disclaimer de la FDA de un suplemento sobre un bóxer, un "$20 OFF" de nadie.
+	 * La cláusula que los nombraba se fue con la vuelta a b8ded8c (el cierre corto
+	 * es parte del todo que midió mejor) y es la segunda candidata a
+	 * reintroducción — de a una y comparando contra b8ded8c.
 	 */
-	test('los sellos, ratings y letra chica de terceros tampoco se quedan', () => {
+	test('el cierre es el corto de b8ded8c', () => {
 		const prompt = buildPromptLibre(ficha);
-		assert.match(prompt, /award seals, press logos, star ratings, certifications, legal small print/);
+		assert.match(prompt, /Do not keep the original advertiser's brand, logo, wordmark or product anywhere in the image\./);
+		assert.doesNotMatch(prompt, /award seals/);
 	});
 });
 
@@ -346,45 +342,34 @@ describe('las otras páginas del carrusel como contexto', () => {
 
 describe('las personas usando el producto', () => {
 	/**
-	 * El párrafo enumeraba anatomía para prohibirla, y medido contra 7 referencias
-	 * eso era lo que hacía que OpenAI rechazara el pedido ENTERO: 5 de 7 con él, 6
-	 * de 7 sin él. Dice lo mismo por el lado positivo y sin una sola de esas
-	 * palabras — el estándar de una campaña de tienda ya excluye lo que hay que
-	 * excluir, y una persona en ropa interior es justo lo que esas campañas
-	 * muestran.
-	 *
-	 * Si alguien vuelve a meter esas palabras, vuelven los rechazos.
+	 * El bloque volvió a ser el fijo de b8ded8c, que nombra anatomía para
+	 * prohibirla. Medido aparte, ese vocabulario sumaba rechazos del filtro (5/7
+	 * contra 6/7) y el condicional "PEOPLE CAN WEAR" los evitaba — pero el
+	 * conjunto b8ded8c midió mejor y volvió entero. Si los rechazos vuelven a
+	 * doler, el condicional es la tercera candidata a reintroducción, de a una y
+	 * midiendo contra b8ded8c.
 	 */
-	test('se permite mostrarlas, sin nombrar anatomía', () => {
-		const prompt = buildPromptLibre({ ...ficha, seUsaEnElCuerpo: true });
-		assert.match(prompt, /PEOPLE CAN WEAR THE PRODUCT/);
-		assert.match(prompt, /an editorial retail photograph/);
-		for (const palabra of ['genital', 'nipple', 'groin', 'erotic', 'bare ']) {
-			assert.doesNotMatch(prompt, new RegExp(palabra, 'i'), `el prompt no puede decir "${palabra}"`);
-		}
+	test('el bloque de pudor es el fijo de b8ded8c', () => {
+		const prompt = buildPromptLibre(ficha);
+		assert.match(prompt, /NOTHING EXPLICIT IS EVER SHOWN/);
+		assert.doesNotMatch(prompt, /PEOPLE CAN WEAR THE PRODUCT/);
 	});
 
-	/**
-	 * En un aviso de pesca o de suplementos ese párrafo no aporta nada, y sí aporta
-	 * el vocabulario que el filtro de OpenAI castiga. Y del prompt magro —el que se
-	 * manda cuando el filtro ya rechazó una vez— sale siempre.
-	 */
-	test('solo aparece si el producto se usa puesto', () => {
-		assert.doesNotMatch(buildPromptLibre(ficha), /PEOPLE CAN WEAR THE PRODUCT/);
-		assert.doesNotMatch(buildPromptLibre({ ...ficha, seUsaEnElCuerpo: true }, true), /PEOPLE CAN WEAR THE PRODUCT/);
+	/** `seUsaEnElCuerpo` quedó sin efecto: mismo prompt con y sin. */
+	test('marcar que se usa puesto no cambia nada', () => {
+		assert.equal(buildPromptLibre({ ...ficha, seUsaEnElCuerpo: true }), buildPromptLibre(ficha));
 	});
 });
 
 describe('el reintento y las páginas hermanas, cableados de punta a punta', () => {
 	/**
-	 * El prompt magro saca el ICP, las indicaciones Y el bloque de prendas. La
-	 * condición que decidía si valía la pena reintentar solo miraba las dos
-	 * primeras, así que un producto que se usa puesto, sin ICP ni indicaciones, se
-	 * quedaba sin reintento — y esos son justamente los que dispara el filtro.
+	 * Con la vuelta a b8ded8c el magro solo saca el ICP y las indicaciones:
+	 * `seUsaEnElCuerpo` no cambia el prompt, así que sin esas dos cosas el magro
+	 * es idéntico y el respaldo no debe mandarse.
 	 */
-	test('un producto que se usa puesto tiene un magro distinto del completo', () => {
+	test('un producto que se usa puesto ya no cambia el magro', () => {
 		const puesto = { ...ficha, seUsaEnElCuerpo: true };
-		assert.notEqual(buildPromptLibre(puesto), buildPromptLibre(puesto, true));
+		assert.equal(buildPromptLibre(puesto), buildPromptLibre(puesto, true));
 	});
 
 	/** Sin nada de eso los dos son iguales y reintentar sería mandar lo mismo. */
