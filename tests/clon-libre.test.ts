@@ -314,6 +314,19 @@ describe('lo que el ganador trajo prestado', () => {
 	});
 
 	/**
+	 * La mojarra sobre el comparador alemán de colágeno: "22,40€ pro Kilo" salió
+	 * como "22.400$ por unidad" y "240€ pro Jahr" como "240.000$ por año". Para
+	 * el modelo eso no era inventar un precio — era reemplazar el texto del
+	 * bloque. La regla lo dice explícito: los números del ganador no son datos de
+	 * este producto, ni copiados ni disfrazados.
+	 */
+	test('los números del ganador no se copian ni se disfrazan', () => {
+		const prompt = buildPromptLibre(ficha);
+		assert.match(prompt, /do not adapt them into lookalikes/);
+		assert.match(prompt, /Every number in the ad appears digit for digit in the product information above/);
+	});
+
+	/**
 	 * En el us-vs-them del panel, B puso la MISMA campera de los dos lados y la
 	 * comparación no decía nada. El otro lado muestra OTRO artículo, genérico y
 	 * sin marca — lo que el comprador aceptaría en su lugar.

@@ -44,6 +44,13 @@
  * la misma campera en los dos lados de un us-vs-them y la comparación no decía
  * nada) y el cierre nombra garantías, envío gratis y promesas de servicio (B
  * inventó "Garantía real" y "Atención personalizada" que la ficha no tenía).
+ *
+ * Y un tercero con su evidencia (2026-08-11, mojarra sobre el comparador
+ * alemán de colágeno): los números del ganador no son datos de este producto,
+ * ni copiados ni disfrazados. El modelo convirtió "22,40€ pro Kilo" en
+ * "22.400$ por unidad" y "240€ pro Jahr" en "240.000$ por año" — para él no
+ * era inventar, era reemplazar el texto del bloque. La regla ahora lo dice
+ * explícito: todo número del aviso aparece dígito por dígito en la ficha.
  */
 import type { EngineImage } from './image-engines';
 
@@ -477,5 +484,5 @@ ${publico}
 
 ${idioma}
 
-Do not invent prices, percentages, ratings, guarantees, warranties, free shipping or service promises — if a claim is not written above, it does not appear in the ad. Do not keep anything that came with the original ad: its brand, its logo, its wordmark, its product, and also the marks it borrowed from others — award seals, press logos, star ratings, certifications, legal small print. Any of those stays only if THIS product genuinely has its own. No watermarks, no platform UI.`;
+Do not invent prices, percentages, ratings, guarantees, warranties, free shipping or service promises — if a claim is not written above, it does not appear in the ad. The reference's own figures are never facts about this product: do not keep them and do not adapt them into lookalikes — a 50% there does not become a 45% here, a 22,40 there does not become a 22.400 here. Every number in the ad appears digit for digit in the product information above; a block built on a number you do not have gets a verified number doing the same job, or an honest line without one. Do not keep anything that came with the original ad: its brand, its logo, its wordmark, its product, and also the marks it borrowed from others — award seals, press logos, star ratings, certifications, legal small print. Any of those stays only if THIS product genuinely has its own. No watermarks, no platform UI.`;
 }
