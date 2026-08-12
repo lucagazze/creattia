@@ -225,15 +225,19 @@ describe('el prompt de respaldo, para cuando OpenAI rechaza', () => {
 	});
 
 	/**
-	 * Lo que pide el usuario entra como UN dato más de la ficha, sin explicarle
-	 * cómo obedecerlo. Las tres frases que le decían dónde ponerlo se sacaron: el
-	 * prompt es un presupuesto de atención, y cada orden le come lugar a las reglas
-	 * que sí se midieron contra imágenes.
+	 * Lo que pide el usuario dejó de ser una línea suelta en la ficha.
+	 *
+	 * Ahí se leía como un dato más entre veinte —al lado del precio y la
+	 * categoría— y a veces el aviso salía sin eso que se había pedido. Ahora es un
+	 * bloque propio y dice que tiene que VERSE en el aviso terminado. Lo que sigue
+	 * sin decir es dónde ni de qué tamaño: eso lo volvería una orden de
+	 * maquetación, que es lo que endurece la generación.
 	 */
-	test('lo que pide el usuario entra en una línea, sin instrucciones alrededor', () => {
+	test('lo que pide el usuario pesa, sin decirle dónde ponerlo', () => {
 		const prompt = buildPromptLibre({ ...ficha, indicaciones: 'que se vea el 4+2 de regalo' });
-		assert.match(prompt, /WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: que se vea el 4\+2 de regalo/);
-		assert.doesNotMatch(prompt, /you decide which block carries it/);
+		assert.match(prompt, /WHAT THE ADVERTISER ASKED FOR: que se vea el 4\+2 de regalo/);
+		assert.match(prompt, /has to be readable in the finished ad/);
+		assert.match(prompt, /Where it goes, how big it is and which block carries it are yours to decide/);
 	});
 
 	/** Todo lo demás sigue igual: se sacan dos líneas, no se cambia de prompt. */

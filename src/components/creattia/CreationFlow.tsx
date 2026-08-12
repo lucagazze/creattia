@@ -382,6 +382,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * la buena gana. El servidor ya sabía recibirlo — faltaba dónde elegirla.
 	 */
 	const [fotosElegidas, setFotosElegidas] = useState<string[]>([]);
+	/** Si el selector está abierto. Cerrado quiere decir: se usan todas. */
+	const [eligiendoFotos, setEligiendoFotos] = useState(false);
 	/**
 	 * Que el aviso salga sin ninguna firma.
 	 *
@@ -1159,6 +1161,15 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 
 	useEffect(() => {
 		if (phase !== 'confirmar') return;
+		// Las tres primeras vienen marcadas: es lo que la tienda puso primero, y
+		// llegar con algo elegido es lo que hace que se pueda seguir de largo sin
+		// tener que decidir. Se completan solo si no hay elección previa.
+		setFotosElegidas((previo) => {
+			if (previo.length) return previo;
+			const elegido = importedProducts.find((item: any) => selectedProductIds.includes(item.id)) || importedProducts[0];
+			const fotos = ((elegido as any)?.media || []).filter((m: any) => m.type !== 'video' && m.url);
+			return fotos.slice(0, 3).map((foto: any, i: number) => foto.path || `upload:${i}`);
+		});
 		coloresDetectados(false);
 		const letra = typoMode === 'brand' ? miMarca?.typography : marcaDeLaUrl?.typography;
 		setTipografiaElegida((previo) => ({
@@ -1216,7 +1227,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('format', format);
 			form.set('language', language);
 			form.set('colorMode', colorMode);
-			if (indicaciones.trim()) form.set('brief', indicaciones.trim());
+			// Lo elegido en las decisiones y lo escrito a mano viajan juntos: son la
+			// misma cosa para el prompt —qué quiere el anunciante— y separarlos en dos
+			// canales sería abrirle un segundo camino a la generación.
+			const pedido = [...Object.values(decisionElegida), indicaciones.trim()].filter(Boolean).join(' · ').slice(0, 600);
+			if (pedido) form.set('brief', pedido);
 			if (Object.values(rolesDeColor).some(Boolean)) form.set('rolesDeColor', JSON.stringify(rolesDeColor));
 			if (fotosElegidas.length) form.set('fotosElegidas', JSON.stringify(fotosElegidas));
 			// "Sin logo" es una decisión explícita y por eso pisa la regla por defecto
@@ -1316,6 +1331,14 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * elección todavía, y guardarlo con el resto lo mandaría al prompt en blanco.
 	 */
 	const [decisionAMano, setDecisionAMano] = useState<number[]>([]);
+	/**
+	 * Lo elegido en cada decisión, por índice.
+	 *
+	 * Antes bajaba al campo de texto libre y lo ensuciaba: quien quería escribir
+	 * algo propio se encontraba el campo lleno de frases que no había escrito.
+	 * Van por separado y se juntan recién al mandar.
+	 */
+	const [decisionElegida, setDecisionElegida] = useState<Record<number, string>>({});
 	const [rehaciendo, setRehaciendo] = useState<number | null>(null);
 
 	/** El producto elegido, para los textos que se reescriben desde una URL. */
@@ -1872,8 +1895,44 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							  * prompt como intención y no como orden. Es el canal que ya está medido:
 							  * no se abre uno nuevo.
 							  */}
-							{creativeDecisions.length > 0 && (
+							{(creativeDecisions.length > 0 || plan?.comparison?.detected) && (
 								<div className="creation-lectura">
+									{/* Un aviso comparativo vive de que los dos lados digan cosas
+									    distintas. El análisis lo detecta y describe el contraste, pero
+									    esa lectura no llegaba a ninguna parte: se preguntaba por el
+									    modelo y por el fondo, y no por lo único que decide si la
+									    comparación funciona. */}
+									{plan?.comparison?.detected && plan.comparison.summary && (
+										<div className="creation-decision">
+											<span>Es un aviso comparativo. ¿Contra qué se compara tu producto?</span>
+											<div className="creation-decision-opciones">
+												{[
+													'Contra uno genérico sin marca',
+													'Contra uno más caro que no rinde más',
+													'Contra cómo se hacía antes',
+												].map((opcion) => {
+													const puesta = decisionElegida[-1] === opcion;
+													return (
+														<button
+															key={opcion}
+															type="button"
+															className={puesta ? 'active' : ''}
+															disabled={phase === 'starting'}
+															aria-pressed={puesta}
+															onClick={() => setDecisionElegida((previo) => {
+																const siguiente = { ...previo };
+																if (puesta) delete siguiente[-1];
+																else siguiente[-1] = opcion;
+																return siguiente;
+															})}
+														>
+															{puesta ? '✓ ' : '+ '}{opcion}
+														</button>
+													);
+												})}
+											</div>
+										</div>
+									)}
 									{creativeDecisions.map((decision, index) => {
 										const opciones = (decision.options || []).slice(0, 3);
 										if (!opciones.length) return null;
@@ -1884,7 +1943,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 												<span>{decision.question || decision.title}</span>
 												<div className="creation-decision-opciones">
 													{opciones.map((opcion) => {
-														const puesta = indicaciones.includes(frase(opcion));
+														const puesta = decisionElegida[index] === opcion;
 														return (
 															<button
 																key={opcion}
@@ -1892,15 +1951,13 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 																className={puesta ? 'active' : ''}
 																disabled={phase === 'starting'}
 																aria-pressed={puesta}
-																onClick={() => setIndicaciones((previo) => {
-																	// Elegir otra opción de la MISMA decisión reemplaza a la
-																	// anterior: son excluyentes, y dejar las dos le pide al
-																	// modelo dos cosas que no pueden pasar juntas.
-																	let texto = previo;
-																	for (const otra of opciones) texto = texto.replace(frase(otra), '');
-																	texto = texto.replace(/\s*·\s*·\s*/g, ' · ').replace(/^\s*·\s*|\s*·\s*$/g, '').trim();
-																	if (puesta) return texto;
-																	return (texto ? `${texto} · ${frase(opcion)}` : frase(opcion)).slice(0, 600);
+																// Una sola por decisión: son excluyentes, y dejar dos le pide
+																// al modelo cosas que no pueden pasar juntas.
+																onClick={() => setDecisionElegida((previo) => {
+																	const siguiente = { ...previo };
+																	if (puesta) delete siguiente[index];
+																	else siguiente[index] = frase(opcion);
+																	return siguiente;
 																})}
 															>
 																{puesta ? '✓ ' : '+ '}{opcion}
@@ -1928,7 +1985,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 															if (evento.key !== 'Enter') return;
 															const escrito = (evento.target as HTMLInputElement).value.trim();
 															if (!escrito) return;
-															setIndicaciones((previo) => (previo.trim() ? `${previo.trim()} · ${frase(escrito)}` : frase(escrito)).slice(0, 600));
+															setDecisionElegida((previo) => ({ ...previo, [index]: frase(escrito) }));
 															setDecisionAMano((previo) => previo.filter((i) => i !== index));
 														}}
 													/>
@@ -1936,6 +1993,19 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 											</div>
 										);
 									})}
+									{/* Abajo de todo y opcional: lo que no entra en ninguna pregunta.
+									    Antes las opciones elegidas se escribían acá y lo ensuciaban. */}
+									<div className="creation-extra">
+										<span>¿Algo más? <small>(opcional)</small></span>
+										<input
+											type="text"
+											value={indicaciones}
+											maxLength={300}
+											disabled={phase === 'starting'}
+											placeholder="Ej: que se vea el envío gratis"
+											onChange={(evento) => setIndicaciones(evento.target.value)}
+										/>
+									</div>
 								</div>
 							)}
 
@@ -1960,25 +2030,60 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 											    pero cuando la galería tiene una buena y cinco regulares, mandar
 											    solo la buena gana. Viaja por `fotosElegidas`, que el servidor ya
 											    sabía recibir y reemplaza al default: faltaba dónde elegirla. */}
+											{/* Cerrado por default: se usan TODAS las detectadas, que es lo que
+											    mide mejor. El botón está para el caso en que el escaneo trajo
+											    alguna que no va — no para pedirle a nadie que elija. */}
 											{fotos.length > 1 && (
-												<div className="creation-fotos">
-													{fotos.map((foto, i) => {
-														const clave = foto.path || `upload:${i}`;
-														const elegida = fotosElegidas.includes(clave);
-														return (
-															<button
-																key={clave}
-																type="button"
-																className={elegida ? 'active' : ''}
-																disabled={phase === 'starting'}
-																aria-pressed={elegida}
-																title={elegida ? 'Se usa solo esta' : 'Usar solo esta foto'}
-																onClick={() => setFotosElegidas(elegida ? [] : [clave])}
-															>
-																<img src={foto.url} alt="" />
-															</button>
-														);
-													})}
+												<div className="creation-fotos-bloque">
+													<button
+														type="button"
+														className="creation-fotos-abrir"
+														disabled={phase === 'starting'}
+														onClick={() => setEligiendoFotos((previo) => !previo)}
+													>
+														{fotosElegidas.length
+															? `Se usan ${fotosElegidas.length} de ${fotos.length} fotos`
+															: `Se usan las ${fotos.length} fotos detectadas`}
+														<i aria-hidden="true">{eligiendoFotos ? '▴' : '▾'}</i>
+													</button>
+													{eligiendoFotos && (
+														<>
+															<div className="creation-fotos">
+																{fotos.map((foto, i) => {
+																	const clave = foto.path || `upload:${i}`;
+																	// Sin elección explícita valen todas, así que vacío se
+																	// dibuja con todas marcadas.
+																	const elegida = !fotosElegidas.length || fotosElegidas.includes(clave);
+																	return (
+																		<button
+																			key={clave}
+																			type="button"
+																			className={elegida ? 'active' : ''}
+																			disabled={phase === 'starting'}
+																			aria-pressed={elegida}
+																			title={elegida ? 'Sacarla' : 'Usarla'}
+																			onClick={() => setFotosElegidas((previo) => {
+																				const actual = previo.length ? previo : fotos.map((f, n) => f.path || `upload:${n}`);
+																				const siguiente = actual.includes(clave)
+																					? actual.filter((c) => c !== clave)
+																					: [...actual, clave];
+																				// Nunca cero: sin una sola foto el motor dibuja el
+																				// producto de memoria y sale parecido, no igual.
+																				return siguiente.length ? siguiente : actual;
+																			})}
+																		>
+																			<img src={foto.url} alt="" />
+																		</button>
+																	);
+																})}
+															</div>
+															{fotosElegidas.length > 0 && fotosElegidas.length < fotos.length && (
+																<button type="button" className="creation-fotos-todas" onClick={() => setFotosElegidas([])}>
+																	Volver a usarlas todas
+																</button>
+															)}
+														</>
+													)}
 												</div>
 											)}
 										</div>
