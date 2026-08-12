@@ -432,16 +432,12 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 `
 		: '';
 
-	// Iba como una línea suelta dentro de la ficha, al lado del precio y la
-	// categoría, y se leía como un dato más entre veinte. Se pedía algo y a veces
-	// no aparecía en el aviso. Ahora es un bloque propio y dice que tiene que
-	// VERSE — sigue sin decir dónde ni de qué tamaño, que es lo que lo volvería
-	// una orden de maquetación.
+	// Vuelve al texto y al lugar de bb23858. La versión con "no es opcional, tiene
+	// que verse" pesaba más sobre el papel, pero entró junto con otros cambios y
+	// las imágenes salieron peor. Hasta que no se mida sola, vale la que ya estaba.
 	const pedido = (!magro && ficha.indicaciones?.trim())
-		? `WHAT THE ADVERTISER ASKED FOR: ${ficha.indicaciones.trim()}
-
-That one is not optional: whatever was asked for has to be in the finished ad and has to be visible in the image — a line to say, an element to show, a space to leave, whatever it turns out to be. How it fits into the design is yours to decide.
-
+		? `
+WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: ${ficha.indicaciones.trim()}
 `
 		: '';
 
@@ -458,7 +454,7 @@ That one is not optional: whatever was asked for has to be in the finished ad an
 	// Dice lo del pudor por el lado positivo y sin el vocabulario que el filtro
 	// de OpenAI castiga, así que va también en el magro.
 	const vestible = ficha.seUsaEnElCuerpo
-		? `PEOPLE CAN WEAR THE PRODUCT — shoot them the way the brand itself would for its own campaign: an editorial retail photograph, the kind a shop publishes on its product page and runs as an ad. For underwear and swimwear that is how the category is always shot, and a man photographed in the garment alone is the ordinary way to show it. The garment is opaque, sits flat and stays where it belongs, the pose is one a catalogue would print, and the crop is the one a retailer chooses.
+		? `PEOPLE CAN WEAR THE PRODUCT — shoot them the way the brand itself would for its own campaign: an editorial retail photograph, the kind a shop publishes on its product page and runs as an ad. The garment is opaque, sits flat and stays where it belongs, the pose is one a catalogue would print, and the crop is the one a retailer chooses.
 
 `
 		: '';
@@ -504,8 +500,8 @@ THE TYPE IS TYPESET, NOT DRAWN. Every letter comes out crisp at full resolution,
 ${textosEscritos}Each new line keeps the shape of the one it replaces: the same number of lines, roughly the same length, the same tone, the same job in the ad — a headline stays a headline, a benefit line stays a benefit line, a button stays a button. Where the original highlights one word in the accent colour, highlight the equivalent word of the new line.
 
 THE PRODUCT THIS AD IS NOW FOR
-${datosDelProducto}${pagina}
-${identidad}${pedido}THE DESIGN COMES FROM THE FIRST IMAGE AND FROM NOWHERE ELSE. If a product photo arrives with a design of its own on it — text, a headline, a price, a badge, a banner, a flag — that design belongs to whoever made that photo and has nothing to do with this ad. Take the object out of it and leave the rest behind.
+${datosDelProducto}${pedido}${pagina}
+${identidad}THE DESIGN COMES FROM THE FIRST IMAGE AND FROM NOWHERE ELSE. If a product photo arrives with a design of its own on it — text, a headline, a price, a badge, a banner, a flag — that design belongs to whoever made that photo and has nothing to do with this ad. Take the object out of it and leave the rest behind.
 
 THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its waistband, seams, labels, prints and proportions where the photos show them. Its surface is copied as closely as its shape: the same weave or grain, the same perforations, speckles, flecks or bubbles, the same sheen and the same texture up close. Anything printed, stitched, embossed or moulded on it — a wordmark, a size tag, a seal, a logo — is reproduced letter for letter and sits exactly where the photos put it, at the same size and the same angle. Getting the product wrong ruins the ad even if everything else is perfect.
 

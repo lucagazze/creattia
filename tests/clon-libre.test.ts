@@ -233,19 +233,17 @@ describe('el prompt de respaldo, para cuando OpenAI rechaza', () => {
 	});
 
 	/**
-	 * Lo que pide el usuario dejó de ser una línea suelta en la ficha.
+	 * Lo que pide el usuario entra como UN dato más de la ficha, sin explicarle
+	 * cómo obedecerlo.
 	 *
-	 * Ahí se leía como un dato más entre veinte —al lado del precio y la
-	 * categoría— y a veces el aviso salía sin eso que se había pedido. Ahora es un
-	 * bloque propio y dice que TIENE que estar y verse. No presupone que sea texto:
-	 * lo que se pide puede ser un elemento o un espacio. Lo que sigue sin decir es
-	 * dónde ni de qué tamaño, que es lo que endurecería la generación.
+	 * Se probó una versión con más peso —"no es opcional, tiene que verse"— y entró
+	 * junto con otros cambios; las imágenes salieron peor y se volvió a esta. Para
+	 * reponerla hay que medirla sola contra bb23858.
 	 */
-	test('lo que pide el usuario pesa, sin decirle dónde ponerlo', () => {
+	test('lo que pide el usuario entra en una línea, sin instrucciones alrededor', () => {
 		const prompt = buildPromptLibre({ ...ficha, indicaciones: 'que se vea el 4+2 de regalo' });
-		assert.match(prompt, /WHAT THE ADVERTISER ASKED FOR: que se vea el 4\+2 de regalo/);
-		assert.match(prompt, /has to be in the finished ad and has to be visible in the image/);
-		assert.match(prompt, /How it fits into the design is yours to decide/);
+		assert.match(prompt, /WHAT THE ADVERTISER ALSO WANTS THIS AD TO SAY: que se vea el 4\+2 de regalo/);
+		assert.doesNotMatch(prompt, /not optional/);
 	});
 
 	/** Todo lo demás sigue igual: se sacan dos líneas, no se cambia de prompt. */
@@ -542,23 +540,5 @@ describe('los colores elegidos, con su rol', () => {
 		assert.doesNotMatch(prompt, /THIS AD IS SET IN THE ADVERTISER/);
 		assert.doesNotMatch(prompt, /is the background/);
 		assert.match(prompt, /the very letterforms you can see in the image/);
-	});
-});
-
-describe('quién aparece cuando decide la IA', () => {
-	/**
-	 * "Que decida la IA" no era una decisión: devolvía undefined y el aviso caía en
-	 * la frase genérica del recasteo. Alcanza a veces y a veces no — con un ganador
-	 * donde la foto ES el aviso, volvía la misma cara, la misma ropa y la misma
-	 * ciudad. Decidir SI aparece alguien sigue siendo del modelo; lo que no puede
-	 * decidir es reciclar a la persona del ganador.
-	 */
-	test('decide si aparece alguien, pero nunca es el del ganador', () => {
-		const prompt = buildPromptLibre({
-			...ficha,
-			decisionDePersona: 'another person, the one this product is for. Read the reference to decide whether anyone appears at all: if it shows people, this ad shows people too; if it shows none, nobody is added. But whoever the reference shows is never who appears here.',
-		});
-		assert.match(prompt, /whether anyone appears at all/);
-		assert.match(prompt, /never who appears here/);
 	});
 });

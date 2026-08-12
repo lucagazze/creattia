@@ -1185,6 +1185,20 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 
 	useEffect(() => {
 		if (phase !== 'confirmar') return;
+		/**
+		 * Las TRES primeras fotos vienen marcadas, que es como estaba en bb23858.
+		 *
+		 * Mandarlas todas se probó y las imágenes salieron peor: cada foto de más es
+		 * una señal que compite con la referencia, y con diecisiete el ganador pesa
+		 * una parte de diecisiete. Se completan solo si no hay elección previa, y el
+		 * selector sigue estando para cambiarlas.
+		 */
+		setFotosElegidas((previo) => {
+			if (previo.length) return previo;
+			const elegido = importedProducts.find((item: any) => selectedProductIds.includes(item.id)) || importedProducts[0];
+			const fotos = ((elegido as any)?.media || []).filter((m: any) => m.type !== 'video' && m.url);
+			return fotos.slice(0, 3).map((foto: any, i: number) => foto.path || `upload:${i}`);
+		});
 		coloresDetectados(false);
 		const letra = typoMode === 'brand' ? miMarca?.typography : marcaDeLaUrl?.typography;
 		setTipografiaElegida((previo) => ({
