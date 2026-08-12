@@ -174,14 +174,21 @@ export function logoModeRecomendado(analisis: LayoutAnalysis | null | undefined 
 	return paginas.some((pagina) => pagina?.templateHasLogoSlot) ? 'texto' : 'nada';
 }
 
-const ROLES_DE_COLOR = ['fondo', 'titulo', 'texto', 'acento', 'boton'] as const;
+/**
+ * `botonTexto` es el sexto rol y el único que no se podía elegir.
+ *
+ * Con el botón pintado del acento, escribirle encima con el color de los textos
+ * lo deja ilegible la mitad de las veces. Es el mismo problema que ya tenían los
+ * otros cinco: se elegía el color pero no había dónde decir para qué era.
+ */
+const ROLES_DE_COLOR = ['fondo', 'titulo', 'texto', 'acento', 'boton', 'botonTexto'] as const;
 export type RolesDeColor = Partial<Record<typeof ROLES_DE_COLOR[number], string>>;
 
 /**
  * Los colores por función que llegan del cliente.
  *
  * Todo esto entra al prompt, así que se valida igual que la paleta: solo
- * hexadecimales de seis dígitos y solo los cinco roles conocidos. Un valor raro
+ * hexadecimales de seis dígitos y solo los seis roles conocidos. Un valor raro
  * acá no rompe nada visible, pero sería texto del usuario metido en el prompt.
  */
 export function parseRolesDeColor(raw: unknown): RolesDeColor | null {
@@ -508,8 +515,31 @@ async function fotosLimpiasDelProducto(
  * prompt — son los mismos colores de la marca que ya se usaban, mejor leídos.
  */
 function coloresCorregidos(roles: RolesDeColor | undefined) {
-	const lista = [...new Set([roles?.fondo, roles?.titulo, roles?.texto, roles?.acento, roles?.boton].filter(Boolean) as string[])];
+	const lista = [...new Set([roles?.fondo, roles?.titulo, roles?.texto, roles?.acento, roles?.boton, roles?.botonTexto].filter(Boolean) as string[])];
 	return lista.length ? lista : null;
+}
+
+/**
+ * Los colores de la marca CON el nombre de lo que pinta cada uno.
+ *
+ * La lista plana sigue viajando cuando esto viene vacío, porque es mejor que
+ * nada. Pero cinco hexadecimales sin decir cuál es cuál se reparten a criterio
+ * del modelo: se elegían los colores de la web y el fondo elegido terminaba de
+ * titular, o directamente el aviso salía con el fondo del ganador. Elegirlos uno
+ * por uno en la pantalla de confirmar no sirve de nada si después no se dice
+ * para qué era cada uno.
+ *
+ * Con "Mi marca" no hay roles cargados sino una paleta semántica: se traduce lo
+ * que sí tiene nombre y los que faltan simplemente no se nombran.
+ */
+function rolesParaElPrompt(roles: RolesDeColor | undefined, paleta: BrandPalette | undefined): RolesDeColor | undefined {
+	if (roles && Object.keys(roles).length) return roles;
+	if (!paleta) return undefined;
+	const desdePaleta: RolesDeColor = {};
+	if (paleta.background) desdePaleta.fondo = paleta.background;
+	if (paleta.text) desdePaleta.texto = paleta.text;
+	if (paleta.accent) desdePaleta.acento = paleta.accent;
+	return Object.keys(desdePaleta).length ? desdePaleta : undefined;
 }
 
 /** La ficha con la que se arma el prompt libre, y también su versión magra. */
@@ -529,6 +559,12 @@ function fichaDesde(input: ClonePromptInput, hasLogo: boolean, analysis?: Layout
 			// arreglar un color es porque el escaneo lo leyó mal.
 			coloresDeLaMarca: input.colorMode !== 'winner'
 				? (coloresCorregidos(input.rolesDeColor) || input.brandColors)
+				: undefined,
+			// Los mismos colores, pero diciendo qué pinta cada uno. Cuando llegan,
+			// el prompt los nombra por rol en vez de listarlos; si no, viaja la
+			// lista de arriba, que es lo que hacía antes.
+			rolesDeColor: input.colorMode !== 'winner'
+				? rolesParaElPrompt(input.rolesDeColor, input.brandPalette)
 				: undefined,
 			tipografiaDeLaMarca: input.typoMode !== 'winner' ? input.brandTypography : undefined,
 			indicaciones: input.brief,

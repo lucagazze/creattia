@@ -28,6 +28,10 @@ const ROLES_DE_COLOR = [
 	{ id: 'texto', label: 'Textos', desde: 'secondary' },
 	{ id: 'acento', label: 'Acento', desde: 'accent' },
 	{ id: 'boton', label: 'Botones', desde: 'accent' },
+	// Con el botón pintado del acento, escribirle encima con el color de los
+	// textos lo deja ilegible la mitad de las veces. Era el único de los seis que
+	// no tenía dónde elegirse, así que el aviso lo resolvía solo.
+	{ id: 'botonTexto', label: 'Texto del botón', desde: 'background' },
 ] as const;
 
 /**

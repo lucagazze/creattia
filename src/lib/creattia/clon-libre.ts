@@ -81,6 +81,16 @@ export type FichaDelProducto = {
 	 * el clon se parezca al original.
 	 */
 	coloresDeLaMarca?: string[];
+	/**
+	 * Los mismos colores, con el nombre de lo que pinta cada uno.
+	 *
+	 * Cuando llegan, la oración de fidelidad los nombra por rol en vez de listar
+	 * hexadecimales sueltos. No es un bloque nuevo ni una orden más: es la MISMA
+	 * cláusula que ya estaba, dicha con los nombres puestos. Sin esto el modelo
+	 * recibe cinco colores sin etiqueta y los reparte a su criterio, así que el
+	 * fondo elegido termina de titular o el aviso sale con el fondo del ganador.
+	 */
+	rolesDeColor?: { fondo?: string; titulo?: string; texto?: string; acento?: string; boton?: string; botonTexto?: string };
 	tipografiaDeLaMarca?: { headings?: string; body?: string };
 	/**
 	 * Lo que el usuario quiere destacar, en sus palabras.
@@ -381,15 +391,38 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 	// REEMPLAZAN la cláusula del ganador. Tener las dos es pedirle dos cosas
 	// distintas, y ahí gana la que ve en la imagen y la elección se ignora.
 	const letra = (ficha.tipografiaDeLaMarca?.headings || ficha.tipografiaDeLaMarca?.body)
-		? `the same type sizes, weights, alignments and hierarchy, but set in this brand's own typefaces (${[
-			ficha.tipografiaDeLaMarca.headings && `${ficha.tipografiaDeLaMarca.headings} for headings`,
-			ficha.tipografiaDeLaMarca.body && `${ficha.tipografiaDeLaMarca.body} for body`,
+		? `the same type sizes, weights, alignments and hierarchy, but set in this brand's own typefaces instead of the reference's (${[
+			ficha.tipografiaDeLaMarca.headings && `${ficha.tipografiaDeLaMarca.headings} for the headlines`,
+			ficha.tipografiaDeLaMarca.body && `${ficha.tipografiaDeLaMarca.body} for the body and descriptive text`,
 		].filter(Boolean).join(', ')})`
 		: 'the same typography — the very letterforms you can see in the image — the same type sizes, weights and alignments';
 
-	const color = ficha.coloresDeLaMarca?.length
-		? `this brand's own palette (${ficha.coloresDeLaMarca.join(', ')}) mapped onto the very same roles the reference uses — what was the background stays the background, what was the ink stays the ink, and the accent still lands on the equivalent word`
-		: 'the same colour palette, the same accent colour on the same word';
+	/**
+	 * Los colores nombrados por rol, adentro de la misma oración de siempre.
+	 *
+	 * Va acá y NO en un bloque propio a propósito: sacarlo a un bloque titulado se
+	 * probó dos veces —dea535e3 y 8a243403— y las dos volvió, porque al nombrar
+	 * botones, píldoras y divisores en un apartado el modelo los INVENTA para
+	 * tener dónde usar el color, y aparecen listas y pastillas que el ganador no
+	 * tiene. Adentro de la cláusula que dice "no cambies nada" eso no pasa.
+	 *
+	 * Los roles vacíos no se nombran: si el escaneo no encontró el color del
+	 * botón, esa parte de la frase no existe en vez de viajar en blanco.
+	 */
+	const roles = ficha.rolesDeColor;
+	const pintadas = roles ? ([
+		roles.fondo && `the background is ${roles.fondo}`,
+		roles.titulo && `the headlines are ${roles.titulo}`,
+		roles.texto && `the body and descriptive text is ${roles.texto}`,
+		roles.acento && `the accent the reference puts on its highlighted word is ${roles.acento}`,
+		roles.boton && `any button or pill is ${roles.boton}${roles.botonTexto ? ` with its label in ${roles.botonTexto}` : ''}`,
+	].filter(Boolean) as string[]) : [];
+
+	const color = pintadas.length
+		? `this brand's own colours, each one already on the role it belongs to — ${pintadas.join(', ')} — those exact values and not colours that resemble them`
+		: ficha.coloresDeLaMarca?.length
+			? `this brand's own palette (${ficha.coloresDeLaMarca.join(', ')}) mapped onto the very same roles the reference uses — what was the background stays the background, what was the ink stays the ink, and the accent still lands on the equivalent word`
+			: 'the same colour palette, the same accent colour on the same word';
 
 	const pedido = (!magro && ficha.indicaciones?.trim())
 		? `
