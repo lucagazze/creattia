@@ -7197,3 +7197,17 @@
 	font-size: 13px; font-family: inherit; color: #3d3945;
 }
 .creation-decision-propia:focus { outline: none; box-shadow: 0 0 0 2px #f3eeff; }
+
+/* Elegir UNA foto del producto. Sin elegir van todas, que es el default. */
+.creation-fotos { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.creation-fotos button {
+	width: 58px; height: 58px; padding: 0; border: 1px solid #e3e0e8; border-radius: 9px;
+	background: #fff; overflow: hidden; cursor: pointer; opacity: .62;
+	transition: opacity .15s, border-color .15s, box-shadow .15s;
+}
+.creation-fotos button:hover:not(:disabled) { opacity: 1; border-color: #c4bcd4; }
+.creation-fotos button.active { opacity: 1; border-color: #744bde; box-shadow: 0 0 0 1px #744bde; }
+.creation-fotos button:disabled { cursor: default; }
+.creation-fotos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* "Sin logo" elegido: se marca igual que el resto de las decisiones. */
+.creation-logo-acciones > button.active { border-color: #744bde; background: #f2ecff; color: #4a2a9e; }

@@ -374,6 +374,22 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * nombre de la marca donde el ganador firma, que es lo que sale bien casi
 	 * siempre. Ofrecer un cambio que no cambia nada sería un control decorativo.
 	 */
+	/**
+	 * La foto del producto elegida a mano, si se eligió alguna.
+	 *
+	 * Vacío quiere decir "todas", que es el default medido. Una sola elegida lo
+	 * reemplaza: con una galería de una foto buena y cinco regulares, mandar solo
+	 * la buena gana. El servidor ya sabía recibirlo — faltaba dónde elegirla.
+	 */
+	const [fotosElegidas, setFotosElegidas] = useState<string[]>([]);
+	/**
+	 * Que el aviso salga sin ninguna firma.
+	 *
+	 * Sin esto la única opción era cambiar el logo por otro: el aviso siempre
+	 * terminaba escribiendo el nombre de la marca donde el ganador firma, y no
+	 * había forma de pedir que no firmara nada.
+	 */
+	const [sinLogo, setSinLogo] = useState(false);
 	const [logoPropio, setLogoPropio] = useState<File | null>(null);
 	const [logoPropioVista, setLogoPropioVista] = useState('');
 	/**
@@ -1202,6 +1218,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			form.set('colorMode', colorMode);
 			if (indicaciones.trim()) form.set('brief', indicaciones.trim());
 			if (Object.values(rolesDeColor).some(Boolean)) form.set('rolesDeColor', JSON.stringify(rolesDeColor));
+			if (fotosElegidas.length) form.set('fotosElegidas', JSON.stringify(fotosElegidas));
+			// "Sin logo" es una decisión explícita y por eso pisa la regla por defecto
+			// del prompt, que firma donde el ganador firma.
+			if (sinLogo) { form.set('logoMode', 'nada'); form.set('includeLogo', '0'); }
 			if (typoMode !== 'winner' && (tipografiaElegida.headings.trim() || tipografiaElegida.body.trim())) {
 				form.set('tipografiaOverride', JSON.stringify(tipografiaElegida));
 			}
@@ -1839,7 +1859,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					{(phase === 'confirmar' || (phase === 'starting' && Boolean(confirmacion))) && (
 						<div className="batch-detail-card" style={{ marginTop: '4px' }}>
 							<h2 style={{ margin: '0 0 4px', fontSize: '17px', color: '#19171d' }}>Esto leímos de tu web</h2>
-							<p className="batch-detail-help" style={{ marginTop: 0 }}>Si algo no cuadra, volvé y cambiá la URL. Todavía no gastaste créditos.</p>
 
 							{/*
 							  * Lo que el análisis leyó del ganador, que hasta ahora se descartaba.
@@ -1853,13 +1872,8 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							  * prompt como intención y no como orden. Es el canal que ya está medido:
 							  * no se abre uno nuevo.
 							  */}
-							{(plan?.messageStrategy || creativeDecisions.length > 0) && (
+							{creativeDecisions.length > 0 && (
 								<div className="creation-lectura">
-									{plan?.messageStrategy && (
-										<p className="creation-lectura-texto">
-											<b>Por qué funciona este ganador:</b> {plan.messageStrategy}
-										</p>
-									)}
 									{creativeDecisions.map((decision, index) => {
 										const opciones = (decision.options || []).slice(0, 3);
 										if (!opciones.length) return null;
@@ -1929,17 +1943,47 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							    a la vista, desde que se entró a esta pantalla. */}
 							<div>
 								<span className="picker-label">Tu producto</span>
-								{importedProducts.filter((item) => confirmacion?.productIds.includes(item.id)).map((item) => (
-									<div key={item.id} className="creation-confirm-product">
-										{(item.imageUrls?.[0] || item.media?.[0]?.url) && (
-											<img src={item.imageUrls?.[0] || item.media?.[0]?.url} alt="" width={54} height={54} />
-										)}
-										<div>
-											<strong>{item.name}</strong>
-											{item.price_text && <small>{item.price_text}</small>}
+								{importedProducts.filter((item) => confirmacion?.productIds.includes(item.id)).map((item) => {
+									const fotos = (item.media || []).filter((m) => m.type !== 'video' && m.url);
+									return (
+										<div key={item.id}>
+											<div className="creation-confirm-product">
+												{(fotos[0]?.url || item.imageUrls?.[0]) && (
+													<img src={fotos[0]?.url || item.imageUrls?.[0]} alt="" width={54} height={54} />
+												)}
+												<div>
+													<strong>{item.name}</strong>
+													{item.price_text && <small>{item.price_text}</small>}
+												</div>
+											</div>
+											{/* Elegir UNA foto. Sin elegir van todas, que es el default medido;
+											    pero cuando la galería tiene una buena y cinco regulares, mandar
+											    solo la buena gana. Viaja por `fotosElegidas`, que el servidor ya
+											    sabía recibir y reemplaza al default: faltaba dónde elegirla. */}
+											{fotos.length > 1 && (
+												<div className="creation-fotos">
+													{fotos.map((foto, i) => {
+														const clave = foto.path || `upload:${i}`;
+														const elegida = fotosElegidas.includes(clave);
+														return (
+															<button
+																key={clave}
+																type="button"
+																className={elegida ? 'active' : ''}
+																disabled={phase === 'starting'}
+																aria-pressed={elegida}
+																title={elegida ? 'Se usa solo esta' : 'Usar solo esta foto'}
+																onClick={() => setFotosElegidas(elegida ? [] : [clave])}
+															>
+																<img src={foto.url} alt="" />
+															</button>
+														);
+													})}
+												</div>
+											)}
 										</div>
-									</div>
-								))}
+									);
+								})}
 							</div>
 
 							{/* Los colores de la web repartidos por función. Un hexadecimal
@@ -1967,7 +2011,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 											</button>
 										)}
 									</div>
-									<p className="batch-detail-help">Corregí el que no cuadre. La IA los usa como referencia, no los copia tal cual.</p>
 									<div className="creation-color-roles">
 										{ROLES_DE_COLOR.map((rol) => (
 											<button
@@ -2109,11 +2152,21 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 													setLogoPropio(null); setLogoPropioVista('');
 												}}>Volver al detectado</button>
 											)}
+											<button
+												type="button"
+												className={sinLogo ? 'active' : ''}
+												disabled={phase === 'starting'}
+												onClick={() => setSinLogo((previo) => !previo)}
+											>
+												{sinLogo ? '✓ Sin logo' : 'Sin logo'}
+											</button>
 										</div>
 										<p className="batch-detail-help" style={{ margin: '6px 0 0' }}>
-											{logoPropio
-												? 'El aviso va a dibujar este logo donde el ganador firma.'
-												: 'Si subís uno, el aviso lo dibuja en vez de escribir el nombre de la marca.'}
+											{sinLogo
+												? 'El aviso no lleva ninguna firma.'
+												: logoPropio
+													? 'El aviso va a dibujar este logo donde el ganador firma.'
+													: 'Si subís uno, el aviso lo dibuja en vez de escribir el nombre de la marca.'}
 										</p>
 									</div>
 								)}
@@ -2198,7 +2251,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							{zones.length > 0 && (
 								<div style={{ marginTop: '18px' }}>
 									<span className="picker-label">Lo que va a decir el aviso</span>
-									<p className="batch-detail-help">Corregí lo que no te guste. Sale exactamente esto, así que si algo está mal escrito acá, va mal escrito a la imagen.</p>
 									<div className="creation-textos">
 										{zones.map((zone, index) => (
 											<div
@@ -2245,7 +2297,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							<section className="logo-decision" aria-label="Cuántas versiones generar" style={{ margin: '18px 0 0' }}>
 								<div className="logo-decision-head">
 									<strong>¿Cuántas versiones querés?</strong>
-									<small>Se generan juntas con estas mismas decisiones, y elegís la que más te guste. Cada una sale distinta y cuesta un crédito.</small>
 								</div>
 								<div className="logo-decision-options opciones-cortas" role="radiogroup" aria-label="Cantidad de versiones">
 									{[1, 2, 3, 4].map((cantidad) => (
