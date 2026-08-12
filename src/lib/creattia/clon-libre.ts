@@ -399,7 +399,7 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 	const pedido = (!magro && ficha.indicaciones?.trim())
 		? `WHAT THE ADVERTISER ASKED FOR: ${ficha.indicaciones.trim()}
 
-That is not a preference: it has to be readable in the finished ad. Where it goes, how big it is and which block carries it are yours to decide, but somebody looking at the ad has to find it there.
+That one is not optional: whatever was asked for has to be in the finished ad and has to be visible in the image — a line to say, an element to show, a space to leave, whatever it turns out to be. How it fits into the design is yours to decide.
 
 `
 		: '';
