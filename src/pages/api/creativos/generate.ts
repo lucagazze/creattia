@@ -12,7 +12,7 @@ import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
 import { fotosParaElMotor, leerElProducto, refotografiarProducto, todasSonPlacas } from '../../../lib/creattia/clon-libre';
-import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, parseRolesDeColor, parseTipografiaElegida, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, parseFotosElegidas, parseRolesDeColor, parseTipografiaElegida, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
 import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
@@ -593,6 +593,10 @@ export const POST: APIRoute = async ({ request }) => {
 		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
 		const productVisionInputs: Array<{ buffer: Buffer; type: string }> = [];
 		const indicesDeFotosDeProducto: number[] = [];
+		// La identidad de cada foto, alineada con productVisionInputs: la ruta de
+		// storage para las guardadas, `upload:N` para las subidas a mano. Es lo que
+		// la pantalla usa para decir "estas viajaron" y para elegir otras.
+		const clavesDeFotos: string[] = [];
 		if (usesRealProducts) for (const storedProduct of storedProducts) {
 			if (storedProduct.id === 'manual') continue;
 			const paths = [...new Set([
@@ -662,6 +666,7 @@ export const POST: APIRoute = async ({ request }) => {
 			for (const { item, normalized } of normalizedPhotos) {
 				if (!normalized) continue; // foto ilegible: no puede tumbar la generación
 				if (normalized) productVisionInputs.push(normalized);
+				clavesDeFotos.push(item.path);
 				if (!primaryProductBuffer) {
 					primaryProductBuffer = normalized.buffer;
 					primaryProductMime = normalized.type;
@@ -674,7 +679,7 @@ export const POST: APIRoute = async ({ request }) => {
 			for (let idx = 0; idx < productsUploaded.length; idx++) {
 				const fileObj = productsUploaded[idx];
 				const normalized = await normalizeImageInput(Buffer.from(await fileObj.arrayBuffer()));
-				if (normalized) productVisionInputs.push(normalized);
+				if (normalized) { productVisionInputs.push(normalized); clavesDeFotos.push(`upload:${idx}`); }
 				if (!normalized) throw new Error('La foto del producto no se pudo procesar. Probá con otra imagen.');
 				if (!primaryProductBuffer) {
 					primaryProductBuffer = normalized.buffer;
@@ -807,24 +812,32 @@ export const POST: APIRoute = async ({ request }) => {
 		stamp(`análisis visual ${approvedPlan ? 'aprobado por el usuario' : layoutAnalysis ? 'ok' : 'sin resultado'}`);
 
 		const lectura = await lecturaPendiente;
-		// Las fotos donde aparece una persona sirvieron para entender el producto,
-		// pero NO se le mandan al motor: OpenAI rechaza el pedido entero si sospecha
-		// un cuerpo en ropa interior, aunque el aviso a generar no muestre nada. Si
-		// todas tienen persona se mandan igual: sin ninguna foto el motor dibuja el
-		// producto de memoria, que es peor.
 		/**
 		 * Qué fotos del producto llegan al motor.
 		 *
-		 * Se quedan las limpias del objeto —como mucho tres, porque cada imagen de
-		 * entrada compite con la referencia— y quedan afuera dos cosas: las placas de
-		 * diseño de la tienda, que el motor leía como el producto y terminaba
-		 * clonando en vez del ganador, y las que muestran una persona, que hacen que
-		 * OpenAI rechace el pedido entero cuando el producto es ropa interior.
+		 * El default es el de b8ded8c: TODAS. Quedan afuera solo las que muestran
+		 * una persona —OpenAI rechaza el pedido ENTERO si sospecha un cuerpo en
+		 * ropa interior— y la única excepción es la galería que es 100% placas de
+		 * diseño, que no manda ninguna y se rehace como packshot (ver clon-libre).
+		 *
+		 * Si el usuario eligió fotos a mano, su elección REEMPLAZA al default —
+		 * mismo patrón que la persona y el logo. El filtro de persona se aplica
+		 * igual sobre lo elegido, porque protege al pedido entero y no a una foto;
+		 * si la elección queda vacía después de eso, rige el default: nadie se
+		 * queda sin fotos por un checkbox.
 		 */
-		const fotosQueSeQuedan = new Set(
-			fotosParaElMotor(productVisionInputs.map((f) => ({ buffer: f.buffer, type: f.type })), lectura || { mejores: [], graficas: [], conPersona: [] })
-				.map((elegida) => productVisionInputs.findIndex((f) => f.buffer === elegida.buffer)),
-		);
+		const eleccionManual = parseFotosElegidas(form.get('fotosElegidas'));
+		const porEleccion = eleccionManual
+			? productVisionInputs.map((_, i) => i).filter((i) =>
+				eleccionManual.includes(clavesDeFotos[i]) && !(lectura?.conPersona || []).includes(i))
+			: null;
+		const fotosQueSeQuedan = porEleccion?.length
+			? new Set(porEleccion)
+			: new Set(
+				fotosParaElMotor(productVisionInputs.map((f) => ({ buffer: f.buffer, type: f.type })), lectura || { mejores: [], graficas: [], conPersona: [] })
+					.map((elegida) => productVisionInputs.findIndex((f) => f.buffer === elegida.buffer)),
+			);
+		if (porEleccion?.length) stamp(`el usuario eligió ${porEleccion.length} foto(s) del producto a mano`);
 		const aCortar = indicesDeFotosDeProducto
 			.map((posicion, i) => (fotosQueSeQuedan.has(i) ? -1 : posicion))
 			.filter((posicion) => posicion >= 0);
@@ -844,14 +857,38 @@ export const POST: APIRoute = async ({ request }) => {
 		 * tienda. `refotografiarProducto` re-fotografía el objeto solo sobre fondo
 		 * neutro y sin una letra encima.
 		 */
+		let packshotPath: string | null = null;
 		if (!fotosQueSeQuedan.size && productVisionInputs.length && !isExactRevision
 			&& lectura && todasSonPlacas(productVisionInputs.map((f) => ({ buffer: f.buffer, type: f.type })), lectura)) {
 			const packshot = await refotografiarProducto({ openAIKey, googleKey }, productVisionInputs[0], lectura?.aspecto);
 			if (packshot) {
 				await pushInput(packshot.buffer, packshot.type, 'producto-en-estudio.png', 'the product re-photographed on its own, clean, with no text or graphics: this is the product to show');
 				stamp('ninguna foto limpia del producto: se rehízo una en estudio');
+				// Se guarda para poder MOSTRARLA: sin esto el aviso sale con un
+				// objeto que el usuario nunca subió y no hay forma de ver de dónde
+				// salió. Si el upload falla, la generación sigue igual.
+				try {
+					const ruta = `${auth.user!.id}/packshots/${batchId}.png`;
+					const { error: packshotUploadError } = await admin.storage.from('creative-assets')
+						.upload(ruta, packshot.buffer, { contentType: 'image/png', upsert: true });
+					if (!packshotUploadError) packshotPath = ruta;
+					else console.error('[generate] no se pudo guardar el packshot:', packshotUploadError);
+				} catch (packshotError) {
+					console.error('[generate] no se pudo guardar el packshot:', packshotError);
+				}
 			}
 		}
+		/**
+		 * Qué viajó al motor, dicho con las claves que la pantalla conoce. Va al
+		 * snapshot de la generación para que "estas fotos se usaron" y "el
+		 * producto se recreó por IA" se puedan mostrar tal cual, sin adivinar.
+		 */
+		const fotosDelProducto = {
+			total: productVisionInputs.length,
+			viajaron: [...fotosQueSeQuedan].sort((a, b) => a - b).map((i) => clavesDeFotos[i]).filter(Boolean),
+			eleccionManual: Boolean(porEleccion?.length),
+			packshotPath,
+		};
 
 		const hasTargetProductInput = storedProducts.length > 0 || hasUploadedProduct || productVisionInputs.length > 0;
 		const useClonePrompt = hasReference && (!hasSourceGeneration || hasNewProductInput) && fidelity === 1
@@ -926,7 +963,11 @@ The result must look like the same image with only that one adjustment applied.`
 			inputImageMap,
 			adCopy: layoutAnalysis?.adCopy,
 		});
-		const { error: promptUpdateError } = await admin.from('creative_generations').update({ prompt }).in('id', generationIds);
+		// Junto con el prompt se guarda qué fotos viajaron (y el packshot si se
+		// fabricó): el snapshot se insertó antes de armar las imágenes, así que
+		// esto lo completa con lo que efectivamente pasó.
+		const { error: promptUpdateError } = await admin.from('creative_generations')
+			.update({ prompt, settings_snapshot: { ...generationSettingsSnapshot, fotosDelProducto } }).in('id', generationIds);
 		if (promptUpdateError) throw promptUpdateError;
 		stamp('prompt construido y guardado');
 

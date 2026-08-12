@@ -98,6 +98,29 @@ export function parsePersonMode(raw: unknown, fallback: PersonMode = 'ai'): Pers
 }
 
 /**
+ * La selección manual de fotos del producto, cuando el usuario la hizo.
+ *
+ * Mismo patrón que la persona y el logo: el default —TODAS las fotos, que es
+ * b8ded8c— no se toca, y una elección explícita lo REEMPLAZA. Cada foto se
+ * identifica por su ruta de storage, o por `upload:N` para las subidas a mano.
+ * Vacío o inválido devuelve null y rige el default: nadie se queda sin fotos
+ * por un checkbox mal mandado.
+ */
+export function parseFotosElegidas(raw: unknown): string[] | null {
+	if (!raw) return null;
+	try {
+		const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+		if (!Array.isArray(parsed)) return null;
+		const claves = [...new Set(parsed
+			.map((valor) => String(valor || '').trim())
+			.filter((valor) => valor && valor.length <= 300))].slice(0, 24);
+		return claves.length ? claves : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Qué opción viene marcada al abrir la revisión.
  *
  * Se mira lo que el análisis encontró en el ganador: si el aviso que se está
