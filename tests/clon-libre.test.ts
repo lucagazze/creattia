@@ -76,16 +76,15 @@ describe('el prompt del clon libre', () => {
 
 	/**
 	 * El defecto: un ganador en francés devolvió "OBTENEZ VOTRE BOXER PREMIUM DE
-	 * BAMBÚ" — media frase en el idioma del ganador y media en el pedido. Decir en
-	 * qué idioma escribir no alcanzaba: hay que decir que ninguna palabra del
-	 * ganador sobrevive por parecerse a la que iba.
+	 * BAMBÚ" — media frase en el idioma del ganador y media en el pedido. Del
+	 * párrafo entero que vivió acá quedó una línea y una sola advertencia: el
+	 * párrafo se midió contra imágenes y salían peor con él.
 	 */
 	test('el idioma elegido manda, y ninguna palabra del ganador sobrevive', () => {
 		const elegido = buildPromptLibre({ ...ficha, idioma: 'natural Argentine Spanish' });
-		assert.match(elegido, /EVERY WORD IN THE AD IS WRITTEN IN NATURAL ARGENTINE SPANISH/);
-		assert.match(elegido, /not one of its words survives/);
-		assert.match(elegido, /Do not mix two languages/);
-		assert.match(buildPromptLibre(ficha), /THE LANGUAGE OF THE PRODUCT INFORMATION ABOVE/);
+		assert.match(elegido, /Every word in the ad is written in natural Argentine Spanish/);
+		assert.match(elegido, /Not one word of the reference survives/);
+		assert.match(buildPromptLibre(ficha), /the language the product information above is written in/);
 	});
 
 	/** Sin ICP el anuncio lo protagoniza un modelo cualquiera y no se lo apropia nadie. */
@@ -148,15 +147,14 @@ describe('el prompt del clon libre', () => {
 	});
 
 	/**
-	 * El defecto, visto en producción: una mojarra de pesca cuya galería eran todas
-	 * placas promocionales —bandera, caja, "SORTEO DÍA 30"— salió siendo esa placa.
-	 * El motor tenía dos diseños delante y la orden de reproducir letra por letra lo
-	 * impreso en el producto, así que clonó el de la tienda.
+	 * La defensa contra placas vivió acá como un bloque del prompt y las imágenes
+	 * salían peor con él. Hoy vive en la ENTRADA —el clasificador de `graficas` y
+	 * el packshot— que corrige sin gastarle una palabra al prompt. Este test guarda
+	 * la decisión: si el bloque vuelve, que sea a propósito y midiendo.
 	 */
-	test('el diseño sale del ganador, no de las fotos del producto', () => {
+	test('la defensa contra placas vive en la entrada, no en el prompt', () => {
 		const prompt = buildPromptLibre(ficha);
-		assert.match(prompt, /THE DESIGN COMES FROM THE FIRST IMAGE AND FROM NOWHERE ELSE/);
-		assert.match(prompt, /Take the object out of it and leave the rest behind/);
+		assert.doesNotMatch(prompt, /THE DESIGN COMES FROM THE FIRST IMAGE/);
 	});
 });
 
@@ -283,7 +281,6 @@ describe('lo que el ganador trajo prestado', () => {
 	test('los sellos, ratings y letra chica de terceros tampoco se quedan', () => {
 		const prompt = buildPromptLibre(ficha);
 		assert.match(prompt, /award seals, press logos, star ratings, certifications, legal small print/);
-		assert.match(prompt, /stays only if THIS product genuinely has its own/);
 	});
 });
 

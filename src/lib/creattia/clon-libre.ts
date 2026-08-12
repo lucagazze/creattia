@@ -16,6 +16,16 @@
  * Cada regla de abajo se ganó el lugar midiéndola contra siete referencias
  * reales, no por parecer razonable. Las que se probaron y no cambiaron nada
  * están afuera. Antes de agregar una, generá con y sin ella y mirá las dos.
+ *
+ * El cuerpo del prompt es el de "Colores que se pueden elegir, logo que se puede
+ * cambiar, producto más fiel" (b8ded8c), que es el que hacía las imágenes que a
+ * Luca le gustaban. Después de ese commit se le fueron sumando bloques —tipografía
+ * impoluta, un párrafo entero de idioma, una defensa contra placas— y cada uno
+ * arreglaba un caso puntual comiéndole atención al resto: las imágenes salieron
+ * peor. Las defensas viven ahora en la ENTRADA (el clasificador de placas y el
+ * packshot), que corrige sin gastar ni una palabra del prompt. Lo único que quedó
+ * del idioma es la frase de que ninguna palabra del ganador sobrevive, que mató
+ * el "OBTENEZ VOTRE BOXER" real de producción.
  */
 import type { EngineImage } from './image-engines';
 
@@ -377,12 +387,10 @@ export function buildPromptLibre(ficha: FichaDelProducto, magro = false): string
 		? `WHO THIS AD IS FOR: ${sinPuntoFinal(ficha.icp)}. Whoever appears in it is that person, and every choice in it is made so that person recognises themselves at a glance.`
 		: `WHO THIS AD IS FOR is the customer the product information above describes. Whoever appears in it is that person, and every choice in it is made so that person recognises themselves at a glance.`;
 
-	// El defecto, visto en producción: un ganador en francés devolvió "OBTENEZ
-	// VOTRE BOXER PREMIUM DE BAMBÚ" — media frase en el idioma del ganador y media
-	// en el pedido. Decir en qué idioma escribir no alcanzaba: hay que decir que
-	// NINGUNA palabra del ganador sobrevive por parecerse.
-	const enQueIdioma = ficha.idioma || 'the language the product information above is written in';
-	const idioma = `EVERY WORD IN THE AD IS WRITTEN IN ${ficha.idioma ? ficha.idioma.toUpperCase() : 'THE LANGUAGE OF THE PRODUCT INFORMATION ABOVE'} — the headline, the body, the button, the badges, the small print, all of it. The reference may be in another language: not one of its words survives, not even one that looks like it would work. Do not mix two languages in a line or across the ad, and do not leave a word untranslated because it is short or looks international. Write it as a person who speaks ${enQueIdioma} would actually write it — correct spelling, correct accents, and sentences that mean something, not words strung together.`;
+	// Una línea y una sola advertencia. El párrafo largo que vivió acá se midió y
+	// salía peor; la advertencia se queda porque mató un caso real de producción:
+	// un ganador en francés devolvió "OBTENEZ VOTRE BOXER PREMIUM DE BAMBÚ".
+	const idioma = `Every word in the ad is written in ${ficha.idioma || 'the language the product information above is written in'}. Not one word of the reference survives — not even one that looks like it would work in this language.`;
 
 	// Los colores y la tipografía de la marca no se agregan como un pedido más:
 	// REEMPLAZAN la cláusula del ganador. Tener las dos es pedirle dos cosas
@@ -431,14 +439,10 @@ Everything about the design stays: the same layout, the same composition, ${letr
 
 FIRST, READ EVERY WORD IN THE IMAGE. Go through it block by block — the logo lockup, the headline, every line of it, the paragraph, the button, any badge, pill, caption or small print — and for EACH ONE write the equivalent line for the product below. Every one of them changes. A line that still talks about the original advertiser's business is the single worst thing this can produce: the ad ends up looking right and saying nothing.
 
-THE TYPE IS TYPESET, NOT DRAWN. Every letter comes out crisp at full resolution, with clean edges, even weight across the whole word and even spacing between letters. No ghosting, no doubled strokes, no soft halo, no drop shadow or glow the reference does not have, no letters that go blurry or dissolve at the end of a line. Spelling and accents are exact and every line reads like something a person would actually write. If a line will not fit cleanly at that size, shorten the wording — never squeeze the letters, never blur them, never let them overlap.
-
 Each new line keeps the shape of the one it replaces: the same number of lines, roughly the same length, the same tone, the same job in the ad — a headline stays a headline, a benefit line stays a benefit line, a button stays a button. Where the original highlights one word in the accent colour, highlight the equivalent word of the new line.
 
 THE PRODUCT THIS AD IS NOW FOR
 ${datosDelProducto}${pedido}${pagina}
-THE DESIGN COMES FROM THE FIRST IMAGE AND FROM NOWHERE ELSE. If a product photo arrives with a design of its own on it — text, a headline, a price, a badge, a banner, a flag — that design belongs to whoever made that photo and has nothing to do with this ad. Take the object out of it and leave the rest behind.
-
 THE PRODUCT IS THE ONE IN THE PHOTOS, NOT ONE LIKE IT — study every photo you were given and reproduce that exact object: its real shape and cut, its real colour, its real material, its waistband, seams, labels, prints and proportions where the photos show them. Its surface is copied as closely as its shape: the same weave or grain, the same perforations, speckles, flecks or bubbles, the same sheen and the same texture up close. Anything printed, stitched, embossed or moulded on it — a wordmark, a size tag, a seal, a logo — is reproduced letter for letter and sits exactly where the photos put it, at the same size and the same angle. Getting the product wrong ruins the ad even if everything else is perfect.
 
 ${vestible}${escena}
@@ -455,5 +459,5 @@ ${publico}
 
 ${idioma}
 
-Do not invent prices, percentages, ratings, guarantees or claims that are not written above. Do not keep anything that came with the original ad: its brand, its logo, its wordmark, its product, and also the marks it borrowed from others — award seals, press logos, star ratings, certifications, legal small print. Any of those stays only if THIS product genuinely has its own, and then it says what this product actually earned. No watermarks, no platform UI.`;
+Do not invent prices, percentages, ratings, guarantees or claims that are not written above. Do not keep the original advertiser's brand, logo, wordmark or product anywhere in the image, nor the marks the ad borrowed from others — award seals, press logos, star ratings, certifications, legal small print. No watermarks, no platform UI.`;
 }
