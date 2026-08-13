@@ -1870,13 +1870,13 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							  * prompt como intención y no como orden. Es el canal que ya está medido:
 							  * no se abre uno nuevo.
 							  */}
-							{(plan?.messageStrategy || creativeDecisions.length > 0) && (
+							{creativeDecisions.length > 0 && (
 								<div className="creation-lectura">
-									{plan?.messageStrategy && (
-										<p className="creation-lectura-texto">
-											<b>Por qué funciona este ganador:</b> {plan.messageStrategy}
-										</p>
-									)}
+									{/* La interpretación del ganador ya no se muestra.
+									    Eran cinco líneas en inglés, arriba de todo y antes de lo
+									    único accionable de la pantalla, que explicaban un anuncio
+									    que está a la izquierda a la vista. No hay nada que decidir
+									    con eso: empujaba las decisiones abajo del pliegue. */}
 									{creativeDecisions.map((decision, index) => {
 										const opciones = (decision.options || []).slice(0, 3);
 										if (!opciones.length) return null;
@@ -1942,22 +1942,82 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								</div>
 							)}
 
+							{/*
+							  * De qué habla el anuncio. Va ACÁ y no en la revisión larga.
+							  *
+							  * El control existía, pero vivía en el bloque de `phase === 'review'`,
+							  * que en el flujo de una imagen no se renderiza nunca: se llega a
+							  * 'confirmar' y de ahí a generar. O sea que la decisión más cara de
+							  * la app —si el aviso habla de un artículo o del negocio— no tenía
+							  * dónde tomarse, y se descubría recién en la imagen final.
+							  */}
+							{productMode === 'url' && importedProducts.length > 0 && (
+								<div className="asset-subject">
+									<div className="asset-subject-head">
+										<strong>¿De qué habla el anuncio?</strong>
+										{(importedProducts[0] as any)?.metadata?.store?.evidence && (
+											<small>Detectamos esto porque {(importedProducts[0] as any).metadata.store.evidence}.</small>
+										)}
+									</div>
+									<div className="asset-subject-options" role="radiogroup" aria-label="De qué habla el anuncio">
+										{([
+											{ value: 'general', label: 'En general', hint: 'Habla del negocio completo. La imagen la crea la IA con lo que leímos del sitio: no se usan las fotos de la URL.' },
+											{ value: 'especifico', label: 'De algo puntual', hint: 'Se centra en un producto concreto, con su nombre, sus datos y sus fotos reales.' },
+										] as const).map((option) => {
+											const activa = alcanceDesde(detectedOffering) === option.value;
+											const detectada = alcanceDesde((importedProducts[0] as any)?.metadata?.pageType) === option.value;
+											return (
+												<button
+													key={option.value}
+													type="button"
+													role="radio"
+													aria-checked={activa}
+													className={activa ? 'active' : ''}
+													disabled={phase === 'starting'}
+													onClick={() => setAlcanceOverride(option.value)}
+												>
+													<span className="asset-subject-label">
+														{option.label}
+														{detectada && <em>detectado</em>}
+													</span>
+													<small>{option.hint}</small>
+												</button>
+											);
+										})}
+									</div>
+								</div>
+							)}
+
 							{/* El ganador NO se repite acá: está en la columna de la izquierda,
 							    a la vista, desde que se entró a esta pantalla. */}
-							<div>
-								<span className="picker-label">Tu producto</span>
-								{importedProducts.filter((item) => confirmacion?.productIds.includes(item.id)).map((item) => (
-									<div key={item.id} className="creation-confirm-product">
-										{(item.imageUrls?.[0] || item.media?.[0]?.url) && (
-											<img src={item.imageUrls?.[0] || item.media?.[0]?.url} alt="" width={54} height={54} />
-										)}
-										<div>
-											<strong>{item.name}</strong>
-											{item.price_text && <small>{item.price_text}</small>}
+							{esGeneral ? (
+								/* En "en general" no hay un producto protagonista y las fotos no
+								   viajan: mostrar "Tu producto: Bóxer de Bambú" prometería un
+								   aviso de ese artículo, que es justo lo que no se va a generar. */
+								<div>
+									<span className="picker-label">Lo que leímos de tu web</span>
+									<p className="asset-sinfotos">
+										El anuncio habla de <strong>{(importedProducts[0] as any)?.metadata?.store?.name || 'tu negocio'}</strong> completo:
+										qué vendés, para quién es y por qué elegirte. La imagen la <strong>crea la IA</strong> con esa información —
+										las fotos de la URL no se usan como referencia.
+									</p>
+								</div>
+							) : (
+								<div>
+									<span className="picker-label">Tu producto</span>
+									{importedProducts.filter((item) => confirmacion?.productIds.includes(item.id)).map((item) => (
+										<div key={item.id} className="creation-confirm-product">
+											{(item.imageUrls?.[0] || item.media?.[0]?.url) && (
+												<img src={item.imageUrls?.[0] || item.media?.[0]?.url} alt="" width={54} height={54} />
+											)}
+											<div>
+												<strong>{item.name}</strong>
+												{item.price_text && <small>{item.price_text}</small>}
+											</div>
 										</div>
-									</div>
-								))}
-							</div>
+									))}
+								</div>
+							)}
 
 							{/* Los colores de la web repartidos por función. Un hexadecimal
 							    suelto no dice nada; saber que ese violeta es el acento y no el
