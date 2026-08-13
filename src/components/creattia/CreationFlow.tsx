@@ -1,9 +1,9 @@
 import { useReferenceUrls } from '../../lib/creattia/reference-urls';
-import { subjectModeDesde, alcanceDesde, personModeRecomendado, logoModeRecomendado, type Alcance, type PersonMode, type LogoMode, type SubjectMode } from '../../lib/creattia/generation-pipeline';
+import { subjectModeDesde, alcanceDesde, personModeRecomendado, logoModeRecomendado, type Alcance, type PersonMode, type LogoMode } from '../../lib/creattia/generation-pipeline';
 import UrlInput from './UrlInput';
 import React, { useState, useEffect, useRef } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
-import ProductAssetReview, { type ProductReviewItem } from './ProductAssetReview';
+import ProductAssetReview, { fotosDeProductos, type ProductReviewItem } from './ProductAssetReview';
 import { leerRespuestaDeEscaneo } from '../../lib/creattia/errores-de-escaneo';
 import { guardarBorrador, leerBorrador, borrarBorrador, resumenDelBorrador, type Borrador } from '../../lib/creattia/borrador-de-creacion';
 import { reportarPantalla } from '../../lib/creattia/presencia';
@@ -314,6 +314,18 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [urls, setUrls] = useState<string[]>(['']);
 	const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 	const [importedProducts, setImportedProducts] = useState<ProductReviewItem[]>([]);
+	/**
+	 * Qué fotos del scrapeo viajan al motor.
+	 *
+	 * `null` es "todas las que trajo la URL", que es lo que pasaba siempre y sigue
+	 * siendo el default. Una lista es una elección explícita, y la lista vacía es
+	 * una elección explícita también: no va ninguna foto y el aviso lo dibuja la
+	 * IA. Por eso no alcanza con un array —había que poder distinguir "no elegí
+	 * nada" de "elegí que no vaya nada"—.
+	 */
+	const [fotosElegidas, setFotosElegidas] = useState<string[] | null>(null);
+	const [subiendoFotoDe, setSubiendoFotoDe] = useState('');
+	const [errorDeFoto, setErrorDeFoto] = useState('');
 
 	/**
 	 * Se deriva de los productos elegidos, no del último escaneo.
@@ -322,35 +334,74 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * desde productos ya importados —sin volver a pegar la URL— quedaba en
 	 * 'product' y el anuncio de un catálogo terminaba tratado como una ficha.
 	 */
-	const detectedOffering: SubjectMode = (() => {
+	const detectedOffering: 'product' | 'service' | 'catalog' = (() => {
 		const elegidos = importedProducts.filter((item: any) => selectedProductIds.includes(item.id));
 		const desdeProductos = (elegidos.length ? elegidos : importedProducts)
 			.map((item: any) => item?.metadata?.pageType)
 			.find((tipo: string) => tipo === 'catalog' || tipo === 'service' || tipo === 'product');
-		const detectado = (desdeProductos as SubjectMode) || scannedOffering;
+		const detectado = (desdeProductos as any) || scannedOffering;
 		if (!alcanceOverride) return detectado;
 		// Con el alcance corregido a mano, el tipo se resuelve igual que siempre:
-		// hay fotos reales o no las hay. Se mira también lo que el escaneo vio en
-		// la página: las copias a storage pueden no haber terminado, y contar eso
-		// como "sin fotos" convertía una ficha con diez imágenes en un aviso de
-		// servicio, que es el modo que tiene prohibido mostrar el producto.
-		const conFotos = importedProducts.some((item: any) => (
-			item?.media?.length || item?.imageUrls?.length || item?.metadata?.sourceImageUrls?.length
-		));
-		return subjectModeDesde(alcanceOverride, conFotos);
+		// hay fotos reales o no las hay.
+		const conFotos = importedProducts.some((item: any) => (item?.media?.length || item?.imageUrls?.length));
+		return subjectModeDesde(alcanceOverride, conFotos) as any;
 	})();
 	const isService = detectedOffering === 'service';
 	/** La URL era la home de la tienda o una categoría: el anuncio habla del negocio. */
 	const isCatalog = detectedOffering === 'catalog';
+
+	/** Todas las fotos que el escaneo trajo de los productos que están elegidos. */
+	const fotosDisponibles = fotosDeProductos(importedProducts, selectedProductIds);
+
+	function alternarFoto(path: string) {
+		setFotosElegidas((actual) => {
+			// La primera vez que se saca una hay que partir de todas: sin esto,
+			// destildar una foto dejaba la lista con esa sola adentro.
+			const base = actual ?? fotosDisponibles.map((foto) => foto.path);
+			return base.includes(path) ? base.filter((item) => item !== path) : [...base, path];
+		});
+	}
+
 	/**
-	 * El aviso habla del negocio entero, no de un artículo.
+	 * Una foto nuestra en lugar de la que trajo la página.
 	 *
-	 * Incluye `brand`, que es a donde va hoy el alcance general: ahí no se
-	 * adjunta ninguna foto de la URL y la imagen la construye el modelo con la
-	 * información de la página. `isCatalog` sigue existiendo para las
-	 * generaciones viejas, que sí se hicieron con las fotos reales.
+	 * Se guarda contra el producto —el mismo endpoint que agrega fotos a un
+	 * producto existente— en vez de mandarla suelta con la generación: así el
+	 * camino de la foto propia es idéntico al de las scrapeadas, viaja por
+	 * `productPhotoPaths` como cualquier otra y también funciona en el carrusel,
+	 * que arranca con un JSON y no puede llevar archivos.
 	 */
-	const esGeneral = alcanceDesde(detectedOffering) === 'general';
+	async function subirFotoPropia(productId: string, files: File[]) {
+		setSubiendoFotoDe(productId);
+		setErrorDeFoto('');
+		try {
+			const anteriores = new Set(fotosDeProductos(importedProducts, [productId]).map((foto) => foto.path));
+			const form = new FormData();
+			form.set('productId', productId);
+			files.slice(0, 6).forEach((file) => form.append('image', file));
+			const response = await fetch('/api/creativos/products', {
+				method: 'POST', headers: { authorization: `Bearer ${token}` }, body: form,
+			});
+			const payload = await leerRespuestaDeEscaneo(response);
+			if (!response.ok) throw new Error(payload.error || 'No se pudo subir la foto.');
+			const actualizado = (payload.products || []).find((item: any) => item?.id === productId);
+			if (!actualizado) throw new Error('La foto se subió, pero no pudimos volver a leer el producto.');
+			setImportedProducts((current) => current.map((item) => item.id === productId ? { ...item, ...actualizado } : item));
+			const nuevas = fotosDeProductos([actualizado], [productId])
+				.map((foto) => foto.path)
+				.filter((path) => !anteriores.has(path));
+			// "Cambiar" es reemplazar, no agregar: de ESE producto viaja lo que se
+			// subió y nada más. Lo elegido de los otros productos no se toca.
+			setFotosElegidas((actual) => {
+				const base = actual ?? fotosDisponibles.map((foto) => foto.path);
+				return [...base.filter((path) => !anteriores.has(path)), ...nuevas];
+			});
+		} catch (cause) {
+			setErrorDeFoto(cause instanceof Error ? cause.message : 'No se pudo subir la foto.');
+		} finally {
+			setSubiendoFotoDe('');
+		}
+	}
 	const [uploadFiles, setUploadFiles] = useState<File[]>([]);
 	const [uploadPreviews, setUploadPreviews] = useState<string[]>([]);
 	const [parsingDoc, setParsingDoc] = useState(false);
@@ -487,20 +538,9 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const [phase, setPhase] = useState<'setup' | 'planning' | 'confirmar' | 'review' | 'starting'>('setup');
 	/** Lo que devolvió el escaneo: se guarda porque el setState no llega a tiempo. */
-	const [confirmacion, setConfirmacion] = useState<{ productIds: string[]; offering: SubjectMode } | null>(null);
+	const [confirmacion, setConfirmacion] = useState<{ productIds: string[]; offering: 'product' | 'service' | 'catalog' } | null>(null);
 	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
 	const [plan, setPlan] = useState<any>(null);
-	/**
-	 * Con qué sujeto se pidió el plan.
-	 *
-	 * El plan trae la maqueta y los textos ya adaptados a un sujeto concreto: los
-	 * `imageSlots` de un catálogo reparten productos por las celdas de una grilla
-	 * y el copy habla de la tienda. Si después se cambia el alcance en la
-	 * revisión, ese plan describe un aviso distinto del que se va a generar, y
-	 * como reemplaza al análisis del servidor manda él. Se guarda para poder
-	 * comparar y descartarlo cuando dejó de corresponder.
-	 */
-	const [sujetoDelPlan, setSujetoDelPlan] = useState<SubjectMode | null>(null);
 	/**
 	 * El análisis de cada página del carrusel, en orden.
 	 *
@@ -769,7 +809,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	function estadoDeLaRevision() {
 		return {
 			phase, formStep, copyMode, fondoDelAviso, carouselMode, carouselSameProduct, selectedSlideIndex, paginasElegidas,
-			productMode, scannedOffering, alcanceOverride, urls, selectedProductIds, importedProducts,
+			productMode, scannedOffering, alcanceOverride, urls, selectedProductIds, importedProducts, fotosElegidas,
 			manualProductName, manualProductFacts,
 			format, language, colorMode, typoMode, brandSource, paletteOverride, indicaciones,
 			logoMode, logoCarouselPages: [...logoCarouselPages],
@@ -817,6 +857,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		poner(e.productMode, setProductMode); poner(e.scannedOffering, setScannedOffering);
 		poner(e.alcanceOverride, setAlcanceOverride); poner(e.urls, setUrls);
 		poner(e.selectedProductIds, setSelectedProductIds); poner(e.importedProducts, setImportedProducts);
+		poner(e.fotosElegidas, setFotosElegidas);
 		poner(e.manualProductName, setManualProductName); poner(e.manualProductFacts, setManualProductFacts);
 		poner(e.format, setFormat); poner(e.language, setLanguage);
 		poner(e.colorMode, setColorMode); poner(e.typoMode, setTypoMode);
@@ -939,6 +980,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			const uniqueIds = [...new Set(ids)];
 			const importados = [...productsById.values()];
 			setImportedProducts(importados);
+			// Un escaneo nuevo trae otras fotos: si quedara la elección anterior, sus
+			// rutas no existirían en estos productos y el aviso saldría sin ninguna.
+			setFotosElegidas(null);
+			setErrorDeFoto('');
 			/**
 			 * Qué productos entran al anuncio, elegidos solos.
 			 *
@@ -1008,7 +1053,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		setPhase('planning'); setError('');
 		try {
 			let productIds: string[] = [];
-			let offeringForSubmit: SubjectMode = detectedOffering;
+			let offeringForSubmit: 'product' | 'service' | 'catalog' = detectedOffering;
 			let isCatalogSubmit = false;
 			if (productMode === 'url') {
 				const list = urls.map((u) => u.trim()).filter(Boolean);
@@ -1079,7 +1124,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (!response.ok) throw new Error((payload as any).error || 'No se pudo analizar la referencia.');
 			const analysis = payload.analysis || {};
 			setPlan(analysis);
-			setSujetoDelPlan(offeringForSubmit);
 			setSlidePlans(Array.isArray(payload.slideAnalyses) ? payload.slideAnalyses : []);
 			setZones((analysis.textZones || []).filter((zone: any) => analysis.productHasPackaging ? true : !zone.onProduct));
 			setPeople(Array.isArray(analysis.people) ? analysis.people.map((p: any) => ({ ...p, directive: '' })) : []);
@@ -1201,7 +1245,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * el setState del scaneo todavía no se refleja en el mismo handler, y marca que
 	 * no hay plan revisado que mandar.
 	 */
-	async function approveAndGenerate(directo?: { productIds: string[]; offering: SubjectMode }) {
+	async function approveAndGenerate(directo?: { productIds: string[]; offering: 'product' | 'service' | 'catalog' }) {
 		// Mismo cerrojo que el carrusel: el botón se deshabilita con `phase`, pero
 		// entre dos clics muy seguidos ese estado todavía vale el valor viejo.
 		if (enviando.current) return;
@@ -1210,30 +1254,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		borrarBorrador();
 		onGenerationRequested?.();
 		try {
-			/**
-			 * De qué habla el aviso, resuelto una sola vez.
-			 *
-			 * El alcance elegido en la revisión gana sobre el detectado al escanear:
-			 * `directo.offering` se congela en `requestPlan`, ANTES de que exista esa
-			 * pantalla, así que tocar el botón no cambiaba nada.
-			 */
-			const sujetoDelAviso: SubjectMode = alcanceOverride ? detectedOffering : (directo?.offering ?? detectedOffering);
-			/**
-			 * "De algo puntual" es UN producto, y hay que mandar uno solo.
-			 *
-			 * De la home de una tienda se importan hasta ocho productos DISTINTOS.
-			 * Como catálogo eso está bien: el prompt sabe que son ocho cosas y las
-			 * reparte. Pero al pedir "de algo puntual" el sujeto pasa a `product`, y
-			 * ahí cada foto viaja etiquetada como "otra vista del MISMO SKU": ocho
-			 * artículos distintos presentados como el mismo objeto. El modelo hace
-			 * lo que se le pide y los funde en uno, y sale un producto que no existe.
-			 *
-			 * Con una ficha no cambia nada: ahí siempre hubo uno.
-			 */
-			const idsImportados = directo?.productIds ?? selectedProductIds;
-			const idsDeProducto = sujetoDelAviso === 'product' && idsImportados.length > 1
-				? [idsImportados.find((id) => selectedProductIds.includes(id)) ?? idsImportados[0]]
-				: idsImportados;
+			const idsDeProducto = directo?.productIds ?? selectedProductIds;
 			if (productMode === 'url' && idsDeProducto.length === 0) {
 				throw new Error('Elegí al menos un producto para generar la imagen.');
 			}
@@ -1264,7 +1285,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (Object.keys(paletteOverride).length) form.set('paletteOverride', JSON.stringify(paletteOverride));
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
-			form.set('subjectMode', sujetoDelAviso);
+			form.set('subjectMode', directo?.offering ?? detectedOffering);
 			form.set('includeLogo', includeLogo ? '1' : '0');
 			// Sin revisión no se manda ninguna de estas: son respuestas a preguntas que
 			// ya no se hacen, y mandarlas con su valor por defecto sería peor que no
@@ -1273,11 +1294,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			// mirando la referencia, que es lo que queremos.
 			form.set('personMode', personMode);
 			if (personMode === 'upload') form.set('avatarId', await guardarAvatarCargado());
-			// El plan se manda solo si sigue siendo del mismo sujeto. Si se cambió el
-			// alcance después de pedirlo, describe otro aviso: sin él, el servidor
-			// analiza el ganador de nuevo con el sujeto correcto, que es lo que
-			// hacía antes de que esta pantalla existiera.
-			if (plan && (!sujetoDelPlan || sujetoDelPlan === sujetoDelAviso)) form.set('plan', JSON.stringify(planRevisado()));
+			if (plan) form.set('plan', JSON.stringify(planRevisado()));
 			if (!directo) {
 				form.set('logoMode', logoMode);
 				form.set('pressRowMode', pressRowMode);
@@ -1285,6 +1302,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			}
 			if ((productMode === 'url' || isService) && idsDeProducto.length) {
 				idsDeProducto.forEach((id) => form.append('productIds', id));
+				// Solo si se eligió a mano. Sin el campo el servidor manda todas, que
+				// es lo que hacía siempre; con la lista vacía no manda ninguna y el
+				// aviso lo dibuja la IA.
+				if (fotosElegidas) form.set('productPhotoPaths', JSON.stringify(fotosElegidas));
 			} else if (productMode === 'manual') {
 				if (uploadFiles.length > 0) uploadFiles.forEach((file) => form.append('product', file));
 				form.set('productName', manualProductName.trim());
@@ -1430,7 +1451,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		let arrancado = false;
 		try {
 			let productIds: string[] = [];
-			let offeringForSubmit: SubjectMode = detectedOffering;
+			let offeringForSubmit: 'product' | 'service' | 'catalog' = detectedOffering;
 			let isCatalogSubmit = false;
 			if (productMode === 'url' || (isService && urls.some((url) => url.trim()))) {
 				const list = urls.map((u) => u.trim()).filter(Boolean);
@@ -1477,6 +1498,10 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 					referenceName: ad.name || 'Carrusel ganador',
 					templateId: !isNaN(pathPrefixId) ? pathPrefixId : 40,
 					productIds,
+					// Las fotos elegidas en la revisión valen para el carrusel igual que
+					// para la imagen suelta: sin esto, cada página se generaba con todas
+					// las que trajo la URL aunque se hubieran sacado en pantalla.
+					productPhotoPaths: fotosElegidas,
 					subjectMode: offeringForSubmit,
 					productName: manualProductName.trim(),
 					productDescription: manualProductFacts.trim(),
@@ -1906,13 +1931,13 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							  * prompt como intención y no como orden. Es el canal que ya está medido:
 							  * no se abre uno nuevo.
 							  */}
-							{creativeDecisions.length > 0 && (
+							{(plan?.messageStrategy || creativeDecisions.length > 0) && (
 								<div className="creation-lectura">
-									{/* La interpretación del ganador ya no se muestra.
-									    Eran cinco líneas en inglés, arriba de todo y antes de lo
-									    único accionable de la pantalla, que explicaban un anuncio
-									    que está a la izquierda a la vista. No hay nada que decidir
-									    con eso: empujaba las decisiones abajo del pliegue. */}
+									{plan?.messageStrategy && (
+										<p className="creation-lectura-texto">
+											<b>Por qué funciona este ganador:</b> {plan.messageStrategy}
+										</p>
+									)}
 									{creativeDecisions.map((decision, index) => {
 										const opciones = (decision.options || []).slice(0, 3);
 										if (!opciones.length) return null;
@@ -1978,82 +2003,22 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								</div>
 							)}
 
-							{/*
-							  * De qué habla el anuncio. Va ACÁ y no en la revisión larga.
-							  *
-							  * El control existía, pero vivía en el bloque de `phase === 'review'`,
-							  * que en el flujo de una imagen no se renderiza nunca: se llega a
-							  * 'confirmar' y de ahí a generar. O sea que la decisión más cara de
-							  * la app —si el aviso habla de un artículo o del negocio— no tenía
-							  * dónde tomarse, y se descubría recién en la imagen final.
-							  */}
-							{productMode === 'url' && importedProducts.length > 0 && (
-								<div className="asset-subject">
-									<div className="asset-subject-head">
-										<strong>¿De qué habla el anuncio?</strong>
-										{(importedProducts[0] as any)?.metadata?.store?.evidence && (
-											<small>Detectamos esto porque {(importedProducts[0] as any).metadata.store.evidence}.</small>
-										)}
-									</div>
-									<div className="asset-subject-options" role="radiogroup" aria-label="De qué habla el anuncio">
-										{([
-											{ value: 'general', label: 'En general', hint: 'Habla del negocio completo. La imagen la crea la IA con lo que leímos del sitio: no se usan las fotos de la URL.' },
-											{ value: 'especifico', label: 'De algo puntual', hint: 'Se centra en un producto concreto, con su nombre, sus datos y sus fotos reales.' },
-										] as const).map((option) => {
-											const activa = alcanceDesde(detectedOffering) === option.value;
-											const detectada = alcanceDesde((importedProducts[0] as any)?.metadata?.pageType) === option.value;
-											return (
-												<button
-													key={option.value}
-													type="button"
-													role="radio"
-													aria-checked={activa}
-													className={activa ? 'active' : ''}
-													disabled={phase === 'starting'}
-													onClick={() => setAlcanceOverride(option.value)}
-												>
-													<span className="asset-subject-label">
-														{option.label}
-														{detectada && <em>detectado</em>}
-													</span>
-													<small>{option.hint}</small>
-												</button>
-											);
-										})}
-									</div>
-								</div>
-							)}
-
 							{/* El ganador NO se repite acá: está en la columna de la izquierda,
 							    a la vista, desde que se entró a esta pantalla. */}
-							{esGeneral ? (
-								/* En "en general" no hay un producto protagonista y las fotos no
-								   viajan: mostrar "Tu producto: Bóxer de Bambú" prometería un
-								   aviso de ese artículo, que es justo lo que no se va a generar. */
-								<div>
-									<span className="picker-label">Lo que leímos de tu web</span>
-									<p className="asset-sinfotos">
-										El anuncio habla de <strong>{(importedProducts[0] as any)?.metadata?.store?.name || 'tu negocio'}</strong> completo:
-										qué vendés, para quién es y por qué elegirte. La imagen la <strong>crea la IA</strong> con esa información —
-										las fotos de la URL no se usan como referencia.
-									</p>
-								</div>
-							) : (
-								<div>
-									<span className="picker-label">Tu producto</span>
-									{importedProducts.filter((item) => confirmacion?.productIds.includes(item.id)).map((item) => (
-										<div key={item.id} className="creation-confirm-product">
-											{(item.imageUrls?.[0] || item.media?.[0]?.url) && (
-												<img src={item.imageUrls?.[0] || item.media?.[0]?.url} alt="" width={54} height={54} />
-											)}
-											<div>
-												<strong>{item.name}</strong>
-												{item.price_text && <small>{item.price_text}</small>}
-											</div>
+							<div>
+								<span className="picker-label">Tu producto</span>
+								{importedProducts.filter((item) => confirmacion?.productIds.includes(item.id)).map((item) => (
+									<div key={item.id} className="creation-confirm-product">
+										{(item.imageUrls?.[0] || item.media?.[0]?.url) && (
+											<img src={item.imageUrls?.[0] || item.media?.[0]?.url} alt="" width={54} height={54} />
+										)}
+										<div>
+											<strong>{item.name}</strong>
+											{item.price_text && <small>{item.price_text}</small>}
 										</div>
-									))}
-								</div>
-							)}
+									</div>
+								))}
+							</div>
 
 							{/* Los colores de la web repartidos por función. Un hexadecimal
 							    suelto no dice nada; saber que ese violeta es el acento y no el
@@ -2411,7 +2376,6 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							<ProductAssetReview
 								products={importedProducts}
 								isCatalog={isCatalog}
-								sinFotos={esGeneral}
 								storeName={(importedProducts[0] as any)?.metadata?.store?.name}
 								detectionReason={(importedProducts[0] as any)?.metadata?.store?.evidence}
 								subject={alcanceDesde(detectedOffering)}
@@ -2419,6 +2383,13 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 								onChangeSubject={setAlcanceOverride}
 								selectedProductIds={selectedProductIds}
 								onToggleProduct={(productId) => setSelectedProductIds((current) => current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId])}
+								selectedPhotoPaths={fotosElegidas}
+								onTogglePhoto={alternarFoto}
+								onUseAllPhotos={() => setFotosElegidas(null)}
+								onUseNoPhotos={() => setFotosElegidas([])}
+								onUploadPhotos={subirFotoPropia}
+								uploadingPhotoFor={subiendoFotoDe}
+								photoError={errorDeFoto}
 							/>
 						)}
 						{/* Los colores se muestran y se editan ACÁ, en la revisión.

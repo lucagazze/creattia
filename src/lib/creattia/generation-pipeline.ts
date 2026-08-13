@@ -56,19 +56,10 @@ export type Alcance = 'general' | 'especifico';
  *
  * `conFotos` distingue lo que se puede mostrar de lo que no: un servicio o un
  * software no tienen packaging, y pedirle al modelo que invente uno es lo que
- * producía envases genéricos que no existen. Solo decide en "algo puntual":
- * un aviso de una ficha con fotos reproduce ESE objeto, uno sin fotos no puede.
- *
- * En "general" ya no decide nada. Antes, con fotos, el alcance general daba
- * `catalog`, que sí adjunta las fotos scrapeadas y le exige al modelo
- * reproducir cada una: el aviso terminaba siendo una grilla de artículos
- * sueltos, que es de lo que el usuario quería salir al elegir "en general".
- * Hablar del negocio entero es un trabajo de composición, no de catálogo, así
- * que el alcance general va siempre a `brand`: se le pasa TODO lo que se leyó
- * de la URL y ninguna foto, y la imagen la construye el modelo.
+ * producía envases genéricos que no existen.
  */
 export function subjectModeDesde(alcance: Alcance, conFotos: boolean): SubjectMode {
-	if (alcance === 'general') return 'brand';
+	if (alcance === 'general') return conFotos ? 'catalog' : 'brand';
 	return conFotos ? 'product' : 'service';
 }
 
@@ -80,71 +71,6 @@ export function alcanceDesde(mode: SubjectMode | null | undefined): Alcance {
 /** Ficha y catálogo se apoyan en fotos reales de productos; el resto no. */
 export function usesRealProductPhotos(mode: SubjectMode): boolean {
 	return mode === 'product' || mode === 'catalog';
-}
-
-/**
- * Todo lo que el escaneo leyó de la URL, en un solo texto para el prompt.
- *
- * Cuando el aviso habla del negocio no viaja ninguna foto: lo único que separa
- * una imagen de marca de un placeholder genérico es cuánto sabe el modelo del
- * negocio. Y lo que se le mandaba era la descripción del PRIMER producto de la
- * página —o el resumen de estilo visual, que no dice qué se vende—, así que de
- * una home con ocho productos leídos llegaba uno solo y descontextualizado.
- *
- * Acá entra todo lo que el escaneo ya había guardado y se estaba tirando: qué
- * vende el negocio, el rubro, y la lista de lo que se ofrece en esa página con
- * su precio. Sigue siendo información verificada de la URL: nada inventado.
- */
-export function hechosDelNegocio(
-	productos: Array<{ name?: string | null; description?: string | null; price_text?: string | null; metadata?: any; analysis?: any }>,
-	extras: { escritoAMano?: string; resumenDeMarca?: string } = {},
-): string {
-	const recortar = (valor: unknown, tope: number) => String(valor || '').replace(/\s+/g, ' ').trim().slice(0, tope);
-	const partes: string[] = [];
-
-	// Lo que escribió el usuario manda: es lo único que no salió de un scraper.
-	const aMano = recortar(extras.escritoAMano, 1200);
-	if (aMano) partes.push(aMano);
-
-	const conStore = productos.find((item) => item?.metadata?.store?.description);
-	const queVende = recortar(conStore?.metadata?.store?.description, 600);
-	if (queVende) partes.push(`El negocio: ${queVende}`);
-
-	const rubro = recortar(productos.find((item) => item?.metadata?.category)?.metadata?.category, 100);
-	if (rubro) partes.push(`Rubro: ${rubro}`);
-
-	/**
-	 * La oferta como LISTA, no como un párrafo del primer artículo.
-	 *
-	 * Es lo que le permite al modelo escribir un texto que valga para el negocio
-	 * entero ("cueros, suelas y herrajes") en vez de para un ítem suelto. Se
-	 * nombran para dar rango; no se los va a dibujar, porque no hay fotos.
-	 */
-	const oferta = productos
-		.map((item) => {
-			const nombre = recortar(item?.name, 120);
-			if (!nombre) return '';
-			const detalle = recortar(item?.description, 220);
-			const precio = recortar(item?.price_text, 40);
-			return `${nombre}${detalle ? ` (${detalle})` : ''}${precio ? ` — ${precio}` : ''}`;
-		})
-		.filter(Boolean)
-		.filter((linea, index, todas) => todas.indexOf(linea) === index)
-		.slice(0, 8);
-	if (oferta.length) {
-		partes.push(`Lo que se ofrece en esa página: ${oferta.join(' | ')}`);
-	} else {
-		// Sin lista igual sirve la descripción de la página que se escaneó.
-		const suelta = recortar(productos[0]?.description, 900);
-		if (suelta) partes.push(suelta);
-	}
-
-	// El resumen de estilo describe la VOZ de la marca, no qué vende: es un
-	// complemento útil, nunca el reemplazo de lo de arriba.
-	const marca = recortar(extras.resumenDeMarca, 400);
-	if (marca) partes.push(`Tono de la marca: ${marca}`);
-
-	return partes.join(' · ');
 }
 /**
  * Quién aparece en el anuncio.

@@ -25,6 +25,37 @@ function mediaFor(product: ProductReviewItem): ProductReviewMedia[] {
 	];
 }
 
+/** Una foto concreta del scrapeo, con el producto del que salió. */
+export type ProductPhoto = { productId: string; productName: string; path: string; url: string };
+
+/**
+ * Cuántas fotos llegan al motor como máximo. Es el mismo tope que aplica el
+ * servidor: si acá se marcan más, las de más no viajan y hay que decirlo.
+ */
+export const TOPE_DE_FOTOS = 8;
+
+/**
+ * Todas las fotos que el escaneo trajo de los productos elegidos.
+ *
+ * Los videos quedan afuera a propósito: el motor solo recibe imágenes, así que
+ * ofrecerlos para marcar sería prometer algo que no pasa.
+ */
+export function fotosDeProductos(products: ProductReviewItem[], selectedProductIds: string[]): ProductPhoto[] {
+	const fotos: ProductPhoto[] = [];
+	const vistas = new Set<string>();
+	for (const product of products) {
+		if (!selectedProductIds.includes(product.id)) continue;
+		for (const item of mediaFor(product)) {
+			if (item.type === 'video') continue;
+			const path = item.path || item.url;
+			if (!path || vistas.has(path)) continue;
+			vistas.add(path);
+			fotos.push({ productId: product.id, productName: product.name, path, url: item.url });
+		}
+	}
+	return fotos;
+}
+
 /**
  * Lo que se importó de la URL, para elegir qué entra al creativo.
  *
@@ -47,24 +78,26 @@ export type SubjectChoice = 'general' | 'especifico';
  * falta preguntarlo, se sabe mirando si hay fotos. Queda una sola decisión.
  */
 const SUBJECT_OPTIONS: Array<{ value: SubjectChoice; label: string; hint: string }> = [
-	{ value: 'general', label: 'En general', hint: 'Habla del negocio completo. La imagen la crea la IA con lo que leímos del sitio: no se usan las fotos de la URL.' },
-	{ value: 'especifico', label: 'De algo puntual', hint: 'Se centra en un producto o servicio concreto, con su nombre, sus datos y sus fotos reales.' },
+	{ value: 'general', label: 'En general', hint: 'Habla del negocio completo: lo que ofrecés, para quién es y por qué elegirte.' },
+	{ value: 'especifico', label: 'De algo puntual', hint: 'Se centra en un producto o servicio concreto, con su nombre y sus datos.' },
 ];
 
-export default function ProductAssetReview({ products, selectedProductIds = [], onToggleProduct, isCatalog = false, sinFotos = false, storeName, detectionReason, subject, detectedSubject, onChangeSubject }: {
+export default function ProductAssetReview({ products, selectedProductIds = [], onToggleProduct, isCatalog = false, storeName, detectionReason, subject, detectedSubject, onChangeSubject, selectedPhotoPaths = null, onTogglePhoto, onUseAllPhotos, onUseNoPhotos, onUploadPhotos, uploadingPhotoFor = '', photoError = '' }: {
 	products: ProductReviewItem[];
 	selectedProductIds?: string[];
 	onToggleProduct?: (productId: string) => void;
+	/** Qué fotos viajan. `null` = todas las del scrapeo; `[]` = ninguna. */
+	selectedPhotoPaths?: string[] | null;
+	onTogglePhoto?: (path: string) => void;
+	onUseAllPhotos?: () => void;
+	onUseNoPhotos?: () => void;
+	/** Sube fotos propias a ese producto y las deja marcadas en lugar de las suyas. */
+	onUploadPhotos?: (productId: string, files: File[]) => void;
+	/** Id del producto cuya foto se está subiendo ahora mismo. */
+	uploadingPhotoFor?: string;
+	photoError?: string;
 	/** La URL era la home o una categoría: son productos de la tienda, no una ficha. */
 	isCatalog?: boolean;
-	/**
-	 * El anuncio habla del negocio: no se adjunta ninguna foto de la URL.
-	 *
-	 * Lo que se ve acá deja de ser una selección y pasa a ser lo que se leyó de
-	 * la página. Elegir fotos que después no viajan es la peor versión de esta
-	 * pantalla: se trabaja en algo que no cambia el resultado.
-	 */
-	sinFotos?: boolean;
 	storeName?: string;
 	/** Por qué se clasificó así, para que se entienda y se pueda desconfiar. */
 	detectionReason?: string;
@@ -88,50 +121,62 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 	if (!products.length) return null;
 
 	const elegidos = products.filter((product) => selectedProductIds.includes(product.id));
-	const enAutomatico = !sinFotos && Boolean(onToggleProduct) && !eligiendoAMano && elegidos.length > 0;
+	const enAutomatico = Boolean(onToggleProduct) && !eligiendoAMano && elegidos.length > 0;
 
-	const selectable = Boolean(onToggleProduct) && !sinFotos;
+	const selectable = Boolean(onToggleProduct);
 	const allSelected = products.length > 0 && products.every((product) => selectedProductIds.includes(product.id));
+
+	/**
+	 * Las fotos, una por una, para poder mirarlas antes de gastar el crédito.
+	 *
+	 * Antes se veía la portada de cada producto y un "+3 fotos" que solo abría
+	 * una tira para mirar: no se podía decir cuál entra y cuál no, ni sacarlas
+	 * todas, ni poner una propia. Se descubría en la imagen final que había
+	 * viajado una foto de packaging, una captura con marca de agua o la misma
+	 * prenda de espaldas. Acá se ven todas y se decide.
+	 */
+	const fotos = fotosDeProductos(products, selectedProductIds);
+	const fotosActivas = selectedPhotoPaths ?? fotos.map((foto) => foto.path);
+	const sinNinguna = Array.isArray(selectedPhotoPaths) && selectedPhotoPaths.length === 0;
+	const eligiendoFotos = Boolean(onTogglePhoto) && fotos.length > 0;
+	// Se agrupan por producto: con un catálogo son treinta miniaturas seguidas y
+	// no se sabe de cuál es cada una. Además cada producto tiene su propia carga.
+	const gruposDeFotos = products
+		.filter((product) => selectedProductIds.includes(product.id))
+		.map((product) => ({ product, fotos: fotos.filter((foto) => foto.productId === product.id) }))
+		.filter((grupo) => grupo.fotos.length > 0 || Boolean(onUploadPhotos));
 
 	return (
 		<section className="asset-review" aria-labelledby="product-assets-title">
 			<header className="asset-review-head">
 				<div>
-					<span className="asset-review-kicker">
-						{sinFotos ? 'LO QUE LEÍMOS DE LA URL' : isCatalog ? 'PRODUCTOS DE LA TIENDA' : 'REFERENCIAS IMPORTADAS'}
-					</span>
+					<span className="asset-review-kicker">{isCatalog ? 'PRODUCTOS DE LA TIENDA' : 'REFERENCIAS IMPORTADAS'}</span>
 					<h2 id="product-assets-title">
-						{sinFotos
-							? `Leímos ${storeName || 'el sitio'} entero`
-							: isCatalog
-								? `Encontramos ${products.length} ${products.length === 1 ? 'producto' : 'productos'}${storeName ? ` en ${storeName}` : ''}`
-								: 'Elegí qué productos usar'}
+						{isCatalog
+							? `Encontramos ${products.length} ${products.length === 1 ? 'producto' : 'productos'}${storeName ? ` en ${storeName}` : ''}`
+							: 'Elegí qué productos usar'}
 					</h2>
 					<p>
-						{sinFotos
-							? 'Toda esta información va al anuncio. Las fotos no: la imagen la crea la IA desde cero.'
-							: isCatalog
-								? 'El anuncio va a hablar de la tienda. Elegí cuáles querés que se vean en la imagen.'
-								: 'La IA recibe únicamente los que marques.'}
+						{isCatalog
+							? 'El anuncio va a hablar de la tienda. Elegí cuáles querés que se vean en la imagen.'
+							: 'La IA recibe únicamente los que marques.'}
 					</p>
 				</div>
-				{!sinFotos && (
-					<div className="asset-review-actions">
-						<span className="asset-review-count">{selectedProductIds.length}/{products.length}</span>
-						{selectable && products.length > 1 && (
-							<button
-								type="button"
-								className="asset-review-all"
-								onClick={() => products.forEach((product) => {
-									const isSelected = selectedProductIds.includes(product.id);
-									if (allSelected ? isSelected : !isSelected) onToggleProduct?.(product.id);
-								})}
-							>
-								{allSelected ? 'Quitar todos' : 'Usar todos'}
-							</button>
-						)}
-					</div>
-				)}
+				<div className="asset-review-actions">
+					<span className="asset-review-count">{selectedProductIds.length}/{products.length}</span>
+					{selectable && products.length > 1 && (
+						<button
+							type="button"
+							className="asset-review-all"
+							onClick={() => products.forEach((product) => {
+								const isSelected = selectedProductIds.includes(product.id);
+								if (allSelected ? isSelected : !isSelected) onToggleProduct?.(product.id);
+							})}
+						>
+							{allSelected ? 'Quitar todos' : 'Usar todos'}
+						</button>
+					)}
+				</div>
 			</header>
 
 			{/* De qué va a hablar el anuncio, ANTES de generar: era la sorpresa más
@@ -165,15 +210,6 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 					})}
 				</div>
 			</div>
-
-			{/* Se ve lo que se leyó, y se dice qué se hace con eso. Sin esta línea la
-			    grilla de fotos parece una selección y no lo es: ninguna viaja. */}
-			{sinFotos && (
-				<p className="asset-sinfotos">
-					Estas fotos <strong>no se usan</strong> como referencia. Del sitio se toma lo que dice —qué vendés,
-					para quién es, tu identidad— y con eso la IA compone una imagen propia del negocio.
-				</p>
-			)}
 
 			{enAutomatico ? (
 				<div className="asset-auto">
@@ -212,21 +248,16 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 					const media = mediaFor(product);
 					const cover = media.find((item) => item.type !== 'video') || media[0];
 					const extras = media.length - 1;
-					// En "en general" nada se elige: las fotos no viajan, así que marcar
-					// una no cambiaría el anuncio. La tarjeta queda como lectura.
-					const selected = !sinFotos && selectedProductIds.includes(product.id);
+					const selected = selectedProductIds.includes(product.id);
 					const isOpen = expanded === product.id;
 					return (
-						<article className={`asset-card${selected ? ' is-selected' : ''}${sinFotos ? ' es-lectura' : ''}`} key={product.id}>
+						<article className={`asset-card${selected ? ' is-selected' : ''}`} key={product.id}>
 							<button
 								type="button"
 								className="asset-card-main"
-								onClick={() => { if (!sinFotos) onToggleProduct?.(product.id); }}
-								aria-pressed={sinFotos ? undefined : selected}
-								aria-disabled={sinFotos || undefined}
-								aria-label={sinFotos
-									? (product.name || `producto ${index + 1}`)
-									: `${selected ? 'Quitar' : 'Usar'} ${product.name || `producto ${index + 1}`}`}
+								onClick={() => onToggleProduct?.(product.id)}
+								aria-pressed={selected}
+								aria-label={`${selected ? 'Quitar' : 'Usar'} ${product.name || `producto ${index + 1}`}`}
 							>
 								<span className="asset-card-photo">
 									{cover ? (
@@ -235,7 +266,7 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 											// Las primeras entran de una; el resto a medida que se scrollea.
 											: <img src={cover.url} alt="" loading={index < 6 ? 'eager' : 'lazy'} decoding="async" />
 									) : <span className="asset-card-nophoto">Sin foto</span>}
-									{!sinFotos && <span className="asset-card-check" aria-hidden="true">{selected ? '✓' : ''}</span>}
+									<span className="asset-card-check" aria-hidden="true">{selected ? '✓' : ''}</span>
 								</span>
 								<span className="asset-card-name" title={product.name}>{product.name || `Producto ${index + 1}`}</span>
 								{product.price_text && <span className="asset-card-price">{product.price_text}</span>}
@@ -260,6 +291,98 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 					);
 				})}
 			</div>
+			)}
+
+			{(eligiendoFotos || Boolean(onUploadPhotos)) && (
+				<div className="asset-photos">
+					<div className="asset-photos-head">
+						<div>
+							<strong>Las fotos que le llegan a la IA</strong>
+							<small>
+								{sinNinguna
+									? 'No viaja ninguna foto: la imagen la crea la IA con lo que dice tu página, sin copiar el producto.'
+									: `Viajan ${fotosActivas.length} de ${fotos.length}. Tocá una para sacarla, o subí la tuya.`}
+							</small>
+						</div>
+						<div className="asset-photos-actions">
+							<button
+								type="button"
+								className={!sinNinguna && fotosActivas.length === fotos.length ? 'active' : ''}
+								onClick={() => onUseAllPhotos?.()}
+								disabled={!onUseAllPhotos || fotos.length === 0}
+							>
+								Todas
+							</button>
+							<button
+								type="button"
+								className={sinNinguna ? 'active' : ''}
+								onClick={() => onUseNoPhotos?.()}
+								disabled={!onUseNoPhotos}
+							>
+								Ninguna
+							</button>
+						</div>
+					</div>
+
+					{/* El tope es del servidor, no de la pantalla: marcar doce fotos y que
+					    viajen ocho sin decirlo es la clase de sorpresa que esta pantalla
+					    existe para evitar. */}
+					{fotosActivas.length > TOPE_DE_FOTOS && (
+						<p className="asset-photos-note">
+							Entran hasta {TOPE_DE_FOTOS} fotos por imagen: de las {fotosActivas.length} marcadas viajan las primeras {TOPE_DE_FOTOS}.
+						</p>
+					)}
+					{photoError && <p className="asset-photos-error">{photoError}</p>}
+
+					{gruposDeFotos.map(({ product, fotos: fotosDelProducto }) => (
+						<div className="asset-photos-group" key={product.id}>
+							<div className="asset-photos-group-head">
+								<span title={product.name}>{product.name || 'Producto'}</span>
+								{onUploadPhotos && (
+									<label className={`asset-photos-upload${uploadingPhotoFor === product.id ? ' is-busy' : ''}`}>
+										{uploadingPhotoFor === product.id ? 'Subiendo…' : 'Cambiar: subir mi foto'}
+										<input
+											type="file"
+											accept="image/png,image/jpeg,image/webp,image/avif"
+											multiple
+											disabled={Boolean(uploadingPhotoFor)}
+											onChange={(event) => {
+												const archivos = [...(event.target.files || [])];
+												// El input se limpia siempre: sin esto, elegir el mismo
+												// archivo dos veces seguidas no dispara el change.
+												event.target.value = '';
+												if (archivos.length) onUploadPhotos(product.id, archivos);
+											}}
+										/>
+									</label>
+								)}
+							</div>
+							{fotosDelProducto.length === 0
+								? <p className="asset-photos-empty">Este producto no trajo ninguna foto.</p>
+								: (
+									<div className="asset-photos-grid">
+										{fotosDelProducto.map((foto, index) => {
+											const activa = fotosActivas.includes(foto.path);
+											return (
+												<button
+													type="button"
+													key={foto.path}
+													className={`asset-photo${activa ? ' is-on' : ''}`}
+													onClick={() => onTogglePhoto?.(foto.path)}
+													disabled={!onTogglePhoto}
+													aria-pressed={activa}
+													aria-label={`${activa ? 'Sacar' : 'Usar'} la foto ${index + 1} de ${product.name || 'el producto'}`}
+												>
+													<img src={foto.url} alt="" loading="lazy" decoding="async" />
+													<span className="asset-photo-check" aria-hidden="true">{activa ? '✓' : ''}</span>
+												</button>
+											);
+										})}
+									</div>
+								)}
+						</div>
+					))}
+				</div>
 			)}
 		</section>
 	);

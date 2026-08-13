@@ -5993,17 +5993,6 @@
 .asset-card:hover { border-color: #cdbdee; box-shadow: 0 6px 18px rgba(60,40,100,.08); }
 .asset-card.is-selected { border-color: #7c4ddb; box-shadow: 0 6px 18px rgba(124,77,219,.14); }
 
-/* En "en general" las tarjetas son lo que se leyó, no una selección: sin hover
-   de tarjeta clickeable y sin cursor de mano, porque tocarlas no hace nada. */
-.asset-card.es-lectura { opacity: .72; }
-.asset-card.es-lectura:hover { border-color: #ebe6f2; box-shadow: none; }
-.asset-card.es-lectura .asset-card-main { cursor: default; }
-.asset-sinfotos {
-	margin: 0 0 14px; padding: 10px 12px; border: 1px solid #e6dffa; border-radius: 12px;
-	background: #f8f5ff; color: #5b5168; font-size: 12.5px; line-height: 1.5;
-}
-.asset-sinfotos strong { color: #4a2f8f; }
-
 .asset-card-main {
 	display: flex; flex-direction: column; min-width: 0; gap: 6px; padding: 0 0 9px;
 	border: 0; background: none; cursor: pointer; text-align: left; font-family: inherit;
@@ -6036,9 +6025,60 @@
 .asset-card-thumb img,
 .asset-card-thumb video { width: 62px; height: 62px; border-radius: 8px; object-fit: cover; display: block; }
 
+/* ── Qué fotos del scrapeo viajan ──────────────────────────────────────────
+   Se ven todas las que trajo la URL, se marcan una por una, se pueden sacar
+   todas —ahí el aviso lo dibuja la IA— y se puede subir una propia. */
+.asset-photos {
+	margin-top: 14px; padding: 12px; border-radius: 14px;
+	border: 1px solid #e6e0f0; background: #faf8fd;
+}
+.asset-photos-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.asset-photos-head strong { display: block; font-size: 12.5px; font-weight: 800; color: #2f2938; }
+.asset-photos-head small { display: block; margin-top: 2px; color: #7d7488; font-size: 11.5px; line-height: 1.45; }
+.asset-photos-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.asset-photos-actions button {
+	padding: 5px 11px; border-radius: 999px; border: 1px solid #e2daef;
+	background: #fff; cursor: pointer; font-family: inherit; font-size: 11.5px; font-weight: 700; color: #6f6a77;
+}
+.asset-photos-actions button:hover:not(:disabled) { border-color: #b9a3e0; }
+.asset-photos-actions button:disabled { opacity: .5; cursor: default; }
+.asset-photos-actions button.active { border-color: #7c4ddb; background: #f2eefa; color: #5b32c9; }
+.asset-photos-note { margin: 9px 0 0; color: #8a6a2f; font-size: 11.5px; line-height: 1.45; }
+.asset-photos-error { margin: 9px 0 0; color: #b9453f; font-size: 11.5px; line-height: 1.45; }
+.asset-photos-group { margin-top: 12px; }
+.asset-photos-group-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+.asset-photos-group-head > span {
+	min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	color: #2f2938; font-size: 11.5px; font-weight: 800;
+}
+.asset-photos-upload {
+	flex: 0 0 auto; cursor: pointer; color: #7c4ddb; font-size: 11.5px; font-weight: 700; text-decoration: underline;
+}
+.asset-photos-upload.is-busy { color: #a79db4; cursor: default; text-decoration: none; }
+.asset-photos-upload input { display: none; }
+.asset-photos-empty { margin: 0; color: #a79db4; font-size: 11.5px; }
+.asset-photos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 8px; }
+.asset-photo {
+	position: relative; padding: 0; border: 2px solid #ece7f2; border-radius: 10px; background: #fff;
+	cursor: pointer; overflow: hidden; aspect-ratio: 1; transition: border-color .15s ease, opacity .15s ease;
+}
+.asset-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* La descartada se apaga: la diferencia entre "va" y "no va" se tiene que ver
+   de reojo, sin leer ningún tilde. */
+.asset-photo:not(.is-on) img { opacity: .38; filter: grayscale(1); }
+.asset-photo.is-on { border-color: #7c4ddb; }
+.asset-photo:disabled { cursor: default; }
+.asset-photo-check {
+	position: absolute; top: 5px; right: 5px; width: 19px; height: 19px; border-radius: 50%;
+	display: grid; place-items: center; border: 1.5px solid #fff; background: rgba(255,255,255,.72);
+	color: transparent; font-size: 11px; font-weight: 900;
+}
+.asset-photo.is-on .asset-photo-check { background: #7c4ddb; color: #fff; }
+
 @media (max-width: 640px) {
 	.asset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 	.asset-review-head h2 { font-size: 15px; }
+	.asset-photos-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
 }
 
 /* ── Identidad al regenerar ────────────────────────────────────────────────
@@ -6085,10 +6125,7 @@
 .asset-subject-head small { display: block; margin-top: 2px; color: #7d7488; font-size: 11.5px; line-height: 1.45; }
 /* Tres opciones a la vista: se ve la detectada Y las alternativas, sin tener que
    adivinar que un botón alterna entre estados ocultos. */
-/* Dos opciones, no tres: quedó en `repeat(3, 1fr)` de cuando existía "un
-   servicio" como tercera, así que los dos botones ocupaban dos tercios y el
-   bloque quedaba cortado a la derecha. */
-.asset-subject-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; margin-top: 10px; }
+.asset-subject-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
 .asset-subject-options button {
 	display: block; width: 100%; text-align: left; padding: 9px 11px; border-radius: 11px;
 	border: 1px solid #ded6ec; background: #fff; cursor: pointer; font-family: inherit;

@@ -12,7 +12,7 @@ import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
 import { fotosParaElMotor, leerElProducto, refotografiarProducto, todasSonPlacas } from '../../../lib/creattia/clon-libre';
-import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, hechosDelNegocio, parseFotosElegidas, parseRolesDeColor, parseTipografiaElegida, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, parseFotosElegidas, parseRolesDeColor, parseTipografiaElegida, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
 import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
@@ -266,6 +266,24 @@ export const POST: APIRoute = async ({ request }) => {
 			...form.getAll('productIds').filter((value): value is string => typeof value === 'string'),
 			clean(form.get('productId'), 60),
 		]);
+		/**
+		 * Qué fotos del producto viajan, elegidas en la revisión.
+		 *
+		 * `null` —el campo no vino— es "todas las que tenga", que es lo que hacía
+		 * la app desde siempre. Una lista limita a esas rutas, y la lista vacía es
+		 * una decisión, no un error: no se adjunta ninguna foto y el aviso lo
+		 * resuelve el modelo con los datos del producto, el mismo camino que ya
+		 * existe para un sitio que no publica fotos.
+		 */
+		let fotosPedidas: string[] | null = (() => {
+			const crudo = clean(form.get('productPhotoPaths'), 6000);
+			if (!crudo) return null;
+			try {
+				const parseado = JSON.parse(crudo);
+				if (!Array.isArray(parseado)) return null;
+				return parseado.filter((value: unknown): value is string => typeof value === 'string');
+			} catch { return null; }
+		})();
 		// Cuántas versiones del mismo aviso. El techo es real: cada una es una
 		// imagen que se cobra y que se paga, así que un número absurdo llegado del
 		// cliente no puede convertirse en veinte renders. Un valor roto cae en 1,
@@ -354,6 +372,11 @@ export const POST: APIRoute = async ({ request }) => {
 	if (rehacerDeCero && !productIds.length && Array.isArray(snapshotOriginal.productIds)) {
 		productIds = uniqueIds(snapshotOriginal.productIds.filter((id: unknown) => typeof id === 'string'));
 	}
+	// Lo mismo con las fotos elegidas en la revisión: sin esto, rehacer un aviso
+	// que se pidió con una sola foto lo devolvía con las ocho de la URL.
+	if (rehacerDeCero && !fotosPedidas && Array.isArray(snapshotOriginal.productPhotoPaths)) {
+		fotosPedidas = snapshotOriginal.productPhotoPaths.filter((path: unknown) => typeof path === 'string');
+	}
 
 		const manualProductName = clean(form.get('productName'), 120);
 		const manualProductFacts = clean(form.get('productFacts'), 1200);
@@ -404,16 +427,11 @@ export const POST: APIRoute = async ({ request }) => {
 			 *
 			 * Ahora manda lo que el usuario escribió, después lo que se leyó de la
 			 * página, y el resumen de estilo queda como último recurso.
-			 *
-			 * Y se arma con TODOS los productos que trajo el escaneo, no con el
-			 * primero: en "en general" no viaja ninguna foto, así que este texto es
-			 * literalmente todo lo que el modelo sabe del negocio. Se calcula ANTES
-			 * de colapsar la lista en una entrada sola, que es donde se perdía.
 			 */
-			const serviceFacts = hechosDelNegocio(storedProducts, {
-				escritoAMano: manualProductFacts,
-				resumenDeMarca: urlBrand?.styleSummary,
-			});
+			const serviceFacts = manualProductFacts
+				|| storedProducts[0]?.description
+				|| urlBrand?.styleSummary
+				|| '';
 			if (storedProducts.length) {
 				storedProducts = [{ ...storedProducts[0], name: serviceName, description: serviceFacts, price_text: '', currency: '' }];
 			} else {
@@ -499,6 +517,9 @@ export const POST: APIRoute = async ({ request }) => {
 			: (requestedTemplateName || templateName);
 		const generationSettingsSnapshot = {
 			format, language, imageType, preset, productIds, productNames: storedProducts.map((item) => item.name),
+			// Qué fotos se eligieron: al rehacer desde el historial se vuelven a
+			// mandar esas, y no todas las del producto.
+			productPhotoPaths: fotosPedidas,
 			colorMode, typoMode, brandSource,
 			includeLogo,
 			logoMode: logoMode || null,
@@ -598,6 +619,15 @@ export const POST: APIRoute = async ({ request }) => {
 			hasReference = true;
 		}
 
+		/** Las fotos guardadas de un producto, ya filtradas por lo que se eligió. */
+		const fotosGuardadasDe = (storedProduct: any): string[] => {
+			const todas = [...new Set([
+				storedProduct.image_path,
+				...(productImagesById.get(storedProduct.id) || []).map((row) => row.storage_path),
+			].filter(Boolean) as string[])];
+			return fotosPedidas ? todas.filter((path) => fotosPedidas.includes(path)) : todas;
+		};
+
 		const productInputPlan: Array<{ product: any; path: string; photoIndex: number }> = [];
 		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
 		const productVisionInputs: Array<{ buffer: Buffer; type: string }> = [];
@@ -608,10 +638,7 @@ export const POST: APIRoute = async ({ request }) => {
 		const clavesDeFotos: string[] = [];
 		if (usesRealProducts) for (const storedProduct of storedProducts) {
 			if (storedProduct.id === 'manual') continue;
-			const paths = [...new Set([
-				storedProduct.image_path,
-				...(productImagesById.get(storedProduct.id) || []).map((row) => row.storage_path),
-			].filter(Boolean) as string[])];
+			const paths = fotosGuardadasDe(storedProduct);
 			// Un producto sin foto ya no corta la generación: se lo saltea. Lo que
 			// se hace después depende de si quedó alguno con foto o ninguno.
 			if (!paths.length) continue;
@@ -632,17 +659,15 @@ export const POST: APIRoute = async ({ request }) => {
 		 */
 		if (usesRealProducts && !productInputPlan.length) {
 			const degradado = subjectModeDesde(alcanceDesde(subjectMode), false);
-			console.log(`[generate] ningún producto tiene foto: el anuncio pasa de ${subjectMode} a ${degradado}`);
+			const motivo = fotosPedidas?.length === 0 ? 'se pidió sin ninguna foto' : 'ningún producto tiene foto';
+			console.log(`[generate] ${motivo}: el anuncio pasa de ${subjectMode} a ${degradado}`);
 			subjectMode = degradado;
 			usesRealProducts = false;
 		}
 		if (usesRealProducts) for (const storedProduct of storedProducts) {
 			if (storedProduct.id === 'manual') continue;
 			if (productInputPlan.length >= 8) break;
-			const paths = [...new Set([
-				storedProduct.image_path,
-				...(productImagesById.get(storedProduct.id) || []).map((row) => row.storage_path),
-			].filter(Boolean) as string[])];
+			const paths = fotosGuardadasDe(storedProduct);
 			// Todas las fotos que tenga el producto, hasta llenar el cupo. El tope por
 			// producto era 5 mientras el total es 8: con UN solo producto sobraban
 			// tres lugares y se tiraban fotos suyas que el escaneo ya había traído
@@ -835,7 +860,10 @@ export const POST: APIRoute = async ({ request }) => {
 		 * si la elección queda vacía después de eso, rige el default: nadie se
 		 * queda sin fotos por un checkbox.
 		 */
-		const eleccionManual = parseFotosElegidas(form.get('fotosElegidas'));
+		// Lo elegido en la revisión ya limitó QUÉ se descargó; acá vuelve a entrar
+		// para que el filtro automático no vuelva a sacar una foto que el usuario
+		// pidió expresamente. `fotosElegidas` queda como estaba para quien lo mande.
+		const eleccionManual = fotosPedidas?.length ? fotosPedidas : parseFotosElegidas(form.get('fotosElegidas'));
 		const porEleccion = eleccionManual
 			? productVisionInputs.map((_, i) => i).filter((i) =>
 				eleccionManual.includes(clavesDeFotos[i]) && !(lectura?.conPersona || []).includes(i))

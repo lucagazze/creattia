@@ -90,6 +90,11 @@ export const POST: APIRoute = async ({ request }) => {
 		if (productRequired && productIds.length !== 1 && productIds.length !== slides.length) {
 			return json({ error: 'Necesitás 1 producto (mismo para todas las páginas) o 1 por cada página del carrusel.' }, 400);
 		}
+		// Las fotos elegidas en la revisión. `null` = todas, lista vacía = ninguna:
+		// ahí cada página se dibuja sin foto real, como un carrusel de marca.
+		const productPhotoPaths: string[] | null = Array.isArray(body?.productPhotoPaths)
+			? body.productPhotoPaths.map((v: unknown) => String(v || '').trim()).filter(Boolean)
+			: null;
 
 		const requestedFormat = String(body?.format || 'original');
 		const allowedFormats = new Set(['original', 'square', 'portrait', 'story', 'landscape', '1:1', '3:4', '9:16', '4:3', '16:9']);
@@ -236,6 +241,7 @@ export const POST: APIRoute = async ({ request }) => {
 					referenceName: `${referenceName} · página ${index + 1}/${count}`,
 					templateId,
 					productId,
+					productPhotoPaths,
 					productName: title,
 					productDescription: productRequired ? (product?.description || '') : subjectDescription,
 					productPriceText: product?.price_text || '',

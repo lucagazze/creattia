@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { normalizeImageInput, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import type { EngineImage } from '../../../lib/creattia/image-engines';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
-import { alcanceDesde, detectImageType, hechosDelNegocio, mergePaletteOverride, parseLogoMode, parsePersonMode, renderReferenceClone, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, detectImageType, mergePaletteOverride, parseLogoMode, parsePersonMode, renderReferenceClone, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { authenticateRequest, closeGenerationsAndCountRefunds, getAdminClient, json } from '../../../lib/creattia/server';
 import { readLimited, safeExternalFetch } from '../../../lib/creattia/safe-fetch';
 import { getEffectiveAccess } from '../../../lib/creattia/admin-access';
@@ -144,7 +144,12 @@ export const POST: APIRoute = async ({ request }) => {
 			for (const item of extraImages || []) {
 				if (item.storage_path) paths.push(item.storage_path);
 			}
-			for (const path of [...new Set(paths)].slice(0, 5)) {
+			// Las fotos que se marcaron en la revisión. Sin el campo van todas, que
+			// es como se generaban los carruseles hasta ahora; con la lista vacía no
+			// va ninguna y el bloque de abajo pasa el carrusel a hablar del negocio.
+			const elegidas: string[] | null = Array.isArray(snapshot.productPhotoPaths) ? snapshot.productPhotoPaths : null;
+			const disponibles = [...new Set(paths)].filter((path) => !elegidas || elegidas.includes(path));
+			for (const path of disponibles.slice(0, 5)) {
 				const { data: blob } = await admin.storage.from(ASSETS).download(path);
 				if (!blob) continue;
 				const normalized = await normalizeImageInput(Buffer.from(await blob.arrayBuffer()));
@@ -184,18 +189,7 @@ export const POST: APIRoute = async ({ request }) => {
 			(productRecord?.price_text || snapshot.productPriceText)
 				&& `Precio exacto tal como figura en la web: ${productRecord?.price_text || snapshot.productPriceText}`,
 			productRecord?.analysis?.category,
-		].filter(Boolean).join(' · ')
-			// Sin fotos, este texto es TODO lo que el modelo sabe del negocio: se
-			// arma con lo que el escaneo guardó de la URL —qué vende, el rubro, la
-			// oferta— y no solo con la descripción suelta que llegaba en el
-			// snapshot. Es el mismo texto que arma el Studio.
-			: hechosDelNegocio(
-				[{ ...(productRecord || {}), description: productRecord?.description || snapshot.productDescription }],
-				{
-					escritoAMano: [snapshot.productDescription, snapshot.serviceDescription].filter(Boolean).join(' · '),
-					resumenDeMarca: productRecord?.metadata?.brandFromUrl?.styleSummary,
-				},
-			);
+		].filter(Boolean).join(' · ') : [snapshot.productDescription, snapshot.serviceDescription, productRecord?.metadata?.brandFromUrl?.styleSummary].filter(Boolean).join(' · ');
 
 		// ── 3. De qué marca habla el anuncio ──────────────────────────────────
 		// 'url'  → la marca del sitio de donde salió el producto
