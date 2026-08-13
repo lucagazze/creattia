@@ -330,8 +330,13 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		const detectado = (desdeProductos as SubjectMode) || scannedOffering;
 		if (!alcanceOverride) return detectado;
 		// Con el alcance corregido a mano, el tipo se resuelve igual que siempre:
-		// hay fotos reales o no las hay.
-		const conFotos = importedProducts.some((item: any) => (item?.media?.length || item?.imageUrls?.length));
+		// hay fotos reales o no las hay. Se mira también lo que el escaneo vio en
+		// la página: las copias a storage pueden no haber terminado, y contar eso
+		// como "sin fotos" convertía una ficha con diez imágenes en un aviso de
+		// servicio, que es el modo que tiene prohibido mostrar el producto.
+		const conFotos = importedProducts.some((item: any) => (
+			item?.media?.length || item?.imageUrls?.length || item?.metadata?.sourceImageUrls?.length
+		));
 		return subjectModeDesde(alcanceOverride, conFotos);
 	})();
 	const isService = detectedOffering === 'service';
@@ -485,6 +490,17 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	const [confirmacion, setConfirmacion] = useState<{ productIds: string[]; offering: SubjectMode } | null>(null);
 	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
 	const [plan, setPlan] = useState<any>(null);
+	/**
+	 * Con qué sujeto se pidió el plan.
+	 *
+	 * El plan trae la maqueta y los textos ya adaptados a un sujeto concreto: los
+	 * `imageSlots` de un catálogo reparten productos por las celdas de una grilla
+	 * y el copy habla de la tienda. Si después se cambia el alcance en la
+	 * revisión, ese plan describe un aviso distinto del que se va a generar, y
+	 * como reemplaza al análisis del servidor manda él. Se guarda para poder
+	 * comparar y descartarlo cuando dejó de corresponder.
+	 */
+	const [sujetoDelPlan, setSujetoDelPlan] = useState<SubjectMode | null>(null);
 	/**
 	 * El análisis de cada página del carrusel, en orden.
 	 *
@@ -1063,6 +1079,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (!response.ok) throw new Error((payload as any).error || 'No se pudo analizar la referencia.');
 			const analysis = payload.analysis || {};
 			setPlan(analysis);
+			setSujetoDelPlan(offeringForSubmit);
 			setSlidePlans(Array.isArray(payload.slideAnalyses) ? payload.slideAnalyses : []);
 			setZones((analysis.textZones || []).filter((zone: any) => analysis.productHasPackaging ? true : !zone.onProduct));
 			setPeople(Array.isArray(analysis.people) ? analysis.people.map((p: any) => ({ ...p, directive: '' })) : []);
@@ -1193,7 +1210,30 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		borrarBorrador();
 		onGenerationRequested?.();
 		try {
-			const idsDeProducto = directo?.productIds ?? selectedProductIds;
+			/**
+			 * De qué habla el aviso, resuelto una sola vez.
+			 *
+			 * El alcance elegido en la revisión gana sobre el detectado al escanear:
+			 * `directo.offering` se congela en `requestPlan`, ANTES de que exista esa
+			 * pantalla, así que tocar el botón no cambiaba nada.
+			 */
+			const sujetoDelAviso: SubjectMode = alcanceOverride ? detectedOffering : (directo?.offering ?? detectedOffering);
+			/**
+			 * "De algo puntual" es UN producto, y hay que mandar uno solo.
+			 *
+			 * De la home de una tienda se importan hasta ocho productos DISTINTOS.
+			 * Como catálogo eso está bien: el prompt sabe que son ocho cosas y las
+			 * reparte. Pero al pedir "de algo puntual" el sujeto pasa a `product`, y
+			 * ahí cada foto viaja etiquetada como "otra vista del MISMO SKU": ocho
+			 * artículos distintos presentados como el mismo objeto. El modelo hace
+			 * lo que se le pide y los funde en uno, y sale un producto que no existe.
+			 *
+			 * Con una ficha no cambia nada: ahí siempre hubo uno.
+			 */
+			const idsImportados = directo?.productIds ?? selectedProductIds;
+			const idsDeProducto = sujetoDelAviso === 'product' && idsImportados.length > 1
+				? [idsImportados.find((id) => selectedProductIds.includes(id)) ?? idsImportados[0]]
+				: idsImportados;
 			if (productMode === 'url' && idsDeProducto.length === 0) {
 				throw new Error('Elegí al menos un producto para generar la imagen.');
 			}
@@ -1224,15 +1264,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (Object.keys(paletteOverride).length) form.set('paletteOverride', JSON.stringify(paletteOverride));
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
-			/**
-			 * El alcance elegido en la revisión gana sobre el detectado al escanear.
-			 *
-			 * `directo.offering` se congela en `requestPlan`, ANTES de que exista la
-			 * pantalla de revisión, así que tocar "En general" ahí no cambiaba nada:
-			 * viajaba igual el tipo que había detectado el escaneo y el aviso salía
-			 * hablando de un producto. El botón estaba, pero no llegaba al servidor.
-			 */
-			form.set('subjectMode', alcanceOverride ? detectedOffering : (directo?.offering ?? detectedOffering));
+			form.set('subjectMode', sujetoDelAviso);
 			form.set('includeLogo', includeLogo ? '1' : '0');
 			// Sin revisión no se manda ninguna de estas: son respuestas a preguntas que
 			// ya no se hacen, y mandarlas con su valor por defecto sería peor que no
@@ -1241,7 +1273,11 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			// mirando la referencia, que es lo que queremos.
 			form.set('personMode', personMode);
 			if (personMode === 'upload') form.set('avatarId', await guardarAvatarCargado());
-			if (plan) form.set('plan', JSON.stringify(planRevisado()));
+			// El plan se manda solo si sigue siendo del mismo sujeto. Si se cambió el
+			// alcance después de pedirlo, describe otro aviso: sin él, el servidor
+			// analiza el ganador de nuevo con el sujeto correcto, que es lo que
+			// hacía antes de que esta pantalla existiera.
+			if (plan && (!sujetoDelPlan || sujetoDelPlan === sujetoDelAviso)) form.set('plan', JSON.stringify(planRevisado()));
 			if (!directo) {
 				form.set('logoMode', logoMode);
 				form.set('pressRowMode', pressRowMode);
