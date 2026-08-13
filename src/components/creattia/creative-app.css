@@ -5993,6 +5993,17 @@
 .asset-card:hover { border-color: #cdbdee; box-shadow: 0 6px 18px rgba(60,40,100,.08); }
 .asset-card.is-selected { border-color: #7c4ddb; box-shadow: 0 6px 18px rgba(124,77,219,.14); }
 
+/* En "en general" las tarjetas son lo que se leyó, no una selección: sin hover
+   de tarjeta clickeable y sin cursor de mano, porque tocarlas no hace nada. */
+.asset-card.es-lectura { opacity: .72; }
+.asset-card.es-lectura:hover { border-color: #ebe6f2; box-shadow: none; }
+.asset-card.es-lectura .asset-card-main { cursor: default; }
+.asset-sinfotos {
+	margin: 0 0 14px; padding: 10px 12px; border: 1px solid #e6dffa; border-radius: 12px;
+	background: #f8f5ff; color: #5b5168; font-size: 12.5px; line-height: 1.5;
+}
+.asset-sinfotos strong { color: #4a2f8f; }
+
 .asset-card-main {
 	display: flex; flex-direction: column; min-width: 0; gap: 6px; padding: 0 0 9px;
 	border: 0; background: none; cursor: pointer; text-align: left; font-family: inherit;

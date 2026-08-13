@@ -1,5 +1,5 @@
 import { useReferenceUrls } from '../../lib/creattia/reference-urls';
-import { subjectModeDesde, alcanceDesde, personModeRecomendado, logoModeRecomendado, type Alcance, type PersonMode, type LogoMode } from '../../lib/creattia/generation-pipeline';
+import { subjectModeDesde, alcanceDesde, personModeRecomendado, logoModeRecomendado, type Alcance, type PersonMode, type LogoMode, type SubjectMode } from '../../lib/creattia/generation-pipeline';
 import UrlInput from './UrlInput';
 import React, { useState, useEffect, useRef } from 'react';
 import { BatchSelect, LANGUAGE_OPTIONS, STYLE_OPTIONS, BRAND_OPTIONS, BrandOptionIcon, driveBatchWorkers } from './UrlBatchSection';
@@ -322,21 +322,30 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * desde productos ya importados —sin volver a pegar la URL— quedaba en
 	 * 'product' y el anuncio de un catálogo terminaba tratado como una ficha.
 	 */
-	const detectedOffering: 'product' | 'service' | 'catalog' = (() => {
+	const detectedOffering: SubjectMode = (() => {
 		const elegidos = importedProducts.filter((item: any) => selectedProductIds.includes(item.id));
 		const desdeProductos = (elegidos.length ? elegidos : importedProducts)
 			.map((item: any) => item?.metadata?.pageType)
 			.find((tipo: string) => tipo === 'catalog' || tipo === 'service' || tipo === 'product');
-		const detectado = (desdeProductos as any) || scannedOffering;
+		const detectado = (desdeProductos as SubjectMode) || scannedOffering;
 		if (!alcanceOverride) return detectado;
 		// Con el alcance corregido a mano, el tipo se resuelve igual que siempre:
 		// hay fotos reales o no las hay.
 		const conFotos = importedProducts.some((item: any) => (item?.media?.length || item?.imageUrls?.length));
-		return subjectModeDesde(alcanceOverride, conFotos) as any;
+		return subjectModeDesde(alcanceOverride, conFotos);
 	})();
 	const isService = detectedOffering === 'service';
 	/** La URL era la home de la tienda o una categoría: el anuncio habla del negocio. */
 	const isCatalog = detectedOffering === 'catalog';
+	/**
+	 * El aviso habla del negocio entero, no de un artículo.
+	 *
+	 * Incluye `brand`, que es a donde va hoy el alcance general: ahí no se
+	 * adjunta ninguna foto de la URL y la imagen la construye el modelo con la
+	 * información de la página. `isCatalog` sigue existiendo para las
+	 * generaciones viejas, que sí se hicieron con las fotos reales.
+	 */
+	const esGeneral = alcanceDesde(detectedOffering) === 'general';
 	const [uploadFiles, setUploadFiles] = useState<File[]>([]);
 	const [uploadPreviews, setUploadPreviews] = useState<string[]>([]);
 	const [parsingDoc, setParsingDoc] = useState(false);
@@ -473,7 +482,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 */
 	const [phase, setPhase] = useState<'setup' | 'planning' | 'confirmar' | 'review' | 'starting'>('setup');
 	/** Lo que devolvió el escaneo: se guarda porque el setState no llega a tiempo. */
-	const [confirmacion, setConfirmacion] = useState<{ productIds: string[]; offering: 'product' | 'service' | 'catalog' } | null>(null);
+	const [confirmacion, setConfirmacion] = useState<{ productIds: string[]; offering: SubjectMode } | null>(null);
 	const [copyMode, setCopyMode] = useState<'auto' | 'edit'>('auto');
 	const [plan, setPlan] = useState<any>(null);
 	/**
@@ -983,7 +992,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		setPhase('planning'); setError('');
 		try {
 			let productIds: string[] = [];
-			let offeringForSubmit: 'product' | 'service' | 'catalog' = detectedOffering;
+			let offeringForSubmit: SubjectMode = detectedOffering;
 			let isCatalogSubmit = false;
 			if (productMode === 'url') {
 				const list = urls.map((u) => u.trim()).filter(Boolean);
@@ -1175,7 +1184,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 	 * el setState del scaneo todavía no se refleja en el mismo handler, y marca que
 	 * no hay plan revisado que mandar.
 	 */
-	async function approveAndGenerate(directo?: { productIds: string[]; offering: 'product' | 'service' | 'catalog' }) {
+	async function approveAndGenerate(directo?: { productIds: string[]; offering: SubjectMode }) {
 		// Mismo cerrojo que el carrusel: el botón se deshabilita con `phase`, pero
 		// entre dos clics muy seguidos ese estado todavía vale el valor viejo.
 		if (enviando.current) return;
@@ -1215,7 +1224,15 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 			if (Object.keys(paletteOverride).length) form.set('paletteOverride', JSON.stringify(paletteOverride));
 			form.set('typoMode', typoMode);
 			form.set('brandSource', brandSource);
-			form.set('subjectMode', directo?.offering ?? detectedOffering);
+			/**
+			 * El alcance elegido en la revisión gana sobre el detectado al escanear.
+			 *
+			 * `directo.offering` se congela en `requestPlan`, ANTES de que exista la
+			 * pantalla de revisión, así que tocar "En general" ahí no cambiaba nada:
+			 * viajaba igual el tipo que había detectado el escaneo y el aviso salía
+			 * hablando de un producto. El botón estaba, pero no llegaba al servidor.
+			 */
+			form.set('subjectMode', alcanceOverride ? detectedOffering : (directo?.offering ?? detectedOffering));
 			form.set('includeLogo', includeLogo ? '1' : '0');
 			// Sin revisión no se manda ninguna de estas: son respuestas a preguntas que
 			// ya no se hacen, y mandarlas con su valor por defecto sería peor que no
@@ -1377,7 +1394,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 		let arrancado = false;
 		try {
 			let productIds: string[] = [];
-			let offeringForSubmit: 'product' | 'service' | 'catalog' = detectedOffering;
+			let offeringForSubmit: SubjectMode = detectedOffering;
 			let isCatalogSubmit = false;
 			if (productMode === 'url' || (isService && urls.some((url) => url.trim()))) {
 				const list = urls.map((u) => u.trim()).filter(Boolean);
@@ -2298,6 +2315,7 @@ export default function CreationFlow({ ad, session, onToast, onGenerationStarted
 							<ProductAssetReview
 								products={importedProducts}
 								isCatalog={isCatalog}
+								sinFotos={esGeneral}
 								storeName={(importedProducts[0] as any)?.metadata?.store?.name}
 								detectionReason={(importedProducts[0] as any)?.metadata?.store?.evidence}
 								subject={alcanceDesde(detectedOffering)}

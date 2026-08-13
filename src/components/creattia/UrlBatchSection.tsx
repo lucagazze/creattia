@@ -905,6 +905,7 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 						<ProductAssetReview
 							products={productosDetectados}
 							isCatalog={sujeto === 'catalog'}
+							sinFotos={alcanceDesde(sujeto) === 'general'}
 							storeName={preview.page?.store?.name}
 							detectionReason={(preview.page?.store as any)?.evidence}
 							subject={alcanceDesde(sujeto)}
@@ -1034,8 +1035,8 @@ export const UrlBatchSection: React.FC<UrlBatchSectionProps> = ({
 								</div>
 								<small className="batch-brand-note">
 									{alcanceDesde(sujeto) === 'general'
-										? 'Los textos hablan del negocio completo: lo que ofrecés, para quién es y por qué elegirte.'
-										: 'Los textos se centran en un producto o servicio concreto, con su nombre y sus datos.'}
+										? 'Habla del negocio completo: lo que ofrecés, para quién es y por qué elegirte. La imagen la crea la IA con lo que leímos del sitio; las fotos de la URL no se usan.'
+										: 'Se centra en un producto o servicio concreto, con su nombre, sus datos y sus fotos reales.'}
 								</small>
 							</div>
 

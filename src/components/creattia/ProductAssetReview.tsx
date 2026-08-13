@@ -47,16 +47,24 @@ export type SubjectChoice = 'general' | 'especifico';
  * falta preguntarlo, se sabe mirando si hay fotos. Queda una sola decisión.
  */
 const SUBJECT_OPTIONS: Array<{ value: SubjectChoice; label: string; hint: string }> = [
-	{ value: 'general', label: 'En general', hint: 'Habla del negocio completo: lo que ofrecés, para quién es y por qué elegirte.' },
-	{ value: 'especifico', label: 'De algo puntual', hint: 'Se centra en un producto o servicio concreto, con su nombre y sus datos.' },
+	{ value: 'general', label: 'En general', hint: 'Habla del negocio completo. La imagen la crea la IA con lo que leímos del sitio: no se usan las fotos de la URL.' },
+	{ value: 'especifico', label: 'De algo puntual', hint: 'Se centra en un producto o servicio concreto, con su nombre, sus datos y sus fotos reales.' },
 ];
 
-export default function ProductAssetReview({ products, selectedProductIds = [], onToggleProduct, isCatalog = false, storeName, detectionReason, subject, detectedSubject, onChangeSubject }: {
+export default function ProductAssetReview({ products, selectedProductIds = [], onToggleProduct, isCatalog = false, sinFotos = false, storeName, detectionReason, subject, detectedSubject, onChangeSubject }: {
 	products: ProductReviewItem[];
 	selectedProductIds?: string[];
 	onToggleProduct?: (productId: string) => void;
 	/** La URL era la home o una categoría: son productos de la tienda, no una ficha. */
 	isCatalog?: boolean;
+	/**
+	 * El anuncio habla del negocio: no se adjunta ninguna foto de la URL.
+	 *
+	 * Lo que se ve acá deja de ser una selección y pasa a ser lo que se leyó de
+	 * la página. Elegir fotos que después no viajan es la peor versión de esta
+	 * pantalla: se trabaja en algo que no cambia el resultado.
+	 */
+	sinFotos?: boolean;
 	storeName?: string;
 	/** Por qué se clasificó así, para que se entienda y se pueda desconfiar. */
 	detectionReason?: string;
@@ -80,42 +88,50 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 	if (!products.length) return null;
 
 	const elegidos = products.filter((product) => selectedProductIds.includes(product.id));
-	const enAutomatico = Boolean(onToggleProduct) && !eligiendoAMano && elegidos.length > 0;
+	const enAutomatico = !sinFotos && Boolean(onToggleProduct) && !eligiendoAMano && elegidos.length > 0;
 
-	const selectable = Boolean(onToggleProduct);
+	const selectable = Boolean(onToggleProduct) && !sinFotos;
 	const allSelected = products.length > 0 && products.every((product) => selectedProductIds.includes(product.id));
 
 	return (
 		<section className="asset-review" aria-labelledby="product-assets-title">
 			<header className="asset-review-head">
 				<div>
-					<span className="asset-review-kicker">{isCatalog ? 'PRODUCTOS DE LA TIENDA' : 'REFERENCIAS IMPORTADAS'}</span>
+					<span className="asset-review-kicker">
+						{sinFotos ? 'LO QUE LEÍMOS DE LA URL' : isCatalog ? 'PRODUCTOS DE LA TIENDA' : 'REFERENCIAS IMPORTADAS'}
+					</span>
 					<h2 id="product-assets-title">
-						{isCatalog
-							? `Encontramos ${products.length} ${products.length === 1 ? 'producto' : 'productos'}${storeName ? ` en ${storeName}` : ''}`
-							: 'Elegí qué productos usar'}
+						{sinFotos
+							? `Leímos ${storeName || 'el sitio'} entero`
+							: isCatalog
+								? `Encontramos ${products.length} ${products.length === 1 ? 'producto' : 'productos'}${storeName ? ` en ${storeName}` : ''}`
+								: 'Elegí qué productos usar'}
 					</h2>
 					<p>
-						{isCatalog
-							? 'El anuncio va a hablar de la tienda. Elegí cuáles querés que se vean en la imagen.'
-							: 'La IA recibe únicamente los que marques.'}
+						{sinFotos
+							? 'Toda esta información va al anuncio. Las fotos no: la imagen la crea la IA desde cero.'
+							: isCatalog
+								? 'El anuncio va a hablar de la tienda. Elegí cuáles querés que se vean en la imagen.'
+								: 'La IA recibe únicamente los que marques.'}
 					</p>
 				</div>
-				<div className="asset-review-actions">
-					<span className="asset-review-count">{selectedProductIds.length}/{products.length}</span>
-					{selectable && products.length > 1 && (
-						<button
-							type="button"
-							className="asset-review-all"
-							onClick={() => products.forEach((product) => {
-								const isSelected = selectedProductIds.includes(product.id);
-								if (allSelected ? isSelected : !isSelected) onToggleProduct?.(product.id);
-							})}
-						>
-							{allSelected ? 'Quitar todos' : 'Usar todos'}
-						</button>
-					)}
-				</div>
+				{!sinFotos && (
+					<div className="asset-review-actions">
+						<span className="asset-review-count">{selectedProductIds.length}/{products.length}</span>
+						{selectable && products.length > 1 && (
+							<button
+								type="button"
+								className="asset-review-all"
+								onClick={() => products.forEach((product) => {
+									const isSelected = selectedProductIds.includes(product.id);
+									if (allSelected ? isSelected : !isSelected) onToggleProduct?.(product.id);
+								})}
+							>
+								{allSelected ? 'Quitar todos' : 'Usar todos'}
+							</button>
+						)}
+					</div>
+				)}
 			</header>
 
 			{/* De qué va a hablar el anuncio, ANTES de generar: era la sorpresa más
@@ -149,6 +165,15 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 					})}
 				</div>
 			</div>
+
+			{/* Se ve lo que se leyó, y se dice qué se hace con eso. Sin esta línea la
+			    grilla de fotos parece una selección y no lo es: ninguna viaja. */}
+			{sinFotos && (
+				<p className="asset-sinfotos">
+					Estas fotos <strong>no se usan</strong> como referencia. Del sitio se toma lo que dice —qué vendés,
+					para quién es, tu identidad— y con eso la IA compone una imagen propia del negocio.
+				</p>
+			)}
 
 			{enAutomatico ? (
 				<div className="asset-auto">
@@ -187,16 +212,21 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 					const media = mediaFor(product);
 					const cover = media.find((item) => item.type !== 'video') || media[0];
 					const extras = media.length - 1;
-					const selected = selectedProductIds.includes(product.id);
+					// En "en general" nada se elige: las fotos no viajan, así que marcar
+					// una no cambiaría el anuncio. La tarjeta queda como lectura.
+					const selected = !sinFotos && selectedProductIds.includes(product.id);
 					const isOpen = expanded === product.id;
 					return (
-						<article className={`asset-card${selected ? ' is-selected' : ''}`} key={product.id}>
+						<article className={`asset-card${selected ? ' is-selected' : ''}${sinFotos ? ' es-lectura' : ''}`} key={product.id}>
 							<button
 								type="button"
 								className="asset-card-main"
-								onClick={() => onToggleProduct?.(product.id)}
-								aria-pressed={selected}
-								aria-label={`${selected ? 'Quitar' : 'Usar'} ${product.name || `producto ${index + 1}`}`}
+								onClick={() => { if (!sinFotos) onToggleProduct?.(product.id); }}
+								aria-pressed={sinFotos ? undefined : selected}
+								aria-disabled={sinFotos || undefined}
+								aria-label={sinFotos
+									? (product.name || `producto ${index + 1}`)
+									: `${selected ? 'Quitar' : 'Usar'} ${product.name || `producto ${index + 1}`}`}
 							>
 								<span className="asset-card-photo">
 									{cover ? (
@@ -205,7 +235,7 @@ export default function ProductAssetReview({ products, selectedProductIds = [], 
 											// Las primeras entran de una; el resto a medida que se scrollea.
 											: <img src={cover.url} alt="" loading={index < 6 ? 'eager' : 'lazy'} decoding="async" />
 									) : <span className="asset-card-nophoto">Sin foto</span>}
-									<span className="asset-card-check" aria-hidden="true">{selected ? '✓' : ''}</span>
+									{!sinFotos && <span className="asset-card-check" aria-hidden="true">{selected ? '✓' : ''}</span>}
 								</span>
 								<span className="asset-card-name" title={product.name}>{product.name || `Producto ${index + 1}`}</span>
 								{product.price_text && <span className="asset-card-price">{product.price_text}</span>}

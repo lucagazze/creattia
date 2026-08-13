@@ -12,7 +12,7 @@ import { listProductImageRows } from '../../../lib/creattia/product-media';
 import { resolveAvatarReferences } from '../../../lib/creattia/avatar-assets';
 import { closestFormat, formatSizes, supportedFormats } from '../../../lib/creattia/formats';
 import { fotosParaElMotor, leerElProducto, refotografiarProducto, todasSonPlacas } from '../../../lib/creattia/clon-libre';
-import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, parseFotosElegidas, parseRolesDeColor, parseTipografiaElegida, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { alcanceDesde, buildClonePrompt, buildClonePromptDeRespaldo, hechosDelNegocio, parseFotosElegidas, parseRolesDeColor, parseTipografiaElegida, mergePaletteOverride, parseBrandOverride, parseLogoMode, parsePaletteOverride, parsePersonMode, SUBJECT_MODES, subjectModeDesde, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { pickQualityTier } from '../../../lib/creattia/quality-router';
 import { trackEvent } from '../../../lib/creattia/events';
 import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
@@ -404,11 +404,16 @@ export const POST: APIRoute = async ({ request }) => {
 			 *
 			 * Ahora manda lo que el usuario escribió, después lo que se leyó de la
 			 * página, y el resumen de estilo queda como último recurso.
+			 *
+			 * Y se arma con TODOS los productos que trajo el escaneo, no con el
+			 * primero: en "en general" no viaja ninguna foto, así que este texto es
+			 * literalmente todo lo que el modelo sabe del negocio. Se calcula ANTES
+			 * de colapsar la lista en una entrada sola, que es donde se perdía.
 			 */
-			const serviceFacts = manualProductFacts
-				|| storedProducts[0]?.description
-				|| urlBrand?.styleSummary
-				|| '';
+			const serviceFacts = hechosDelNegocio(storedProducts, {
+				escritoAMano: manualProductFacts,
+				resumenDeMarca: urlBrand?.styleSummary,
+			});
 			if (storedProducts.length) {
 				storedProducts = [{ ...storedProducts[0], name: serviceName, description: serviceFacts, price_text: '', currency: '' }];
 			} else {

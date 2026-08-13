@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { analyzeReferenceLayout, normalizeImageInput, type LayoutAnalysis } from '../../../lib/creattia/ad-analysis';
 import { authenticateRequest, checkRateLimit, fail, getAdminClient, json } from '../../../lib/creattia/server';
-import { SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
+import { hechosDelNegocio, SUBJECT_MODES, usesRealProductPhotos, type SubjectMode } from '../../../lib/creattia/generation-pipeline';
 import { trackEvent } from '../../../lib/creattia/events';
 import { datosDelNavegador } from '../../../lib/creattia/meta-capi';
 
@@ -92,6 +92,8 @@ export const POST: APIRoute = async ({ request }) => {
 		const productImages: Array<{ b64: string; mime: string }> = [];
 		const productsUploaded = form.getAll('product').filter(p => p instanceof File && p.size > 0) as File[];
 		let brandFromUrl: { name?: string; website?: string } | null = null;
+		/** La fila del escaneo, para poder leer su contexto de página más abajo. */
+		let productoLeido: any = null;
 		// Un identificador que no tiene forma de uuid ni siquiera llega a la
 		// consulta: Postgres lo rechaza por tipo y eso viajaba como error 500.
 		if (productId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productId)) {
@@ -106,6 +108,7 @@ export const POST: APIRoute = async ({ request }) => {
 			productName = stored.name;
 			productFacts = [stored.description, stored.price_text && `${stored.price_text} ${stored.currency || ''}`, stored.analysis?.category].filter(Boolean).join(' · ');
 			brandFromUrl = (stored.metadata as any)?.brandFromUrl || null;
+			productoLeido = stored;
 			if (stored.image_path && usesRealProductPhotos(subjectMode)) {
 				const { data: photoBlob } = await admin.storage.from('creative-assets').download(stored.image_path);
 				const normalized = photoBlob ? await normalizeImageInput(Buffer.from(await photoBlob.arrayBuffer())) : null;
@@ -135,7 +138,18 @@ export const POST: APIRoute = async ({ request }) => {
 			const suppliedName = clean(form.get('productName'), 120);
 			const suppliedFacts = clean(form.get('productFacts'), 1200);
 			productName = suppliedName || brandFromUrl?.name || productName || 'el servicio o la marca';
-			productFacts = suppliedFacts || (brandFromUrl as any)?.styleSummary || '';
+			/**
+			 * Los textos del plan salen de acá, y acá no hay fotos.
+			 *
+			 * Se armaban con el resumen de ESTILO de la marca —cómo suena, no qué
+			 * vende—, así que el plan de un aviso del negocio se escribía casi a
+			 * ciegas y salía genérico. Ahora entra lo mismo que recibe el motor:
+			 * qué vende el negocio, el rubro y la oferta que se leyó de la URL.
+			 */
+			productFacts = hechosDelNegocio([productoLeido || {}], {
+				escritoAMano: suppliedFacts,
+				resumenDeMarca: (brandFromUrl as any)?.styleSummary,
+			}) || productFacts;
 		}
 
 		const { data: profile } = await admin.from('creative_profiles')
